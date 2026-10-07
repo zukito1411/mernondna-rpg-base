@@ -24,7 +24,7 @@ test('streamed actors, damaged creatures, NPC state and used loot survive travel
   page.on('pageerror', e => errors.push(e.message));
   await ready(page);
   const initial = await activeIds(page);
-  expect(initial.filter(id => id.startsWith('npc:'))).toHaveLength(8);
+  expect(initial.filter(id => id.startsWith('npc:'))).toHaveLength(9);
   expect(initial).toContain('town:oakmere'); expect(initial).not.toContain('town:highmere');
   // The authored village now includes orchard/grove trees and field boundaries;
   // these props don't raise the existing creature/AI budget.
@@ -77,7 +77,7 @@ test('streamed actors, damaged creatures, NPC state and used loot survive travel
     await travelFixture(page, 22 * 1536 + 768, 25 * 1536 + 848);
     await expect.poll(() => activeIds(page)).toContain('npc:aldren-vale');
   }
-  expect(await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).physics.world.colliders.getActive().length)).toBe(3);
+  expect(await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).physics.world.colliders.getActive().length)).toBe(7);
   await page.screenshot({ path: 'test-results/streamed-oakmere.png' });
   expect(errors).toEqual([]);
 });

@@ -3,8 +3,9 @@ import type { ContentWorldState, NavigationState, QuestRuntimeState, RegionId } 
 import { LEIGNERON } from '../data/player';
 import { NPC_BY_ID } from '../data/npcs';
 import { advanceQuests } from '../game/systems/questProgress';
+import { BASE_ATTRIBUTES, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 
-type Panel = 'map' | 'inventory' | 'pause' | null;
+type Panel = 'map' | 'inventory' | 'character' | 'pause' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -19,6 +20,10 @@ export interface GameState {
   maxStamina: number;
   level: number;
   xp: number;
+  attributes: PlayerAttributes;
+  statPoints: number;
+  skillPoints: number;
+  learnedSkills: SkillId[];
   gold: number;
   weaponId: string;
   inventory: string[];
@@ -50,6 +55,8 @@ export interface GameState {
   addRewards: (xp: number, gold: number) => void;
   markBossDefeated: (bossId: string) => void;
   recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState) => void;
+  allocateAttribute: (attribute: AttributeId) => void;
+  unlockSkill: (skillId: SkillId) => void;
   setContentWorld: (worldContent: ContentWorldState) => void;
   setNavigation: (navigation: NavigationState) => void;
   hydrate: (partial: Partial<GameState>) => void;
@@ -71,6 +78,10 @@ const baseState = () => ({
   maxStamina: 100,
   level: 1,
   xp: 0,
+  attributes: { ...BASE_ATTRIBUTES },
+  statPoints: 0,
+  skillPoints: 0,
+  learnedSkills: [] as SkillId[],
   gold: 18,
   weaponId: LEIGNERON.starterWeaponId,
   inventory: ['roadwarden-sword'],
@@ -88,6 +99,19 @@ const baseState = () => ({
   worldContent: { states: {}, spawns: {}, nextSpawnSequence: 0 } as ContentWorldState,
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
 });
+
+function experienceProgress(state: GameState, xp: number) {
+  const totalXp = state.xp + xp;
+  const level = levelForExperience(totalXp);
+  const levelsGained = Math.max(0, level - state.level);
+  return {
+    xp: totalXp,
+    level,
+    statPoints: state.statPoints + levelsGained * 3,
+    skillPoints: state.skillPoints + levelsGained,
+    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * 3} status points and +${levelsGained} skill point${levelsGained === 1 ? '' : 's'}.` } : {}),
+  };
+}
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
@@ -110,24 +134,38 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!Number.isFinite(amount) || amount <= 0) return;
     const state = get();
     const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount });
-    set({ quests: result.quests, xp: state.xp + result.xp, gold: state.gold + result.gold,
-      level: 1 + Math.floor((state.xp + result.xp) / 250),
-      ...(result.xp || result.gold ? { toast: `Quest complete — +${result.xp} XP, +${result.gold} gold` } : {}),
+    const progression = experienceProgress(state, result.xp);
+    const rewardToast = result.xp || result.gold ? `Quest complete — +${result.xp} XP, +${result.gold} gold` : null;
+    set({ quests: result.quests, gold: state.gold + result.gold, ...progression,
+      ...(rewardToast ? { toast: progression.toast ? `${rewardToast}. ${progression.toast}` : rewardToast } : {}),
     });
   },
   addRewards: (xp, gold) => set((state) => {
-    const totalXp = state.xp + xp;
-    const level = 1 + Math.floor(totalXp / 250);
-    return { xp: totalXp, gold: state.gold + gold, level };
+    return { ...experienceProgress(state, xp), gold: state.gold + gold };
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
   recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent) => set((state) => {
     if (bossId && state.defeatedBosses.includes(bossId)) return {};
     const defeatedBosses = bossId ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 });
-    const totalXp = state.xp + xp + result.xp;
-    return { defeatedBosses, quests: result.quests, xp: totalXp, gold: state.gold + gold + result.gold, level: 1 + Math.floor(totalXp / 250),
+    const progression = experienceProgress(state, xp + result.xp);
+    return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,
       ...(worldContent ? { worldContent } : {}) };
+  }),
+  allocateAttribute: (attribute) => set((state) => {
+    if (state.statPoints <= 0) return {};
+    const attributes = { ...state.attributes, [attribute]: state.attributes[attribute] + 1 };
+    const derived = progressionStats(attributes, state.learnedSkills);
+    return { attributes, statPoints: state.statPoints - 1, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
+      toast: `${attribute[0].toUpperCase()}${attribute.slice(1)} increased.` };
+  }),
+  unlockSkill: (skillId) => set((state) => {
+    const skill = SKILLS.find(entry => entry.id === skillId);
+    if (!skill || state.skillPoints <= 0 || state.learnedSkills.includes(skillId)) return {};
+    const learnedSkills = [...state.learnedSkills, skillId];
+    const derived = progressionStats(state.attributes, learnedSkills);
+    return { learnedSkills, skillPoints: state.skillPoints - 1, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
+      toast: `Skill learned: ${skill.name}.` };
   }),
   setContentWorld: (worldContent) => set({ worldContent }),
   setNavigation: (navigation) => set({ navigation }),

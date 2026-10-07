@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { DialoguePanel } from './components/DialoguePanel';
+import { CharacterPanel } from './components/CharacterPanel';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { InventoryPanel } from './components/InventoryPanel';
@@ -41,6 +42,7 @@ export default function App() {
       <DialoguePanel />
       <MapPanel />
       <InventoryPanel />
+      <CharacterPanel />
       <PausePanel />
       <Toast />
     </main>

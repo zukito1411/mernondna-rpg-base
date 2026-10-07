@@ -43,7 +43,7 @@ describe('quest navigation', () => {
 });
 describe('supplied art integration', () => {
   it('uses role-specific NPC art, all new building/prop types and all hero poses', () => {
-    expect(new Set(NPCS.map(n => `${n.spriteTexture ?? 'npcs'}:${n.spriteFrame}`)).size).toBe(8);
+    expect(new Set(NPCS.map(n => `${n.spriteTexture ?? 'npcs'}:${n.spriteFrame}`)).size).toBe(9);
     const props = WORLD_CONTENT.filter(d => 'frame' in d);
     for (const key of ['world_assets','world_buildings'] as const) {
       const used = new Set(props.filter(d => 'frame' in d && (d.texture ?? 'world_objects') === key).map(d => 'frame' in d ? d.frame : -1));

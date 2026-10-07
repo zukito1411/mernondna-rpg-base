@@ -22,6 +22,7 @@ import { ContentChunkManager } from '../systems/ContentChunkManager';
 import { resolveQuestTarget, questBearing } from '../systems/questNavigation';
 import { artScale, artFrameSize, worldPropFootprint } from '../../data/art';
 import { repairCreaturePlacements } from '../systems/creaturePlacement';
+import { progressionStats } from '../../data/progression';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
 
@@ -34,6 +35,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly enemies = new Set<Enemy>();
   private readonly npcs: Npc[] = [];
   private buildings!: Phaser.Physics.Arcade.StaticGroup;
+  private treeBodies!: Phaser.Physics.Arcade.StaticGroup;
   private npcBodies!: Phaser.Physics.Arcade.Group;
   private creatureBodies!: Phaser.Physics.Arcade.Group;
   private contentManager!: ContentChunkManager<ContentActor>;
@@ -44,7 +46,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private spawnAttempts = 0;
   private focused = true;
   private wasBlocked = false;
-  private readonly panelActions = new Set<'map' | 'inventory' | 'pause' | 'dialogue'>();
+  private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue'>();
+  private readonly heldPanelKeys = new Set<string>();
   private questGuide!: Phaser.GameObjects.Graphics;
   private questTarget: QuestTarget | null = null;
 
@@ -52,14 +55,26 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     super('world');
   }
 
+  canNpcVisit(from: { x: number; y: number }, to: { x: number; y: number }) {
+    const distance = Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y);
+    const steps = Math.max(1, Math.ceil(distance / 24));
+    for (let i = 0; i <= steps; i++) {
+      const x = Phaser.Math.Linear(from.x, to.x, i / steps);
+      const y = Phaser.Math.Linear(from.y, to.y, i / steps);
+      if (!this.worldGenerator.isWalkable(x, y) || this.isBlockedByBuilding(x, y)) return false;
+    }
+    return this.hasClearPath(from.x, from.y, to.x, to.y);
+  }
+
   create() {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.chunkManager = new ChunkManager(this, this.worldGenerator);
     this.dayNight = new DayNightSystem(this);
     this.eventDirector = new EventDirector(this);
     this.buildings = this.physics.add.staticGroup();
+    this.treeBodies = this.physics.add.staticGroup();
     this.npcBodies = this.physics.add.group();
     this.creatureBodies = this.physics.add.group();
+    this.chunkManager = new ChunkManager(this, this.worldGenerator, this.treeBodies);
     this.enemies.clear(); this.npcs.length = 0; this.interactables.clear();
     this.spawnAttempts = 0; this.spawnAccumulator = 0; this.hudAccumulator = 0;
     this.focused = true; this.wasBlocked = false;
@@ -71,9 +86,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.lastSafe = { x: spawnX, y: spawnY };
 
     this.physics.add.collider(this.player, this.buildings);
+    this.physics.add.collider(this.player, this.treeBodies);
     this.physics.add.collider(this.player, this.npcBodies);
     this.physics.add.collider(this.creatureBodies, this.buildings);
+    this.physics.add.collider(this.creatureBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.buildings);
+    this.physics.add.collider(this.npcBodies, this.treeBodies);
     let logical = { ...state.worldContent, states: { ...state.worldContent.states } };
     for (const bossId of state.defeatedBosses) {
       const definition = WORLD_CONTENT.find(d => d.id === `boss:${bossId}`);
@@ -109,8 +127,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.updateNavigation();
 
     if (!this.input.keyboard) throw new Error('Keyboard input is unavailable.');
-    for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['pause', 'ESC']] as const) {
-      this.input.keyboard.addKey(key).on('down', () => this.panelActions.add(action));
+    for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['character', 'C'], ['pause', 'ESC']] as const) {
+      this.input.keyboard.addKey(key).setEmitOnRepeat(false).on('down', () => {
+        this.panelActions.add(action);
+      });
     }
     for (const key of ['E', 'SPACE']) this.input.keyboard.addKey(key).on('down', () => {
       if (useGameStore.getState().dialogue) this.panelActions.add('dialogue');
@@ -147,7 +167,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (this.contentManager.update(this.player.x, this.player.y)) {
       useGameStore.getState().setContentWorld(this.contentManager.snapshot());
     }
-    if (!uiBlocked) this.dayNight.update(delta);
+    if (!uiBlocked) this.dayNight.update(delta, this.player.x, this.player.y);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
@@ -176,6 +196,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   performPlayerAttack(player: Player, direction: Phaser.Math.Vector2, weapon: WeaponDefinition) {
     const facing = direction.clone().normalize();
+    const progression = progressionStats(useGameStore.getState().attributes, useGameStore.getState().learnedSkills);
 
     for (const enemy of this.enemies) {
       if (!enemy.active) continue;
@@ -185,7 +206,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       toEnemy.normalize();
       if (facing.dot(toEnemy) < 0.25) continue;
       if (!this.hasClearPath(player.x, player.y, enemy.x, enemy.y)) continue;
-      enemy.takeDamage(weapon.damage, facing);
+      enemy.takeDamage(Math.round(weapon.damage * progression.damageMultiplier), facing);
     }
   }
 
@@ -264,7 +285,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   canEnemyOccupy(x: number, y: number) { return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y); }
 
   private isBlockedByBuilding(x: number, y: number) {
-    return this.buildings.getChildren().some(object => {
+    return [...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
       return x >= body.left - 20 && x <= body.right + 20 && y >= body.top - 20 && y <= body.bottom + 20;
     });
@@ -272,7 +293,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   hasClearPath(ax: number, ay: number, bx: number, by: number) {
     const line = new Phaser.Geom.Line(ax, ay, bx, by);
-    return !this.buildings.getChildren().some(object => {
+    return ![...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
       return Phaser.Geom.Intersects.LineToRectangle(line, new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height));
     });
@@ -344,7 +365,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private createContentActor(definition: ContentDefinition, state: ContentState): ContentActor {
     const { x, y } = state;
     if (definition.kind === 'npc') {
-      const npc = new Npc(this, NPC_BY_ID[definition.npcId], x, y);
+      const npc = new Npc(this, NPC_BY_ID[definition.npcId], x, y, definition.world);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
         if (Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y) < 72 && this.hasClearPath(this.player.x, this.player.y, npc.x, npc.y)) {
@@ -372,10 +393,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (definition.kind === 'prop' || definition.kind === 'settlement-prop') {
       const texture = definition.texture ?? 'world_objects';
-      const actor = definition.solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
+      const solid = definition.solid || texture === 'world_assets' && (definition.frame === 0 || definition.frame === 1);
+      const treeBase = texture === 'world_assets' && (definition.frame === 0 || definition.frame === 1)
+        ? { width: 24 * definition.scale, height: 26 * definition.scale } : definition.footprint;
+      const actor = solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
         : this.add.sprite(x, y, texture, definition.frame);
       actor.setName(definition.id);
-      this.presentWorldSprite(actor, texture, definition.frame, definition.scale, definition.solid,definition.footprint);
+      this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase);
       if (definition.label) {
         const caption = this.add.text(x, y + 14, definition.label, {
           fontFamily: 'Georgia, serif', fontSize: '10px', color: '#e7d7ad', stroke: '#211b12', strokeThickness: 3,
@@ -477,9 +501,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       return;
     }
+    if (actions.has('pause')) store.panel ? store.closePanel() : store.openPanel('pause');
     if (actions.has('map')) store.panel === 'map' ? store.closePanel() : store.openPanel('map');
     if (actions.has('inventory')) store.panel === 'inventory' ? store.closePanel() : store.openPanel('inventory');
-    if (actions.has('pause')) store.panel ? store.closePanel() : store.openPanel('pause');
+    if (actions.has('character')) store.panel === 'character' ? store.closePanel() : store.openPanel('character');
   }
 
   private updateCameraZoom() {

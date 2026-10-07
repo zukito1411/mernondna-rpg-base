@@ -40,7 +40,7 @@ test(`navigation, sprite readability and name-label lifecycle at ${viewport.widt
       alphaHeights,
     };
   });
-  expect(details.names).toHaveLength(8); expect(details.names).toContain('Aldren Vale');
+  expect(details.names).toHaveLength(9); expect(details.names).toContain('Aldren Vale');
   expect(details.heroFrameHeight).toBe(320); expect(details.heroDisplayHeight).toBe(80);
   expect(details.bodySize).toEqual([18,22]); expect(details.guardTexture).toBe('npc_guard');
   expect(details.cottageWidth).toBeCloseTo(224); expect(details.textureFilter).toBe(0);
@@ -72,7 +72,7 @@ test(`navigation, sprite readability and name-label lifecycle at ${viewport.widt
   await expect.poll(() => page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
     return s.children.list.filter(n => n.name.startsWith('npc-name:')).length;
-  })).toBe(8);
+  })).toBe(9);
   expect(errors).toEqual([]);
   await context.close();
 });

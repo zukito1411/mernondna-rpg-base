@@ -54,7 +54,7 @@ export const NPCS: NpcDefinition[] = [
     questIds: [],
   },
   {
-    id: 'silas-crowe', name: 'Silas Crowe', title: 'Hunter', townId: 'oakmere', role: 'Friendly rival whose choices can push hunting and ecology systems in different directions', spriteFrame: 0, spriteTexture:'npc_adventurer',
+    id: 'silas-crowe', name: 'Silas Crowe', title: 'Hunter', townId: 'oakmere', role: 'Friendly rival whose choices can push hunting and ecology systems in different directions', spriteFrame: 0, spriteTexture:'npc_royal_guard',
     worldOffset: { x: 285, y: 15 }, weaponId: 'narenthil-longbow', combatant: true,
     schedule: [{ startHour: 4, activity: 'Leaves to hunt' }, { startHour: 14, activity: 'Returns with game' }, { startHour: 18, activity: 'Trades hides' }],
     relationshipToLeigneron: { kind: 'rival', trust: 50, summary: 'Silas and Leigneron compete constantly, but neither would leave the other bleeding on a road.' },
@@ -67,6 +67,14 @@ export const NPCS: NpcDefinition[] = [
     schedule: [{ startHour: 6, activity: 'Prepares breakfast' }, { startHour: 9, activity: 'Runs the inn' }, { startHour: 19, activity: 'Serves travelers and gathers rumors' }, { startHour: 1, activity: 'Closes the common room' }],
     relationshipToLeigneron: { kind: 'ally', trust: 70, summary: 'Sena has watched Leigneron grow up and hears half the realm pass through her common room.' },
     dialogue: ['If you want news, sit where travelers loosen their belts and their tongues.', 'Someone from Willowcross arrived before dawn. No wagon. No horse. That usually means the road took the rest.'],
+    questIds: [],
+  },
+  {
+    id: 'nella-brook', name: 'Nella Brook', title: 'Oakmere Farmer', townId: 'oakmere', role: 'Farmer tending the southern fields and orchard edge', spriteFrame: 0, spriteTexture:'npc_villager',
+    worldOffset: { x: -560, y: 350 },
+    schedule: [{ startHour: 5, activity: 'Works the southern fields' }, { startHour: 11, activity: 'Rests by the orchard' }, { startHour: 16, activity: 'Carries produce to the inn' }, { startHour: 20, activity: 'Returns home' }],
+    relationshipToLeigneron: { kind: 'acquaintance', trust: 50, summary: 'A practical farmer who has known Leigneron since childhood and keeps Oakmere fed.' },
+    dialogue: ['The eastern road brings trouble as often as it brings trade.', 'Keep off the young rows, please. A boot can ruin a week of careful work.'],
     questIds: [],
   },
 ];

@@ -68,7 +68,30 @@ describe('local saves', () => {
     expect(useGameStore.getState().quests['first-road'].objectiveProgress['kill-varr']).toBe(1);
     expect(useGameStore.getState().worldContent.states['boss:captain-varr'].defeated).toBe(true);
     saveGame();
-    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(2);
+    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(3);
+  });
+  it('preserves allocated attributes and learned skills through save/load', () => {
+    useGameStore.getState().addRewards(250, 0);
+    useGameStore.getState().allocateAttribute('vitality');
+    useGameStore.getState().unlockSkill('iron-heart');
+    expect(saveGame()).toBe(true);
+    useGameStore.getState().resetGame();
+    expect(loadGame()).toBe(true);
+    expect(useGameStore.getState()).toMatchObject({
+      attributes: { strength: 0, vitality: 1, agility: 0 }, statPoints: 2, skillPoints: 0,
+      learnedSkills: ['iron-heart'], maxHp: 137,
+    });
+  });
+  it('migrates version 2 saves and grants points for levels already earned', () => {
+    useGameStore.getState().addRewards(750, 0);
+    saveGame();
+    const old = JSON.parse(values.get(SAVE_KEY)!);
+    old.version = 2;
+    delete old.state.attributes; delete old.state.statPoints; delete old.state.skillPoints; delete old.state.learnedSkills;
+    values.set(SAVE_KEY, JSON.stringify(old));
+    useGameStore.getState().resetGame();
+    expect(loadGame()).toBe(true);
+    expect(useGameStore.getState()).toMatchObject({ level: 4, statPoints: 9, skillPoints: 3 });
   });
   it('round-trips dynamic encounter HP, loot flags, and NPC trust', () => {
     useGameStore.getState().setContentWorld({ nextSpawnSequence: 1,

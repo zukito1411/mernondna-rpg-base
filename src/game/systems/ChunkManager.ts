@@ -11,6 +11,7 @@ interface ChunkRuntime {
   image: Phaser.GameObjects.Image;
   textureKey: string;
   scenery: Phaser.GameObjects.Image[];
+  treeBodies: Phaser.GameObjects.Rectangle[];
 }
 
 export class ChunkManager {
@@ -20,7 +21,7 @@ export class ChunkManager {
   private lastCenter = '';
   private readonly baker: TerrainBaker;
 
-  constructor(scene: Phaser.Scene, world: WorldGenerator) {
+  constructor(scene: Phaser.Scene, world: WorldGenerator, private readonly treeBodyGroup: Phaser.Physics.Arcade.StaticGroup) {
     this.scene = scene;
     this.world = world;
     this.baker = new TerrainBaker(scene);
@@ -38,6 +39,7 @@ export class ChunkManager {
       if (wanted.has(key)) continue;
       chunk.image.destroy();
       for (const image of chunk.scenery) image.destroy();
+      for (const body of chunk.treeBodies) this.treeBodyGroup.remove(body, true, true);
       this.scene.textures.remove(chunk.textureKey);
       this.active.delete(key);
     }
@@ -51,6 +53,7 @@ export class ChunkManager {
     for (const chunk of this.active.values()) {
       chunk.image.destroy();
       for (const image of chunk.scenery) image.destroy();
+      for (const body of chunk.treeBodies) this.treeBodyGroup.remove(body, true, true);
       this.scene.textures.remove(chunk.textureKey);
     }
     this.active.clear();
@@ -68,6 +71,7 @@ export class ChunkManager {
     const ctx = canvasTexture.getContext();
     this.baker.draw(ctx, this.world, chunkX, chunkY);
     const scenery: Phaser.GameObjects.Image[] = [];
+    const treeBodies: Phaser.GameObjects.Rectangle[] = [];
     const sites = WORLD_CONTENT.filter(d => Math.abs(d.world.x - (chunkX + .5) * CHUNK_SIZE) < CHUNK_SIZE
       && Math.abs(d.world.y - (chunkY + .5) * CHUNK_SIZE) < CHUNK_SIZE);
     // At most 36 non-interactive scenery sprites per chunk, owned and released
@@ -78,11 +82,16 @@ export class ChunkManager {
       ctx.ellipse(wx - chunkX * CHUNK_SIZE, wy - chunkY * CHUNK_SIZE - 6, 34 * scale, 10 * scale, 0, 0, Math.PI * 2); ctx.fill();
       scenery.push(this.scene.add.image(wx, wy, 'world_assets', frame).setOrigin(.5, 1)
         .setScale(artScale('world_assets') * scale).setDepth(wy).setName(tree.id));
+      const trunk = this.scene.add.rectangle(wx, wy - 9 * scale, 24 * scale, 26 * scale, 0xffffff, 0)
+        .setVisible(false).setName(`trunk:${tree.id}`);
+      this.scene.physics.add.existing(trunk, true);
+      this.treeBodyGroup.add(trunk);
+      treeBodies.push(trunk);
     }
     canvasTexture.refresh();
     canvasTexture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     const image = this.scene.add.image(chunkX * CHUNK_SIZE, chunkY * CHUNK_SIZE, textureKey).setOrigin(0, 0).setDepth(-1000);
-    this.active.set(`${chunkX}:${chunkY}`, { image, textureKey, scenery });
+    this.active.set(`${chunkX}:${chunkY}`, { image, textureKey, scenery, treeBodies });
   }
 }

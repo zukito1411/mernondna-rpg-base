@@ -8,11 +8,12 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from '../data/world';
 import { advanceQuests } from '../game/systems/questProgress';
 import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import type { ContentState, ContentWorldState, CreatureContentDefinition } from '../game/types';
+import { BASE_ATTRIBUTES, SKILLS, levelForExperience, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
-export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent'>;
-export interface SaveData { version: 2; savedAt: string; state: SavedState }
+export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent'>;
+export interface SaveData { version: 3; savedAt: string; state: SavedState }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -26,6 +27,14 @@ function numberIn(value: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): value
 }
 function strings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(v => typeof v === 'string');
+}
+function playerAttributes(value: unknown): value is PlayerAttributes {
+  return record(value) && ['strength', 'vitality', 'agility'].every(id =>
+    numberIn(value[id], 0, 10000) && Number.isInteger(value[id]));
+}
+function skillIds(value: unknown): value is SkillId[] {
+  const allowed = SKILLS.map(skill => skill.id);
+  return strings(value) && value.every(id => allowed.some(skillId => skillId === id)) && new Set(value).size === value.length;
 }
 
 function validateContent(value: unknown): ContentWorldState | null {
@@ -56,25 +65,37 @@ function validateContent(value: unknown): ContentWorldState | null {
   return { states, spawns, nextSpawnSequence: value.nextSpawnSequence };
 }
 
-/** v1 -> v2: add the content ledger; preserve every old player/quest/boss field. */
+/** Upgrade older saves while preserving progress and the existing content ledger. */
 export function migrateSave(data: unknown): unknown {
-  if (!record(data) || data.version !== 1 || !record(data.state)) return data;
-  const worldContent: ContentWorldState = { states: {}, spawns: {}, nextSpawnSequence: 0 };
-  if (strings(data.state.defeatedBosses)) {
-    for (const id of data.state.defeatedBosses) {
-      const definition = CONTENT_BY_ID[`boss:${id}`];
-      if (definition) worldContent.states[definition.id] = { ...initialContentState(definition), hp: 0, defeated: true };
+  let migrated = data;
+  if (record(migrated) && migrated.version === 1 && record(migrated.state)) {
+    const worldContent: ContentWorldState = { states: {}, spawns: {}, nextSpawnSequence: 0 };
+    if (strings(migrated.state.defeatedBosses)) {
+      for (const id of migrated.state.defeatedBosses) {
+        const definition = CONTENT_BY_ID[`boss:${id}`];
+        if (definition) worldContent.states[definition.id] = { ...initialContentState(definition), hp: 0, defeated: true };
+      }
     }
+    migrated = { ...migrated, version: 2, state: { ...migrated.state, worldContent } };
   }
-  return { ...data, version: 2, state: { ...data.state, worldContent } };
+  if (record(migrated) && migrated.version === 2 && record(migrated.state)) {
+    const priorLevel = numberIn(migrated.state.level, 1) ? Math.floor(migrated.state.level) : 1;
+    migrated = { ...migrated, version: 3, state: { ...migrated.state, attributes: { ...BASE_ATTRIBUTES },
+      statPoints: Math.max(0, priorLevel - 1) * 3, skillPoints: Math.max(0, priorLevel - 1), learnedSkills: [] } };
+  }
+  return migrated;
 }
 
 export function parseSave(raw: string): SaveData | null {
   try {
     const data = migrateSave(JSON.parse(raw));
-    if (!record(data) || data.version !== 2 || !record(data.state)) return null;
+    if (!record(data) || data.version !== 3 || !record(data.state)) return null;
     const s = data.state;
-    if (!numberIn(s.hp, 1, 100) || !numberIn(s.stamina, 0, 100) || !numberIn(s.xp) || !numberIn(s.gold)
+    if (!playerAttributes(s.attributes) || !numberIn(s.statPoints, 0, 10000) || !Number.isInteger(s.statPoints)
+      || !numberIn(s.skillPoints, 0, 10000) || !Number.isInteger(s.skillPoints) || !skillIds(s.learnedSkills)) return null;
+    const derived = progressionStats(s.attributes, s.learnedSkills);
+    if (!numberIn(s.hp, 1, derived.maxHp) || !numberIn(s.stamina, 0, derived.maxStamina) || !numberIn(s.xp) || !numberIn(s.gold)
+      || !numberIn(s.level, 1) || !Number.isInteger(s.level)
       || !numberIn(s.worldX, 0, WORLD_WIDTH - 1) || !numberIn(s.worldY, 0, WORLD_HEIGHT - 1)
       || !numberIn(s.day, 1) || !numberIn(s.minuteOfDay, 0, 1439.999999)
       || typeof s.weaponId !== 'string' || !Object.hasOwn(WEAPON_BY_ID, s.weaponId)
@@ -101,9 +122,12 @@ export function parseSave(raw: string): SaveData | null {
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
     const result = advanceQuests(quests, state.defeatedBosses);
-    return { version: 2, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state, worldContent, quests: result.quests, xp: state.xp + result.xp, gold: state.gold + result.gold,
-      level: 1 + Math.floor((state.xp + result.xp) / 250),
+    const xp = state.xp + result.xp;
+    const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
+    return { version: 3, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
+      ...state, worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
+      level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * 3,
+      skillPoints: state.skillPoints + levelsGained,
     } };
   } catch { return null; }
 }
@@ -114,8 +138,9 @@ export function saveGame(): boolean {
   try {
     syncSnapshot?.();
     const s = useGameStore.getState();
-    const data: SaveData = { version: 2, savedAt: new Date().toISOString(), state: {
-      hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, gold: s.gold, weaponId: s.weaponId,
+    const data: SaveData = { version: 3, savedAt: new Date().toISOString(), state: {
+      hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
+      skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,
@@ -132,7 +157,10 @@ export function loadGame(): boolean {
     if (!data) return false;
     // Explicit selection prevents a save replacing store actions or transient UI state.
     const s = data.state;
-    useGameStore.getState().hydrate({ hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, gold: s.gold,
+    const derived = progressionStats(s.attributes, s.learnedSkills);
+    useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
+      level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
+      learnedSkills: s.learnedSkills, gold: s.gold,
       weaponId: s.weaponId, inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
       townId: s.townId, day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses, worldContent: s.worldContent });
     return true;
@@ -143,7 +171,9 @@ export function watchProgressSaves() {
   return useGameStore.subscribe((s, previous) => {
     if (s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
-      || s.xp !== previous.xp || s.gold !== previous.gold || s.worldContent !== previous.worldContent) saveGame();
+      || s.xp !== previous.xp || s.gold !== previous.gold || s.attributes !== previous.attributes
+      || s.statPoints !== previous.statPoints || s.skillPoints !== previous.skillPoints
+      || s.learnedSkills !== previous.learnedSkills || s.worldContent !== previous.worldContent) saveGame();
   });
 }
 

@@ -6,6 +6,7 @@ import { artScale, ART_BY_KEY, actorArtLayout } from '../../data/art';
 import { directionFrame } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
 import { animationDuration } from '../../data/animationPacks';
+import { progressionStats } from '../../data/progression';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly moveSpeed = 165;
@@ -19,6 +20,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private nextDashAt = 0;
   private dashUntil = 0;
   private dashDirection = new Phaser.Math.Vector2(0, 1);
+  private nextDashTrailAt = 0;
   private readonly pressed = new Set<'dash' | 'attack' | 'interact'>();
   private attackVisual:Phaser.GameObjects.Sprite | null = null;
 
@@ -55,6 +57,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   updatePlayer(time: number, delta: number) {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
+    const state = useGameStore.getState();
+    const progression = progressionStats(state.attributes, state.learnedSkills);
+    this.maxHp = progression.maxHp;
+    this.maxStamina = progression.maxStamina;
 
     let x = (this.keys.right.isDown ? 1 : 0) - (this.keys.left.isDown ? 1 : 0) + mobileInput.moveX;
     let y = (this.keys.down.isDown ? 1 : 0) - (this.keys.up.isDown ? 1 : 0) + mobileInput.moveY;
@@ -81,13 +87,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.dashUntil = time + 165;
       this.stamina -= 16;
       this.dashDirection.copy(this.lastDirection);
+      this.nextDashTrailAt = time;
       scene.cameras.main.shake(75, 0.0015);
     }
 
     const dashMultiplier = time < this.dashUntil ? 2.65 : 1;
     if (time < this.dashUntil) { x = this.dashDirection.x; y = this.dashDirection.y; }
-    const speed = this.moveSpeed * (sprinting ? 1.42 : 1) * dashMultiplier;
+    const speed = this.moveSpeed * progression.speedMultiplier * (sprinting ? 1.42 : 1) * dashMultiplier;
     body.setVelocity(x * speed, y * speed);
+    if (time < this.dashUntil && time >= this.nextDashTrailAt) this.createDashTrail(time);
 
     this.updateAnimation(x, y);
     this.setDepth(this.y);
@@ -97,11 +105,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const attackPressed = this.consumeAction('attack') || mobileAttack;
     if (attackPressed && time >= this.nextAttackAt) {
       const weapon = scene.getEquippedWeapon();
+      const cooldown = weapon.cooldownMs * progression.cooldownMultiplier;
       if (this.stamina >= weapon.staminaCost) {
-        this.nextAttackAt = time + weapon.cooldownMs;
+        this.nextAttackAt = time + cooldown;
         this.stamina = Math.max(0, this.stamina - weapon.staminaCost);
         scene.performPlayerAttack(this, this.lastDirection, weapon);
-        if (weapon.kind === 'sword' || weapon.kind === 'greatsword') this.playSwordVisual(weapon.cooldownMs);
+        if (weapon.kind === 'sword' || weapon.kind === 'greatsword') this.playSwordVisual(cooldown);
       }
     }
 
@@ -162,6 +171,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.attackVisual = effect; this.setAlpha(0);
     effect.play(animation.key); effect.anims.timeScale = animationDuration(animation) / cooldown;
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE,() => { if (this.attackVisual === effect) this.clearAttackVisual(); });
+  }
+
+  private createDashTrail(time: number) {
+    this.nextDashTrailAt = time + 55;
+    const trail = this.scene.add.sprite(this.x, this.y, this.texture.key, this.frame.name)
+      .setOrigin(this.originX, this.originY).setScale(this.scaleX, this.scaleY)
+      .setFlipX(this.flipX).setTint(0x9debdc).setAlpha(0.38).setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(this.y - 1).setName('player-dash-afterimage');
+    this.scene.tweens.add({ targets: trail, alpha: 0, x: trail.x - this.dashDirection.x * 18,
+      y: trail.y - this.dashDirection.y * 18, duration: 180, onComplete: () => trail.destroy() });
   }
 
   private updateAnimation(x: number, y: number) {

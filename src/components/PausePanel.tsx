@@ -16,7 +16,7 @@ export function PausePanel() {
           <button type="button" onClick={() => { const saved = saveGame(); showToast(saved ? 'Game saved locally.' : 'Saving is unavailable. Check browser storage.'); close(); }}>Save game</button>
           <button type="button" onClick={() => { setSaveSnapshotProvider(); reset(); saveGame(); window.location.reload(); }}>Start new game</button>
         </div>
-        <p className="menu-note">Desktop: WASD, Shift, Q, Space, E, M, I. Mobile: virtual joystick plus Attack, Dash and Interact buttons.</p>
+        <p className="menu-note">Desktop: WASD, Shift, Q, Space, E, M, I, C. Mobile: virtual joystick plus Attack, Dash and Interact buttons. Spend level-up status and skill points in Status.</p>
       </section>
     </div>
   );

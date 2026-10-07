@@ -22,7 +22,15 @@ test('Oakmere proportions, planted trees, connected farm lane and field boundari
   });
   expect(scale.actorHeight).toBe(80); expect(scale.npcHeight).toBe(80);
   expect(scale.houseHeight / scale.actorHeight).toBeLessThan(3);
-  expect(scale.npcBody).toEqual([18,22,-9,0]); expect(scale.trees).toBeGreaterThanOrEqual(16);
+  expect(scale.npcBody).toEqual([18,22,-9,-2]); expect(scale.trees).toBeGreaterThanOrEqual(16);
+  const treeCollision = await page.evaluate(() => {
+    const s = window.__mernondnaGame!.scene.getScene('world') as unknown as {
+      treeBodies: Phaser.Physics.Arcade.StaticGroup; contentManager: Details['contentManager'];
+    };
+    const villageTree = s.contentManager.getActor('detail:oakmere:west-oak');
+    return { wilderness: s.treeBodies.getChildren().length, villageTree: Boolean(villageTree && 'body' in villageTree) };
+  });
+  expect(treeCollision.wilderness).toBeGreaterThan(0); expect(treeCollision.villageTree).toBe(true);
   // This is a test-only survey camera; normal gameplay retains its follow camera.
   await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;

@@ -52,6 +52,9 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
 export const ART_BY_KEY = Object.fromEntries(ART_SHEETS.map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
 export function artScale(key: ArtTextureKey) { return 1 / ART_BY_KEY[key].density; }
+export function actorScaleForHeight(key: ArtTextureKey, frame: number, height: number) {
+  return artScale(key) * height / Math.max(1, artFrameSize(key, frame).height);
+}
 // Keep feet and gameplay bodies at their old world coordinates even when the
 // illustration above them gets larger. Origins are measured in logical units.
 export function actorArtLayout(key: ArtTextureKey) {

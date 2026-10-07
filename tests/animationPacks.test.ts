@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ART_SHEETS, ART_BY_KEY } from '../src/data/art';
+import { ART_SHEETS, ART_BY_KEY, actorScaleForHeight, artFrameSize } from '../src/data/art';
 import { SPRITE_PACKS, ENEMY_ANIMATIONS, ENEMY_SOURCES, enemyAnimation, animationDuration, directionFrame } from '../src/data/animationPacks';
 import { alphaFrameBounds } from '../src/game/systems/spriteArt';
 import { SPRITE_BOARDS, PLAYER_ATTACK_ANIMATIONS } from '../src/data/spriteBoards';
@@ -78,5 +78,14 @@ describe('supplied animation packs', () => {
     expect(CONTENT_BY_ID['prop:east-watchtower']).toMatchObject({ texture:'world_buildings',frame:4,footprint:worldPropFootprint(2,1.6) });
     expect(CONTENT_BY_ID['shrine:oakmere-road']).toMatchObject({ texture:'world_buildings',frame:3 });
     expect(CONTENT_BY_ID['entrance:oakmere-old-cellar']).toMatchObject({ texture:'world_buildings',frame:4 });
+  });
+  it('renders every named NPC at the same 76-world-unit height', () => {
+    for (const npc of NPCS) {
+      const texture = npc.spriteTexture ?? 'npcs';
+      const displayedHeight = artFrameSize(texture, npc.spriteFrame).height
+        * actorScaleForHeight(texture, npc.spriteFrame, 76) * ART_BY_KEY[texture].density;
+      expect(displayedHeight, npc.id).toBeCloseTo(76);
+      expect(CONTENT_BY_ID[`npc:${npc.id}`]).toBeTruthy();
+    }
   });
 });

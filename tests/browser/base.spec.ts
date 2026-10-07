@@ -41,8 +41,21 @@ test('desktop movement, sprint, dash, menus, terrain chunks and NPC conversation
   await expect.poll(async () => (await snapshot(page)).vx).toBeGreaterThan(220);
   await page.keyboard.down('q');
   await expect.poll(async () => (await snapshot(page)).vx, { intervals: [20] }).toBeGreaterThan(400);
+  expect(await page.evaluate(() => window.__mernondnaGame!.scene.getScene('world').children.list
+    .some(child => child.name === 'player-dash-afterimage'))).toBe(true);
   await page.keyboard.up('q'); await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.waitForTimeout(200);
+  const lighting = await page.evaluate(() => {
+    const s = window.__mernondnaGame!.scene.getScene('world') as unknown as {
+      player: { x: number; y: number }; dayNight: { minuteOfDay: number; update(delta: number, x: number, y: number): void };
+      children: { list: Array<{ name: string; visible: boolean }> };
+    };
+    s.dayNight.minuteOfDay = 22 * 60;
+    s.dayNight.update(16, s.player.x, s.player.y);
+    return { playerGlow: s.children.list.some(child => child.name === 'night-player-light' && child.visible),
+      fireflies: s.children.list.filter(child => child.name === 'firefly-light' && child.visible).length };
+  });
+  expect(lighting.playerGlow).toBe(true); expect(lighting.fireflies).toBeGreaterThan(0);
   await page.keyboard.press('m');
   await expect(page.getByRole('dialog', { name: 'Mernodna world map' })).toBeVisible();
   await expect.poll(() => page.locator('.world-map-wrap img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
@@ -54,6 +67,10 @@ test('desktop movement, sprint, dash, menus, terrain chunks and NPC conversation
   await page.keyboard.press('m'); await page.keyboard.press('i');
   await expect(page.getByRole('dialog', { name: 'Inventory' })).toContainText('Roadwarden Sword');
   await page.keyboard.press('Escape');
+  await page.keyboard.press('c');
+  await expect(page.getByRole('dialog', { name: 'Character and skills' })).toContainText('Strength');
+  await page.keyboard.press('c');
+  await expect(page.getByRole('dialog', { name: 'Character and skills' })).not.toBeVisible();
   await page.evaluate(() => {
     const scene = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
     scene.player.restoreAt(22 * 1536 + 1480, 25 * 1536 + 1000);
@@ -228,6 +245,9 @@ test(`mobile ${viewport.width}px joystick, multitouch sprint, dash, attack, inte
   await page.getByRole('button', { name: 'Close', exact: true }).tap();
   await page.getByRole('button', { name: 'Gear' }).tap();
   await expect(page.getByRole('dialog', { name: 'Inventory' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).tap();
+  await page.getByRole('button', { name: 'Status' }).tap();
+  await expect(page.getByRole('dialog', { name: 'Character and skills' })).toBeVisible();
   await page.getByRole('button', { name: 'Close', exact: true }).tap();
   await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;

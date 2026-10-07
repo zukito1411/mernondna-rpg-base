@@ -17,7 +17,11 @@ export function MiniMap() {
   const terrainCache = useRef<{ key: string; x: number; y: number; canvas: HTMLCanvasElement } | null>(null);
   const x = useGameStore(s => s.worldX), y = useGameStore(s => s.worldY);
   const navigation = useGameStore(s => s.navigation);
+  const day = useGameStore(s => s.day);
+  const minute = useGameStore(s => s.minuteOfDay);
   const open = useGameStore(s => s.openPanel);
+  const hour = Math.floor(minute / 60), mins = Math.floor(minute % 60);
+  const night = hour >= 19 || hour < 6;
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
@@ -68,6 +72,7 @@ export function MiniMap() {
       <span className="minimap-heading">LOCAL MAP <span> N ↑</span></span>
       <canvas ref={ref} width={SIZE} height={SIZE} aria-label="Local terrain, Leigneron, nearby NPCs and quest destination" />
       <span className="minimap-legend"><i className="legend-player" /> You <i className="legend-people" /> People <i className="legend-quest" /> Quest <i className="legend-danger" /> Danger</span>
+      <span className={`minimap-clock ${night ? 'night' : 'day'}`}><i aria-hidden="true">{night ? '☾' : '☀'}</i><b>Day {day}</b><time>{String(hour).padStart(2, '0')}:{String(mins).padStart(2, '0')}</time></span>
     </button>
   );
 }
