@@ -1,0 +1,35 @@
+{
+  "id": "npcs/trandum_guard",
+  "frameWidth": 144,
+  "frameHeight": 176,
+  "animations": {
+    "walk_down": {
+      "png": "assets/npcs/trandum_guard/walk_down.png",
+      "webp": "assets/npcs/trandum_guard/walk_down.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": -1
+    },
+    "walk_left": {
+      "png": "assets/npcs/trandum_guard/walk_left.png",
+      "webp": "assets/npcs/trandum_guard/walk_left.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": -1
+    },
+    "walk_right": {
+      "png": "assets/npcs/trandum_guard/walk_right.png",
+      "webp": "assets/npcs/trandum_guard/walk_right.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": -1
+    },
+    "walk_up": {
+      "png": "assets/npcs/trandum_guard/walk_up.png",
+      "webp": "assets/npcs/trandum_guard/walk_up.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": -1
+    }
+  }
+}

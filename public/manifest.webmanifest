@@ -1,0 +1,9 @@
+{
+  "name": "Mernodna",
+  "short_name": "Mernodna",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#17120d",
+  "theme_color": "#17120d",
+  "orientation": "landscape"
+}

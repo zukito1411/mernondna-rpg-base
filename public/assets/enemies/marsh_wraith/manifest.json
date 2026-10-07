@@ -1,0 +1,42 @@
+{
+  "id": "enemies/marsh_wraith",
+  "frameWidth": 176,
+  "frameHeight": 176,
+  "animations": {
+    "idle": {
+      "png": "assets/enemies/marsh_wraith/idle.png",
+      "webp": "assets/enemies/marsh_wraith/idle.webp",
+      "frames": 6,
+      "frameRate": 6,
+      "repeat": -1
+    },
+    "walk": {
+      "png": "assets/enemies/marsh_wraith/walk.png",
+      "webp": "assets/enemies/marsh_wraith/walk.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": -1
+    },
+    "attack": {
+      "png": "assets/enemies/marsh_wraith/attack.png",
+      "webp": "assets/enemies/marsh_wraith/attack.webp",
+      "frames": 6,
+      "frameRate": 10,
+      "repeat": 0
+    },
+    "hurt": {
+      "png": "assets/enemies/marsh_wraith/hurt.png",
+      "webp": "assets/enemies/marsh_wraith/hurt.webp",
+      "frames": 6,
+      "frameRate": 9,
+      "repeat": 0
+    },
+    "death": {
+      "png": "assets/enemies/marsh_wraith/death.png",
+      "webp": "assets/enemies/marsh_wraith/death.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": 0
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "enemies/road_bandit",
+  "frameWidth": 144,
+  "frameHeight": 176,
+  "animations": {
+    "idle": {
+      "png": "assets/enemies/road_bandit/idle.png",
+      "webp": "assets/enemies/road_bandit/idle.webp",
+      "frames": 6,
+      "frameRate": 5,
+      "repeat": -1
+    },
+    "walk": {
+      "png": "assets/enemies/road_bandit/walk.png",
+      "webp": "assets/enemies/road_bandit/walk.webp",
+      "frames": 6,
+      "frameRate": 9,
+      "repeat": -1
+    },
+    "attack": {
+      "png": "assets/enemies/road_bandit/attack.png",
+      "webp": "assets/enemies/road_bandit/attack.webp",
+      "frames": 6,
+      "frameRate": 12,
+      "repeat": 0
+    },
+    "hurt": {
+      "png": "assets/enemies/road_bandit/hurt.png",
+      "webp": "assets/enemies/road_bandit/hurt.webp",
+      "frames": 6,
+      "frameRate": 10,
+      "repeat": 0
+    },
+    "death": {
+      "png": "assets/enemies/road_bandit/death.png",
+      "webp": "assets/enemies/road_bandit/death.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": 0
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "enemies/boarfiend",
+  "frameWidth": 192,
+  "frameHeight": 152,
+  "animations": {
+    "idle": {
+      "png": "assets/enemies/boarfiend/idle.png",
+      "webp": "assets/enemies/boarfiend/idle.webp",
+      "frames": 6,
+      "frameRate": 5,
+      "repeat": -1
+    },
+    "walk": {
+      "png": "assets/enemies/boarfiend/walk.png",
+      "webp": "assets/enemies/boarfiend/walk.webp",
+      "frames": 6,
+      "frameRate": 9,
+      "repeat": -1
+    },
+    "attack": {
+      "png": "assets/enemies/boarfiend/attack.png",
+      "webp": "assets/enemies/boarfiend/attack.webp",
+      "frames": 5,
+      "frameRate": 10,
+      "repeat": 0
+    },
+    "hurt": {
+      "png": "assets/enemies/boarfiend/hurt.png",
+      "webp": "assets/enemies/boarfiend/hurt.webp",
+      "frames": 6,
+      "frameRate": 9,
+      "repeat": 0
+    },
+    "death": {
+      "png": "assets/enemies/boarfiend/death.png",
+      "webp": "assets/enemies/boarfiend/death.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": 0
+    }
+  }
+}

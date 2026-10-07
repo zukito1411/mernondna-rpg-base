@@ -1,0 +1,184 @@
+export type RegionId =
+  | 'trandum'
+  | 'narenthil'
+  | 'nardorous'
+  | 'rindass'
+  | 'druganwoods'
+  | 'portquill'
+  | 'frostlands'
+  | 'darkav'
+  | 'dead-sea';
+
+export type TerrainKind = 'grass' | 'forest' | 'dirt' | 'stone' | 'snow' | 'ash' | 'sand' | 'water' | 'farmland';
+
+export type WeaponKind = 'sword' | 'greatsword' | 'axe' | 'spear' | 'bow' | 'crossbow' | 'staff' | 'dagger';
+
+export interface Vec2 {
+  x: number;
+  y: number;
+}
+
+export interface RegionDefinition {
+  id: RegionId;
+  name: string;
+  description: string;
+  centerChunk: Vec2;
+  primaryTerrain: TerrainKind;
+  secondaryTerrain: TerrainKind;
+  ambientThreat: number;
+  climate: string;
+  people: string;
+  loreTags: string[];
+}
+
+export interface TownDefinition {
+  id: string;
+  name: string;
+  regionId: RegionId;
+  kind: 'capital' | 'town' | 'village' | 'harbor' | 'stronghold' | 'outpost';
+  world: Vec2;
+  mapPercent: Vec2;
+  description: string;
+  services: string[];
+  tags: string[];
+  starterKnown?: boolean;
+}
+
+export interface NpcRelationship {
+  kind: 'mentor' | 'friend' | 'family-friend' | 'rival' | 'ally' | 'authority' | 'acquaintance' | 'mystery';
+  trust: number;
+  summary: string;
+}
+
+export interface NpcDefinition {
+  id: string;
+  name: string;
+  title: string;
+  townId: string;
+  role: string;
+  spriteFrame: number;
+  worldOffset: Vec2;
+  spriteTexture?: 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general';
+  weaponId?: string;
+  schedule: Array<{ startHour: number; activity: string }>;
+  relationshipToLeigneron: NpcRelationship;
+  dialogue: string[];
+  questIds: string[];
+  combatant?: boolean;
+}
+
+export interface WeaponDefinition {
+  id: string;
+  name: string;
+  kind: WeaponKind;
+  tier: number;
+  damage: number;
+  reach: number;
+  cooldownMs: number;
+  staminaCost: number;
+  description: string;
+  regionAffinity?: RegionId;
+}
+
+export interface EnemyDefinition {
+  id: string;
+  name: string;
+  spriteFrame: number;
+  hp: number;
+  damage: number;
+  moveSpeed: number;
+  aggroRange: number;
+  attackRange: number;
+  attackCooldownMs: number;
+  xp: number;
+  goldMin: number;
+  goldMax: number;
+  boss?: boolean;
+  regionWeights: Partial<Record<RegionId, number>>;
+}
+
+export interface BossDefinition {
+  id: string;
+  enemyId: string;
+  name: string;
+  regionId: RegionId;
+  world: Vec2;
+  lore: string;
+  respawns: boolean;
+}
+
+export interface QuestObjective {
+  id: string;
+  type: 'talk' | 'kill' | 'visit' | 'collect';
+  targetId: string;
+  amount: number;
+  text: string;
+  bossId?: string;
+  contentId?: string;
+}
+
+export interface QuestDefinition {
+  id: string;
+  name: string;
+  giverNpcId: string;
+  summary: string;
+  objectives: QuestObjective[];
+  rewardGold: number;
+  rewardXp: number;
+  nextQuestId?: string;
+}
+
+export interface DynamicEventDefinition {
+  id: string;
+  name: string;
+  regions: RegionId[];
+  minHour?: number;
+  maxHour?: number;
+  enemyId?: string;
+  enemyCount?: number;
+  headline: string;
+  description: string;
+}
+
+export interface QuestRuntimeState {
+  status: 'locked' | 'active' | 'completed';
+  objectiveProgress: Record<string, number>;
+}
+
+interface ContentBase { id: string; world: Vec2 }
+export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
+export interface CreatureContentDefinition extends ContentBase {
+  kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;
+}
+export interface PropContentDefinition extends ContentBase {
+  kind: 'prop' | 'settlement-prop'; frame: number; scale: number; solid: boolean;
+  texture?: 'world_assets' | 'world_objects' | 'world_buildings';
+  footprint?: { width:number; height:number };
+  label?: string;
+}
+export interface SettlementContentDefinition extends ContentBase { kind: 'settlement'; townId: string }
+export interface InteractableContentDefinition extends ContentBase {
+  kind: 'interactable' | 'harvestable' | 'loot-container' | 'dungeon-entrance';
+  name: string; frame: number; description: string; repeatText: string;
+  rewardGold?: number; restoreHp?: number;
+  texture?: 'world_assets' | 'world_objects' | 'world_buildings'; scale?: number;
+}
+export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
+export interface ContentState extends Vec2 {
+  hp?: number; defeated?: boolean; used?: boolean; trust?: number;
+}
+export interface ContentWorldState {
+  states: Record<string, ContentState>;
+  spawns: Record<string, CreatureContentDefinition>;
+  nextSpawnSequence: number;
+}
+
+export interface QuestTarget extends Vec2 {
+  contentId: string; label: string; questId: string; objectiveId: string; type: QuestObjective['type'];
+}
+export interface NavigationMarker extends Vec2 {
+  id: string; label: string; kind: 'npc' | 'enemy' | 'boss' | 'building' | 'town' | 'landmark';
+}
+export interface NavigationState {
+  heading: number; target: QuestTarget | null; markers: NavigationMarker[]; interaction: string | null;
+}

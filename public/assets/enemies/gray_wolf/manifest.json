@@ -1,0 +1,42 @@
+{
+  "id": "enemies/gray_wolf",
+  "frameWidth": 176,
+  "frameHeight": 144,
+  "animations": {
+    "idle": {
+      "png": "assets/enemies/gray_wolf/idle.png",
+      "webp": "assets/enemies/gray_wolf/idle.webp",
+      "frames": 6,
+      "frameRate": 5,
+      "repeat": -1
+    },
+    "walk": {
+      "png": "assets/enemies/gray_wolf/walk.png",
+      "webp": "assets/enemies/gray_wolf/walk.webp",
+      "frames": 6,
+      "frameRate": 10,
+      "repeat": -1
+    },
+    "attack": {
+      "png": "assets/enemies/gray_wolf/attack.png",
+      "webp": "assets/enemies/gray_wolf/attack.webp",
+      "frames": 6,
+      "frameRate": 12,
+      "repeat": 0
+    },
+    "hurt": {
+      "png": "assets/enemies/gray_wolf/hurt.png",
+      "webp": "assets/enemies/gray_wolf/hurt.webp",
+      "frames": 6,
+      "frameRate": 10,
+      "repeat": 0
+    },
+    "death": {
+      "png": "assets/enemies/gray_wolf/death.png",
+      "webp": "assets/enemies/gray_wolf/death.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": 0
+    }
+  }
+}

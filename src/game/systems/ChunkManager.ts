@@ -1,0 +1,88 @@
+import Phaser from 'phaser';
+import { CHUNK_SIZE } from '../../data/world';
+import { artScale } from '../../data/art';
+import { WORLD_CONTENT } from '../../data/content';
+import { WorldGenerator } from './WorldGenerator';
+import { chunkNeighborhood } from './chunkNeighborhood';
+import { TerrainBaker } from './TerrainBaker';
+import { planWildernessTrees } from './sceneryPlan';
+
+interface ChunkRuntime {
+  image: Phaser.GameObjects.Image;
+  textureKey: string;
+  scenery: Phaser.GameObjects.Image[];
+}
+
+export class ChunkManager {
+  private readonly scene: Phaser.Scene;
+  private readonly world: WorldGenerator;
+  private readonly active = new Map<string, ChunkRuntime>();
+  private lastCenter = '';
+  private readonly baker: TerrainBaker;
+
+  constructor(scene: Phaser.Scene, world: WorldGenerator) {
+    this.scene = scene;
+    this.world = world;
+    this.baker = new TerrainBaker(scene);
+  }
+
+  update(worldX: number, worldY: number) {
+    const centerX = Math.floor(worldX / CHUNK_SIZE);
+    const centerY = Math.floor(worldY / CHUNK_SIZE);
+    const centerKey = `${centerX}:${centerY}`;
+    if (centerKey === this.lastCenter) return;
+    this.lastCenter = centerKey;
+
+    const wanted = chunkNeighborhood(worldX, worldY);
+    for (const [key, chunk] of this.active) {
+      if (wanted.has(key)) continue;
+      chunk.image.destroy();
+      for (const image of chunk.scenery) image.destroy();
+      this.scene.textures.remove(chunk.textureKey);
+      this.active.delete(key);
+    }
+    // Release distant GPU/canvas allocations before baking replacements.
+    for (const key of wanted) {
+      if (!this.active.has(key)) { const [x, y] = key.split(':').map(Number); this.load(x, y); }
+    }
+  }
+
+  destroy() {
+    for (const chunk of this.active.values()) {
+      chunk.image.destroy();
+      for (const image of chunk.scenery) image.destroy();
+      this.scene.textures.remove(chunk.textureKey);
+    }
+    this.active.clear();
+    this.lastCenter = '';
+    this.baker.destroy();
+  }
+
+  getActiveKeys() { return [...this.active.keys()]; }
+
+  private load(chunkX: number, chunkY: number) {
+    const textureKey = `chunk:${chunkX}:${chunkY}`;
+    const canvasTexture = this.scene.textures.createCanvas(textureKey, CHUNK_SIZE, CHUNK_SIZE);
+    if (!canvasTexture) return;
+
+    const ctx = canvasTexture.getContext();
+    this.baker.draw(ctx, this.world, chunkX, chunkY);
+    const scenery: Phaser.GameObjects.Image[] = [];
+    const sites = WORLD_CONTENT.filter(d => Math.abs(d.world.x - (chunkX + .5) * CHUNK_SIZE) < CHUNK_SIZE
+      && Math.abs(d.world.y - (chunkY + .5) * CHUNK_SIZE) < CHUNK_SIZE);
+    // At most 36 non-interactive scenery sprites per chunk, owned and released
+    // with it. Authored/interactive trees still use the persistent content ledger.
+    for (const tree of planWildernessTrees(chunkX,chunkY,this.world,sites.map(d => d.world))) {
+      const { x:wx,y:wy,frame,scale } = tree;
+      ctx.fillStyle = 'rgba(20,30,15,.18)'; ctx.beginPath();
+      ctx.ellipse(wx - chunkX * CHUNK_SIZE, wy - chunkY * CHUNK_SIZE - 6, 34 * scale, 10 * scale, 0, 0, Math.PI * 2); ctx.fill();
+      scenery.push(this.scene.add.image(wx, wy, 'world_assets', frame).setOrigin(.5, 1)
+        .setScale(artScale('world_assets') * scale).setDepth(wy).setName(tree.id));
+    }
+    canvasTexture.refresh();
+    canvasTexture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+
+    const image = this.scene.add.image(chunkX * CHUNK_SIZE, chunkY * CHUNK_SIZE, textureKey).setOrigin(0, 0).setDepth(-1000);
+    this.active.set(`${chunkX}:${chunkY}`, { image, textureKey, scenery });
+  }
+}
