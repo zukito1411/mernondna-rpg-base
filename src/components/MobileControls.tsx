@@ -56,17 +56,25 @@ export function MobileControls() {
         onLostPointerCapture={(event) => { if (pointerId.current === event.pointerId) release(); }}
         aria-label="Movement joystick"
       >
-        <div className="joystick-knob" style={{ transform: `translate(${stick.x * 34}px, ${stick.y * 34}px)` }} />
+        <div className="joystick-knob" style={{ transform: `translate(calc(-50% + ${stick.x * 34}px), calc(-50% + ${stick.y * 34}px))` }} />
       </div>
 
       <div className="touch-actions">
-        <button type="button" aria-label="Interact" className="touch-button interact" onPointerDown={() => mobileInput.press('interact')}>E</button>
-        <button type="button" aria-label="Dash" className="touch-button dash" onPointerDown={() => mobileInput.press('dash')}>Dash</button>
-        <button type="button" aria-label="Attack" className="touch-button attack" onPointerDown={() => mobileInput.press('attack')}>⚔</button>
+        <button type="button" aria-label="Interact" className="touch-button interact" onPointerDown={() => mobileInput.press('interact')}>
+          <span className="touch-glyph">E</span><small>Talk / use</small>
+        </button>
+        <button type="button" aria-label="Dash" className="touch-button dash" onPointerDown={() => mobileInput.press('dash')}>
+          <span className="touch-glyph">⇢</span><small>Dash</small>
+        </button>
+        <button type="button" aria-label="Attack" className="touch-button attack" onPointerDown={() => mobileInput.press('attack')}>
+          <span className="touch-glyph">⚔</span><small>Attack</small>
+        </button>
         <button type="button" aria-label="Sprint" className="touch-button sprint"
           onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); mobileInput.setSprint(true); }}
           onPointerUp={() => mobileInput.setSprint(false)} onPointerCancel={() => mobileInput.setSprint(false)}
-          onLostPointerCapture={() => mobileInput.setSprint(false)}>Run</button>
+          onLostPointerCapture={() => mobileInput.setSprint(false)}>
+          <span className="touch-glyph">»</span><small>Sprint</small>
+        </button>
       </div>
     </div>
   );

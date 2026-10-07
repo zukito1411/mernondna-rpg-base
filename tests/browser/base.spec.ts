@@ -217,6 +217,30 @@ test(`mobile ${viewport.width}px joystick, multitouch sprint, dash, attack, inte
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await ready(page);
+  const touchTargets = await page.evaluate(() => {
+    const rect = (selector: string) => {
+      const { left, top, right, bottom, width, height } = document.querySelector(selector)!.getBoundingClientRect();
+      return { left, top, right, bottom, width, height };
+    };
+    return {
+      viewport:{ width:innerWidth, height:innerHeight },
+      joystick:rect('.joystick'),
+      controls:rect('.touch-actions'),
+      attack:rect('.touch-button.attack'),
+      sprint:rect('.touch-button.sprint'),
+    };
+  });
+  expect(touchTargets.attack.width).toBeGreaterThanOrEqual(70);
+  expect(touchTargets.attack.height).toBeGreaterThanOrEqual(70);
+  if (touchTargets.viewport.width > touchTargets.viewport.height) {
+    expect(touchTargets.joystick.left).toBeGreaterThanOrEqual(8);
+    expect(touchTargets.joystick.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
+    expect(touchTargets.controls.right).toBeLessThanOrEqual(touchTargets.viewport.width - 8);
+    expect(touchTargets.sprint.right).toBeLessThan(touchTargets.controls.left);
+    expect(touchTargets.sprint.left).toBeGreaterThan(touchTargets.joystick.right + 24);
+    expect(touchTargets.sprint.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
+    expect(touchTargets.controls.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
+  }
   // Exercise movement on open terrain rather than dashing into Mira's solid NPC body.
   await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.restoreAt(22 * 1536 + 1068, 25 * 1536 + 1418));
   const cdp = await context.newCDPSession(page);
