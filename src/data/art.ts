@@ -1,12 +1,13 @@
 import { HERO_PACK, GUARD_PACK, SHRINE_PACK, directionalSources, ENEMY_SOURCES, DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
-import { SPRITE_BOARDS, boardSources } from './spriteBoards';
-export type ArtTextureKey = 'leigneron' | 'leigneron_attack' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'terrain';
+import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
+export type ArtTextureKey = 'leigneron' | 'leigneron_idle' | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'terrain';
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 interface ArtSheet {
   key: ArtTextureKey; path: string; columns: number; frameWidth: number; frameHeight: number;
   blackBackground: boolean; sourceSize?: readonly [number, number]; regions?: readonly SpriteRegion[];
   density: number; atlasColumns?: number;
   sourceInset?: number;
+  trimRegions?: boolean;
   sources?:readonly SpriteSource[]; contentSize?:readonly [number,number];
   names: readonly string[];
 }
@@ -27,6 +28,10 @@ const castSources:SpriteSource[] = [
 export const ART_SHEETS: readonly ArtSheet[] = [
   { key:'leigneron',path:HERO_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
     sources:directionalSources(HERO_PACK),contentSize:[104,128],names:poseNames },
+  { key:'leigneron_idle',path:'assets/characters/leigneron/idle.png',columns:6,atlasColumns:6,density:4,
+    frameWidth:68,frameHeight:80,blackBackground:false,sourceSize:[2172,724],contentSize:[310,383],trimRegions:true,
+    regions:Array.from({ length:6 },(_,i):SpriteRegion => [i * 362,0,362,724]),
+    names:Array.from({ length:6 },(_,i) => `idle-${i}`) },
   { key:'npc_guard',path:GUARD_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
     sources:directionalSources(GUARD_PACK),contentSize:[128,160],names:poseNames },
   { key:'npc_woman',path:SHRINE_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
@@ -48,6 +53,10 @@ export const ART_SHEETS: readonly ArtSheet[] = [
     names: ['grass','dirt','stone','farmland','forest','sand','snow','water'] },
   ...SPRITE_BOARDS.map(board => ({ key:board.key as ArtTextureKey,path:board.path,columns:24,atlasColumns:6,density:2,
     frameWidth:board.frameWidth,frameHeight:board.frameHeight,blackBackground:false,sources:boardSources(board),names:poseNames })),
+  ...PLAYER_EFFECTS.map(({ name,path }) => ({ key:`effect_${name}` as ArtTextureKey,path,columns:6,atlasColumns:3,density:2,
+    frameWidth:128,frameHeight:128,blackBackground:false,sourceSize:[1536,1024] as const,
+    regions:Array.from({ length:6 },(_,i):SpriteRegion => [(i % 3) * 512,Math.floor(i / 3) * 512,512,512]),
+    names:Array.from({ length:6 },(_,i) => `${name}-${i}`) })),
 ];
 
 export const ART_BY_KEY = Object.fromEntries(ART_SHEETS.map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
@@ -82,9 +91,9 @@ export function worldPropFootprint(frame: number, scale: number) {
 
 export const WORLD_ASSET_FRAMES = { tree: 0, pine: 1, rock: 2, fence: 3, wheat: 4, sign: 5, fire: 6, cargo: 7 } as const;
 
-export const PLAYER_ANIMATIONS = DIRECTION_CLIPS.map((state,direction) => ({ key:`leigneron-${state.slice(5)}`,texture:'leigneron',
+export const PLAYER_ANIMATIONS = [...DIRECTION_CLIPS.map((state,direction) => ({ key:`leigneron-${state.slice(5)}`,texture:'leigneron',
   frames:Array.from({ length:HERO_PACK.animations[state].frames },(_,i) => direction * 6 + i),
-  frameRate:HERO_PACK.animations[state].frameRate,repeat:HERO_PACK.animations[state].repeat }));
+  frameRate:HERO_PACK.animations[state].frameRate,repeat:HERO_PACK.animations[state].repeat })),PLAYER_IDLE_ANIMATION];
 
 // Board frames use the same direction/stride layout as the manifest packs.
 // Every named NPC with a 24-pose sheet can actually walk when its routine moves.

@@ -1,5 +1,9 @@
 export const XP_PER_LEVEL = 250;
 export const PLAYER_ACTOR_HEIGHT = 76;
+export function npcApparentHeight(texture: string) {
+  return texture === 'npc_guard' || texture === 'npc_royal_guard'
+    ? PLAYER_ACTOR_HEIGHT * 1.27 : PLAYER_ACTOR_HEIGHT;
+}
 
 export type AttributeId = 'strength' | 'vitality' | 'agility';
 export type SkillId = 'heavy-strike' | 'fleet-foot' | 'iron-heart' | 'deep-reserves';

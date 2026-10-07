@@ -4,10 +4,12 @@ import { resolve } from 'node:path';
 import { ART_SHEETS, ART_BY_KEY, actorScaleForHeight, artFrameSize } from '../src/data/art';
 import { SPRITE_PACKS, ENEMY_ANIMATIONS, ENEMY_SOURCES, enemyAnimation, animationDuration, directionFrame } from '../src/data/animationPacks';
 import { alphaFrameBounds } from '../src/game/systems/spriteArt';
-import { SPRITE_BOARDS, PLAYER_ATTACK_ANIMATIONS } from '../src/data/spriteBoards';
+import { PLAYER_EFFECTS, SPRITE_BOARDS, PLAYER_ATTACK_ANIMATIONS } from '../src/data/spriteBoards';
 import { NPCS } from '../src/data/npcs';
 import { CONTENT_BY_ID } from '../src/data/content';
 import { worldPropFootprint } from '../src/data/art';
+import { npcApparentHeight } from '../src/data/progression';
+import { ENEMY_BY_ID, enemyAppearanceMultiplier } from '../src/data/enemies';
 
 describe('supplied animation packs', () => {
   it('resolves every PNG/WebP and checks actual PNG dimensions against its manifest', () => {
@@ -82,10 +84,30 @@ describe('supplied animation packs', () => {
   it('renders every named NPC at the same 76-world-unit height', () => {
     for (const npc of NPCS) {
       const texture = npc.spriteTexture ?? 'npcs';
+      const height = npcApparentHeight(texture);
       const displayedHeight = artFrameSize(texture, npc.spriteFrame).height
-        * actorScaleForHeight(texture, npc.spriteFrame, 76) * ART_BY_KEY[texture].density;
-      expect(displayedHeight, npc.id).toBeCloseTo(76);
+        * actorScaleForHeight(texture, npc.spriteFrame, height) * ART_BY_KEY[texture].density;
+      expect(displayedHeight, npc.id).toBeCloseTo(height);
       expect(CONTENT_BY_ID[`npc:${npc.id}`]).toBeTruthy();
     }
+    expect(npcApparentHeight('npc_guard')).toBeGreaterThan(76);
+    expect(npcApparentHeight('npc_royal_guard')).toBeGreaterThan(76);
+  });
+  it('loads the supplied player idle and all five combat/recovery effect sheets', () => {
+    const idle = ART_BY_KEY.leigneron_idle;
+    expect(idle.path).toBe('assets/characters/leigneron/idle.png');
+    expect(existsSync(resolve('public', idle.path))).toBe(true);
+    const idlePng = readFileSync(resolve('public', idle.path));
+    expect([idlePng.readUInt32BE(16), idlePng.readUInt32BE(20)]).toEqual([2172, 724]);
+    expect(PLAYER_EFFECTS).toHaveLength(5);
+    for (const { path } of PLAYER_EFFECTS) {
+      const png = readFileSync(resolve('public', path));
+      expect(existsSync(resolve('public', path)), path).toBe(true);
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)], path).toEqual([1536, 1024]);
+    }
+  });
+  it('makes road bandits larger without resizing other regular enemies', () => {
+    expect(enemyAppearanceMultiplier(ENEMY_BY_ID['road-bandit'])).toBe(1.16);
+    expect(enemyAppearanceMultiplier(ENEMY_BY_ID['gray-wolf'])).toBe(1);
   });
 });

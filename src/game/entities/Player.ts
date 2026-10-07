@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { mobileInput } from '../input';
 import { useGameStore } from '../../store/gameStore';
 import type { WorldScene } from '../scenes/WorldScene';
-import { artScale, ART_BY_KEY, actorArtLayout } from '../../data/art';
+import { artScale, ART_BY_KEY, actorArtLayout, actorScaleForHeight } from '../../data/art';
 import { directionFrame } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
 import { animationDuration } from '../../data/animationPacks';
@@ -89,6 +89,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.dashDirection.copy(this.lastDirection);
       this.nextDashTrailAt = time;
       scene.cameras.main.shake(75, 0.0015);
+      scene.playEffect('fortification', this.x, this.y, this.dashDirection);
     }
 
     const dashMultiplier = time < this.dashUntil ? 2.65 : 1;
@@ -123,6 +124,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     this.hp = Math.max(0, this.hp - amount);
     this.setTintFill(0xffd0d0);
+    scene.playEffect('hit', this.x, this.y);
     scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });
     if (this.hp <= 0) scene.respawnPlayer();
   }
@@ -162,9 +164,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.active) this.setAlpha(1);
   }
 
+  private setPresentationTexture(texture: 'leigneron' | 'leigneron_idle', scale: number) {
+    this.setTexture(texture).setScale(scale);
+    const layout = actorArtLayout('leigneron');
+    const density = ART_BY_KEY.leigneron.density;
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    body.setSize(18 / scale, 22 / scale)
+      .setOffset(layout.bodyX * density * artScale('leigneron') / scale,
+        layout.bodyY * density * artScale('leigneron') / scale);
+  }
+
   private playSwordVisual(cooldown:number) {
     this.clearAttackVisual();
     const direction = directionFrame(this.lastDirection.x,this.lastDirection.y) / 6;
+    const slashX = this.x + this.lastDirection.x * 16;
+    const slashY = this.y + this.lastDirection.y * 16;
+    (this.scene as WorldScene).playEffect('slash', slashX, slashY, this.lastDirection);
     const animation = PLAYER_ATTACK_ANIMATIONS[direction], layout = actorArtLayout('leigneron_attack');
     const effect = this.scene.add.sprite(this.x,this.y,'leigneron_attack',animation.frames[0]).setOrigin(.5,layout.originY)
       .setScale(artScale('leigneron_attack')).setDepth(this.depth).setName('player-sword-visual');
@@ -185,10 +200,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   private updateAnimation(x: number, y: number) {
     if (Math.abs(x) < 0.05 && Math.abs(y) < 0.05) {
-      this.anims.stop();
-      const direction = this.lastDirection;
-      this.setFrame(directionFrame(direction.x,direction.y)).setFlipX(false);
+      if (this.texture.key !== 'leigneron_idle') {
+        this.setPresentationTexture('leigneron_idle', actorScaleForHeight('leigneron_idle', 0, 76));
+      }
+      this.anims.play('leigneron-idle', true);
       return;
+    }
+    if (this.texture.key !== 'leigneron') {
+      this.setPresentationTexture('leigneron', artScale('leigneron'));
+      this.anims.stop();
     }
     let key = 'leigneron-down';
     if (Math.abs(x) > Math.abs(y)) key = x < 0 ? 'leigneron-left' : 'leigneron-right';

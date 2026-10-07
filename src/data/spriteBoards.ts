@@ -52,3 +52,16 @@ export function boardSources(board:SpriteBoard):SpriteSource[] {
 export const PLAYER_ATTACK_ANIMATIONS:SpriteAnimation[] = ['down','left','right','up'].map((direction,row) => ({
   key:`leigneron-attack-${direction}`,texture:'leigneron_attack',frames:Array.from({ length:6 },(_,i) => row * 6 + i),frameRate:18,repeat:0,
 }));
+export const PLAYER_IDLE_ANIMATION:SpriteAnimation = {
+  key:'leigneron-idle',texture:'leigneron_idle',frames:Array.from({ length:6 },(_,i) => i),frameRate:2,repeat:-1,
+};
+export const PLAYER_EFFECTS = [
+  { name:'fortification',path:'assets/characters/leigneron/effects/fortification_effect.png' },
+  { name:'hit',path:'assets/characters/leigneron/effects/hit_effect.png' },
+  { name:'heal',path:'assets/characters/leigneron/effects/heal_effect.png' },
+  { name:'slash',path:'assets/characters/leigneron/effects/slash_effect.png' },
+  { name:'teleport',path:'assets/characters/leigneron/effects/teleport_effect.png' },
+] as const;
+export const PLAYER_EFFECT_ANIMATIONS:SpriteAnimation[] = PLAYER_EFFECTS.map(({ name }) => ({
+  key:`effect-${name}`,texture:`effect_${name}`,frames:Array.from({ length:6 },(_,i) => i),frameRate:18,repeat:0,
+}));

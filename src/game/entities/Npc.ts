@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { NpcDefinition, Vec2 } from '../types';
 import { actorArtLayout, ART_BY_KEY, actorScaleForHeight } from '../../data/art';
 import { directionFrame } from '../../data/animationPacks';
-import { PLAYER_ACTOR_HEIGHT } from '../../data/progression';
+import { PLAYER_ACTOR_HEIGHT, npcApparentHeight } from '../../data/progression';
 import { patrolDestination } from '../systems/npcPatrol';
 import { seededRandom } from '../../utils/seededRandom';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -21,15 +21,16 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: WorldScene, definition: NpcDefinition, x: number, y: number, home: Vec2) {
     const texture = definition.spriteTexture ?? 'npcs';
+    const apparentHeight = npcApparentHeight(texture);
     super(scene, x, y, texture, definition.spriteFrame);
     this.definition = definition;
     this.home = { ...home };
     this.rng = seededRandom(`npc-patrol:${definition.id}`);
     this.nextPatrolAt = scene.time.now + 1200 + this.rng() * 1800;
     const layout = actorArtLayout(texture);
-    this.labelY = -(PLAYER_ACTOR_HEIGHT + 12);
+    this.labelY = -(apparentHeight + 12);
     scene.add.existing(this);
-    this.setScale(actorScaleForHeight(texture, definition.spriteFrame, PLAYER_ACTOR_HEIGHT)).setOrigin(.5, layout.originY);
+    this.setScale(actorScaleForHeight(texture, definition.spriteFrame, apparentHeight)).setOrigin(.5, layout.originY);
     scene.physics.add.existing(this);
     const scaleX = this.scaleX, scaleY = this.scaleY, density = ART_BY_KEY[texture].density;
     const body = this.body as Phaser.Physics.Arcade.Body;

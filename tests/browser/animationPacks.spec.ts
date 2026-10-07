@@ -17,9 +17,12 @@ test('new packs load without missing textures and drive facing, locomotion, hit,
     return { error:s.registry.get('assetError'),frames:s.textures.get('enemies').getFrameNames().length,
       shrine:(m.getActor('npc:orin-bell') as Npc).texture.key,smith:(m.getActor('npc:joren-pike') as Npc).texture.key,
       smithy:(m.getActor('town:oakmere:building:3') as Phaser.GameObjects.Sprite).texture.key,
+      idle:s.textures.exists('leigneron_idle'),
+      effects:['fortification','hit','heal','slash','teleport'].map(name => s.textures.exists(`effect_${name}`)),
       animations:Array.from({ length:4 },(_,species) => ['idle','walk','attack','hurt','death'].filter(state => s.anims.exists(`enemy:${species}:${state}`)).length).reduce((a,b)=>a+b,0) };
   });
   expect(assets.error).toBeUndefined(); expect(assets.frames).toBe(119); expect(assets.shrine).toBe('npc_woman'); expect(assets.animations).toBe(20);
+  expect(assets.idle).toBe(true); expect(assets.effects).toEqual([true,true,true,true,true]);
   expect(assets.smith).toBe('npc_blacksmith'); expect(assets.smithy).toBe('world_buildings');
   await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene, m = (s as unknown as Details).contentManager;
@@ -41,11 +44,13 @@ test('new packs load without missing textures and drive facing, locomotion, hit,
     return (s.contentManager.getActor('creature:oakmere-wolf-east') as Enemy).anims.currentAnim?.key;
   });
   await expect.poll(animation).toBe('enemy:0:walk');
-  await page.evaluate(() => {
+  const hitEffect = await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
     const wolf = (s as unknown as Details).contentManager.getActor('creature:oakmere-wolf-east') as Enemy;
     wolf.takeDamage(1,s.player.lastDirection);
+    return Boolean(s.children.getByName('combat-effect:hit'));
   });
+  expect(hitEffect).toBe(true);
   await expect.poll(animation,{ intervals:[20] }).toBe('enemy:0:hurt');
   await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
@@ -53,6 +58,15 @@ test('new packs load without missing textures and drive facing, locomotion, hit,
     s.player.restoreAt(wolf.x + 28,wolf.y);
   });
   await expect.poll(animation,{ intervals:[20] }).toBe('enemy:0:attack');
+  await expect.poll(() => page.evaluate(() => {
+    const s = window.__mernondnaGame!.scene.getScene('world');
+    return Boolean(s.children.getByName('wolf-leap:creature:oakmere-wolf-east'));
+  })).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const s = window.__mernondnaGame!.scene.getScene('world') as unknown as Details & { player: { x:number; y:number } };
+    const wolf = s.contentManager.getActor('creature:oakmere-wolf-east') as Enemy;
+    return Math.hypot(s.player.x - wolf.x,s.player.y - wolf.y);
+  })).toBeGreaterThan(32);
   await page.screenshot({ path:'test-results/new-enemy-animations.png' });
   const death = await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene, m = (s as unknown as Details).contentManager;
@@ -79,6 +93,8 @@ test('a missing required pack shows a useful loading error instead of a playable
 test('the supplied sword poses run through the shared input path without resizing the player body', async ({ page }) => {
   await page.goto('/?e2e');
   await page.waitForFunction(() => (window.__mernondnaGame?.scene.getScene('world') as WorldScene)?.player?.active);
+  await expect.poll(() => page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.texture.key))
+    .toBe('leigneron_idle');
   await page.keyboard.press('Space');
   await page.waitForFunction(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).children.getByName('player-sword-visual'));
   const attack = await page.evaluate(() => {
@@ -91,6 +107,8 @@ test('the supplied sword poses run through the shared input path without resizin
   expect(attack.animation).toBe('leigneron-attack-down'); expect(attack.texture).toBe('leigneron_attack');
   expect(attack.body).toEqual([18,22]); expect(attack.physical).toBe(false); expect(attack.heroAlpha).toBe(0);
   expect(attack.stamina).toBeLessThan(100);
+  await expect.poll(() => page.evaluate(() => Boolean(
+    window.__mernondnaGame!.scene.getScene('world').children.getByName('combat-effect:slash')))).toBe(true);
   await page.keyboard.press('i');
   await expect(page.getByRole('heading',{ name:'Inventory' })).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.alpha)).toBe(1);

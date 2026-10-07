@@ -43,19 +43,26 @@ test('desktop movement, sprint, dash, menus, terrain chunks and NPC conversation
   await expect.poll(async () => (await snapshot(page)).vx, { intervals: [20] }).toBeGreaterThan(400);
   expect(await page.evaluate(() => window.__mernondnaGame!.scene.getScene('world').children.list
     .some(child => child.name === 'player-dash-afterimage'))).toBe(true);
+  expect(await page.evaluate(() => Boolean(window.__mernondnaGame!.scene.getScene('world').children.getByName('combat-effect:fortification')))).toBe(true);
   await page.keyboard.up('q'); await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.waitForTimeout(200);
   const lighting = await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as unknown as {
-      player: { x: number; y: number }; dayNight: { minuteOfDay: number; update(delta: number, x: number, y: number): void };
+      player: { x: number; y: number; depth: number };
+      dayNight: { minuteOfDay: number; overlay: { alpha:number; depth:number }; playerGlow: { depth:number };
+        update(delta: number, x: number, y: number): void };
       children: { list: Array<{ name: string; visible: boolean }> };
     };
     s.dayNight.minuteOfDay = 22 * 60;
     s.dayNight.update(16, s.player.x, s.player.y);
     return { playerGlow: s.children.list.some(child => child.name === 'night-player-light' && child.visible),
-      fireflies: s.children.list.filter(child => child.name === 'firefly-light' && child.visible).length };
+      fireflies: s.children.list.filter(child => child.name === 'firefly-light' && child.visible).length,
+      darkness:s.dayNight.overlay.alpha, overlayAboveWorld:s.dayNight.overlay.depth > s.player.depth,
+      glowAboveOverlay:s.dayNight.playerGlow.depth > s.dayNight.overlay.depth };
   });
   expect(lighting.playerGlow).toBe(true); expect(lighting.fireflies).toBeGreaterThan(0);
+  expect(lighting.darkness).toBeGreaterThan(0.6);
+  expect(lighting.overlayAboveWorld).toBe(true); expect(lighting.glowAboveOverlay).toBe(true);
   await page.keyboard.press('m');
   await expect(page.getByRole('dialog', { name: 'Mernodna world map' })).toBeVisible();
   await expect.poll(() => page.locator('.world-map-wrap img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);

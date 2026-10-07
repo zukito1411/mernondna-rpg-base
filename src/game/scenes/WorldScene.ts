@@ -250,6 +250,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.player.takeDamage(amount);
   }
 
+  playEffect(kind: 'fortification' | 'hit' | 'heal' | 'slash' | 'teleport', x: number, y: number, direction?: Phaser.Math.Vector2) {
+    const texture = ({
+      fortification:'effect_fortification', hit:'effect_hit', heal:'effect_heal',
+      slash:'effect_slash', teleport:'effect_teleport',
+    } as const)[kind];
+    const animation = `effect-${kind}`;
+    const effect = this.add.sprite(x, y, texture, 0).setOrigin(.5)
+      .setScale(artScale(texture) * (kind === 'slash' || kind === 'teleport' ? 1.35 : 1))
+      .setDepth(y + 1).setName(`combat-effect:${kind}`);
+    if (direction) effect.setRotation(Math.atan2(direction.y, direction.x) - Math.PI / 4);
+    effect.play(animation);
+    effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => effect.destroy());
+  }
+
   handleEnemyDefeated(enemy: Enemy) {
     const definition = enemy.definition;
     const rng = seededRandom(`${enemy.instanceId}:loot`);
@@ -269,6 +283,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const home = TOWN_BY_ID[LEIGNERON.homeTownId].world;
     useGameStore.getState().showToast('Leigneron collapses and wakes in Oakmere.');
     this.player.restoreAt(home.x, home.y + 80);
+    this.playEffect('teleport', this.player.x, this.player.y);
     this.lastSafe = { x: this.player.x, y: this.player.y };
   }
 
@@ -454,7 +469,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (state.used) { this.notify(definition.repeatText); return; }
     this.contentManager.patchState(definition.id, { used: true });
     actor.setTint(0x99907b);
-    if (definition.restoreHp) this.player.hp = Math.min(this.player.maxHp, this.player.hp + definition.restoreHp);
+    if (definition.restoreHp) {
+      const previousHp = this.player.hp;
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + definition.restoreHp);
+      if (this.player.hp > previousHp) this.playEffect('heal', this.player.x, this.player.y);
+    }
     const store = useGameStore.getState();
     store.hydrate({ worldContent: this.contentManager.snapshot(), gold: store.gold + (definition.rewardGold ?? 0) });
     this.notify(definition.description);

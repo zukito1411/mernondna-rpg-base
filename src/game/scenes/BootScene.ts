@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize } from '../../data/art';
 import { ENEMY_ANIMATIONS } from '../../data/animationPacks';
-import { PLAYER_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
+import { PLAYER_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
 import { alphaFrameBounds } from '../systems/spriteArt';
 
 export class BootScene extends Phaser.Scene {
@@ -48,17 +48,19 @@ export class BootScene extends Phaser.Scene {
         if (packed && (frameSource.width !== packed.imageSize[0] || frameSource.height !== packed.imageSize[1])) {
           throw new Error(`Sprite dimensions disagree with manifest: ${packed.path}`);
         }
-        if (packed && !pixels.has(packed.path)) {
+        if ((packed || sheet.trimRegions) && !pixels.has(packed?.path ?? sheet.path)) {
           const canvas = document.createElement('canvas'); canvas.width = frameSource.width; canvas.height = frameSource.height;
           const context = canvas.getContext('2d',{ willReadFrequently:true })!;
           context.drawImage(frameSource,0,0);
-          pixels.set(packed.path,{ data:context.getImageData(0,0,canvas.width,canvas.height).data,width:canvas.width });
-          loaded.add(packed.path);
+          const pixelPath = packed?.path ?? sheet.path;
+          pixels.set(pixelPath,{ data:context.getImageData(0,0,canvas.width,canvas.height).data,width:canvas.width });
+          loaded.add(pixelPath);
         }
         const sourceWidth = source.width / sheet.columns;
         const inset = sheet.sourceInset ?? 0;
-        const data = packed ? pixels.get(packed.path)! : undefined;
-        const region = packed ? alphaFrameBounds(data!.data,data!.width,packed.cell) : sheet.regions?.[frame];
+        const data = packed ? pixels.get(packed.path) : sheet.trimRegions ? pixels.get(sheet.path) : undefined;
+        const cell = packed?.cell ?? sheet.regions?.[frame];
+        const region = data && cell ? alphaFrameBounds(data.data,data.width,cell) : sheet.regions?.[frame];
         if (packed && !region) throw new Error(`Empty sprite frame: ${packed.name}`);
         if (packed && region && sheet.contentSize && (region[2] > sheet.contentSize[0] || region[3] > sheet.contentSize[1])) {
           throw new Error(`Sprite alpha bounds changed; update art metadata: ${packed.name}`);
@@ -87,7 +89,7 @@ export class BootScene extends Phaser.Scene {
       texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
     for (const path of loaded) this.textures.remove(`source:${path}`);
-    for (const { key,texture,frames,frameRate,repeat } of [...PLAYER_ANIMATIONS,...NPC_ANIMATIONS,...ENEMY_ANIMATIONS,...PLAYER_ATTACK_ANIMATIONS]) {
+    for (const { key,texture,frames,frameRate,repeat } of [...PLAYER_ANIMATIONS,...NPC_ANIMATIONS,...ENEMY_ANIMATIONS,...PLAYER_ATTACK_ANIMATIONS,...PLAYER_EFFECT_ANIMATIONS]) {
       this.anims.create({ key,frames:frames.map(frame => ({ key:texture,frame })),frameRate,repeat });
     }
     this.scene.start('world');
