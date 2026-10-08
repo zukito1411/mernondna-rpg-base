@@ -12,7 +12,7 @@ describe('settlement land-use and circulation', () => {
   const world = new WorldGenerator(), oak = SETTLEMENT_BY_ID.oakmere, home = TOWN_BY_ID.oakmere.world;
   it('keeps the original building IDs and connects every frontage to a street network', () => {
     for (const layout of SETTLEMENT_LAYOUTS) {
-      const town = TOWN_BY_ID[layout.townId], count = town.kind === 'capital' ? 10 : town.kind === 'village' ? 5 : 7;
+      const town = TOWN_BY_ID[layout.townId], count = layout.townId === 'highmere' ? 34 : town.kind === 'capital' ? 10 : town.kind === 'village' ? 5 : 7;
       expect(layout.buildings.length, town.id).toBe(count);
       for (let i = 0; i < count; i++) expect(CONTENT_BY_ID[`town:${town.id}:building:${i}`]).toBeTruthy();
       const reachable = new Set([0]);
@@ -52,9 +52,10 @@ describe('settlement land-use and circulation', () => {
   });
   it('keeps named NPCs, spawn and interactive sites reachable without deleting saved identities', () => {
     for (const npc of NPCS) {
-      const x = home.x + npc.worldOffset.x, y = home.y + npc.worldOffset.y;
+      const town=TOWN_BY_ID[npc.townId],layout=SETTLEMENT_BY_ID[npc.townId];
+      const x = town.world.x + npc.worldOffset.x, y = town.world.y + npc.worldOffset.y;
       expect(world.isWalkable(x,y)).toBe(true);
-      for (const lot of oak.buildings) {
+      for (const lot of layout.buildings) {
         const f = worldPropFootprint(lot.frame,lot.scale);
         expect(Math.abs(npc.worldOffset.x - lot.x) < f.width / 2 + 9 && npc.worldOffset.y > lot.y - f.height - 22 && npc.worldOffset.y < lot.y, npc.id).toBe(false);
       }
@@ -71,7 +72,7 @@ describe('settlement land-use and circulation', () => {
       expect(oak.streets.some(s => onStreet(tree.x,tree.y,s,18)),tree.id).toBe(false);
       expect(oak.parcels.some(p => p.terrain === 'farmland' && inParcel(tree.x,tree.y,p))).toBe(false);
       const size = artFrameSize('world_assets',tree.frame);
-      for (const npc of NPCS) {
+      for (const npc of NPCS.filter(npc => npc.townId === 'oakmere')) {
         if (tree.y <= npc.worldOffset.y) continue; // NPC renders in front of this tree.
         const actor = artFrameSize(npc.spriteTexture ?? 'npcs',npc.spriteFrame);
         const overlapX = Math.abs(tree.x - npc.worldOffset.x) < (size.width * tree.scale + actor.width) / 2;

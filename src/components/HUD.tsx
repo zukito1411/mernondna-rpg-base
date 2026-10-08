@@ -23,11 +23,14 @@ export function HUD() {
   const day = useGameStore((s) => s.day);
   const minute = useGameStore((s) => s.minuteOfDay);
   const quests = useGameStore((s) => s.quests);
+  const tracked=useGameStore(s=>s.trackedQuestId);
   const openPanel = useGameStore((s) => s.openPanel);
   const interaction = useGameStore(s => s.navigation.interaction);
-  const blocked = useGameStore(s => Boolean(s.panel || s.dialogue));
+  const blocked = useGameStore(s => Boolean(s.panel || s.dialogue || s.cinematic));
+  const bossEncounter = useGameStore(s => s.bossEncounter);
+  const cinematic=useGameStore(s=>s.cinematic);
 
-  const active = activeObjective(quests);
+  const active = activeObjective(quests,tracked);
 
   const hour = Math.floor(minute / 60);
   const mins = Math.floor(minute % 60);
@@ -36,6 +39,7 @@ export function HUD() {
   const regionName = regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[regionId]?.name ?? regionId;
   const location = townId ? TOWN_BY_ID[townId]?.name ?? regionName : regionName;
 
+  if(cinematic)return null;
   return (
     <div className="hud-layer" aria-live="polite">
       <section className="status-card">
@@ -53,7 +57,15 @@ export function HUD() {
         <strong>{active?.quest.name ?? 'No active quest'}</strong>
         <span className="quest-objective">{active?.objective.text ?? 'Explore Mernodna freely.'}</span>
         <QuestCompass />
+        <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
       </section>
+      {bossEncounter && <section className="boss-encounter-card" aria-label={`${bossEncounter.name} boss health`}>
+        <strong>{bossEncounter.name}</strong>
+        <div className="boss-health-meter" role="progressbar" aria-label={`${bossEncounter.name} health`}
+          aria-valuemin={0} aria-valuemax={bossEncounter.maxHp} aria-valuenow={bossEncounter.hp}>
+          <div style={{ width: barPercent(bossEncounter.hp, bossEncounter.maxHp) }} />
+        </div>
+      </section>}
       <MiniMap />
       {!blocked && interaction && <div className="interaction-hint"><kbd>E</kbd><span>{interaction}</span><small>or tap nearby</small></div>}
 
@@ -64,7 +76,7 @@ export function HUD() {
         <button type="button" onClick={() => openPanel('pause')}>Menu <kbd>Esc</kbd></button>
       </div>
 
-      <div className="pc-hint">WASD move · Shift sprint · Q dash · Space attack · E interact · C status</div>
+      <div className="pc-hint">WASD move · Shift sprint · Q dash · Space attack · 1–4 combat arts · E interact · C status</div>
     </div>
   );
 }

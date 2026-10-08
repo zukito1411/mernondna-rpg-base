@@ -12,14 +12,27 @@
     },
     "walk": {
       "png": "assets/enemies/gray_wolf/walk.png",
-      "webp": "assets/enemies/gray_wolf/walk.webp",
+      "frameWidth": 362,
+      "frameHeight": 724,
+      "renderScale": 0.22,
+      "regions": [
+        [13, 260, 329, 192], [373, 262, 348, 186], [741, 261, 325, 188],
+        [1089, 246, 294, 207], [1431, 261, 335, 191], [1794, 261, 350, 191]
+      ],
       "frames": 6,
-      "frameRate": 10,
+      "frameRate": 12,
       "repeat": -1
     },
     "attack": {
       "png": "assets/enemies/gray_wolf/attack.png",
       "webp": "assets/enemies/gray_wolf/attack.webp",
+      "frameWidth": 362,
+      "frameHeight": 724,
+      "renderScale": 0.22,
+      "regions": [
+        [13, 260, 329, 192], [373, 262, 348, 186], [741, 261, 325, 188],
+        [1089, 246, 294, 207], [1431, 261, 335, 191], [1794, 261, 350, 191]
+      ],
       "frames": 6,
       "frameRate": 12,
       "repeat": 0

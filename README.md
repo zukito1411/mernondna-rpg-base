@@ -23,6 +23,13 @@ npm run dev
 
 Open the local Vite address shown in the terminal.
 
+The web build is also installable as a standalone app. Serve `npm run build` with
+`npm run preview` on localhost, or deploy it over HTTPS, then use your browser's
+**Install app** control. The manifest includes 192/512-pixel icons and a
+service worker that caches visited game files for subsequent offline use.
+Installation support and UI vary by browser; the browser build and Capacitor
+packages use the same game code.
+
 Build a production web version:
 
 ```bash
@@ -53,9 +60,12 @@ Browser tests use installed Google Chrome, run headlessly, and start a local Vit
 - `Shift` — sprint
 - `Q` — dash
 - `Space` — attack
+- `1`–`4` — Azure Cleave, Skyfall Slam, Crown Rally and Crescent Flurry
+- `J` — quest journal and story tracking (also available from the HUD)
 - `E` — interact
 - `M` — world map
 - `I` — inventory / gear
+- `C` — status and skills
 - `Esc` — menu
 
 ### Mobile / touch
@@ -64,10 +74,20 @@ Browser tests use installed Google Chrome, run headlessly, and start a local Vit
 - `⚔` — attack
 - `Dash` — dash
 - `Run` — hold to sprint
+- Four numbered combat-art buttons — the same skills as PC keys `1`–`4`
 - `E` — interact
 - HUD buttons — map, gear, menu
 
 The same React/Phaser codebase is used for both.
+
+Click/tap the minimap (or press `M`) to open the full map. Select a settlement
+pin, then confirm **Teleport**. Interact with a settlement's shrine using `E`
+or the touch Interact button to unlock that destination. Shrine discoveries
+persist in your existing save; the shrine's own travel menu also remains available.
+
+When running the Vite development server on localhost or a private LAN address,
+all settlement destinations are available for local exploration. This bypass
+does not permanently unlock shrines and is disabled in production builds.
 
 ## Native Android later with Capacitor
 
@@ -90,7 +110,7 @@ The base also works directly in mobile browsers, so Android packaging is not req
 - streamed 3×3 terrain chunk rendering around the player
 - matching content streaming for settlements, props, NPCs, creatures, bosses and interactables
 - persistent wounded/defeated creatures, used caches/harvestables and NPC logical state
-- validated version 2 saves with migration from the original version 1 format
+- validated version 4 saves with migration from versions 1–3
 - approximately continent-scale world coordinates rather than room-sized levels
 - region-aware procedural terrain
 - coastline/ocean blocking
@@ -158,5 +178,7 @@ The supplied sprite strips/boards use manifest cells or measured alpha bounds in
 Oakmere now uses shared street/parcel/building/tree definitions rather than scattered lots. See `docs/SETTLEMENT_DESIGN.md` for the reference-map interpretation, field access rules, visual proportions, tests and remaining prototype limits. Author local layouts in `src/data/settlements.ts`; terrain and streamed props consume the same plan.
 
 ## Continue with Codex
+
+The current environmental repair is documented in [docs/WORLD_REPAIR.md](docs/WORLD_REPAIR.md): individual layouts for all eleven settlements, full-sprite road clearance, retired perimeter walls, corrected atlas crops, localized night lighting and save-safe placement repair. Original assets and continuous chunk streaming are retained.
 
 Open `docs/CODEX_CONTINUATION_PROMPT.md`, copy the prompt into Codex, and let Codex work milestone-by-milestone in this repository.

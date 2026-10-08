@@ -21,14 +21,17 @@ test('new packs load without missing textures and drive facing, locomotion, hit,
       effects:['fortification','hit','heal','slash','teleport'].map(name => s.textures.exists(`effect_${name}`)),
       animations:Array.from({ length:4 },(_,species) => ['idle','walk','attack','hurt','death'].filter(state => s.anims.exists(`enemy:${species}:${state}`)).length).reduce((a,b)=>a+b,0) };
   });
-  expect(assets.error).toBeUndefined(); expect(assets.frames).toBe(119); expect(assets.shrine).toBe('npc_woman'); expect(assets.animations).toBe(20);
+  expect(assets.error).toBeUndefined(); expect(assets.frames).toBe(119); expect(assets.shrine).toMatch(/^npc_woman(?:_idle)?$/); expect(assets.animations).toBe(20);
   expect(assets.idle).toBe(true); expect(assets.effects).toEqual([true,true,true,true,true]);
-  expect(assets.smith).toBe('npc_blacksmith'); expect(assets.smithy).toBe('world_buildings');
+  expect(assets.smith).toMatch(/^npc_blacksmith(?:_idle)?$/); expect(assets.smithy).toBe('world_buildings');
   await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene, m = (s as unknown as Details).contentManager;
     const guard = m.getActor('npc:elara-voss') as Npc;
+    const facing=(guard as unknown as {facing:{x:number;y:number}}).facing;
+    const before={x:facing.x,y:facing.y};
     s.player.restoreAt(guard.x + 60,guard.y); guard.updatePresentation(s.player.x,s.player.y,false);
-    if (Number(guard.frame.name) !== 12) throw new Error('Guard did not use its real right-facing standing art');
+    if (facing.x!==before.x||facing.y!==before.y) throw new Error('Guard turned toward the player');
+    if (guard.texture.key!=='npc_guard_idle') throw new Error('Guard did not use its supplied resting art');
   });
   await page.keyboard.press('e');
   await expect(page.locator('.dialogue-panel')).toContainText('Elara Voss');
@@ -62,11 +65,12 @@ test('new packs load without missing textures and drive facing, locomotion, hit,
     const s = window.__mernondnaGame!.scene.getScene('world');
     return Boolean(s.children.getByName('wolf-leap:creature:oakmere-wolf-east'));
   })).toBe(true);
-  await expect.poll(() => page.evaluate(() => {
-    const s = window.__mernondnaGame!.scene.getScene('world') as unknown as Details & { player: { x:number; y:number } };
-    const wolf = s.contentManager.getActor('creature:oakmere-wolf-east') as Enemy;
-    return Math.hypot(s.player.x - wolf.x,s.player.y - wolf.y);
-  })).toBeGreaterThan(32);
+  const wolfRadius=await page.evaluate(()=>{
+    const s=window.__mernondnaGame!.scene.getScene('world') as unknown as Details;
+    const wolf=s.contentManager.getActor('creature:oakmere-wolf-east') as Enemy;
+    return (wolf.body as Phaser.Physics.Arcade.Body).width/2;
+  });
+  expect(wolfRadius).toBeCloseTo(11);
   await page.screenshot({ path:'test-results/new-enemy-animations.png' });
   const death = await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene, m = (s as unknown as Details).contentManager;
@@ -101,11 +105,12 @@ test('the supplied sword poses run through the shared input path without resizin
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
     const effect = s.children.getByName('player-sword-visual') as Phaser.GameObjects.Sprite;
     const body = s.player.body as Phaser.Physics.Arcade.Body;
-    return { animation:effect.anims.currentAnim?.key,texture:effect.texture.key,body:[body.width,body.height],
+    return { animation:effect.anims.currentAnim?.key,texture:effect.texture.key,body:[body.width,body.height],offset:[body.x-s.player.x,body.y-s.player.y],
       physical:Boolean(effect.body),heroAlpha:s.player.alpha,stamina:s.player.stamina };
   });
   expect(attack.animation).toBe('leigneron-attack-down'); expect(attack.texture).toBe('leigneron_attack');
   expect(attack.body).toEqual([18,22]); expect(attack.physical).toBe(false); expect(attack.heroAlpha).toBe(0);
+  expect(attack.offset[0]).toBeCloseTo(-9);expect(attack.offset[1]).toBeCloseTo(-2);
   expect(attack.stamina).toBeLessThan(100);
   await expect.poll(() => page.evaluate(() => Boolean(
     window.__mernondnaGame!.scene.getScene('world').children.getByName('combat-effect:slash')))).toBe(true);

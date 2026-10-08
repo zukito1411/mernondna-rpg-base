@@ -1,15 +1,31 @@
 import { create } from 'zustand';
-import type { ContentWorldState, NavigationState, QuestRuntimeState, RegionId } from '../game/types';
+import type { ContentWorldState, NavigationState, QuestObjective, QuestRuntimeState, RegionId } from '../game/types';
 import { LEIGNERON } from '../data/player';
 import { NPC_BY_ID } from '../data/npcs';
+import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
+import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
+import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
 import { BASE_ATTRIBUTES, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { QUEST_BY_ID } from '../data/quests';
+import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 
-type Panel = 'map' | 'inventory' | 'character' | 'pause' | null;
+type Panel = 'map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | null;
 
 export interface DialogueState {
   npcId: string;
   lineIndex: number;
+  lines?:string[];
+  questId?:string;
+  objectiveId?:string;
+  choices?:QuestObjective['choices'];
+}
+
+export interface BossEncounter {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
 }
 
 export interface GameState {
@@ -38,20 +54,42 @@ export interface GameState {
   toast: string | null;
   quests: Record<string, QuestRuntimeState>;
   defeatedBosses: string[];
+  bossEncounter: BossEncounter | null;
   worldContent: ContentWorldState;
+  unlockedTownShrines:string[];
+  travelOriginTownId:string | null;
+  travelRequest:string | null;
+  travelRequestSource:'map' | 'shrine' | null;
   navigation: NavigationState;
+  activeSkillStatus:ActiveSkillStatus;
+  storyFlags:Record<string,boolean>;
+  storyChoices:Record<string,string>;
+  trackedQuestId:string|null;
+  cinematic:{id:string;title:string;line:string}|null;
+  pendingCinematic:string|null;
+  skipCinematicRequested:boolean;
+  chooseDialogue:(id:string)=>void;
+  trackQuest:(id:string)=>void;
+  setStoryFlag:(id:string)=>void;
+  requestCinematicSkip:()=>void;
+  setActiveSkillStatus:(status:ActiveSkillStatus) => void;
+  setBossEncounter:(encounter:BossEncounter | null) => void;
   setVitals: (hp: number, stamina: number) => void;
   damagePlayer: (amount: number) => void;
   setWorldStatus: (worldX: number, worldY: number, regionId: RegionId, townId: string | null) => void;
   setClock: (day: number, minuteOfDay: number) => void;
   openPanel: (panel: Exclude<Panel, null>) => void;
   closePanel: () => void;
+  openShrineTravel:(townId:string) => void;
+  requestShrineTravel:(townId:string) => void;
+  requestMapTravel:(townId:string) => void;
+  clearShrineTravelRequest:() => void;
   startDialogue: (npcId: string) => void;
   advanceDialogue: () => void;
   endDialogue: () => void;
   showToast: (message: string) => void;
   clearToast: () => void;
-  progressQuest: (type: 'talk' | 'kill' | 'visit' | 'collect', targetId: string, amount?: number) => void;
+  progressQuest: (type: QuestObjective['type'], targetId: string, amount?: number) => void;
   addRewards: (xp: number, gold: number) => void;
   markBossDefeated: (bossId: string) => void;
   recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState) => void;
@@ -63,12 +101,7 @@ export interface GameState {
   resetGame: () => void;
 }
 
-const initialQuestState = (): Record<string, QuestRuntimeState> => ({
-  'first-road': {
-    status: 'active',
-    objectiveProgress: {},
-  },
-});
+const initialQuestState = initialQuests;
 
 const baseState = () => ({
   playerName: LEIGNERON.name,
@@ -96,8 +129,16 @@ const baseState = () => ({
   toast: 'Welcome to Mernodna.',
   quests: initialQuestState(),
   defeatedBosses: [] as string[],
+  bossEncounter: null as BossEncounter | null,
   worldContent: { states: {}, spawns: {}, nextSpawnSequence: 0 } as ContentWorldState,
+  unlockedTownShrines:[] as string[],
+  travelOriginTownId:null as string | null,
+  travelRequest:null as string | null,
+  travelRequestSource:null as 'map' | 'shrine' | null,
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
+  activeSkillStatus:initialActiveSkillStatus(),
+  storyFlags:{} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:null as string|null,
+  cinematic:null as GameState['cinematic'],pendingCinematic:null as string|null,skipCinematicRequested:false,
 });
 
 function experienceProgress(state: GameState, xp: number) {
@@ -119,24 +160,74 @@ export const useGameStore = create<GameState>((set, get) => ({
   damagePlayer: (amount) => set((state) => ({ hp: Math.max(0, state.hp - amount) })),
   setWorldStatus: (worldX, worldY, regionId, townId) => set({ worldX, worldY, regionId, townId }),
   setClock: (day, minuteOfDay) => set({ day, minuteOfDay }),
-  openPanel: (panel) => set({ panel }),
-  closePanel: () => set({ panel: null }),
+  openPanel: (panel) => {if(!get().cinematic)set({ panel });},
+  closePanel: () => set({ panel: null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
+  openShrineTravel:(townId) => set(state => {
+    if (!Object.hasOwn(TOWN_BY_ID,townId)) return {};
+    const unlocked = state.unlockedTownShrines.includes(townId);
+    return { panel:'travel',travelOriginTownId:townId,travelRequest:null,travelRequestSource:null,
+      unlockedTownShrines:unlocked ? state.unlockedTownShrines : [...state.unlockedTownShrines,townId],
+      ...(!unlocked ? { toast:`${TOWN_BY_ID[townId].name} shrine attuned. Shrine travel unlocked.` } : {}) };
+  }),
+  requestShrineTravel:(townId) => set(state => {
+    if (state.panel !== 'travel' || !state.travelOriginTownId || townId === state.travelOriginTownId
+      || !Object.hasOwn(TOWN_BY_ID,townId)
+      || !localSettlementTravelEnabled() && !state.unlockedTownShrines.includes(townId)) return {};
+    return { travelRequest:townId,travelRequestSource:'shrine',panel:null };
+  }),
+  requestMapTravel:(townId) => set(state => {
+    if (state.panel !== 'map' || state.dialogue || !Object.hasOwn(TOWN_BY_ID,townId)
+      || !localSettlementTravelEnabled() && !state.unlockedTownShrines.includes(townId)) return {};
+    return { travelRequest:townId,travelRequestSource:'map',travelOriginTownId:null,panel:null };
+  }),
+  clearShrineTravelRequest:() => set({ travelRequest:null,travelOriginTownId:null,travelRequestSource:null }),
   startDialogue: (npcId) => {
-    if (!NPC_BY_ID[npcId] || get().panel || get().dialogue) return;
-    set({ dialogue: { npcId, lineIndex: 0 } });
-    get().progressQuest('talk', npcId, 1);
+    const state=get(),npc=NPC_BY_ID[npcId];
+    if (!npc || state.panel || state.dialogue || state.cinematic) return;
+    let quests=state.quests,trackedQuestId=state.trackedQuestId;
+    for(const id of npc.questIds) {
+      const q=QUEST_BY_ID[id];
+      if(q && quests[id]?.status==='locked' && (!q.prerequisiteQuestId || quests[q.prerequisiteQuestId]?.status==='completed') && !['first-road','eight-regions'].includes(id)) {
+        quests={...quests,[id]:{status:'active',objectiveProgress:{}}};trackedQuestId=id;
+      }
+    }
+    const context=conversationObjective(npcId,quests,trackedQuestId);
+    const outcome=state.storyFlags['relief-household-charter']?'The household relief charter is posted. The kitchen allotment is guaranteed.':state.storyFlags['relief-joint-council']?'Maela and Nella now share the relief council. The stock accounts are public.':null;
+    const lines=context?.objective.dialogue ?? (outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
+    set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
+    if(context && ['talk','deliver'].includes(context.objective.type)) get().progressQuest(context.objective.type,npcId);
   },
   advanceDialogue: () => set((state) => state.dialogue ? { dialogue: { ...state.dialogue, lineIndex: state.dialogue.lineIndex + 1 } } : {}),
   endDialogue: () => set({ dialogue: null }),
+  chooseDialogue:(id)=>{
+    const state=get(),dialogue=state.dialogue;
+    if(!dialogue || dialogue.lineIndex<(dialogue.lines?.length??1)-1 || !dialogue.questId) return;
+    const objective=QUEST_BY_ID[dialogue.questId]?.objectives.find(o=>o.id===dialogue.objectiveId);
+    const choice=dialogue.choices?.find(c=>c.id===id);
+    if(!objective||!choice) return;
+    if(choice.correct===false){set({toast:choice.response});return;}
+    set({storyChoices:{...state.storyChoices,[dialogue.questId+':'+objective.id]:id},
+      storyFlags:{...state.storyFlags,...(choice.flag?{[choice.flag]:true}:{})},dialogue:null});
+    get().progressQuest(objective.type,objective.targetId);
+    get().showToast(choice.response);
+  },
+  trackQuest:(id)=>{if(get().quests[id]?.status==='active')set({trackedQuestId:id});},
+  setStoryFlag:(id)=>set(state=>({storyFlags:{...state.storyFlags,[id]:true}})),
+  requestCinematicSkip:()=>set({skipCinematicRequested:true}),
   showToast: (message) => set({ toast: message }),
   clearToast: () => set({ toast: null }),
   progressQuest: (type, targetId, amount = 1) => {
     if (!Number.isFinite(amount) || amount <= 0) return;
     const state = get();
     const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount });
+    const completedObjective=Object.entries(state.quests).flatMap(([id])=>{
+      const before=QUEST_BY_ID[id];return before?.objectives.filter(o=>o.type===type&&o.targetId===targetId&&o.cinematicId
+        && (state.quests[id].objectiveProgress[o.id]??0)<o.amount&&(result.quests[id]?.objectiveProgress[o.id]??0)>=o.amount)??[];
+    })[0];
     const progression = experienceProgress(state, result.xp);
     const rewardToast = result.xp || result.gold ? `Quest complete — +${result.xp} XP, +${result.gold} gold` : null;
     set({ quests: result.quests, gold: state.gold + result.gold, ...progression,
+      ...(completedObjective?.cinematicId?{pendingCinematic:completedObjective.cinematicId}:{}),
       ...(rewardToast ? { toast: progression.toast ? `${rewardToast}. ${progression.toast}` : rewardToast } : {}),
     });
   },
@@ -169,6 +260,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   setContentWorld: (worldContent) => set({ worldContent }),
   setNavigation: (navigation) => set({ navigation }),
+  setActiveSkillStatus:(activeSkillStatus) => set({ activeSkillStatus }),
+  setBossEncounter:(bossEncounter) => set({ bossEncounter }),
   hydrate: (partial) => set(partial),
   resetGame: () => set(baseState()),
 }));

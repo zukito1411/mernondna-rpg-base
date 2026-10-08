@@ -42,7 +42,7 @@ test(`navigation, sprite readability and name-label lifecycle at ${viewport.widt
   });
   expect(details.names).toHaveLength(9); expect(details.names).toContain('Aldren Vale');
   expect(details.heroFrameHeight).toBe(320); expect(details.heroDisplayHeight).toBe(80);
-  expect(details.bodySize).toEqual([18,22]); expect(details.guardTexture).toBe('npc_guard');
+  expect(details.bodySize).toEqual([18,22]); expect(details.guardTexture).toMatch(/^npc_guard(?:_idle)?$/);
   expect(details.cottageWidth).toBeCloseTo(224); expect(details.textureFilter).toBe(0);
   expect(new Set(details.propFrames).size).toBe(8);
   for (const height of details.alphaHeights) expect(height).toBeGreaterThan(20);
@@ -64,10 +64,14 @@ test(`navigation, sprite readability and name-label lifecycle at ${viewport.widt
   await expect(page.locator('.interaction-hint')).toContainText('Talk to Aldren Vale');
   await page.screenshot({ path: `test-results/navigation-${viewport.width}.png` });
   await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.restoreAt(31*1536+768,22*1536+848));
+  await page.getByRole('button',{name:'Skip scene · Esc'}).click();
+  await expect(page.getByRole('region',{name:'Story scene'})).toBeHidden();
   await expect.poll(() => page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
     return s.children.list.filter(n => n.name.startsWith('npc-name:')).length;
-  })).toBe(0);
+  })).toBeGreaterThanOrEqual(16);
+  expect(await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).children.list
+    .filter(n => n.name.startsWith('npc-name:')).map(n => (n as Phaser.GameObjects.Text).text))).toContain('Yselle Ward');
   await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.restoreAt(22*1536+768,25*1536+848));
   await expect.poll(() => page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;

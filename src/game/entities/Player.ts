@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { mobileInput } from '../input';
+import { mobileInput, type MobileAction } from '../input';
 import { useGameStore } from '../../store/gameStore';
 import type { WorldScene } from '../scenes/WorldScene';
 import { artScale, ART_BY_KEY, actorArtLayout, actorScaleForHeight } from '../../data/art';
@@ -7,21 +7,26 @@ import { directionFrame } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
 import { animationDuration } from '../../data/animationPacks';
 import { progressionStats } from '../../data/progression';
+import { ACTIVE_SKILLS } from '../../data/activeSkills';
+import { PlayerSkillSystem } from '../systems/PlayerSkillSystem';
+import { RecoverySystem } from '../systems/RecoverySystem';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly moveSpeed = 165;
+  readonly skills:PlayerSkillSystem;
+  readonly recovery=new RecoverySystem();
   hp: number;
   maxHp: number;
   stamina: number;
   maxStamina: number;
   lastDirection = new Phaser.Math.Vector2(0, 1);
-  private readonly keys: Record<'up' | 'down' | 'left' | 'right' | 'sprint' | 'dash' | 'attack' | 'interact', Phaser.Input.Keyboard.Key>;
+  private readonly keys: Record<'up' | 'down' | 'left' | 'right' | 'sprint' | MobileAction, Phaser.Input.Keyboard.Key>;
   private nextAttackAt = 0;
   private nextDashAt = 0;
   private dashUntil = 0;
   private dashDirection = new Phaser.Math.Vector2(0, 1);
   private nextDashTrailAt = 0;
-  private readonly pressed = new Set<'dash' | 'attack' | 'interact'>();
+  private readonly pressed = new Set<MobileAction>();
   private attackVisual:Phaser.GameObjects.Sprite | null = null;
 
   constructor(scene: WorldScene, x: number, y: number) {
@@ -31,7 +36,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setScale(artScale('leigneron')).setOrigin(.5, layout.originY);
     scene.physics.add.existing(this);
     this.setDepth(y);
-    this.once('destroy',() => this.clearAttackVisual());
+    this.once('destroy',() => { this.clearAttackVisual(); this.skills?.destroy(); });
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     const density = ART_BY_KEY.leigneron.density;
@@ -44,13 +49,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.maxHp = state.maxHp;
     this.stamina = state.stamina;
     this.maxStamina = state.maxStamina;
+    this.skills = new PlayerSkillSystem(scene,this);
 
     if (!scene.input.keyboard) throw new Error('Keyboard input is unavailable.');
     this.keys = scene.input.keyboard.addKeys({
       up: 'W', down: 'S', left: 'A', right: 'D', sprint: 'SHIFT', dash: 'Q', attack: 'SPACE', interact: 'E',
+      skill1:'ONE',skill2:'TWO',skill3:'THREE',skill4:'FOUR',
     }) as typeof this.keys;
-    for (const action of ['dash', 'attack', 'interact'] as const) {
-      this.keys[action].on('down', () => this.pressed.add(action));
+    for (const action of ['dash', 'attack', 'interact','skill1','skill2','skill3','skill4'] as const) {
+      this.keys[action].setEmitOnRepeat(false).on('down', () => this.pressed.add(action));
     }
   }
 
@@ -61,10 +68,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const progression = progressionStats(state.attributes, state.learnedSkills);
     this.maxHp = progression.maxHp;
     this.maxStamina = progression.maxStamina;
+    this.skills.update(delta);
 
     let x = (this.keys.right.isDown ? 1 : 0) - (this.keys.left.isDown ? 1 : 0) + mobileInput.moveX;
     let y = (this.keys.down.isDown ? 1 : 0) - (this.keys.up.isDown ? 1 : 0) + mobileInput.moveY;
     const movement = new Phaser.Math.Vector2(x, y);
+    if (this.skills.isCasting) movement.set(0,0);
     if (movement.lengthSq() > 1) movement.normalize();
     x = movement.x;
     y = movement.y;
@@ -73,7 +82,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.lastDirection.copy(movement).normalize();
     }
 
-    const sprinting = (this.keys.sprint.isDown || mobileInput.sprint) && this.stamina > 0 && time >= this.dashUntil;
+    const sprinting = !this.skills.isCasting && (this.keys.sprint.isDown || mobileInput.sprint) && this.stamina > 0 && time >= this.dashUntil;
     if (sprinting && movement.lengthSq() > 0) {
       this.stamina = Math.max(0, this.stamina - delta * 0.022);
     } else {
@@ -82,12 +91,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileDash = mobileInput.consume('dash');
     const dashPressed = this.consumeAction('dash') || mobileDash;
-    if (dashPressed && time >= this.nextDashAt && this.stamina >= 16) {
+    if (dashPressed && !this.skills.isCasting && time >= this.nextDashAt && this.stamina >= 16) {
       this.nextDashAt = time + 850;
       this.dashUntil = time + 165;
       this.stamina -= 16;
       this.dashDirection.copy(this.lastDirection);
       this.nextDashTrailAt = time;
+      scene.recordTraining('drill-dash');
       scene.cameras.main.shake(75, 0.0015);
       scene.playEffect('fortification', this.x, this.y, this.dashDirection);
     }
@@ -102,9 +112,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(this.y);
     if (this.attackVisual?.active) this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
 
+    for (const skill of ACTIVE_SKILLS) {
+      const touchPressed = mobileInput.consume(skill.action);
+      const pressed = this.consumeAction(skill.action) || touchPressed;
+      if (pressed && !this.skills.isCasting && time >= this.nextAttackAt && time >= this.dashUntil) {
+        this.clearAttackVisual();
+        if (this.skills.tryCast(skill.id)) this.nextAttackAt = time + skill.durationMs;
+      }
+    }
+
     const mobileAttack = mobileInput.consume('attack');
     const attackPressed = this.consumeAction('attack') || mobileAttack;
-    if (attackPressed && time >= this.nextAttackAt) {
+    if (attackPressed && !this.skills.isCasting && time >= this.nextAttackAt) {
       const weapon = scene.getEquippedWeapon();
       const cooldown = weapon.cooldownMs * progression.cooldownMultiplier;
       if (this.stamina >= weapon.staminaCost) {
@@ -117,12 +136,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileInteract = mobileInput.consume('interact');
     const interactPressed = this.consumeAction('interact') || mobileInteract;
-    if (interactPressed) scene.tryInteract(this.x, this.y);
+    if (interactPressed && !this.skills.isCasting) scene.tryInteract(this.x, this.y);
   }
 
   takeDamage(amount: number) {
     const scene = this.scene as WorldScene;
-    this.hp = Math.max(0, this.hp - amount);
+    this.recovery.interrupt();
+    this.hp = Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);
     scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });
@@ -130,6 +150,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   restoreAt(x: number, y: number) {
+    this.recovery.interrupt();
+    this.skills.cancelCast(); this.skills.clearRally();
     this.clearAttackVisual();
     (this.body as Phaser.Physics.Arcade.Body).reset(x, y);
     this.dashUntil = 0;
@@ -139,6 +161,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   resetInput() {
+    this.skills.cancelCast();
     this.clearAttackVisual();
     mobileInput.reset();
     for (const key of Object.values(this.keys)) key.reset();
@@ -150,9 +173,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   discardActions() {
     this.pressed.clear();
-    for (const action of ['attack', 'dash', 'interact'] as const) mobileInput.consume(action);
+    for (const action of ['attack', 'dash', 'interact','skill1','skill2','skill3','skill4'] as const) mobileInput.consume(action);
   }
-  private consumeAction(action: 'dash' | 'attack' | 'interact') {
+  private consumeAction(action: MobileAction) {
     const value = this.pressed.has(action);
     this.pressed.delete(action);
     return value;
@@ -166,12 +189,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   private setPresentationTexture(texture: 'leigneron' | 'leigneron_idle', scale: number) {
     this.setTexture(texture).setScale(scale);
-    const layout = actorArtLayout('leigneron');
-    const density = ART_BY_KEY.leigneron.density;
+    const sheet = ART_BY_KEY[texture];
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(18 / scale, 22 / scale)
-      .setOffset(layout.bodyX * density * artScale('leigneron') / scale,
-        layout.bodyY * density * artScale('leigneron') / scale);
+      .setOffset(sheet.frameWidth * sheet.density / 2 - 9 / scale,
+        this.originY * sheet.frameHeight * sheet.density - 2 / scale);
   }
 
   private playSwordVisual(cooldown:number) {

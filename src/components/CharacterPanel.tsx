@@ -1,5 +1,6 @@
 import { useGameStore } from '../store/gameStore';
 import { SKILLS, type AttributeId } from '../data/progression';
+import { ACTIVE_SKILLS } from '../data/activeSkills';
 
 const ATTRIBUTES: Array<{ id: AttributeId; name: string; description: string }> = [
   { id: 'strength', name: 'Strength', description: '+6% weapon damage per point.' },
@@ -16,6 +17,7 @@ export function CharacterPanel() {
   const skillPoints = useGameStore(s => s.skillPoints);
   const attributes = useGameStore(s => s.attributes);
   const learnedSkills = useGameStore(s => s.learnedSkills);
+  const activeSkillStatus = useGameStore(s => s.activeSkillStatus);
   const allocate = useGameStore(s => s.allocateAttribute);
   const unlock = useGameStore(s => s.unlockSkill);
   if (panel !== 'character') return null;
@@ -45,6 +47,24 @@ export function CharacterPanel() {
                 </article>
               );
             })}
+          </section>
+          <section className="combat-art-section">
+            <div className="progression-heading"><h3>Combat arts</h3><span>Always available · keys 1–4</span></div>
+            <div className="combat-art-grid">
+              {ACTIVE_SKILLS.map(skill => {
+                const remaining = activeSkillStatus.cooldowns[skill.id];
+                const status = activeSkillStatus.casting === skill.id ? 'Casting'
+                  : remaining > 0 ? `Cooldown · ${Math.ceil(remaining / 1000)}s` : 'Ready';
+                return (
+                  <article className="combat-art-row" key={skill.id}>
+                    <span className={`combat-art-slot combat-art-slot-${skill.slot}`}>{skill.slot}</span>
+                    <div><strong>{skill.name}</strong><p>{skill.description}</p>
+                      <small>{skill.staminaCost} stamina · {status}</small>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </section>
         </div>
       </section>

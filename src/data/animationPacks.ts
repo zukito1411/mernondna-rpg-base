@@ -2,11 +2,17 @@ import manifests from 'virtual:mernondna-art-packs';
 const hero = manifests['characters/leigneron'], guard = manifests['npcs/trandum_guard'], priestess = manifests['npcs/shrine_priestess'];
 const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_bandit'], boar = manifests['enemies/boarfiend'], wraith = manifests['enemies/marsh_wraith'];
 
-export interface PackClip { png:string; webp:string; frames:number; frameRate:number; repeat:number }
+export interface PackClip {
+  png:string; webp?:string; frames:number; frameRate:number; repeat:number;
+  frameWidth?:number; frameHeight?:number; renderScale?:number;
+  regions?:readonly (readonly [number,number,number,number])[];
+  frameRects?:readonly {x:number;y:number;width:number;height:number}[];
+}
 export interface PackManifest { id:string; frameWidth:number; frameHeight:number; animations:Record<string,PackClip> }
 export interface SpriteSource {
   path:string; cell:readonly [number,number,number,number]; imageSize:readonly [number,number]; name:string;
   renderScale?:number;
+  anchor?:readonly [number,number];
 }
 export interface SpriteAnimation { key:string; texture:string; frames:number[]; frameRate:number; repeat:number }
 export const SPRITE_PACKS:readonly PackManifest[] = [hero,guard,priestess,wolf,bandit,boar,wraith];
@@ -21,9 +27,13 @@ export const SHRINE_PACK:PackManifest = priestess;
 export function clipSources(pack:PackManifest, state:string):SpriteSource[] {
   const clip = pack.animations[state];
   if (!clip) throw new Error(`Missing ${pack.id}/${state} animation`);
-  return Array.from({ length:clip.frames },(_,i) => ({ path:clip.png,
-    cell:[i * pack.frameWidth,0,pack.frameWidth,pack.frameHeight],imageSize:[pack.frameWidth * clip.frames,pack.frameHeight],
-    name:`${pack.id}:${state}:${i}` }));
+  const width = clip.frameWidth ?? pack.frameWidth, height = clip.frameHeight ?? pack.frameHeight;
+  const rects=clip.frameRects;
+  const imageSize:readonly [number,number]=rects
+    ? [Math.max(...rects.map(r=>r.x+r.width)),Math.max(...rects.map(r=>r.y+r.height))] : [width*clip.frames,height];
+  return Array.from({ length:clip.frames },(_,i):SpriteSource => ({ path:clip.png,
+    cell:clip.regions?.[i] ?? (rects?.[i]?[rects[i].x,rects[i].y,rects[i].width,rects[i].height]:[i * width,0,width,height]),imageSize,
+    name:`${pack.id}:${state}:${i}`,...(clip.renderScale ? { renderScale:clip.renderScale } : {}) }));
 }
 export function directionalSources(pack:PackManifest) { return DIRECTION_CLIPS.flatMap(state => clipSources(pack,state)); }
 export function directionFrame(dx:number, dy:number) {

@@ -6,13 +6,15 @@ export function DialoguePanel() {
   const dialogue = useGameStore((s) => s.dialogue);
   const advance = useGameStore((s) => s.advanceDialogue);
   const end = useGameStore((s) => s.endDialogue);
+  const choose=useGameStore(s=>s.chooseDialogue);
   const logicalStates = useGameStore(s => s.worldContent.states);
   if (!dialogue) return null;
   const npc = NPC_BY_ID[dialogue.npcId];
   if (!npc) return null;
 
-  const line = npc.dialogue[Math.min(dialogue.lineIndex, npc.dialogue.length - 1)];
-  const finalLine = dialogue.lineIndex >= npc.dialogue.length - 1;
+  const lines=dialogue.lines??npc.dialogue;
+  const line = lines[Math.min(dialogue.lineIndex, lines.length - 1)];
+  const finalLine = dialogue.lineIndex >= lines.length - 1;
 
   return (
     <div className="dialogue-wrap">
@@ -25,7 +27,10 @@ export function DialoguePanel() {
         </div>
         <p>{line}</p>
         <div className="relationship-note">{npc.relationshipToLeigneron.kind}: {npc.relationshipToLeigneron.summary}</div>
-        <button type="button" onClick={finalLine ? end : advance}>{finalLine ? 'Close' : 'Continue'}</button>
+        {finalLine&&dialogue.choices?.length ? <div className="dialogue-choices">
+          {dialogue.choices.map(choice=><button type="button" key={choice.id} onClick={()=>choose(choice.id)}>{choice.text}</button>)}
+          <button type="button" onClick={end}>Decide later</button>
+        </div>:<button type="button" onClick={finalLine ? end : advance}>{finalLine ? 'Close' : 'Continue'}</button>}
       </section>
     </div>
   );

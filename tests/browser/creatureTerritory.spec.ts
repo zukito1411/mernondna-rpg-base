@@ -74,5 +74,5 @@ test('old in-village authored/event saves relocate without resetting wounds or d
       boarAlive:Boolean(d.contentManager.getActor('creature:oakmere-boar-north')),boarDead:d.contentManager.getState('creature:oakmere-boar-north')!.defeated,
       sequence:d.contentManager.snapshot().nextSpawnSequence,version:JSON.parse(localStorage.getItem('mernondna-save-v1')!).version };
   });
-  expect(repaired).toEqual({ wolfHp:17,eventHp:9,allSafe:true,boarAlive:false,boarDead:true,sequence:1,version:3 });
+  expect(repaired).toEqual({ wolfHp:17,eventHp:9,allSafe:true,boarAlive:false,boarDead:true,sequence:1,version:4 });
 });

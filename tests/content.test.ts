@@ -20,7 +20,8 @@ describe('content integrity', () => {
     expect(new Set(WORLD_CONTENT.map(d => d.id)).size).toBe(WORLD_CONTENT.length);
     const world = new WorldGenerator();
     for (const d of WORLD_CONTENT) {
-      expect(world.isWalkable(d.world.x, d.world.y), d.id).toBe(true);
+      if(!d.id.startsWith('fort:'))expect(world.isWalkable(d.world.x, d.world.y), d.id).toBe(true);
+      // Defensive stone is deliberately not a playable floor.
       if (d.kind === 'creature') {
         expect(world.canCreatureOccupy(d.world.x,d.world.y),`${d.id} inside settlement protection`).toBe(true);
         expect(ENEMY_BY_ID[d.enemyId]).toBeTruthy();

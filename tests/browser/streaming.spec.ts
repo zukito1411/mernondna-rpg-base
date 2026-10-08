@@ -14,6 +14,11 @@ async function activeIds(page: Page) {
 }
 async function travelFixture(page: Page, x: number, y: number) {
   await page.evaluate(({ x, y }) => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.restoreAt(x, y), { x, y });
+  const firstArrival=await page.evaluate(async({x,y})=>{
+    const path='/src/store/gameStore.ts';const s=(await import(path)).useGameStore.getState();
+    return Math.abs(x-(31*1536+768))<2000&&Math.abs(y-(22*1536+768))<2000&&!s.storyFlags['scene:highmere-arrival'];
+  },{x,y});
+  if(firstArrival){await page.getByRole('button',{name:'Skip scene · Esc'}).click();await expect(page.getByRole('region',{name:'Story scene'})).toBeHidden();}
 }
 async function storeState(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('mernondna-save-v1')!).state);
@@ -77,7 +82,7 @@ test('streamed actors, damaged creatures, NPC state and used loot survive travel
     await travelFixture(page, 22 * 1536 + 768, 25 * 1536 + 848);
     await expect.poll(() => activeIds(page)).toContain('npc:aldren-vale');
   }
-  expect(await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).physics.world.colliders.getActive().length)).toBe(7);
+  expect(await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).physics.world.colliders.getActive().length)).toBe(6);
   await page.screenshot({ path: 'test-results/streamed-oakmere.png' });
   expect(errors).toEqual([]);
 });

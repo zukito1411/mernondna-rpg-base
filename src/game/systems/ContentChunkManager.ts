@@ -24,7 +24,13 @@ export class ContentChunkManager<Actor> {
 
   constructor(definitions: ContentDefinition[], persisted: ContentWorldState, private readonly host: ContentHost<Actor>) {
     this.nextSpawnSequence = persisted.nextSpawnSequence;
-    for (const [id, state] of Object.entries(persisted.states)) this.states.set(id, { ...state });
+    const known=new Map([...definitions,...Object.values(persisted.spawns)].map(d=>[d.id,d]));
+    for (const [id, state] of Object.entries(persisted.states)) {
+      const d=known.get(id);if(!d) continue;
+      // Static placements are authored, not world relocations. Layout repairs
+      // apply to old saves while preserving opened caches and attuned shrines.
+      this.states.set(id,{...state,...(d.kind!=='npc'&&d.kind!=='creature'?d.world:{})});
+    }
     for (const definition of definitions) this.register(definition);
     for (const definition of Object.values(persisted.spawns)) {
       this.register(definition); this.spawns.set(definition.id, definition);

@@ -60,11 +60,19 @@ export interface NpcDefinition {
   worldOffset: Vec2;
   spriteTexture?: 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general';
   weaponId?: string;
-  schedule: Array<{ startHour: number; activity: string }>;
+  schedule: Array<{ startHour: number; activity: string; location?: Vec2 }>;
+  faction?: string;
+  family?: string;
+  connections?: Array<{ npcId: string; relationship: string }>;
+  homeLocation?: Vec2;
+  dialoguePersonality?: string;
+  storyConsequences?: string[];
+  formation?: { id:string; rank:number };
   relationshipToLeigneron: NpcRelationship;
   dialogue: string[];
   questIds: string[];
   combatant?: boolean;
+  patrolRadius?: number;
 }
 
 export interface WeaponDefinition {
@@ -94,6 +102,12 @@ export interface EnemyDefinition {
   goldMin: number;
   goldMax: number;
   boss?: boolean;
+  summonEnemyId?: string;
+  summonCount?: number;
+  summonCooldownMs?: number;
+  attackWindupMs?: number;
+  attackRecoveryMs?: number;
+  attackRadius?: number;
   regionWeights: Partial<Record<RegionId, number>>;
 }
 
@@ -105,16 +119,20 @@ export interface BossDefinition {
   world: Vec2;
   lore: string;
   respawns: boolean;
+  attackStyle: 'melee' | 'slam' | 'pounce';
 }
 
 export interface QuestObjective {
   id: string;
-  type: 'talk' | 'kill' | 'visit' | 'collect';
+  type: 'talk' | 'kill' | 'visit' | 'collect' | 'investigate' | 'deliver' | 'choice' | 'puzzle' | 'train' | 'escort';
   targetId: string;
   amount: number;
   text: string;
   bossId?: string;
   contentId?: string;
+  dialogue?: string[];
+  choices?: Array<{ id:string; text:string; response:string; flag:string; correct?:boolean }>;
+  cinematicId?: string;
 }
 
 export interface QuestDefinition {
@@ -126,6 +144,7 @@ export interface QuestDefinition {
   rewardGold: number;
   rewardXp: number;
   nextQuestId?: string;
+  prerequisiteQuestId?: string;
 }
 
 export interface DynamicEventDefinition {
@@ -152,8 +171,12 @@ export interface CreatureContentDefinition extends ContentBase {
 }
 export interface PropContentDefinition extends ContentBase {
   kind: 'prop' | 'settlement-prop'; frame: number; scale: number; solid: boolean;
-  texture?: 'world_assets' | 'world_objects' | 'world_buildings';
+  texture?: 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls';
   footprint?: { width:number; height:number };
+  rotation?: number;
+  anchor?: 'center' | 'bottom';
+  centerCollider?: boolean;
+  tint?: number;
   label?: string;
 }
 export interface SettlementContentDefinition extends ContentBase { kind: 'settlement'; townId: string }
@@ -161,7 +184,13 @@ export interface InteractableContentDefinition extends ContentBase {
   kind: 'interactable' | 'harvestable' | 'loot-container' | 'dungeon-entrance';
   name: string; frame: number; description: string; repeatText: string;
   rewardGold?: number; restoreHp?: number;
-  texture?: 'world_assets' | 'world_objects' | 'world_buildings'; scale?: number;
+  texture?: 'world_assets' | 'world_objects' | 'world_buildings' | 'others'; scale?: number;
+  solid?: boolean;
+  townShrineId?: string;
+  questTargetId?: string;
+  questEventType?: QuestObjective['type'];
+  repeatable?: boolean;
+  requiredQuestId?: string;
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {

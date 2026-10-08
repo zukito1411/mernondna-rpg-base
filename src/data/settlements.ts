@@ -1,14 +1,21 @@
 import type { TerrainKind, Vec2, TownDefinition } from '../game/types';
-import { TOWNS, TOWN_BY_ID, ROAD_CONNECTIONS } from './towns';
-import { worldPropFootprint } from './art';
+import { TOWNS, TOWN_BY_ID } from './towns';
+import { ROAD_ROUTES } from './roadRoutes';
+import { spriteBounds, overlaps, rectTouchesStreet, type Rect } from './settlementGeometry';
+import { NPCS } from './npcs';
+import { TOWN_SHRINE_BY_ID } from './townShrines';
+import { onHighmereRiver } from './rivers';
+import { SETTLEMENT_PROFILES, type SettlementProfile, type SettlementProfileId } from './settlementProfiles';
 
 export interface LandParcel { id: string; purpose: string; x: number; y: number; width: number; height: number; terrain: TerrainKind }
 export interface Street { id: string; width: number; points: Vec2[] }
-export interface BuildingLot extends Vec2 { frame: number; scale: number; label: string; purpose: string; appearance?:{ texture:'world_buildings'; frame:number } }
+export interface BuildingLot extends Vec2 { frame: number; scale: number; label: string; purpose: string; appearance?:{ texture:'world_buildings' | 'capital_buildings'; frame:number } }
 export interface Planting extends Vec2 { id: string; frame: 0 | 1; scale: number; purpose: string }
 export interface SettlementLayout {
-  townId: string; authored: boolean; bounds: LandParcel; baseTerrain: TerrainKind;
+  townId: string; authored: boolean; profile: SettlementProfile; bounds: LandParcel; baseTerrain: TerrainKind;
   parcels: LandParcel[]; streets: Street[]; buildings: BuildingLot[]; plantings: Planting[];
+  pavedStreets?: boolean;
+  waterway?: { x:number; width:number; crossings:number[] };
 }
 export const inParcel = (x: number, y: number, p: LandParcel) => Math.abs(x - p.x) <= p.width / 2 && Math.abs(y - p.y) <= p.height / 2;
 export function segmentDistance(x: number, y: number, a: Vec2, b: Vec2) {
@@ -25,8 +32,8 @@ const parcel = (id: string, purpose: string, terrain: TerrainKind, x: number, y:
 // The atlas establishes regional land use, not village-level survey coordinates.
 // Oakmere is an authored road-and-farm settlement inside Trandum's cleared belt.
 const oakmere: SettlementLayout = {
-  townId: 'oakmere', authored: true, baseTerrain: 'grass',
-  bounds: parcel('village-edge','Cleared settlement and agricultural fringe','grass',0,100,2000,1800),
+  townId: 'oakmere', authored: true, profile:SETTLEMENT_PROFILES.oakmere,baseTerrain: 'grass',
+  bounds: parcel('village-edge','Cleared settlement and agricultural fringe','grass',0,100,2200,2000),
   buildings: [
     { x:350,y:220,frame:1,scale:.98,label:'Marrow Inn',purpose:'Travelers and trade beside the eastern road',appearance:{ texture:'world_buildings',frame:1 } },
     { x:-250,y:-220,frame:0,scale:1,label:'Guard Post',purpose:'Watch the western entrance and crown-road approach',appearance:{ texture:'world_buildings',frame:5 } },
@@ -36,7 +43,7 @@ const oakmere: SettlementLayout = {
   ],
   parcels: [
     parcel('square','Road junction and public meeting place','stone',0,0,170,140),
-    parcel('shrine-court','Quiet ritual court beside the shrine grove','stone',20,-235,190,130),
+    parcel('shrine-court','Quiet ritual court and keeper forecourt beside the shrine grove','stone',55,-215,240,200),
     parcel('smith-apron','Non-flammable repair and loading surface','stone',270,-105,230,100),
     parcel('caravan-yard','Turn and unload carts near Torren','dirt',-300,35,160,145),
     parcel('training-ground','Open sparring ground beside Aldren','dirt',-140,125,180,145),
@@ -64,7 +71,7 @@ const oakmere: SettlementLayout = {
     { id:'west-oak',x:-380,y:95,frame:0,scale:1.35,purpose:'Gate shade; keep the trunk off the road and the canopy off Torren' },
     { id:'courtyard-oak',x:-250,y:310,frame:0,scale:1.45,purpose:'Shade on the south edge, not over the trainer' },
     { id:'shrine-oak',x:-140,y:-200,frame:0,scale:1.4,purpose:'Separate quiet shrine court from western traffic' },
-    { id:'shrine-pine',x:180,y:-300,frame:1,scale:1.4,purpose:'Northern windbreak outside the crown road' },
+    { id:'shrine-pine',x:70,y:-340,frame:1,scale:1.4,purpose:'Northern windbreak outside the crown road' },
     { id:'east-garden-pine',x:450,y:70,frame:1,scale:1.35,purpose:'Northern inn garden, behind the building' },
     { id:'east-pine',x:690,y:390,frame:1,scale:1.4,purpose:'Woodland boundary beyond the ranger access lane' },
     { id:'forge-oak',x:460,y:-340,frame:0,scale:1.3,purpose:'Green buffer north of the smithy, clear of the crown road' },
@@ -74,38 +81,276 @@ const oakmere: SettlementLayout = {
   ],
 };
 
-function approaches(town: TownDefinition): Street[] {
-  return ROAD_CONNECTIONS.filter(pair => pair.includes(town.id)).map(pair => {
-    const other = TOWN_BY_ID[pair.find(id => id !== town.id)!];
-    const dx = other.world.x - town.world.x, dy = other.world.y - town.world.y, length = Math.hypot(dx,dy);
-    return street(`approach:${other.id}`,90,[[0,0],[dx / length * 1100,dy / length * 1100]]);
+// Highmere is Trandum's capital. Its market and crown wards occupy opposite
+// sides of a navigable river; three paved bridges continue the city streets.
+const highmere: SettlementLayout = {
+  townId:'highmere',authored:true,profile:SETTLEMENT_PROFILES.highmere,baseTerrain:'grass',pavedStreets:true,
+  bounds:parcel('capital-edge','Highmere seven wards and agricultural approaches','grass',0,0,5600,5200),
+  parcels:[
+    parcel('crown-ward','Royal castle, audience court and noble gardens','stone',-1000,-1700,1800,1050),
+    parcel('central-ward','Petition plaza, fountain and public assembly','stone',-120,40,600,440),
+    parcel('military-ward','Barracks, armory and drill ground','dirt',-2050,-430,900,950),
+    parcel('market-ward','River trade and merchants','stone',950,-420,1250,750),
+    parcel('craft-ward','Forges, workshops and guild halls','stone',950,510,1250,850),
+    parcel('west-homes','Homes and inns behind the keep','stone',-1050,580,1000,650),
+    parcel('river-garden','Planted civic banks','grass',250,1080,450,260),
+    parcel('capital-fields','Agricultural fringe beyond the south ward','farmland',-650,1060,520,260),
+    parcel('lower-ward','Close worker housing and winding lanes south of the crown','dirt',-1350,1780,1950,1040),
+    parcel('outer-ward','Freight, stables and agricultural services','grass',1500,1780,1450,1000),
+    parcel('royal-gardens','Garden walks above the western royal terrace','grass',-2450,-1630,460,1100),
+  ],
+  streets:[
+    street('royal-way',108,[[-2700,0],[-600,0],[850,0],[2700,0]]),
+    street('crown-way',86,[[-1600,-650],[-600,-650],[850,-650],[1600,-650]]),
+    street('south-causeway',86,[[-1600,650],[-600,650],[850,650],[1600,650]]),
+    street('west-processional',88,[[-600,-650],[-600,0],[-600,650],[-600,1080],[-600,2250]]),
+    street('east-processional',86,[[850,-1300],[850,-650],[850,0],[850,650],[850,1080],[850,1200]]),
+    street('south-market',72,[[-1600,1080],[-600,1080],[850,1080],[1600,1080]]),
+    street('castle-approach',104,[[-600,-650],[-1000,-650],[-1000,-1250],[-1000,-1670]]),
+    street('military-lane',76,[[-2100,-950],[-2100,0],[-2100,650],[-1600,650]]),
+    street('drill-access',60,[[-2100,-480],[-1820,-480]]),
+    street('watch-circuit',64,[[-2300,0],[-2300,650],[-1600,650]]),
+    street('lower-high-street',64,[[-2500,1550],[-1600,1550],[-600,1550],[850,1550],[2500,1550]]),
+    street('lower-alley',48,[[-2100,1550],[-2100,1900],[-1500,1900],[-1500,2200],[-600,2200]]),
+    street('workers-walk',48,[[-1500,1550],[-1500,1720],[-1120,1720],[-1120,1900]]),
+    street('freight-lane',76,[[850,1080],[850,2250],[2400,2250],[2400,1550]]),
+    street('east-river-link',80,[[850,1200],[850,1550]]),
+  ],
+  buildings:[
+    { x:-1250,y:-880,frame:2,scale:1.15,label:'Crown Watch',purpose:'Western crown ward guard tower',appearance:{ texture:'capital_buildings',frame:2 } },
+    { x:-1000,y:-1750,frame:8,scale:2.2,label:'Crown Hall',purpose:'Royal castle, audience steps and seat of Trandum government',appearance:{ texture:'capital_buildings',frame:8 } },
+    { x:-350,y:-850,frame:1,scale:1.05,label:'Royal Archive',purpose:'Records, charters and lore',appearance:{ texture:'capital_buildings',frame:1 } },
+    { x:-1350,y:-360,frame:0,scale:1.08,label:'West Barracks',purpose:'Guard quarters near the western entrance',appearance:{ texture:'capital_buildings',frame:0 } },
+    { x:-950,y:-350,frame:6,scale:1.04,label:'Crown Stable',purpose:'Horses and road patrol equipment',appearance:{ texture:'capital_buildings',frame:6 } },
+    { x:-300,y:-350,frame:0,scale:1.08,label:'Charter House',purpose:'Petitions and legal records',appearance:{ texture:'world_buildings',frame:0 } },
+    { x:650,y:-880,frame:2,scale:1.12,label:'North Bridge Watch',purpose:'Bridge toll and river watch',appearance:{ texture:'capital_buildings',frame:2 } },
+    { x:1100,y:-880,frame:7,scale:1.12,label:'Market Hall',purpose:'Trandum grain, cloth and caravan trade',appearance:{ texture:'capital_buildings',frame:7 } },
+    { x:1450,y:-330,frame:1,scale:1.05,label:'Counting House',purpose:'Merchant weights and contracts',appearance:{ texture:'capital_buildings',frame:1 } },
+    { x:1100,y:-330,frame:7,scale:1,label:'River Customs',purpose:'Goods cleared from the eastern bridge',appearance:{ texture:'capital_buildings',frame:7 } },
+    { x:-1350,y:280,frame:1,scale:1.05,label:'Westgate Inn',purpose:'Rooms for royal-road travelers',appearance:{ texture:'world_buildings',frame:1 } },
+    { x:-950,y:270,frame:0,scale:1,label:'Westgate Homes',purpose:'Households and street vendors',appearance:{ texture:'world_buildings',frame:0 } },
+    { x:-300,y:320,frame:3,scale:.9,label:'Crown Shrine',purpose:'Public rituals beside the stone road',appearance:{ texture:'world_buildings',frame:3 } },
+    { x:650,y:270,frame:2,scale:1.06,label:'East Bridge Watch',purpose:'Security for river traffic',appearance:{ texture:'capital_buildings',frame:2 } },
+    { x:1150,y:270,frame:2,scale:1.04,label:'Guild Forge',purpose:'Craft tools and armor repair',appearance:{ texture:'world_buildings',frame:2 } },
+    { x:1084,y:318,frame:0,scale:.95,label:'Craft Guild',purpose:'Artisans and apprentices beside the forge court',appearance:{ texture:'capital_buildings',frame:0 } },
+    { x:-1350,y:850,frame:0,scale:1.05,label:'South Homes',purpose:'Workers near the fields',appearance:{ texture:'capital_buildings',frame:0 } },
+    { x:-950,y:850,frame:0,scale:1.03,label:'Orchard Lane',purpose:'City families and garden plots',appearance:{ texture:'world_buildings',frame:0 } },
+    { x:1050,y:850,frame:5,scale:1.02,label:'South Smithy',purpose:'Wagon and farrier work',appearance:{ texture:'capital_buildings',frame:5 } },
+    { x:1450,y:850,frame:7,scale:1.08,label:'Caravan Storehouse',purpose:'Freight bound for Willowcross',appearance:{ texture:'capital_buildings',frame:7 } },
+    { x:-2460,y:-720,frame:0,scale:1.05,label:'Knights Headquarters',purpose:'Officers beside the drill lane',appearance:{texture:'capital_buildings',frame:0} },
+    { x:-1860,y:-700,frame:5,scale:1,label:'Royal Armory',purpose:'Practice weapons and patrol supplies',appearance:{texture:'capital_buildings',frame:5} },
+    { x:20,y:-980,frame:1,scale:1.15,label:'Ambassadors House',purpose:'Noble petitions and regional envoys',appearance:{texture:'capital_buildings',frame:1} },
+    { x:1950,y:-740,frame:1,scale:1.05,label:'Cloth Exchange',purpose:'Merchant contracts and cloth sales',appearance:{texture:'capital_buildings',frame:1} },
+    { x:2280,y:400,frame:7,scale:1,label:'Eastern Granary',purpose:'Food reserves beside freight routes',appearance:{texture:'capital_buildings',frame:7} },
+    { x:-2350,y:1330,frame:0,scale:.85,label:'Reed Court',purpose:'Lower Ward shared houses and well',appearance:{texture:'world_buildings',frame:0} },
+    { x:-1810,y:1320,frame:0,scale:.88,label:'Weavers Row',purpose:'Small homes of market workers',appearance:{texture:'world_buildings',frame:0} },
+    { x:-1160,y:1350,frame:0,scale:.85,label:'Morrow Kitchen',purpose:'Communal meals and aid for missing workers',appearance:{texture:'world_buildings',frame:0} },
+    { x:-2410,y:1820,frame:0,scale:.85,label:'Tanners Yard',purpose:'Weathered housing away from ceremonial streets',appearance:{texture:'world_buildings',frame:0} },
+    { x:-1790,y:1780,frame:0,scale:.88,label:'Dockhands Rooms',purpose:'Shared rooms near the concealed receiving yard',appearance:{texture:'world_buildings',frame:0} },
+    { x:-820,y:1830,frame:0,scale:.88,label:'South Ward School',purpose:'Worker petitions and evening lessons',appearance:{texture:'world_buildings',frame:0} },
+    { x:-2370,y:2250,frame:4,scale:.95,label:'Abandoned Weighhouse',purpose:'Investigation site, not an ambient hostile spawn',appearance:{texture:'world_buildings',frame:4} },
+    { x:1350,y:1960,frame:6,scale:1.12,label:'South Caravan Stable',purpose:'Freight horses and returning escorts',appearance:{texture:'capital_buildings',frame:6} },
+    { x:2030,y:1950,frame:7,scale:1.12,label:'Relief Warehouse',purpose:'Reserved grain for outlying settlements',appearance:{texture:'capital_buildings',frame:7} },
+  ],
+  plantings:[
+    { id:'west-park-oak',x:-1000,y:-1050,frame:0,scale:1.3,purpose:'Shade outside crown-ward traffic' },
+    { id:'archive-oak',x:-200,y:-1080,frame:0,scale:1.25,purpose:'Shelter behind the archive' },
+    { id:'south-garden-oak',x:-250,y:1080,frame:0,scale:1.35,purpose:'Riverbank civic garden' },
+    { id:'south-garden-pine',x:70,y:1100,frame:1,scale:1.25,purpose:'Riverbank windbreak' },
+    { id:'royal-garden:0',x:-2510,y:-1960,frame:0,scale:1.25,purpose:'Royal terrace garden' },
+    { id:'royal-garden:1',x:-2510,y:-1400,frame:0,scale:1.25,purpose:'Royal terrace garden' },
+    { id:'lower-well-oak',x:-2520,y:2050,frame:0,scale:1.1,purpose:'Shared courtyard shade' },
+  ],
+};
+
+// Every approach follows the actual road polyline, including bends inside a city.
+function approaches(town:TownDefinition):Street[] {
+  const profile = SETTLEMENT_PROFILES[town.id as SettlementProfileId];
+  return ROAD_ROUTES.filter(r => r.from === town.id || r.to === town.id).map(route => {
+    const points = route.from === town.id ? route.points : [...route.points].reverse();
+    const local:Vec2[] = [{ x:0,y:0 }];
+    for (const p of points.slice(1)) {
+      local.push({ x:p.x-town.world.x,y:p.y-town.world.y });
+      if (Math.abs(p.x-town.world.x) > profile.bounds.width/2 || Math.abs(p.y-town.world.y) > profile.bounds.height/2) break;
+    }
+    return { id:'approach:'+route.id,width:route.width,points:local };
   });
 }
-function prototypeLayout(town: TownDefinition): SettlementLayout {
-  const streets = [street('main-street',84,[[-1100,0],[0,0],[1100,0]]),street('cross-street',72,[[0,-900],[0,0],[0,1100]]),...approaches(town)];
-  const arterialStreets = [...streets];
-  const buildings: BuildingLot[] = [], count = town.kind === 'capital' ? 10 : town.kind === 'village' ? 5 : 7;
-  for (const y of [-240,140,520,-620,900]) for (const x of [-280,280,-560,560,-840,840]) {
-    if (buildings.length >= count) continue;
-    const footprint = worldPropFootprint(0,1);
-    if (arterialStreets.some(s => onStreet(x,y - footprint.height / 2,s,footprint.width / 2 + 24))) continue;
-    buildings.push({ x,y,frame:0,scale:1,label:`${town.name} house ${buildings.length + 1}`,purpose:'Prototype street-facing lot; regional architecture still needs authored art' });
-    streets.push(street(`frontage:${buildings.length}`,56,[[0,y + 42],[x,y + 42],[x,y + 24]]));
-  }
-  const baseTerrain: TerrainKind = town.regionId === 'nardorous' ? 'stone' : town.regionId === 'frostlands' ? 'snow'
-    : town.regionId === 'darkav' ? 'ash' : town.regionId === 'rindass' ? 'dirt' : 'grass';
-  const parcels = [parcel('square','Public street junction','stone',0,0,180,140)];
-  if (town.regionId === 'trandum') {
-    parcels.push(parcel(`farm:${town.id}`,'Agricultural fringe outside the residential lots','farmland',-630,700,440,256));
-    streets.push(street('farm-access',64,[[0,700],[-630,700]]));
-  }
-  return { townId:town.id,authored:false,bounds:parcel('settlement-edge','Prototype street district',baseTerrain,0,100,2400,2400),
-    baseTerrain,parcels,streets,buildings,plantings:[] };
+
+interface DistrictPlan {
+  avenues: Array<[string,number,number[][]]>;
+  districts: Array<[string,string,TerrainKind,number,number,number,number]>;
+  lots: Array<[string,number,number,number]>;
+  waterway?: { x:number; width:number };
+}
+const districtPlans:Record<string,DistrictPlan> = {
+  willowcross: {
+    avenues:[['bridge-market',86,[[-1200,0],[0,0],[1200,0]]],['stable-lane',64,[[-1000,600],[0,600],[1000,600]]],['north-road',64,[[0,-1050],[0,0],[0,950]]]],
+    districts:[['market','River crossing and caravan market','stone',-300,-170,900,700],['stable-yard','Stables and fletchers beside the east road','dirt',-650,680,800,500],['farm:willowcross','Market gardens with wagon access','farmland',-630,970,440,256]],
+    lots:[['Bridgekeeper Hall',0,-550,-180],['Caravan Inn',1,-950,-250],['Fletcher Workshop',5,-450,400],['Eastbank Store',7,950,-180],['Crown Stable',6,-1000,400],['Riverside Homes',0,950,400],['Grain House',7,340,800]],
+    waterway:{ x:600,width:120 },
+  },
+  elarion: {
+    avenues:[['whitebough-way',100,[[-1450,0],[0,0],[1450,0]]],['lore-processional',82,[[0,-1300],[0,-600],[0,0],[0,700],[0,1300]]],['bough-court',76,[[-1200,-600],[0,-600],[1200,-600]]],['bowyer-walk',64,[[-1200,700],[0,700],[1200,700]]]],
+    districts:[['lore-ward','Lore halls around the ceremonial avenue','stone',-650,-780,1100,650],['bowyard','Craft gardens and ranger homes','grass',650,420,1100,850],['ancient-grove','Retained woodland behind the lore halls','forest',-500,1100,900,420]],
+    lots:[['Whitebough Hall',1,-700,-760],['Ward Chapel',4,620,-780],['Lore Archive',0,-1100,-170],['Council House',1,-480,-170],['Bowyer Hall',5,550,-160],['Ranger Stable',6,1120,-160],['Herbalist House',0,-1050,490],['Livingwood Lodge',0,-450,490],['Moon Survey House',2,600,480],['Trade Hall',7,1130,490]],
+  },
+  moonfall: {
+    avenues:[['grove-trail',60,[[-900,0],[0,0],[900,0]]],['herbalist-walk',52,[[0,-820],[0,0],[0,650],[-650,650]]]],
+    districts:[['ritual-clearing','Quiet clearing around the standing-stone shrine','stone',0,-100,300,220],['moon-garden','Herb beds kept outside the grove trail','farmland',-600,720,340,220],['moon-grove','Old woodland surrounding the homes','forest',520,580,600,500]],
+    lots:[['Herbalist Cottage',0,-440,-200],['Standing-Stone Chapel',4,500,-210],['Ranger Lodge',6,-470,430],['Grove House',0,530,410],['Travelers Shelter',0,-730,-540]],
+  },
+  starhold: {
+    avenues:[['pass-avenue',108,[[-1450,0],[0,0],[1450,0]]],['beacon-ascent',90,[[0,1250],[0,650],[0,0],[0,-650],[0,-1300]]],['upper-terrace',80,[[-1250,-650],[0,-650],[1250,-650]]],['caravan-terrace',86,[[-1300,650],[0,650],[1300,650]]]],
+    districts:[['citadel-terrace','Citadel administration above the pass','stone',-630,-780,1100,600],['caravan-yard','Broad paved staging area for mountain caravans','stone',650,680,1000,500],['snow-garden','Snowbound shelter trees','snow',-650,1090,1000,420]],
+    lots:[['Pass Watch',2,-1100,-820],['Citadel Hall',1,-500,-820],['Beacon Tower',9,630,-820],['Quartermaster Stores',7,-1000,-180],['Armorer Forge',5,-450,-180],['Pass Temple',4,570,-180],['Mountain Stable',6,1120,-180],['Caravan Inn',1,-1030,440],['Rope Guild',0,-470,440],['Watch Barracks',0,760,430]],
+  },
+  redmesa: {
+    avenues:[['clan-market',94,[[-1350,0],[0,0],[1350,0]]],['warband-road',80,[[0,-1250],[0,-600],[0,0],[0,620],[0,1200]]],['pen-lane',68,[[-1200,620],[0,620],[1200,620]]]],
+    districts:[['clan-court','Assembly space and clan administration','stone',-650,-700,1100,650],['beast-yard','Livestock holding away from the market','dirt',650,850,950,540],['forge-quarter','Fire-safe work district','stone',650,-300,1000,500]],
+    lots:[['Clan Assembly Hall',0,-760,-720],['Iron-Tusk Storehouse',7,-1100,-170],['Clan Forge',5,650,-190],['Market House',1,1100,-170],['Beastmaster Stable',6,650,430],['Rider Lodge',0,-650,430],['Caravan Shelter',0,-1050,900]],
+  },
+  deepford: {
+    avenues:[['river-hall-way',100,[[-1450,0],[0,0],[1450,0]]],['mine-road',88,[[0,-1300],[0,-620],[0,0],[0,620],[0,1300]]],['forge-quay',82,[[-1250,-620],[0,-620],[1250,-620]]],['boatwright-quay',76,[[-1250,620],[0,620],[1250,620]]]],
+    districts:[['river-hall','Civic and guild halls on the west bank','stone',-700,-760,1200,700],['mine-guild','Ore stores and fire-safe workshops','stone',850,-210,1000,600],['boatwright-yard','Timber and boat fittings near the lower crossing','dirt',-700,810,1000,550]],
+    lots:[['Great River Hall',8,-850,-800],['Rune Forge',5,850,-800],['Mine Guild',0,-1100,-180],['Hall Archive',1,-480,-180],['Ore Store',7,850,-180],['River Watch',9,1250,-180],['Boatwright Hall',6,-1050,420],['Craft Homes',0,-470,420],['Guild Inn',1,850,420],['Timber Store',7,-850,1040]],
+    waterway:{ x:450,width:144 },
+  },
+  tidewatch: {
+    avenues:[['harbor-market',94,[[-1350,0],[0,0],[1350,0]]],['cargo-way',80,[[0,-1000],[0,0],[0,650]]],['quayside',84,[[-1300,650],[0,650],[1300,650]]]],
+    districts:[['merchant-ward','Cargo contracts and sea trade','stone',-650,-450,1000,700],['shipyard','Boat fittings and stored timber beside the quay','dirt',650,410,1000,420],['harbor-basin','Sheltered water beside the southern quay','water',0,1170,2700,780]],
+    lots:[['Harbor Guild',7,-740,-210],['Sailmaker House',0,-1120,-550],['Seafarers Inn',1,730,-250],['Anchor Forge',5,1100,430],['Shipyard Stable',6,520,430],['Fishmarket Hall',0,-550,430],['Customs House',7,-1050,430]],
+  },
+  skallheim: {
+    avenues:[['longhouse-road',90,[[-1250,0],[0,0],[1250,0]]],['beacon-walk',72,[[0,-1050],[0,0],[0,640]]],['fish-quay',76,[[-1150,640],[0,640],[1150,640]]]],
+    districts:[['longhouse-court','Clan meeting and winter provisions','stone',-650,-520,1000,800],['hunter-yard','Sheltered snow camp behind the longhouses','snow',650,-560,1000,780],['frost-basin','Harbor waters beyond the fish quay','water',0,1120,2500,650]],
+    lots:[['Clan Longhouse',0,-750,-220],['Hunters Lodge',6,730,-230],['Winter Store',7,-1050,420],['Fish Traders Hall',1,-450,420],['Beacon Watch',2,930,420],['Harpoon Forge',5,480,430],['Winter Shelter',0,1000,-700]],
+  },
+  blackspire: {
+    avenues:[['citadel-avenue',106,[[-1450,0],[0,0],[1450,0]]],['forge-processional',90,[[0,-1300],[0,-630],[0,0],[0,650],[0,1250]]],['upper-ward',76,[[-1250,-630],[0,-630],[1250,-630]]],['chainworks-road',82,[[-1250,650],[0,650],[1250,650]]]],
+    districts:[['citadel-ward','Council and guarded archive above the forges','stone',-650,-790,1100,650],['forge-ward','Volcanic craft and chainworks','ash',700,-210,1100,650],['lower-homes','Worker homes separated from furnace loading','stone',-650,790,1100,700]],
+    lots:[['Obsidian Citadel',8,-850,-830],['Ash Watch',2,760,-830],['Forge Hall',5,680,-190],['Citadel Archive',0,-1100,-180],['Chain Store',7,1200,-180],['Signal Tower',9,-480,-180],['Ash Road Barracks',0,-1080,420],['Chainwright Homes',0,-450,420],['Forge Guild',5,750,420],['Black Dock Stores',7,-800,1030]],
+  },
+};
+
+function authoredLayout(town:TownDefinition):SettlementLayout {
+  const plan = districtPlans[town.id], profile = SETTLEMENT_PROFILES[town.id as SettlementProfileId];
+  const baseTerrain:TerrainKind = town.regionId === 'frostlands' || town.regionId === 'nardorous' ? 'snow' : town.regionId === 'darkav' ? 'ash'
+    : town.regionId === 'rindass' ? 'dirt' : 'grass';
+  const streets = plan.avenues.map(([id,width,points]) => street(id,width,points));
+  if(town.kind==='harbor') streets.push(street('pier-access',44,[[700,650],[700,830]]));
+  if (town.id === 'willowcross') streets.push(street('farm-access',64,[[0,970],[-630,970]]));
+  return { townId:town.id,authored:true,profile,pavedStreets:town.kind !== 'village',baseTerrain,
+    bounds:parcel('settlement-edge',profile.architecture,baseTerrain,0,0,profile.bounds.width,profile.bounds.height),
+    parcels:plan.districts.map(args => parcel(...args)),streets,
+    buildings:plan.lots.map(([label,frame,x,y]) => ({ x,y,frame,scale:1,label,purpose:label+' — '+profile.architecture,appearance:{ texture:'capital_buildings' as const,frame } })),
+    plantings:[],...(plan.waterway ? { waterway:{ ...plan.waterway,crossings:[] } } : {}) };
 }
 
-oakmere.streets.push(...approaches(TOWN_BY_ID.oakmere));
-export const SETTLEMENT_LAYOUTS: SettlementLayout[] = TOWNS.map(t => t.id === 'oakmere' ? oakmere : prototypeLayout(t));
-export const SETTLEMENT_BY_ID = Object.fromEntries(SETTLEMENT_LAYOUTS.map(s => [s.townId,s])) as Record<string, SettlementLayout>;
+export function buildingRenderScale(lot:BuildingLot) {
+  return lot.scale * (lot.appearance?.texture === 'capital_buildings' ? lot.frame === 8 ? 1.12 : 1.45 : 1);
+}
+export function buildingBounds(lot:BuildingLot) {
+  return spriteBounds(lot.appearance?.texture ?? 'world_buildings',lot.appearance?.frame ?? lot.frame,buildingRenderScale(lot),lot.x,lot.y);
+}
+function closestPoint(p:Vec2,a:Vec2,b:Vec2):Vec2 {
+  const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;
+  const t=length ? Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)) : 0;
+  return { x:a.x+dx*t,y:a.y+dy*t };
+}
+// Search only within the authored ward, in distance order. No random scattering.
+function nearbySlots(preferred:Vec2,radius=480):Vec2[] {
+  const slots:Vec2[]=[];
+  for(let dy=-radius;dy<=radius;dy+=32) for(let dx=-radius;dx<=radius;dx+=32)
+    slots.push({ x:preferred.x+dx,y:preferred.y+dy });
+  return slots.sort((a,b)=>Math.hypot(a.x-preferred.x,a.y-preferred.y)-Math.hypot(b.x-preferred.x,b.y-preferred.y));
+}
+function prepareLayout(layout:SettlementLayout) {
+  const town=TOWN_BY_ID[layout.townId], shrine=TOWN_SHRINE_BY_ID[town.id];
+  layout.streets.push(...approaches(town));
+  const reserved:Rect[]=NPCS.filter(n=>n.townId===town.id).map(n=>({ left:n.worldOffset.x-32,right:n.worldOffset.x+32,top:n.worldOffset.y-70,bottom:n.worldOffset.y+35 }));
+  reserved.push(spriteBounds('world_buildings',3,shrine.scale,shrine.world.x-town.world.x,shrine.world.y-town.world.y));
+  for(const p of layout.parcels.filter(p=>p.terrain==='farmland' || p.terrain==='water')) reserved.push({left:p.x-p.width/2,right:p.x+p.width/2,top:p.y-p.height/2,bottom:p.y+p.height/2});
+  const occupied:Rect[]=[];
+  const within=(r:Rect)=>r.left>=-layout.bounds.width/2+32 && r.right<=layout.bounds.width/2-32
+    && r.top>=layout.bounds.y-layout.bounds.height/2+32 && r.bottom<=layout.bounds.y+layout.bounds.height/2-32;
+  const riverFree=(r:Rect)=>!layout.waterway || r.right<layout.waterway.x-layout.waterway.width/2-24 || r.left>layout.waterway.x+layout.waterway.width/2+24;
+  const highmereRiverFree=(r:Rect)=>town.id!=='highmere' || ![r.left,(r.left+r.right)/2,r.right].some(x=>
+    [r.top,(r.top+r.bottom)/2,r.bottom].some(y=>onHighmereRiver(town.world.x+x,town.world.y+y)));
+  // Landmarks reserve their parcel first; processing order never changes IDs.
+  const lots=[...layout.buildings.entries()].sort((a,b)=>{
+    const ra=buildingBounds(a[1]),rb=buildingBounds(b[1]);
+    return (rb.right-rb.left)*(rb.bottom-rb.top)-(ra.right-ra.left)*(ra.bottom-ra.top);
+  });
+  for(const [index,lot] of lots) {
+    if ('town:'+town.id+':building:'+index===shrine.contentId) {
+      occupied.push(buildingBounds(lot));
+      layout.streets.push(street('shrine-frontage',40,[[lot.x,lot.y+64],[lot.x,lot.y+34]]));continue;
+    }
+    let placed=false;
+    for(const point of nearbySlots(lot)) {
+      const candidate={ ...lot,...point },rect=buildingBounds(candidate);
+      if(!within(rect)||!riverFree(rect)||!highmereRiverFree(rect)||layout.streets.some(s=>rectTouchesStreet(rect,s,12))
+        ||[...reserved,...occupied].some(r=>overlaps(rect,r,24))) continue;
+      const door={ x:point.x,y:point.y+34 };
+      const connections=layout.streets.flatMap(s=>s.points.slice(1).map((end,i)=>closestPoint(door,s.points[i],end)))
+        .filter(p=>p.y>=door.y).sort((a,b)=>Math.hypot(a.x-door.x,a.y-door.y)-Math.hypot(b.x-door.x,b.y-door.y));
+      const connection=connections.find(p=>![...occupied,rect].some(r=>rectTouchesStreet(r,{width:40,points:[door,p]},2)));
+      if(!connection) continue;
+      Object.assign(lot,point);occupied.push(rect);
+      layout.streets.push({id:'frontage:'+index,width:40,points:[connection,door]});placed=true;break;
+    }
+    if(!placed) throw new Error('No clear authored parcel for '+town.id+'/'+lot.label);
+  }
+  // Reserve shrine forecourts and approach them from the nearest existing street.
+  const shrineDoor={x:shrine.arrival.x-town.world.x,y:shrine.arrival.y-town.world.y};
+  const access=layout.streets.filter(s=>s.id!=='shrine-frontage').flatMap(s=>s.points.slice(1).map((p,i)=>closestPoint(shrineDoor,s.points[i],p)))
+    .sort((a,b)=>Math.hypot(a.x-shrineDoor.x,a.y-shrineDoor.y)-Math.hypot(b.x-shrineDoor.x,b.y-shrineDoor.y))
+    .find(p=>!occupied.some(r=>rectTouchesStreet(r,{width:40,points:[p,shrineDoor]},2)));
+  if(access) layout.streets.push({id:'shrine-forecourt',width:40,points:[access,shrineDoor]});
+  const authoredTrees=[...layout.plantings];
+  // Deliberate edge groves / winter windbreaks, not trees scattered into streets.
+  if(town.id!=='oakmere') for(const side of [-1,1]) for(const y of [-1000,-350,350,1000]) authoredTrees.push({
+    id:'shelter:'+side+':'+y,x:side*(layout.bounds.width/2-160),y,frame:town.regionId==='nardorous'||town.regionId==='frostlands'?1:0,
+    scale:1.15,purpose:'District edge shelter belt, clear of approaches',
+  });
+  layout.plantings=[];
+  for(const tree of authoredTrees) {
+    const p=nearbySlots(tree,tree.id.startsWith('shelter:')?448:1024).find(point=>{
+      const r=spriteBounds('world_assets',tree.frame,tree.scale,point.x,point.y);
+      return within(r)&&riverFree(r)&&highmereRiverFree(r)&&!layout.streets.some(s=>rectTouchesStreet(r,s,20))
+        && ![...reserved,...occupied].some(other=>overlaps(r,other,18));
+    });
+    if(p){const placed={...tree,...p};layout.plantings.push(placed);occupied.push(spriteBounds('world_assets',tree.frame,tree.scale,p.x,p.y));}
+    else if(!tree.id.startsWith('shelter:')) throw new Error('No clear shelter planting for '+town.id+'/'+tree.id);
+  }
+  if(layout.waterway) {
+    const water=layout.waterway;
+    for(const s of layout.streets) for(let i=1;i<s.points.length;i++) {
+      const a=s.points[i-1],b=s.points[i];
+      if((a.x-water.x)*(b.x-water.x)>0 || Math.abs(b.x-a.x)<1) continue;
+      const y=a.y+(b.y-a.y)*(water.x-a.x)/(b.x-a.x);
+      if(!water.crossings.some(old=>Math.abs(old-y)<96)) water.crossings.push(y);
+    }
+  }
+}
+
+// Oakmere remains a farm village: no artificial north/south wall-gate cross.
+oakmere.streets=[
+  street('west-east-road',84,[[-1100,0],[0,0],[1100,0]]),
+  street('shrine-walk',56,[[0,0],[0,-120],[40,-120],[40,-220]]),
+  street('south-walk',64,[[0,0],[0,360],[0,720]]),
+  street('work-lane',56,[[-550,-120],[0,-120],[700,-120]]),
+  street('residential-lane',56,[[-900,360],[0,360],[850,360]]),
+  street('farm-lane',64,[[-630,360],[-630,500],[-630,720]]),
+];
+export const SETTLEMENT_LAYOUTS:SettlementLayout[]=TOWNS.map(t=>t.id==='oakmere'?oakmere:t.id==='highmere'?highmere:authoredLayout(t));
+for(const layout of SETTLEMENT_LAYOUTS) prepareLayout(layout);
+export const SETTLEMENT_BY_ID=Object.fromEntries(SETTLEMENT_LAYOUTS.map(s=>[s.townId,s])) as Record<string,SettlementLayout>;
+
+// The supplied perspective wall pieces are retained as art, not rotated into
+// rectangular town prisons. Retired wall/gate IDs are handled by save migration.
+
 export function settlementAt(x: number, y: number) {
   return SETTLEMENT_LAYOUTS.find(s => { const town = TOWN_BY_ID[s.townId]; return inParcel(x - town.world.x,y - town.world.y,s.bounds); });
 }
@@ -118,8 +363,13 @@ export function protectedSettlementAt(x: number, y: number) {
   });
 }
 export function settlementTerrain(layout: SettlementLayout, x: number, y: number): TerrainKind {
+  if(TOWN_BY_ID[layout.townId].kind==='harbor' && Math.abs(x-700)<=60 && y>=650 && y<=835) return 'stone';
+  if(layout.waterway && Math.abs(x-layout.waterway.x)<=layout.waterway.width/2)
+    return layout.waterway.crossings.some(c=>Math.abs(y-c)<=28)?'stone':'water';
+  if(layout.parcels.some(p=>p.terrain==='water'&&inParcel(x,y,p))) return 'water';
   // Paved courts override street dirt; streets cut access lanes through fields.
   if (layout.parcels.some(p => p.terrain === 'stone' && inParcel(x,y,p))) return 'stone';
-  if (layout.streets.some(s => onStreet(x,y,s))) return 'dirt';
+  if (layout.streets.some(s => onStreet(x,y,s))) return layout.pavedStreets ? 'stone' : 'dirt';
+  if (layout.parcels.some(p=>p.terrain==='farmland'&&inParcel(x,y,p))) return 'farmland';
   return layout.parcels.find(p => inParcel(x,y,p))?.terrain ?? layout.baseTerrain;
 }

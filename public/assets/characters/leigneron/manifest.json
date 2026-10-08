@@ -1,3 +1,4 @@
+
 {
   "id": "characters/leigneron",
   "frameWidth": 128,
@@ -8,28 +9,48 @@
       "webp": "assets/characters/leigneron/walk_down.webp",
       "frames": 6,
       "frameRate": 9,
-      "repeat": -1
+      "repeat": -1,
+      "renderScale": 1
     },
     "walk_left": {
       "png": "assets/characters/leigneron/walk_left.png",
-      "webp": "assets/characters/leigneron/walk_left.webp",
       "frames": 6,
       "frameRate": 9,
-      "repeat": -1
+      "repeat": -1,
+      "renderScale": 0.205,
+      "frameAlignment": "bottom-center",
+      "frameRects": [
+        { "x": 0, "y": 0, "width": 362, "height": 724 },
+        { "x": 362, "y": 0, "width": 362, "height": 724 },
+        { "x": 724, "y": 0, "width": 362, "height": 724 },
+        { "x": 1086, "y": 0, "width": 362, "height": 724 },
+        { "x": 1448, "y": 0, "width": 362, "height": 724 },
+        { "x": 1810, "y": 0, "width": 362, "height": 724 }
+      ]
     },
     "walk_right": {
       "png": "assets/characters/leigneron/walk_right.png",
-      "webp": "assets/characters/leigneron/walk_right.webp",
       "frames": 6,
       "frameRate": 9,
-      "repeat": -1
+      "repeat": -1,
+      "renderScale": 0.205,
+      "frameAlignment": "bottom-center",
+      "frameRects": [
+        { "x": 0, "y": 0, "width": 362, "height": 724 },
+        { "x": 362, "y": 0, "width": 362, "height": 724 },
+        { "x": 724, "y": 0, "width": 362, "height": 724 },
+        { "x": 1086, "y": 0, "width": 362, "height": 724 },
+        { "x": 1448, "y": 0, "width": 362, "height": 724 },
+        { "x": 1810, "y": 0, "width": 362, "height": 724 }
+      ]
     },
     "walk_up": {
       "png": "assets/characters/leigneron/walk_up.png",
       "webp": "assets/characters/leigneron/walk_up.webp",
       "frames": 6,
       "frameRate": 9,
-      "repeat": -1
+      "repeat": -1,
+      "renderScale": 1
     }
   }
 }

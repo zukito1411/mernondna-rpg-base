@@ -3,12 +3,13 @@ import { BOSSES, ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import { TOWN_BY_ID } from '../../data/towns';
+import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
 import { WORLD_CONTENT, initialContentState } from '../../data/content';
 import { WEAPON_BY_ID } from '../../data/weapons';
 import { WORLD_HEIGHT, WORLD_WIDTH } from '../../data/world';
 import { useGameStore } from '../../store/gameStore';
 import { seededRandom } from '../../utils/seededRandom';
-import { setSaveSnapshotProvider } from '../../utils/save';
+import { saveGame, setSaveSnapshotProvider } from '../../utils/save';
 import { mobileInput } from '../input';
 import { Enemy } from '../entities/Enemy';
 import { Npc } from '../entities/Npc';
@@ -20,9 +21,17 @@ import { EventDirector, type EventDirectorHost } from '../systems/EventDirector'
 import { WorldGenerator } from '../systems/WorldGenerator';
 import { ContentChunkManager } from '../systems/ContentChunkManager';
 import { resolveQuestTarget, questBearing } from '../systems/questNavigation';
-import { artScale, artFrameSize, worldPropFootprint } from '../../data/art';
+import { artScale, artFrameSize, worldPropOrigin } from '../../data/art';
 import { repairCreaturePlacements } from '../systems/creaturePlacement';
 import { progressionStats } from '../../data/progression';
+import { localSettlementTravelEnabled } from '../../utils/localSettlementTravel';
+import type { ActiveSkillDefinition } from '../../data/activeSkills';
+import { propFoundation, spriteBounds, overlaps } from '../../data/settlementGeometry';
+import { objectiveIsCurrent } from '../systems/storyProgress';
+import { fortificationBlocksPath, fortificationBlocksPoint } from '../../data/fortifications';
+import { CinematicDirector } from '../systems/CinematicDirector';
+import { formationPosition } from '../systems/npcRoutes';
+import { QUEST_BY_ID } from '../../data/quests';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
 
@@ -46,10 +55,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private spawnAttempts = 0;
   private focused = true;
   private wasBlocked = false;
-  private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue'>();
+  private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue' | 'journal'>();
   private readonly heldPanelKeys = new Set<string>();
   private questGuide!: Phaser.GameObjects.Graphics;
   private questTarget: QuestTarget | null = null;
+  activePlayMs=0;
+  private cinematicDirector!:CinematicDirector;
+  private reliefWatchMs=0;
+  getWorldHour(){return this.dayNight.getHour();}
+  streamCinematicView(x:number,y:number){this.chunkManager.update(x,y);this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
+  recordTraining(targetId:string) {
+    const target=this.contentManager.getActor('training:highmere-target');
+    if(target&&Math.hypot(this.player.x-target.x,this.player.y-target.y)<240
+      && this.hasClearPath(this.player.x,this.player.y,target.x,target.y,target)) useGameStore.getState().progressQuest('train',targetId);
+  }
 
   constructor() {
     super('world');
@@ -61,14 +80,17 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     for (let i = 0; i <= steps; i++) {
       const x = Phaser.Math.Linear(from.x, to.x, i / steps);
       const y = Phaser.Math.Linear(from.y, to.y, i / steps);
-      if (!this.worldGenerator.isWalkable(x, y) || this.isBlockedByBuilding(x, y)) return false;
+      if (!this.worldGenerator.isWalkable(x, y) || this.isBlockedByBuilding(x, y) || this.isNpcObscured(x,y)) return false;
     }
     return this.hasClearPath(from.x, from.y, to.x, to.y);
   }
 
   create() {
+    useGameStore.getState().setBossEncounter(null);
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.dayNight = new DayNightSystem(this);
+    this.cinematicDirector=new CinematicDirector(this);
+    this.activePlayMs=0;
     this.eventDirector = new EventDirector(this);
     this.buildings = this.physics.add.staticGroup();
     this.treeBodies = this.physics.add.staticGroup();
@@ -87,7 +109,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
     this.physics.add.collider(this.player, this.buildings);
     this.physics.add.collider(this.player, this.treeBodies);
-    this.physics.add.collider(this.player, this.npcBodies);
+    // People aren't immovable street barriers. Their patrols still avoid props.
     this.physics.add.collider(this.creatureBodies, this.buildings);
     this.physics.add.collider(this.creatureBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.buildings);
@@ -123,11 +145,21 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
     this.chunkManager.update(this.player.x, this.player.y);
     this.contentManager.update(this.player.x, this.player.y);
+    // Layout updates can put a saved player inside a new foundation.
+    // Repair position only, never health, stamina or story progress.
+    if(this.isBlockedByBuilding(this.player.x,this.player.y)) {
+      const candidates=[48,80,128,192,256,384,512].flatMap(radius=>Array.from({length:16},(_,i)=>({
+        x:spawnX+Math.cos(i*Math.PI/8)*radius,y:spawnY+Math.sin(i*Math.PI/8)*radius,
+      })));
+      const safe=candidates.find(p=>this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y))??LEIGNERON.spawn;
+      (this.player.body as Phaser.Physics.Arcade.Body).reset(safe.x,safe.y);this.lastSafe={...safe};
+      this.chunkManager.update(safe.x,safe.y);this.contentManager.update(safe.x,safe.y);
+    }
     this.questGuide = this.add.graphics().setDepth(9100).setName('quest-direction-guide');
     this.updateNavigation();
 
     if (!this.input.keyboard) throw new Error('Keyboard input is unavailable.');
-    for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['character', 'C'], ['pause', 'ESC']] as const) {
+    for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['character', 'C'], ['pause', 'ESC'],['journal','J']] as const) {
       this.input.keyboard.addKey(key).setEmitOnRepeat(false).on('down', () => {
         this.panelActions.add(action);
       });
@@ -141,6 +173,23 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   update(time: number, delta: number) {
     this.handlePanelHotkeys();
+    if(this.cinematicDirector.active) {
+      this.physics.world.pause();this.player.discardActions();
+      if(this.focused){
+        this.activePlayMs+=Math.min(delta,250);
+        for(const npc of this.npcs)if(npc.definition.formation){npc.updatePatrol(time,delta);npc.updatePresentation(this.player.x,this.player.y,false);}
+        this.cinematicDirector.update(delta);
+      }
+      return;
+    }
+    const story=useGameStore.getState();
+    if(this.focused&&!story.panel&&!story.dialogue) {
+      const pending=story.pendingCinematic;
+      if(pending){if(!this.cinematicDirector.start(pending))story.hydrate({pendingCinematic:null});else return;}
+      if(this.worldGenerator.getTownAt(this.player.x,this.player.y)?.id==='highmere'
+        && !story.storyFlags['scene:highmere-arrival'] && this.cinematicDirector.start('highmere-arrival'))return;
+    }
+    this.handleShrineTravel();
     const uiBlocked = !this.focused || Boolean(useGameStore.getState().panel || useGameStore.getState().dialogue);
     if (uiBlocked && !this.wasBlocked) this.player.resetInput();
     this.wasBlocked = uiBlocked;
@@ -148,11 +197,30 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     else this.physics.world.resume();
 
     if (!uiBlocked) {
+      this.activePlayMs+=Math.min(delta,250);
       this.player.updatePlayer(time, delta);
+      const store=useGameStore.getState();
+      if(objectiveIsCurrent(store.quests,'escort','tovin-reed')) {
+        const witness=this.npcs.find(n=>n.definition.id==='tovin-reed');
+        const kitchen=NPC_BY_ID['mairin-reed'],town=TOWN_BY_ID.highmere;
+        if(witness&&!witness.escorting)witness.beginEscort({x:town.world.x+kitchen.worldOffset.x,y:town.world.y+kitchen.worldOffset.y});
+      }
       for (const npc of this.npcs) if (npc.active) npc.updatePatrol(time,delta);
       for (const enemy of this.enemies) {
         if (enemy.active) enemy.updateEnemy(time);
       }
+      const body=this.player.body as Phaser.Physics.Arcade.Body;
+      this.player.hp=this.player.recovery.update(delta,{
+        hp:this.player.hp,maxHp:this.player.maxHp,inSettlement:Boolean(this.worldGenerator.getTownAt(this.player.x,this.player.y)),
+        moving:body.velocity.lengthSq()>1,busy:this.player.skills.isCasting,
+        threatened:[...this.enemies].some(e=>e.active&&e.hp>0&&Phaser.Math.Distance.Between(e.x,e.y,this.player.x,this.player.y)<400),
+      });
+      const standard=this.contentManager.getActor('watch:relief-yard');
+      if(objectiveIsCurrent(store.quests,'train','relief-watch')&&standard
+        && Math.hypot(this.player.x-standard.x,this.player.y-standard.y)<100&&!this.player.skills.isCasting) {
+        this.reliefWatchMs+=Math.min(delta,250);
+        if(this.reliefWatchMs>=12000){store.progressQuest('train','relief-watch');this.notify('Relief stores verified. Return to Captain Yselle.');}
+      }else this.reliefWatchMs=0;
     } else {
       this.player.discardActions();
       (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
@@ -184,8 +252,21 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (this.hudAccumulator > 180) {
       this.hudAccumulator = 0;
       const town = this.worldGenerator.getTownAt(this.player.x, this.player.y);
+      if(town&&objectiveIsCurrent(useGameStore.getState().quests,'visit',town.id))useGameStore.getState().progressQuest('visit',town.id);
       useGameStore.getState().setWorldStatus(this.player.x, this.player.y, regionId, town?.id ?? null);
       useGameStore.getState().setVitals(this.player.hp, this.player.stamina);
+      useGameStore.getState().setActiveSkillStatus(this.player.skills.snapshot());
+      const boss = [...this.enemies]
+        .filter(enemy => enemy.active && enemy.hp > 0 && enemy.definition.boss)
+        .map(enemy => ({ enemy, distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) }))
+        .filter(entry => entry.distance < 760)
+        .sort((a, b) => a.distance - b.distance)[0]?.enemy;
+      useGameStore.getState().setBossEncounter(boss ? {
+        id: boss.instanceId,
+        name: boss.definition.boss ? BOSSES.find(entry => `boss:${entry.id}` === boss.instanceId)?.name ?? boss.definition.name : boss.definition.name,
+        hp: Math.max(0, boss.hp),
+        maxHp: boss.definition.hp,
+      } : null);
       this.updateNavigation();
     }
   }
@@ -195,6 +276,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   performPlayerAttack(player: Player, direction: Phaser.Math.Vector2, weapon: WeaponDefinition) {
+    player.recovery.interrupt();
+    const practice=this.contentManager.getActor('training:highmere-target');
+    if(practice) {
+      const offset=new Phaser.Math.Vector2(practice.x-player.x,practice.y-player.y);
+      if(offset.length()<=weapon.reach+8&&direction.clone().normalize().dot(offset.normalize())>=.25
+        && this.hasClearPath(player.x,player.y,practice.x,practice.y,practice)) {
+        this.recordTraining('drill-sword');this.playEffect('hit',practice.x,practice.y);
+      }
+    }
     const facing = direction.clone().normalize();
     const progression = progressionStats(useGameStore.getState().attributes, useGameStore.getState().learnedSkills);
 
@@ -207,6 +297,24 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if (facing.dot(toEnemy) < 0.25) continue;
       if (!this.hasClearPath(player.x, player.y, enemy.x, enemy.y)) continue;
       enemy.takeDamage(Math.round(weapon.damage * progression.damageMultiplier), facing);
+    }
+  }
+
+  performSkillHit(player:Player,direction:Phaser.Math.Vector2,skill:ActiveSkillDefinition,multiplier:number) {
+    player.recovery.interrupt();
+    this.recordTraining(skill.id);
+    const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
+    const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * multiplier));
+    for (const enemy of this.enemies) {
+      if (!enemy.active || enemy.hp <= 0) continue;
+      const offset = new Phaser.Math.Vector2(enemy.x - player.x,enemy.y - player.y);
+      if (offset.length() > skill.radius + (enemy.definition.boss ? 18 : 8)) continue;
+      const outward = offset.lengthSq() > 0 ? offset.normalize() : direction.clone();
+      // A -1 cone is a full circle: skip the facing check entirely so rear
+      // targets are included even if normalization introduces rounding error.
+      if (skill.coneDot > -1 && direction.dot(outward) < skill.coneDot) continue;
+      if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
+      enemy.takeDamage(damage,outward);
     }
   }
 
@@ -228,7 +336,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     let target: { definition: InteractableContentDefinition; actor: ContentActor } | undefined;
     for (const entry of this.interactables.values()) {
       const distance = Phaser.Math.Distance.Between(x, y, entry.actor.x, entry.actor.y);
-      if (distance < nearestDistance && this.hasClearPath(x, y, entry.actor.x, entry.actor.y)) {
+      if (distance < nearestDistance && this.hasClearPath(x, y, entry.actor.x, entry.actor.y, entry.actor)) {
         nearestDistance = distance; target = entry;
       }
     }
@@ -274,6 +382,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     useGameStore.getState().recordEnemyDefeat(definition.id, definition.xp, gold, bossId, this.contentManager.snapshot());
 
     if (enemy.instanceId.startsWith('boss:')) {
+      useGameStore.getState().setBossEncounter(null);
       this.notify(`${definition.name} defeated. The world state remembers this.`);
     }
 
@@ -300,15 +409,24 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   canEnemyOccupy(x: number, y: number) { return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y); }
 
   private isBlockedByBuilding(x: number, y: number) {
+    if(fortificationBlocksPoint(x,y,20))return true;
     return [...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
       return x >= body.left - 20 && x <= body.right + 20 && y >= body.top - 20 && y <= body.bottom + 20;
     });
   }
 
-  hasClearPath(ax: number, ay: number, bx: number, by: number) {
+  private isNpcObscured(x:number,y:number) {
+    const person={left:x-25,right:x+25,top:y-72,bottom:y+20};
+    return WORLD_CONTENT.some(d=>d.kind==='settlement-prop' && d.world.y>y
+      && overlaps(person,spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y)));
+  }
+
+  hasClearPath(ax: number, ay: number, bx: number, by: number, exclude?: Phaser.GameObjects.GameObject) {
+    if(fortificationBlocksPath({x:ax,y:ay},{x:bx,y:by}))return false;
     const line = new Phaser.Geom.Line(ax, ay, bx, by);
     return ![...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
+      if (object === exclude) return false;
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
       return Phaser.Geom.Intersects.LineToRectangle(line, new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height));
     });
@@ -316,18 +434,36 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   syncState() {
     if (!this.player?.active) return;
+    this.reconcileStoryAffinity();
     const town = this.worldGenerator.getTownAt(this.player.x, this.player.y);
     const store = useGameStore.getState();
     store.setWorldStatus(this.player.x, this.player.y, this.worldGenerator.getRegionAt(this.player.x, this.player.y), town?.id ?? null);
     store.setVitals(this.player.hp, this.player.stamina);
+    store.setActiveSkillStatus(this.player.skills.snapshot());
     this.dayNight.syncState();
     if (this.contentManager) store.setContentWorld(this.contentManager.snapshot());
+  }
+
+  private reconcileStoryAffinity() {
+    if(!this.contentManager)return;
+    const store=useGameStore.getState();
+    for(const [key,choiceId] of Object.entries(store.storyChoices)) {
+      if(store.storyFlags['affinity:'+key])continue;
+      const [questId,objectiveId]=key.split(':');
+      const objective=QUEST_BY_ID[questId]?.objectives.find(o=>o.id===objectiveId);
+      if(!objective || !objective.choices?.some(c=>c.id===choiceId&&c.correct!==false)
+        ||(store.quests[questId]?.objectiveProgress[objectiveId]??0)<objective.amount)continue;
+      const id='npc:'+objective.targetId,state=this.contentManager.getState(id);
+      if(!state || !NPC_BY_ID[objective.targetId])continue;
+      this.contentManager.patchState(id,{trust:Math.min(100,(state.trust??NPC_BY_ID[objective.targetId].relationshipToLeigneron.trust)+5)});
+      store.setStoryFlag('affinity:'+key);
+    }
   }
 
   private updateNavigation() {
     const store = useGameStore.getState();
     this.questTarget = resolveQuestTarget(store.quests, store.worldContent, this.player,
-      id => this.contentManager.getActor(id));
+      id => this.contentManager.getActor(id),store.trackedQuestId);
     const markers: NavigationMarker[] = [];
     for (const id of this.contentManager.getActiveIds()) {
       const d = this.contentManager.getDefinition(id)!;
@@ -348,7 +484,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (!interaction) for (const { definition,actor } of this.interactables.values()) {
       const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,actor.x,actor.y);
-      if (d < distance && this.hasClearPath(this.player.x,this.player.y,actor.x,actor.y)) { distance = d; interaction = definition.name; }
+      if (d < distance && this.hasClearPath(this.player.x,this.player.y,actor.x,actor.y,actor)) { distance = d; interaction = definition.name; }
     }
     store.setNavigation({ heading: Math.atan2(this.player.lastDirection.x,-this.player.lastDirection.y), target: this.questTarget, markers, interaction });
   }
@@ -380,7 +516,18 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private createContentActor(definition: ContentDefinition, state: ContentState): ContentActor {
     const { x, y } = state;
     if (definition.kind === 'npc') {
-      const npc = new Npc(this, NPC_BY_ID[definition.npcId], x, y, definition.world);
+      const npcDefinition = NPC_BY_ID[definition.npcId];
+      // Repair older keeper positions behind the shrine roof. Keep trust and
+      // dialogue progress; only move the actor into its redesigned forecourt.
+      const obscuredKeeper = ['orin-bell','maren-voss'].includes(definition.npcId)
+        && Math.hypot(x - definition.world.x,y - definition.world.y) > (npcDefinition.patrolRadius ?? 110) + 18;
+      const phase=npcDefinition.formation?formationPosition(this.activePlayMs,npcDefinition.formation.rank):null;
+      const town=TOWN_BY_ID[npcDefinition.townId];
+      const returned=definition.npcId==='tovin-reed'&&(useGameStore.getState().quests['shadows-highmere']?.objectiveProgress.escort??0)>=1;
+      const position = returned?{x:town.world.x-1280,y:town.world.y+1609}
+        :phase&&this.getWorldHour()>=6&&this.getWorldHour()<20?{x:town.world.x+phase.x,y:town.world.y+phase.y}
+        : obscuredKeeper || this.isNpcObscured(x,y) || this.isBlockedByBuilding(x,y) ? definition.world : { x,y };
+      const npc = new Npc(this, npcDefinition, position.x, position.y, definition.world);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
         if (Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y) < 72 && this.hasClearPath(this.player.x, this.player.y, npc.x, npc.y)) {
@@ -414,7 +561,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const actor = solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
         : this.add.sprite(x, y, texture, definition.frame);
       actor.setName(definition.id);
-      this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase);
+      this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase,
+        definition.rotation,definition.anchor);
+      if(texture==='bridges'&&definition.frame===2){
+        actor.setDepth(y-80);
+        const rail=this.add.image(x,y,'bridge-front-rail').setOrigin(actor.originX,actor.originY)
+          .setScale(actor.scaleX,actor.scaleY).setDepth(y+32).setName('bridge-rail:'+definition.id);
+        actor.once('destroy',()=>rail.destroy());
+      }
+      if (definition.tint !== undefined) actor.setTint(definition.tint);
       if (definition.label) {
         const caption = this.add.text(x, y + 14, definition.label, {
           fontFamily: 'Georgia, serif', fontSize: '10px', color: '#e7d7ad', stroke: '#211b12', strokeThickness: 3,
@@ -425,20 +580,33 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (!('description' in definition)) throw new Error(`Unknown content type: ${definition.id}`);
     const texture = definition.texture ?? 'world_objects';
-    const actor = this.add.sprite(x, y, texture, definition.frame).setName(definition.id).setInteractive({ useHandCursor: true });
-    this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6);
-    if (state.used) actor.setTint(0x99907b);
+    const solid = definition.solid ?? (definition.kind !== 'harvestable' || definition.texture === 'world_assets');
+    const actor = (solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
+      : this.add.sprite(x, y, texture, definition.frame)).setName(definition.id).setInteractive({ useHandCursor: true });
+    const footprint = propFoundation(texture,definition.frame,definition.scale??.6);
+    this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6, solid, footprint);
+    if (definition.townShrineId) {
+      const caption = this.add.text(x,y + 15,definition.name,{
+        fontFamily:'Georgia, serif',fontSize:'10px',color:'#e7d7ad',stroke:'#211b12',strokeThickness:3,
+      }).setResolution(2).setOrigin(.5,0).setDepth(y + 80);
+      actor.once('destroy',() => caption.destroy());
+    }
+    if (state.used) actor.setTint(definition.townShrineId ? 0xc9e7eb : 0x99907b);
     actor.on('pointerdown', () => {
       if (!useGameStore.getState().panel && !useGameStore.getState().dialogue
         && Phaser.Math.Distance.Between(this.player.x, this.player.y, actor.x, actor.y) < 72
-        && this.hasClearPath(this.player.x, this.player.y, actor.x, actor.y)) this.useInteractable(definition, actor);
+        && this.hasClearPath(this.player.x, this.player.y, actor.x, actor.y, actor)) this.useInteractable(definition, actor);
     });
     this.interactables.set(definition.id, { definition, actor });
     return actor;
   }
 
-  private presentWorldSprite(actor: Phaser.GameObjects.Sprite, texture: 'world_objects' | 'world_assets' | 'world_buildings', frame: number, scale: number, solid = false, foundation?:{ width:number; height:number }) {
-    actor.setOrigin(.5, 1).setScale(artScale(texture) * scale).setDepth(actor.y);
+  private presentWorldSprite(actor: Phaser.GameObjects.Sprite, texture: 'world_objects' | 'world_assets' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls',
+    frame: number, scale: number, solid = false, foundation?:{ width:number; height:number }, rotation = 0,
+    anchor:'center'|'bottom' = 'bottom') {
+    const origin=worldPropOrigin(texture,frame,anchor);
+    actor.setOrigin(origin.x,origin.y).setScale(artScale(texture) * scale).setDepth(actor.y).setRotation(rotation);
+    this.dayNight.register(actor,texture,frame,scale);
     const size = artFrameSize(texture, frame), width = size.width * scale, height = size.height * scale;
     const shadow = this.add.ellipse(actor.x, actor.y - 5, width * .7, Math.min(18, height * .12), 0x182015, .18)
       .setDepth(actor.y - height - 1).setName(`shadow:${actor.name}`);
@@ -447,11 +615,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       actor.refreshBody();
       // Collide with the grounded foundation, not the roof/canopy or empty atlas padding.
       const body = actor.body as Phaser.Physics.Arcade.StaticBody;
-      const footprint = foundation ?? (texture === 'world_objects' ? worldPropFootprint(frame, scale)
-        : { width: width * .72, height: Math.min(56, height * .25) });
+      const footprint = foundation ?? propFoundation(texture,frame,scale);
       const footprintWidth = footprint.width, footprintHeight = footprint.height;
       body.setSize(footprintWidth, footprintHeight, false)
-        .setOffset((actor.displayWidth - footprintWidth) / 2, actor.displayHeight - footprintHeight - 2);
+        .setOffset((actor.displayWidth - footprintWidth) / 2,
+          anchor === 'center' ? (actor.displayHeight - footprintHeight) / 2 : actor.displayHeight - footprintHeight - 2 * scale);
     }
   }
 
@@ -465,8 +633,25 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
+    if(definition.questTargetId&&definition.questEventType) {
+      const store=useGameStore.getState();
+      if(!objectiveIsCurrent(store.quests,definition.questEventType,definition.questTargetId)) {
+        this.notify(definition.repeatText);return;
+      }
+      this.contentManager.patchState(definition.id,{used:true});
+      store.progressQuest(definition.questEventType,definition.questTargetId);
+      store.setContentWorld(this.contentManager.snapshot());this.notify(definition.description);return;
+    }
+    if (definition.townShrineId) {
+      this.contentManager.patchState(definition.id,{ used:true });
+      actor.setTint(0xc9e7eb);
+      useGameStore.getState().setContentWorld(this.contentManager.snapshot());
+      useGameStore.getState().openShrineTravel(definition.townShrineId);
+      saveGame();
+      return;
+    }
     const state = this.contentManager.getState(definition.id)!;
-    if (state.used) { this.notify(definition.repeatText); return; }
+    if (state.used && !definition.repeatable) { this.notify(definition.repeatText); return; }
     this.contentManager.patchState(definition.id, { used: true });
     actor.setTint(0x99907b);
     if (definition.restoreHp) {
@@ -477,6 +662,46 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const store = useGameStore.getState();
     store.hydrate({ worldContent: this.contentManager.snapshot(), gold: store.gold + (definition.rewardGold ?? 0) });
     this.notify(definition.description);
+  }
+
+  private handleShrineTravel() {
+    const store = useGameStore.getState();
+    if (!store.travelRequest) return;
+    const origin = store.travelOriginTownId ? TOWN_SHRINE_BY_ID[store.travelOriginTownId] : undefined;
+    const destination = TOWN_SHRINE_BY_ID[store.travelRequest];
+    const validOrigin = store.travelRequestSource === 'map'
+      || store.travelRequestSource === 'shrine' && origin && store.unlockedTownShrines.includes(origin.townId)
+        && Phaser.Math.Distance.Between(this.player.x,this.player.y,origin.world.x,origin.world.y) <= 120;
+    store.clearShrineTravelRequest();
+    if (!validOrigin || !destination || !localSettlementTravelEnabled() && !store.unlockedTownShrines.includes(destination.townId)) {
+      this.notify('Attune this settlement’s shrine before teleporting there.');
+      return;
+    }
+    const departure = { x:this.player.x,y:this.player.y };
+    this.player.resetInput();
+    this.chunkManager.update(destination.arrival.x,destination.arrival.y);
+    this.contentManager.update(destination.arrival.x,destination.arrival.y);
+    const landing = [destination.arrival,
+      ...[0,48,-48,80,-80].flatMap(dx => [24,48,80].map(dy => ({ x:destination.arrival.x + dx,y:destination.arrival.y + dy })))
+    ].find(point => this.worldGenerator.isWalkable(point.x,point.y) && !this.isBlockedByBuilding(point.x,point.y)
+      && !this.npcs.some(npc => Phaser.Math.Distance.Between(point.x,point.y,npc.x,npc.y) < 36));
+    if (!landing) {
+      this.chunkManager.update(departure.x,departure.y);
+      this.contentManager.update(departure.x,departure.y);
+      this.notify('This shrine arrival is obstructed. Try again shortly.');
+      return;
+    }
+    this.playEffect('teleport',departure.x,departure.y);
+    (this.player.body as Phaser.Physics.Arcade.Body).reset(landing.x,landing.y);
+    this.player.lastDirection.set(0,1);
+    this.lastSafe = { ...landing };
+    this.cameras.main.centerOn(landing.x,landing.y);
+    this.playEffect('teleport',landing.x,landing.y);
+    this.dayNight.update(0,landing.x,landing.y);
+    this.syncState();
+    this.updateNavigation();
+    saveGame();
+    this.notify(`Arrived at ${TOWN_BY_ID[destination.townId].name}.`);
   }
 
   private trySpawnAmbientEnemy(regionId: RegionId) {
@@ -498,7 +723,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private enforceLandCollision() {
-    if (this.worldGenerator.isWalkable(this.player.x, this.player.y)) {
+    if (this.worldGenerator.isWalkable(this.player.x, this.player.y)
+      && !fortificationBlocksPath(this.lastSafe,this.player,12)) {
       this.lastSafe = { x: this.player.x, y: this.player.y };
     } else {
       (this.player.body as Phaser.Physics.Arcade.Body).reset(this.lastSafe.x, this.lastSafe.y);
@@ -510,13 +736,14 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const store = useGameStore.getState();
     const actions = new Set(this.panelActions);
     this.panelActions.clear();
+    if(store.cinematic){if(actions.has('pause'))store.requestCinematicSkip();return;}
     if (store.dialogue) {
       this.player.discardActions();
       if (actions.has('pause')) store.endDialogue();
       else if (actions.has('dialogue')) {
         const npc = NPCS.find(n => n.id === store.dialogue?.npcId);
-        if (npc && store.dialogue.lineIndex < npc.dialogue.length - 1) store.advanceDialogue();
-        else store.endDialogue();
+        if (npc && store.dialogue.lineIndex < (store.dialogue.lines??npc.dialogue).length - 1) store.advanceDialogue();
+        else if(!store.dialogue.choices?.length) store.endDialogue();
       }
       return;
     }
@@ -524,6 +751,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (actions.has('map')) store.panel === 'map' ? store.closePanel() : store.openPanel('map');
     if (actions.has('inventory')) store.panel === 'inventory' ? store.closePanel() : store.openPanel('inventory');
     if (actions.has('character')) store.panel === 'character' ? store.closePanel() : store.openPanel('character');
+    if (actions.has('journal')) store.panel === 'journal' ? store.closePanel() : store.openPanel('journal');
   }
 
   private updateCameraZoom() {
@@ -532,6 +760,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   shutdown() {
+    useGameStore.getState().setBossEncounter(null);
     setSaveSnapshotProvider();
     mobileInput.reset();
     this.panelActions.clear();
@@ -539,6 +768,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     this.game.events.off(Phaser.Core.Events.FOCUS, this.onFocus, this);
     this.dayNight?.destroy();
+    this.cinematicDirector?.destroy();
     this.contentManager?.destroy();
     this.questGuide?.destroy();
     this.chunkManager?.destroy();

@@ -11,14 +11,15 @@ const target = (live?: (id: string) => { x: number; y: number } | undefined) => 
   const s = useGameStore.getState(); return resolveQuestTarget(s.quests,s.worldContent,LEIGNERON.spawn,live);
 };
 describe('quest navigation', () => {
-  it('tracks Aldren → Varr → Aldren and disappears on completion', () => {
+  it('tracks Aldren → Varr → Aldren and advances to the unlocked campaign', () => {
     expect(target()?.contentId).toBe('npc:aldren-vale');
     const s = useGameStore.getState(); s.startDialogue('aldren-vale'); s.endDialogue();
     expect(target()?.contentId).toBe('boss:captain-varr');
     s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr');
     expect(target()?.objectiveId).toBe('return-aldren');
     s.startDialogue('aldren-vale'); s.endDialogue();
-    expect(target()).toBeNull();
+    expect(target()?.questId).toBe('eight-regions');
+    expect(target()?.contentId).toBe('boss:moonlit-warden');
   });
   it('uses live actor positions and persistent NPC relocation before authored defaults', () => {
     useGameStore.getState().setContentWorld({ states: { 'npc:aldren-vale': { x: 40000,y: 40000,trust: 85 } }, spawns: {},nextSpawnSequence: 0 });

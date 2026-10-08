@@ -11,6 +11,16 @@ beforeEach(() => {
   useGameStore.getState().resetGame();
 });
 describe('local saves', () => {
+  it('retires obsolete walls without discarding progress or shrine unlocks',()=>{
+    useGameStore.getState().hydrate({gold:95,unlockedTownShrines:['oakmere']});saveGame();
+    const data=JSON.parse(values.get(SAVE_KEY)!);
+    data.state.worldContent.states['settlement:wall:oakmere:west:20']={x:100,y:100};
+    data.state.worldContent.states['settlement:gate:highmere:0']={x:100,y:100};
+    data.state.worldContent.states['farm:oakmere:fence:999']={x:100,y:100};
+    const parsed=parseSave(JSON.stringify(data));
+    expect(parsed?.state.gold).toBe(95);expect(parsed?.state.unlockedTownShrines).toEqual(['oakmere']);
+    expect(parsed?.state.worldContent.states).toEqual({});
+  });
   it('saves boss death and rewards atomically before the autosave interval', () => {
     const stop = watchProgressSaves();
     useGameStore.getState().recordEnemyDefeat('bandit-captain', 110, 30, 'captain-varr');
@@ -68,7 +78,7 @@ describe('local saves', () => {
     expect(useGameStore.getState().quests['first-road'].objectiveProgress['kill-varr']).toBe(1);
     expect(useGameStore.getState().worldContent.states['boss:captain-varr'].defeated).toBe(true);
     saveGame();
-    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(3);
+    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(4);
   });
   it('preserves allocated attributes and learned skills through save/load', () => {
     useGameStore.getState().addRewards(250, 0);

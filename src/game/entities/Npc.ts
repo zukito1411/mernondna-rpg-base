@@ -1,11 +1,15 @@
 import Phaser from 'phaser';
 import type { NpcDefinition, Vec2 } from '../types';
-import { actorArtLayout, ART_BY_KEY, actorScaleForHeight } from '../../data/art';
+import { ART_BY_KEY, actorScaleForHeight, artScale, type ArtTextureKey } from '../../data/art';
+import { NPC_IDLE_ART } from '../../data/npcIdleArt';
 import { directionFrame } from '../../data/animationPacks';
-import { PLAYER_ACTOR_HEIGHT, npcApparentHeight } from '../../data/progression';
+import { npcApparentHeight } from '../../data/progression';
 import { patrolDestination } from '../systems/npcPatrol';
 import { seededRandom } from '../../utils/seededRandom';
 import type { WorldScene } from '../scenes/WorldScene';
+import { TOWN_BY_ID } from '../../data/towns';
+import { npcStreetRoute, formationPosition } from '../systems/npcRoutes';
+import { useGameStore } from '../../store/gameStore';
 
 export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly definition: NpcDefinition;
@@ -18,25 +22,33 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private returningHome = false;
   private nextPatrolAt = 0;
   private facing = new Phaser.Math.Vector2(0, 1);
+  private readonly walkTexture:ArtTextureKey;
+  private route:Vec2[]=[];
+  private routineKey='';
+  private routineAnchor:Vec2;
+  private stalledMs=0;
+  private previousPosition:Vec2;
+  private escortGoal:Vec2|null=null;
 
   constructor(scene: WorldScene, definition: NpcDefinition, x: number, y: number, home: Vec2) {
     const texture = definition.spriteTexture ?? 'npcs';
     const apparentHeight = npcApparentHeight(texture);
     super(scene, x, y, texture, definition.spriteFrame);
     this.definition = definition;
+    this.walkTexture = texture;
     this.home = { ...home };
+    this.routineAnchor={...home};this.previousPosition={x,y};
     this.rng = seededRandom(`npc-patrol:${definition.id}`);
     this.nextPatrolAt = scene.time.now + 1200 + this.rng() * 1800;
-    const layout = actorArtLayout(texture);
     this.labelY = -(apparentHeight + 12);
     scene.add.existing(this);
-    this.setScale(actorScaleForHeight(texture, definition.spriteFrame, apparentHeight)).setOrigin(.5, layout.originY);
+    const sheet = ART_BY_KEY[texture], modelScale = actorScaleForHeight(texture,definition.spriteFrame,apparentHeight);
+    this.setScale(modelScale).setOrigin(.5,1 - (2 * sheet.density + 20 / modelScale) / (sheet.frameHeight * sheet.density));
     scene.physics.add.existing(this);
     const scaleX = this.scaleX, scaleY = this.scaleY, density = ART_BY_KEY[texture].density;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    const sheet = ART_BY_KEY[texture];
     body.setSize(18 / scaleX, 22 / scaleY)
-      .setOffset(sheet.frameWidth * density / 2 - 9 / scaleX, density * (sheet.frameHeight - 22) - 2 / scaleY)
+      .setOffset(sheet.frameWidth * density / 2 - 9 / scaleX, this.originY * sheet.frameHeight * density - 2 / scaleY)
       .setCollideWorldBounds(true).setImmovable(true);
     body.pushable = false;
     this.setDepth(y);
@@ -52,22 +64,66 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.once('destroy', () => { this.nameLabel.destroy(); this.titleLabel.destroy(); });
   }
 
-  updatePatrol(time: number, _delta: number) {
+  beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;}
+  get escorting(){return this.escortGoal!==null;}
+  updatePatrol(time: number, delta: number) {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
+    const town=TOWN_BY_ID[this.definition.townId];
+    const toLocal=(p:Vec2)=>({x:p.x-town.world.x,y:p.y-town.world.y});
+    const toWorld=(p:Vec2)=>({x:p.x+town.world.x,y:p.y+town.world.y});
+    if(this.definition.formation && scene.getWorldHour()>=6 && scene.getWorldHour()<20) {
+      const goal=toWorld(formationPosition(scene.activePlayMs,this.definition.formation.rank));
+      // Common deterministic phase keeps the file together across streaming.
+      // Never snap through a wall if a future layout edit invalidates its route.
+      if(scene.canNpcVisit(this,goal) && Math.hypot(this.x-goal.x,this.y-goal.y)<160) {
+        const dx=goal.x-this.x,dy=goal.y-this.y;
+        if(Math.hypot(dx,dy)>.2)this.facing.set(dx,dy).normalize();
+        body.reset(goal.x,goal.y);body.setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,true);this.setDepth(this.y);return;
+      }
+    }
+    if(this.escortGoal) {
+      if(Math.hypot(this.x-scene.player.x,this.y-scene.player.y)>210){body.setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);return;}
+      if(Math.hypot(this.x-this.escortGoal.x,this.y-this.escortGoal.y)<28){
+        this.escortGoal=null;this.route=[];this.target=null;this.routineAnchor={x:this.x,y:this.y};
+        useGameStore.getState().progressQuest('escort',this.definition.id);scene.notify('Tovin reaches the kitchen safely.');
+      }else if(!this.target&&!this.route.length)this.route=npcStreetRoute(this.definition.townId,toLocal(this),toLocal(this.escortGoal),(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
+    } else {
+      const hour=scene.getWorldHour(),schedule=[...this.definition.schedule].sort((a,b)=>a.startHour-b.startHour);
+      const routine=[...schedule].reverse().find(s=>s.startHour<=hour)??schedule.at(-1);
+      const story=useGameStore.getState();
+      const returned=this.definition.id==='tovin-reed'&&(story.quests['shadows-highmere']?.objectiveProgress.escort??0)>=1;
+      const council=story.storyFlags['relief-joint-council']&&['maela-quill','nella-harrow'].includes(this.definition.id);
+      const period=(routine?.startHour??0)+':'+returned+':'+Boolean(council);
+      if(period!==this.routineKey) {
+        this.routineKey=period;const location=returned?{x:-1280,y:1609}:council?{x:this.definition.id==='maela-quill'?160:-180,y:140}:routine?.location??this.definition.worldOffset;
+        this.routineAnchor=toWorld(location);this.target=null;this.returningHome=false;
+        this.route=npcStreetRoute(this.definition.townId,toLocal(this),location,(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
+      }
+    }
+    if(!this.target&&this.route.length)this.target=this.route.shift()!;
+    if(this.target) {
+      const moved=Math.hypot(this.x-this.previousPosition.x,this.y-this.previousPosition.y);
+      this.stalledMs=moved<.1?this.stalledMs+Math.min(delta,250):0;
+      const length=Math.hypot(this.target.x-this.x,this.target.y-this.y),step=Math.min(1,24/Math.max(1,length));
+      const ahead={x:this.x+(this.target.x-this.x)*step,y:this.y+(this.target.y-this.y)*step};
+      if(this.stalledMs>2000 || !scene.canNpcVisit(this,ahead)){this.target=null;this.route=[];this.nextPatrolAt=time+1500;this.stalledMs=0;}
+    }
+    this.previousPosition={x:this.x,y:this.y};
     if (!this.target && time >= this.nextPatrolAt) {
+      if(this.escortGoal)return;
       if (this.returningHome) {
-        if (Phaser.Math.Distance.Between(this.x, this.y, this.home.x, this.home.y) <= 14) {
+        if (Phaser.Math.Distance.Between(this.x, this.y, this.routineAnchor.x, this.routineAnchor.y) <= 14) {
           this.returningHome = false;
           this.nextPatrolAt = time + 1400 + this.rng() * 2400;
-        } else if (scene.canNpcVisit({ x: this.x, y: this.y }, this.home)) {
-          this.target = this.home;
+        } else if (scene.canNpcVisit({ x: this.x, y: this.y }, this.routineAnchor)) {
+          this.target = this.routineAnchor;
         } else {
           this.returningHome = false;
           this.nextPatrolAt = time + 1400;
         }
       } else {
-        const destination = patrolDestination(this.home, { x: this.x, y: this.y }, 110, this.rng,
+        const destination = patrolDestination(this.routineAnchor, { x: this.x, y: this.y }, this.definition.patrolRadius ?? 110, this.rng,
           (from, to) => scene.canNpcVisit(from, to));
         if (destination) this.target = destination;
         else this.nextPatrolAt = time + 1600;
@@ -85,8 +141,8 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     if (Math.hypot(dx, dy) <= 10) {
       body.setVelocity(0, 0);
       this.target = null;
-      if (!this.returningHome) this.returningHome = true;
-      this.nextPatrolAt = time + 1000 + this.rng() * 1800;
+      if (!this.returningHome && !this.route.length) this.returningHome = true;
+      this.nextPatrolAt = this.route.length ? time : time + 1000 + this.rng() * 1800;
       this.playDirection(this.facing.x, this.facing.y, false);
       return;
     }
@@ -98,16 +154,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false) {
     const distance = Phaser.Math.Distance.Between(playerX,playerY,this.x,this.y);
-    const moving = (this.body as Phaser.Physics.Arcade.Body).velocity.lengthSq() > 4;
-    if (distance > 1 && distance <= 72) {
+    if (distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
       this.target = null;
       this.returningHome = true;
       this.nextPatrolAt = Math.max(this.nextPatrolAt, this.scene.time.now + 1500);
       (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-      this.facing.set(playerX - this.x, playerY - this.y).normalize();
-      this.playDirection(this.facing.x, this.facing.y, false);
-    } else if (!moving && distance < 200) {
-      this.facing.set(playerX - this.x, playerY - this.y).normalize();
       this.playDirection(this.facing.x, this.facing.y, false);
     }
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
@@ -118,11 +169,31 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   private playDirection(x: number, y: number, walking: boolean) {
     const direction = Math.abs(x) > Math.abs(y) ? x < 0 ? 'left' : 'right' : y < 0 ? 'up' : 'down';
-    const animation = `${this.texture.key}-${direction}`;
+    const idle = NPC_IDLE_ART.find(entry => entry.walk === this.walkTexture);
+    if (!walking && idle) {
+      this.presentTexture(idle.key,artScale(idle.key));
+      this.anims.play(`${this.walkTexture}-idle`,true);
+      return;
+    }
+    this.presentTexture(this.walkTexture,actorScaleForHeight(this.walkTexture,this.definition.spriteFrame,npcApparentHeight(this.walkTexture)));
+    const animation = `${this.walkTexture}-${direction}`;
     if (walking && this.scene.anims.exists(animation)) this.anims.play(animation, true);
     else {
       this.anims.stop();
       this.setFrame(directionFrame(x, y)).setFlipX(false);
     }
+  }
+
+  private presentTexture(texture:ArtTextureKey,scale:number) {
+    if (this.texture.key === texture) return;
+    this.anims.stop();
+    const sheet = ART_BY_KEY[texture];
+    // Both presentations keep the feet at y+20 and the body at y-2..y+20,
+    // even when a guard's spear requires a taller canvas.
+    const originY = 1 - (2 * sheet.density + 20 / scale) / (sheet.frameHeight * sheet.density);
+    this.setTexture(texture,0).setScale(scale).setOrigin(.5,originY).setFlipX(false);
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    body.setSize(18 / scale,22 / scale).setOffset(sheet.frameWidth * sheet.density / 2 - 9 / scale,
+      originY * sheet.frameHeight * sheet.density - 2 / scale);
   }
 }

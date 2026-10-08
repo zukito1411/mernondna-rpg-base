@@ -110,3 +110,85 @@ Continued the existing scene, actor adapters and content ledger after the suppli
 - Added asset-integrity, animation-state, irregular-frame, blade-fit and foundation tests plus browser loading/facing/portrait/death/sword-cleanup checks. Corrected a browser assertion that expected `null` instead of checking object absence, and made the chunk-crossing test wait for the streamer after physics crosses its boundary. One development reload during the first full run interrupted the legacy-save test; final verification runs with source edits stopped.
 
 Final validation: all **51 unit tests**, **15 Chrome browser scenarios**, application/test TypeScript and production build pass. The stable full browser rerun covers actual PC/touch controls, first quest, full-health Captain Varr, immediate reload, boss persistence, legacy-save repair, inventory/map/minimap/navigation, farm traversal, village protection and streamed content state, plus the new animation/loading checks. Desktop, portrait/landscape and settlement-overview screenshots have been inspected. The existing Phaser-heavy bundle warning remains (about 1.54 MB minified / 439 KB gzip). Native Android/iOS performance/high-DPI validation is still pending; later world simulation/movement milestones remain in their original order.
+
+## Connected roads, Highmere and browser installation (2026-10-08)
+
+- Authored a shared eight-link mainland road graph: terrain, settlement approaches, tree clearance and walkability checks now use the same routes. This preserves physical foot travel across the existing mainland topology.
+- Gave Highmere a distinct 3500x2800 capital plan with crown, market, craft and residential wards; 20 named building lots, paved stone streets and green strips; a curved river; and three walkable stone bridges. It remains in the continuous chunked world, not a separate stage. Added sixteen named residents with profession, Leigneron history, dialogue and schedules. Existing actor streaming preserves their position/trust across travel and saves.
+- Made boulders, cargo, field fences, the wilderness shrine and interactables use grounded physics footprints. Interaction rays ignore only the target's own footprint, retaining line-of-sight blocking from other structures. Cosmetic wilderness trunks and authored trees still use their previous colliders.
+- Reduced landscape touch HUD and movement controls while retaining PC/touch action parity and a 70px attack target. Added a scoped standalone web manifest, generated 192/512 PNG icons, and a production-only service worker for visited-file offline fallback. Browser installation requires HTTPS or localhost; Capacitor remains available separately.
+- Preserved malformed incoming gray-wolf attack files and routed the runtime to separately recovered tracked frames until proper replacements arrive; see `ART_GUIDE.md`.
+
+Validation: `npm install` reported zero vulnerabilities; 62 unit tests and the production build pass. The focused browser check covers capital terrain, river/bridge, all 16 residents and physical boulder collision. Desktop/touch, navigation label lifecycle and full-health Varr/quest/reload flows have passed in focused reruns. A final full browser rerun and physical-device landscape/installation checks remain pending at this checkpoint. Other settlements remain regional prototypes; functioning shops, laws/economy and NPC event consequences are not yet implemented. The Phaser bundle-size warning is still present.
+
+## Shrine travel, actual darkness and new idle artwork (2026-10-08)
+
+- Moved Orin's priestess model into an expanded, clear Oakmere shrine forecourt and Maren into Highmere's shrine forecourt; both have a patrol radius of 32. Older obscured saved positions relocate there without resetting trust or story progress.
+- Added interactable shrines for all eleven settlements. Interacting attunes the local shrine and opens a PC/touch destination panel; only attuned settlements can be selected. Travel validates the origin, streams destination chunks, finds a clear landing and preserves vitals. Oakmere and Highmere retain their existing shrine content IDs. Save v4 migrates v1–v3 and preserves previously used shrine unlocks.
+- Fixed the invisible night overlay: its fill alpha was zero, so object opacity had no visual effect. The dark blue overlay now reaches 84% opacity at night and fades at dawn/dusk. Removed the large additive player glow; small pulsing/moving fireflies remain.
+- Inspected all six new NPC idle strips and measured alpha components. They use one body scale through breathing/blinking, keep polearms outside guard body-height measurements, and preserve the physics body/foot baseline when switching to walking or directional standing poses.
+- Reconnected the updated wolf attack directly. Its larger 2172x724 source now has per-clip geometry, explicit bounds for all six poses and a scale matching the existing wolf. This avoids clipped lunges or neighboring-frame contamination. Recovery frames remain unused backups.
+
+Per the user's latest instruction, no tests, browser scenarios or production build were run for these changes. Validation now requires an explicit user request. Existing assertions were updated for the removed glow, clip geometry and save version, but were not executed. The earlier full browser run had an intermittent territory snapshot assertion pending; current changes are documented without claiming a completed regression run.
+
+## Full-map teleport prompts and local settlement exploration (2026-10-08)
+
+- Full-map settlement pins are now keyboard/touch buttons. Selecting a pin opens a destination confirmation; Cancel returns to the map, while Teleport submits the destination to the existing streamed arrival flow. Locked destinations explain how to attune their shrine. A collapsible settlement list provides the same controls when nearby pins are difficult to select on a small screen.
+- Map requests can originate anywhere and require an attuned destination in normal play. Shrine-menu requests still check proximity to their origin. Both paths retain collision-checked arrival, vitals and saves. Request source is transient; save version remains 4.
+- Local Vite development on loopback/private LAN addresses permits travel to all eleven settlements, including towns, villages, cities and harbors. This discovery bypass does not mutate the saved shrine unlock list and is absent from production builds. LAN support gives mobile development the same access.
+- Updated player instructions. No tests or builds run, per the user's preference; manual local exploration is now available through the full map.
+
+## Remaining NPC idle strips (2026-10-08)
+
+Integrated `idle_hunt.png`, `idle_general.png` and `idle_priestess.png` through the existing idle atlas/animation pipeline. Inspected their artwork and measured all six alpha components per strip. Huntress/general sizes match their walking models; priestess sizing excludes the staff and retains the requested 12% enlargement. A taller priestess idle canvas avoids cropping the staff. Standing/walking transitions retain their existing physics body and foot baseline. No tests or builds run, per the user's instruction.
+
+NPCs no longer turn toward Leigneron on proximity. Facing follows their patrol movement, and resting uses the supplied idle animation; the nearby interaction pause and proximity labels remain. No tests or builds run for this requested behavior change.
+
+## Complete world-map repair pass (2026-10-08)
+
+Implemented the supplied world-repair task in the existing continuous game;
+no framework replacement, scene rewrite or new save storage was introduced.
+The task explicitly requested validation, superseding the earlier testing pause.
+
+- Removed generated perimeter walls/gates and their detached invisible barriers.
+  Retained collision on visible foundations, trunks, rocks, cargo and field rails;
+  NPCs no longer barricade streets. Legacy wall records cannot respawn on reload.
+- Measured and corrected capital, bridge and civic-prop crops, uniform alpha
+  trimming, ground anchors, actor body offsets and source-space light positions.
+  Original image files remain intact. Bridges now anchor to their visible decks
+  rather than the middle of padded atlas canvases.
+- Individually authored all eleven settlements with named districts, clear
+  streets, connected door frontages, protected residents/shrine courts, crop
+  access and intentional trees. Largest landmarks reserve their parcels first.
+  Preserved existing gameplay IDs and regional road bends; added explicit
+  Willowcross/Deepford crossings and harbor basin/pier access. Snow and charcoal
+  terrain distinguish cold regions and Darkav from paved streets.
+- Added night-only environmental illumination and emissive window/lantern
+  pixels using existing Phaser textures. Darkness reveals local pools of warm
+  light, flames flicker, fireflies drift/pulse, and no player glow returns.
+  Streaming owns light cleanup; daytime avoids full-screen mask uploads.
+- Preserved save v4, progress, trust, boss defeats and shrine discovery. Static
+  props adopt corrected coordinates, obscured NPCs recover safely, and saved
+  players inside repaired foundations load on clear ground without healing.
+  Corrected landscape touch-grid overlap and existing RegionId build errors.
+
+Validation: `npm install` completed; 69 unit tests across 14 files, application/
+test TypeScript and production build pass. All 20 browser scenarios have passing
+results across the full run and focused reruns (not one final 20-test run).
+Reruns cover PC/portrait/landscape controls, four skills, first quest, full-health
+Captain Varr, immediate reload, persistence, streaming, map travel, capital
+crossings and all eleven settlements. Final day/night and overview screenshots
+were inspected. The existing Phaser bundle warning remains (~1.64 MB minified /
+471 KB gzip); native Android/iOS performance remains unverified.
+
+See [WORLD_REPAIR.md](WORLD_REPAIR.md) for the settlement identities, spatial
+rules, save handling and remaining shared-art/simulation/hydrology limitations.
+
+## Crescent Flurry full-circle attack (2026-10-08)
+
+Crescent Flurry now hits nearby enemies in every direction on each of its ten
+damage pulses, independent of Leigneron's facing. Surrounding slash effects
+rotate around the retained skill sprite to communicate the circular attack.
+Range, damage, stamina cost, cooldown and duration are unchanged. Solid obstacles
+still block hits, and knockback remains outward from the player. No tests,
+type checks or builds were run, as requested.

@@ -1,6 +1,6 @@
 # Settlement layout and field design
 
-This is a continuation of the existing continuous world, not a replacement map or a set of disconnected levels. Oakmere is the first fully authored local layout. Other existing settlements now use a connected street/frontage template rather than random building rings; they remain prototypes awaiting individual regional architecture and districts.
+This is a continuation of the existing continuous world, not a replacement map or disconnected levels. All eleven settlements now have individual named street/district plans. The earlier repeated frontage template and automatic perimeter walls were replaced in the 2026-10-08 repair. See WORLD_REPAIR.md for current geometry, collision, lighting, save compatibility and remaining regional-art/simulation limits. The sections below describe the original Oakmere design foundation; repaired coordinates and full-visible-bounds checks are authoritative in settlements.ts.
 
 ## Reading the reference atlas
 

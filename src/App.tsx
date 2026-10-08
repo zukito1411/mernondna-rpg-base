@@ -8,6 +8,9 @@ import { MapPanel } from './components/MapPanel';
 import { MobileControls } from './components/MobileControls';
 import { PausePanel } from './components/PausePanel';
 import { Toast } from './components/Toast';
+import { ShrineTravelPanel } from './components/ShrineTravelPanel';
+import { QuestJournal } from './components/QuestJournal';
+import { CinematicPanel } from './components/CinematicPanel';
 import { mobileInput } from './game/input';
 import { saveGame, watchProgressSaves } from './utils/save';
 
@@ -44,6 +47,9 @@ export default function App() {
       <InventoryPanel />
       <CharacterPanel />
       <PausePanel />
+      <ShrineTravelPanel />
+      <QuestJournal />
+      <CinematicPanel />
       <Toast />
     </main>
   );

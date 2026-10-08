@@ -19,12 +19,49 @@ export const ENEMIES: EnemyDefinition[] = [
     xp: 32, goldMin: 1, goldMax: 4, regionWeights: { druganwoods: 1 },
   },
   {
-    id: 'cave-troll', name: 'Cave Troll', spriteFrame: 3, hp: 280, damage: 24, moveSpeed: 58, aggroRange: 300, attackRange: 70, attackCooldownMs: 1400,
-    xp: 125, goldMin: 18, goldMax: 35, boss: true, regionWeights: { nardorous: 5, druganwoods: 4 },
+    id: 'cave-troll', name: 'Cave Troll', spriteFrame: 3, hp: 180, damage: 17, moveSpeed: 58, aggroRange: 300, attackRange: 70, attackCooldownMs: 1500,
+    xp: 65, goldMin: 10, goldMax: 22, attackWindupMs: 620, attackRecoveryMs: 750, regionWeights: { nardorous: 5, druganwoods: 4 },
   },
   {
     id: 'bandit-captain', name: 'Captain Varr', spriteFrame: 1, hp: 210, damage: 18, moveSpeed: 84, aggroRange: 320, attackRange: 68, attackCooldownMs: 760,
-    xp: 110, goldMin: 30, goldMax: 48, boss: true, regionWeights: { trandum: 5 },
+    xp: 110, goldMin: 30, goldMax: 48, boss: true, attackWindupMs: 540, attackRecoveryMs: 900,
+    summonEnemyId: 'road-bandit', summonCount: 2, summonCooldownMs: 18000, regionWeights: { trandum: 5 },
+  },
+  {
+    id: 'moonlit-warden', name: 'Moonlit Warden', spriteFrame: 3, hp: 360, damage: 22, moveSpeed: 62, aggroRange: 330, attackRange: 76, attackCooldownMs: 1700,
+    xp: 190, goldMin: 26, goldMax: 44, boss: true, attackWindupMs: 780, attackRecoveryMs: 1100,
+    summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 20000, attackRadius: 88, regionWeights: { narenthil: 5 },
+  },
+  {
+    id: 'stonejaw-troll', name: 'Stonejaw', spriteFrame: 3, hp: 420, damage: 27, moveSpeed: 52, aggroRange: 330, attackRange: 84, attackCooldownMs: 1900,
+    xp: 220, goldMin: 35, goldMax: 55, boss: true, attackWindupMs: 900, attackRecoveryMs: 1250,
+    summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 21000,
+    attackRadius: 112, regionWeights: { nardorous: 5, druganwoods: 4 },
+  },
+  {
+    id: 'redmesa-chieftain', name: 'Krag the Iron-Tusk', spriteFrame: 2, hp: 390, damage: 25, moveSpeed: 76, aggroRange: 340, attackRange: 82, attackCooldownMs: 1650,
+    xp: 205, goldMin: 30, goldMax: 52, boss: true, attackWindupMs: 640, attackRecoveryMs: 1050,
+    summonEnemyId: 'rindass-boar', summonCount: 2, summonCooldownMs: 19000, attackRadius: 92, regionWeights: { rindass: 5 },
+  },
+  {
+    id: 'rootfather', name: 'The Rootfather', spriteFrame: 3, hp: 410, damage: 24, moveSpeed: 48, aggroRange: 320, attackRange: 82, attackCooldownMs: 1900,
+    xp: 215, goldMin: 32, goldMax: 54, boss: true, attackWindupMs: 880, attackRecoveryMs: 1300,
+    summonEnemyId: 'marsh-wraith', summonCount: 1, summonCooldownMs: 22000, attackRadius: 104, regionWeights: { druganwoods: 5 },
+  },
+  {
+    id: 'salt-king', name: 'The Salt King', spriteFrame: 1, hp: 380, damage: 23, moveSpeed: 72, aggroRange: 340, attackRange: 78, attackCooldownMs: 1550,
+    xp: 200, goldMin: 34, goldMax: 58, boss: true, attackWindupMs: 620, attackRecoveryMs: 980,
+    summonEnemyId: 'road-bandit', summonCount: 2, summonCooldownMs: 18500, regionWeights: { portquill: 5 },
+  },
+  {
+    id: 'frost-wyrm', name: 'The Frost Wyrm', spriteFrame: 0, hp: 440, damage: 28, moveSpeed: 86, aggroRange: 360, attackRange: 82, attackCooldownMs: 1800,
+    xp: 235, goldMin: 36, goldMax: 60, boss: true, attackWindupMs: 720, attackRecoveryMs: 1150,
+    summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 19500, attackRadius: 98, regionWeights: { frostlands: 5 },
+  },
+  {
+    id: 'ashen-seer', name: 'The Ashen Seer', spriteFrame: 3, hp: 460, damage: 30, moveSpeed: 56, aggroRange: 360, attackRange: 88, attackCooldownMs: 2000,
+    xp: 260, goldMin: 42, goldMax: 68, boss: true, attackWindupMs: 980, attackRecoveryMs: 1400,
+    summonEnemyId: 'marsh-wraith', summonCount: 2, summonCooldownMs: 21000, attackRadius: 120, regionWeights: { darkav: 5 },
   },
 ];
 
@@ -39,10 +76,49 @@ export const BOSSES: BossDefinition[] = [
     id: 'captain-varr', enemyId: 'bandit-captain', name: 'Captain Varr', regionId: 'trandum',
     world: { x: oakmere.x + 1400, y: oakmere.y - 850 },
     lore: 'A former caravan guard who now controls a ruined watchtower east of Oakmere.', respawns: false,
+    attackStyle: 'melee',
   },
   {
-    id: 'stonejaw-troll', enemyId: 'cave-troll', name: 'Stonejaw', regionId: 'nardorous',
+    id: 'moonlit-warden', enemyId: 'moonlit-warden', name: 'Moonlit Warden', regionId: 'narenthil',
+    world: { x: TOWN_BY_ID.elarion.world.x + 900, y: TOWN_BY_ID.elarion.world.y + 700 },
+    lore: 'An ancient guardian twisted by the blight spreading through Narenthil’s moon grove.', respawns: false,
+    attackStyle: 'pounce',
+  },
+  {
+    id: 'stonejaw-troll', enemyId: 'stonejaw-troll', name: 'Stonejaw', regionId: 'nardorous',
     world: { x: TOWN_BY_ID.starhold.world.x - 1550, y: TOWN_BY_ID.starhold.world.y + 720 },
     lore: 'An old pass-troll that has learned to break wagons open before eating their draft animals.', respawns: false,
+    attackStyle: 'slam',
+  },
+  {
+    id: 'iron-tusk', enemyId: 'redmesa-chieftain', name: 'Krag the Iron-Tusk', regionId: 'rindass',
+    world: { x: TOWN_BY_ID.redmesa.world.x + 850, y: TOWN_BY_ID.redmesa.world.y + 700 },
+    lore: 'A clan war-chief whose stampeding warband has driven the Rindass clans to the brink of open war.', respawns: false,
+    attackStyle: 'pounce',
+  },
+  {
+    id: 'rootfather', enemyId: 'rootfather', name: 'The Rootfather', regionId: 'druganwoods',
+    world: { x: TOWN_BY_ID.deepford.world.x - 950, y: TOWN_BY_ID.deepford.world.y + 750 },
+    lore: 'A mine guardian awakened beneath the river forest, calling hungry spirits from the roots.', respawns: false,
+    attackStyle: 'slam',
+  },
+  {
+    id: 'salt-king', enemyId: 'salt-king', name: 'The Salt King', regionId: 'portquill',
+    world: { x: TOWN_BY_ID.tidewatch.world.x + 850, y: TOWN_BY_ID.tidewatch.world.y - 650 },
+    lore: 'A ruthless sea-lord who has turned the harbor lanes into a toll road for his crew.', respawns: false,
+    attackStyle: 'melee',
+  },
+  {
+    id: 'frost-wyrm', enemyId: 'frost-wyrm', name: 'The Frost Wyrm', regionId: 'frostlands',
+    world: { x: TOWN_BY_ID.skallheim.world.x - 850, y: TOWN_BY_ID.skallheim.world.y + 650 },
+    lore: 'A white-furred terror driven from the ice cliffs, now hunting the Skallheim beacon road.', respawns: false,
+    attackStyle: 'pounce',
+  },
+  {
+    id: 'ashen-seer', enemyId: 'ashen-seer', name: 'The Ashen Seer', regionId: 'darkav',
+    world: { x: TOWN_BY_ID.blackspire.world.x - 900, y: TOWN_BY_ID.blackspire.world.y + 750 },
+    lore: 'A volcanic oracle who binds wraiths to the ash and guards the path to Blackspire.', respawns: false,
+    attackStyle: 'slam',
   },
 ];
+export const BOSS_BY_ID = Object.fromEntries(BOSSES.map((boss) => [boss.id, boss])) as Record<string, BossDefinition>;

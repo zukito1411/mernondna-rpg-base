@@ -1,5 +1,17 @@
 # Architecture
 
+## Current capital/story additions (2026-10-08)
+
+See HIGHMERE_OVERHAUL.md for the implemented Highmere slice and its limits.
+`fortifications.ts` shares measured visible curtain seams with traversal and
+path checks; only a closed royal precinct is instantiated. `npcRoutes.ts`
+caches street graphs for physical routines and a deterministic marching file.
+`highmereQuests.ts` / `storyProgress.ts` extend ordered objectives with evidence,
+delivery, puzzle, choice, escort and training events. `CinematicDirector` streams
+framed areas without moving the logical player; presentations are finite and
+skippable. `RecoverySystem` advances only during peaceful active play. Optional
+story deltas are backward-compatible additions to the retained version-4 save.
+
 ## Goal
 
 Mernodna should become a large continuous top-down action RPG playable on desktop and mobile from one TypeScript codebase.
@@ -111,9 +123,21 @@ The manager is independent of Phaser. Its host creates/captures/destroys render 
 
 The scene reserves a slot for a local authored boss and caps ordinary active creatures at eleven. Deferred creatures remain logical records. Dynamic encounter records have a conservative save budget of 512 per playthrough; the ecology/population milestone will replace this prototype cap with population-driven lifecycles. Authored content is not subject to that record cap. Off-screen actors are currently frozen, not simulated abstractly.
 
-Save version 2 keeps the original browser storage key, migrates v1 player/quest/boss state, and adds the content ledger plus stable dynamic-spawn IDs/sequence. Persist meaningful deltas, never rendered tiles or Phaser objects. Future changes must add another explicit migration.
+Save version 4 keeps the original browser storage key and migrates v1–v3 saves.
+It preserves the content ledger, progression and stable spawn IDs, and adds
+attuned settlement shrine IDs. Travel requests/menu state remain transient.
+Persist meaningful deltas, never rendered tiles or Phaser objects.
 
 ## Visual rendering
+
+The 2026-10-08 world repair adds `settlementGeometry.ts` for shared full-visible
+bounds and road clearance; individual district plans for all eleven settlements;
+and `environmentLights.ts` / `EnvironmentLightArt.ts` for source-measured window,
+lantern and flame emission. `DayNightSystem` owns a bounded darkness canvas and
+streamed light registrations. Perimeter wall/gate generation was retired, while
+visible foundation/trunk collision remains. Static ledger positions are repaired
+to authored coordinates without resetting use flags; old wall IDs are filtered
+during save parsing. See WORLD_REPAIR.md for the current behavior and limitations.
 
 Art metadata separates source regions, logical dimensions and texture density. Boot prepares compact high-density atlases; actor adapters compensate body dimensions so texture quality never changes combat reach or movement collision sizes. World-object adapters anchor sprites at their feet and use grounded foundation colliders instead of full image rectangles.
 
@@ -127,6 +151,12 @@ Hostile-creature territory is separate from player walkability. `protectedSettle
 
 `scripts/assetManifestPlugin.ts` exposes the seven public manifests to Vite/Vitest through a watched virtual module. `animationPacks.ts` builds exact directional cells and 119 unique enemy poses; `spriteBoards.ts` holds measured alpha-component bounds for irregular boards, including sword/polearm extensions that cross nominal cells. `BootScene` loads deduplicated lossless sources, checks dimensions/alpha, prepares bounded atlases and releases source textures. Missing required files stop boot with explicit paths. Do not import public JSON directly or assume every animation has six frames.
 
-Enemy state clips and player sword overlays are presentation-only; gameplay bodies, hit timing, recovery, stamina and reach remain independent of artwork. Defeat persists immediately before a separate non-physical death animation runs. Sword overlays clear on menu pause, respawn, completion and destruction. NPC standing poses face nearby players; movement schedules are still future work, not implemented by playing walk cycles on stationary actors.
+Enemy state clips and player sword overlays keep gameplay bodies, hit timing,
+recovery, stamina and reach independent of artwork. Defeat persists immediately
+before a separate death animation runs. Sword overlays clear on pause, respawn,
+completion and destruction. NPCs make collision-checked local patrols, rest and
+return to their authored home points; full location-based daily schedules remain
+future work. Six new NPC idle strips use measured body heights and a shared
+foot baseline. Clip-specific geometry supports larger replacement wolf artwork.
 
 Oakmere's new building appearance is separate from its original lot/foundation geometry. Content retains stable IDs and explicit foundation sizes so changing roofs or sprite aspect ratios does not alter street access. The compatibility `npcs` atlas uses supplied replacement sources rather than requiring the deleted old strip. Actor texture keys remain data-driven and outside the save schema. See `ART_GUIDE.md` for assignments and provisional/unassigned art.

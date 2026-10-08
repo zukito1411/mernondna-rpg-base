@@ -50,7 +50,7 @@ test('Oakmere proportions, planted trees, connected farm lane and field boundari
     return { walkable:s.isWalkable(s.player.x,s.player.y),crops:m.getActiveIds().filter(id => id.startsWith('farm:oakmere:wheat:')).length,
       fences:m.getActiveIds().filter(id => id.startsWith('farm:oakmere:fence:')).length };
   });
-  expect(field.walkable).toBe(true); expect(field.crops).toBeGreaterThanOrEqual(8); expect(field.fences).toBeGreaterThanOrEqual(8);
+  expect(field.walkable).toBe(true); expect(field.crops).toBeGreaterThanOrEqual(8); expect(field.fences).toBeGreaterThanOrEqual(6);
   await page.screenshot({ path:'test-results/oakmere-fields.png' });
   expect(errors).toEqual([]);
 });

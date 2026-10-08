@@ -7,7 +7,7 @@ import { alphaFrameBounds } from '../src/game/systems/spriteArt';
 import { PLAYER_EFFECTS, SPRITE_BOARDS, PLAYER_ATTACK_ANIMATIONS } from '../src/data/spriteBoards';
 import { NPCS } from '../src/data/npcs';
 import { CONTENT_BY_ID } from '../src/data/content';
-import { worldPropFootprint } from '../src/data/art';
+import { propFoundation } from '../src/data/settlementGeometry';
 import { npcApparentHeight } from '../src/data/progression';
 import { ENEMY_BY_ID, enemyAppearanceMultiplier } from '../src/data/enemies';
 
@@ -17,12 +17,13 @@ describe('supplied animation packs', () => {
     for (const pack of SPRITE_PACKS) for (const [state,clip] of Object.entries(pack.animations)) {
       expect(clip.frames).toBeGreaterThan(0); expect(clip.frameRate).toBeGreaterThan(0);
       for (const format of ['png','webp'] as const) {
+        if(format==='webp'&&!clip.webp)continue; // Lossless PNG is the runtime requirement.
         expect(clip[format]).toBe(`assets/${pack.id}/${state}.${format}`);
-        expect(existsSync(resolve('public',clip[format])),clip[format]).toBe(true);
+        expect(existsSync(resolve('public',clip[format]!)),clip[format]).toBe(true);
       }
       const png = readFileSync(resolve('public',clip.png));
-      expect(png.readUInt32BE(16),clip.png).toBe(pack.frameWidth * clip.frames);
-      expect(png.readUInt32BE(20),clip.png).toBe(pack.frameHeight);
+      expect(png.readUInt32BE(16),clip.png).toBe(clip.frameRects?Math.max(...clip.frameRects.map(r=>r.x+r.width)):(clip.frameWidth ?? pack.frameWidth) * clip.frames);
+      expect(png.readUInt32BE(20),clip.png).toBe(clip.frameRects?Math.max(...clip.frameRects.map(r=>r.y+r.height)):clip.frameHeight ?? pack.frameHeight);
     }
     for (const sheet of ART_SHEETS) expect(existsSync(resolve('public',sheet.path)),sheet.path).toBe(true);
   });
@@ -73,11 +74,11 @@ describe('supplied animation packs', () => {
     expect(PLAYER_ATTACK_ANIMATIONS.flatMap(a => a.frames)).toHaveLength(24);
     expect(ART_BY_KEY.leigneron_attack.frameHeight).toBe(104);
   });
-  it('matches new architecture to existing places without changing their foundations or identities', () => {
+  it('grounds new architecture to its visible dimensions while preserving identities', () => {
     expect(NPCS.find(n => n.id === 'joren-pike')!.spriteTexture).toBe('npc_blacksmith');
     const smith = CONTENT_BY_ID['town:oakmere:building:3'];
-    expect(smith).toMatchObject({ texture:'world_buildings',frame:2,footprint:worldPropFootprint(0,1) });
-    expect(CONTENT_BY_ID['prop:east-watchtower']).toMatchObject({ texture:'world_buildings',frame:4,footprint:worldPropFootprint(2,1.6) });
+    expect(smith).toMatchObject({ texture:'world_buildings',frame:2,footprint:propFoundation('world_buildings',2,1) });
+    expect(CONTENT_BY_ID['prop:east-watchtower']).toMatchObject({ texture:'world_buildings',frame:4,footprint:propFoundation('world_buildings',4,1.2) });
     expect(CONTENT_BY_ID['shrine:oakmere-road']).toMatchObject({ texture:'world_buildings',frame:3 });
     expect(CONTENT_BY_ID['entrance:oakmere-old-cellar']).toMatchObject({ texture:'world_buildings',frame:4 });
   });

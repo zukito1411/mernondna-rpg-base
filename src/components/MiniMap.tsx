@@ -4,6 +4,7 @@ import { WorldGenerator } from '../game/systems/WorldGenerator';
 import { mapPoint, questBearing } from '../game/systems/questNavigation';
 import type { TerrainKind } from '../game/types';
 import { WORLD_HEIGHT, WORLD_WIDTH } from '../data/world';
+import { nightStrength } from '../data/environmentLights';
 
 const SIZE = 192, RANGE = 1100;
 const world = new WorldGenerator();
@@ -21,7 +22,7 @@ export function MiniMap() {
   const minute = useGameStore(s => s.minuteOfDay);
   const open = useGameStore(s => s.openPanel);
   const hour = Math.floor(minute / 60), mins = Math.floor(minute % 60);
-  const night = hour >= 19 || hour < 6;
+  const night = nightStrength(minute) >= .5;
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;

@@ -51,6 +51,19 @@ Every meaningful settlement should have:
 - at least one local conflict
 - at least one way the world can change it
 
+Every authored town also has a settlement profile that records its architectural
+identity, district bounds, building palette, civic props, wall material, gate
+approaches, and defensive tint. Use timber fencing for rural or northern
+settlements and profiled stone ramparts for fortified cities and citadels.
+Road approaches must remain continuous and unobstructed. The broken automatic
+perimeter walls have been retired: do not rotate perspective artwork into
+vertical wall runs or reintroduce hidden perimeter barriers. Future defensive
+architecture needs matching directional pieces, authored corners and accessible
+entrances. Current settlements use individual district/avenue plans, full-sprite
+clearance and service frontages; see WORLD_REPAIR.md.
+Every settlement has residents with local roles, schedules, and region-specific
+dialogue rather than relying only on the starter village and capital.
+
 ## Regions
 
 ### Trandum
@@ -86,7 +99,10 @@ Species have habitat, food, predator/prey relations, population capacity, activi
 Events should be caused by world state where possible: bandit growth, migration, weather, faction tension, food shortages, boss activity and trade disruption.
 
 ### Bosses
-Named bosses exist in the world and can affect regions. Some stay in lairs, some patrol territory, some migrate, some are mythic/non-hostile encounters.
+Eight named bosses anchor the eight main regions, with a sequential campaign
+following the Broken Road quest. Boss fights use visible attack windups and
+recovery windows, profile-specific area attacks or pounces, occasional summons,
+and a dedicated boss health display. Their persistent defeated state is saved.
 
 ### Settlements/economy
 Food, wealth, security, trade routes and threats should eventually influence shop stock, prices, construction, refugees and quests.
@@ -131,4 +147,9 @@ Avoid covering the map with hundreds of omniscient question marks. Locations can
 - quests
 - surveying high ground
 
-Fast travel, when added, should be earned through in-world infrastructure such as coaches, ships, caravans, waystones or other lore-consistent systems.
+Fast travel is earned through settlement shrines. Players must first reach and
+interact with each village, town or city shrine to attune it. Select an attuned
+settlement pin on the full map and confirm teleport to its shrine, or use a
+shrine's travel menu. Unlocks persist across saves.
+The roads and continuous world remain available for ordinary exploration;
+future ships must still provide the first physical route to undiscovered islands.

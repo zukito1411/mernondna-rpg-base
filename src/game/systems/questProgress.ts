@@ -10,9 +10,17 @@ export function advanceQuests(
   let xp = 0;
   let gold = 0;
   const quests = { ...current };
-  for (const [id, runtime] of Object.entries(current)) {
+  for (const [id, savedRuntime] of Object.entries(current)) {
     const definition = QUEST_BY_ID[id];
-    if (!definition || runtime.status !== 'active') continue;
+    if (!definition) continue;
+    let runtime = quests[id] ?? savedRuntime;
+    if (runtime.status === 'locked'
+      && Object.values(QUEST_BY_ID).some(previous => previous.nextQuestId === id && quests[previous.id]?.status === 'completed')) {
+      runtime = { status: 'active', objectiveProgress: {} };
+      quests[id] = runtime;
+      changed = true;
+    }
+    if (runtime.status !== 'active') continue;
     const progress = { ...runtime.objectiveProgress };
     let usedEvent = false;
     for (const objective of definition.objectives) {

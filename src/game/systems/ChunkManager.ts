@@ -82,7 +82,7 @@ export class ChunkManager {
       ctx.ellipse(wx - chunkX * CHUNK_SIZE, wy - chunkY * CHUNK_SIZE - 6, 34 * scale, 10 * scale, 0, 0, Math.PI * 2); ctx.fill();
       scenery.push(this.scene.add.image(wx, wy, 'world_assets', frame).setOrigin(.5, 1)
         .setScale(artScale('world_assets') * scale).setDepth(wy).setName(tree.id));
-      const trunk = this.scene.add.rectangle(wx, wy - 9 * scale, 24 * scale, 26 * scale, 0xffffff, 0)
+      const trunk = this.scene.add.rectangle(wx, wy - 15 * scale, 24 * scale, 26 * scale, 0xffffff, 0)
         .setVisible(false).setName(`trunk:${tree.id}`);
       this.scene.physics.add.existing(trunk, true);
       this.treeBodyGroup.add(trunk);

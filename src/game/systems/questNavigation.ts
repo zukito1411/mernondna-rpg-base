@@ -5,8 +5,9 @@ import { ENEMY_BY_ID } from '../../data/enemies';
 import { TOWN_BY_ID } from '../../data/towns';
 import type { ContentDefinition, ContentWorldState, QuestRuntimeState, QuestTarget, Vec2 } from '../types';
 
-export function activeObjective(quests: Record<string, QuestRuntimeState>) {
-  for (const [questId, runtime] of Object.entries(quests)) {
+export function activeObjective(quests: Record<string, QuestRuntimeState>,trackedQuestId?:string|null) {
+  const entries=Object.entries(quests).sort(([a],[b])=>Number(b===trackedQuestId)-Number(a===trackedQuestId));
+  for (const [questId, runtime] of entries) {
     const quest = QUEST_BY_ID[questId];
     if (!quest || runtime.status !== 'active') continue;
     const objective = quest.objectives.find(o => (runtime.objectiveProgress[o.id] ?? 0) < o.amount);
@@ -16,14 +17,14 @@ export function activeObjective(quests: Record<string, QuestRuntimeState>) {
 }
 
 export function resolveQuestTarget(quests: Record<string, QuestRuntimeState>, world: ContentWorldState, player: Vec2,
-  livePosition?: (id: string) => Vec2 | undefined): QuestTarget | null {
-  const active = activeObjective(quests);
+  livePosition?: (id: string) => Vec2 | undefined,trackedQuestId?:string|null): QuestTarget | null {
+  const active = activeObjective(quests,trackedQuestId);
   if (!active) return null;
   const { objective, questId } = active;
   const candidates = WORLD_CONTENT.filter(d => {
     if (world.states[d.id]?.defeated) return false;
     if (objective.contentId) return d.id === objective.contentId;
-    if (objective.type === 'talk') return d.kind === 'npc' && d.npcId === objective.targetId;
+    if (['talk','deliver','choice','puzzle'].includes(objective.type)) return d.kind === 'npc' && d.npcId === objective.targetId;
     if (objective.type === 'kill') return d.kind === 'creature' && (objective.bossId ? d.bossId === objective.bossId : d.enemyId === objective.targetId);
     if (objective.type === 'visit') return d.kind === 'settlement' && d.townId === objective.targetId;
     return d.id === objective.targetId;

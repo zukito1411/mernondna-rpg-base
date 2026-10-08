@@ -40,29 +40,32 @@ test('desktop movement, sprint, dash, menus, terrain chunks and NPC conversation
   await page.keyboard.down('d'); await page.keyboard.down('Shift');
   await expect.poll(async () => (await snapshot(page)).vx).toBeGreaterThan(220);
   await page.keyboard.down('q');
-  await expect.poll(async () => (await snapshot(page)).vx, { intervals: [20] }).toBeGreaterThan(400);
-  expect(await page.evaluate(() => window.__mernondnaGame!.scene.getScene('world').children.list
-    .some(child => child.name === 'player-dash-afterimage'))).toBe(true);
-  expect(await page.evaluate(() => Boolean(window.__mernondnaGame!.scene.getScene('world').children.getByName('combat-effect:fortification')))).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>{
+    const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
+    return {fast:(s.player.body as Phaser.Physics.Arcade.Body).velocity.x>400,
+      trail:s.children.list.some(child=>child.name==='player-dash-afterimage'),
+      effect:Boolean(s.children.getByName('combat-effect:fortification'))};
+  }),{intervals:[20]}).toEqual({fast:true,trail:true,effect:true});
   await page.keyboard.up('q'); await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.waitForTimeout(200);
   const lighting = await page.evaluate(() => {
     const s = window.__mernondnaGame!.scene.getScene('world') as unknown as {
       player: { x: number; y: number; depth: number };
-      dayNight: { minuteOfDay: number; overlay: { alpha:number; depth:number }; playerGlow: { depth:number };
+      textures:Phaser.Textures.TextureManager;
+      dayNight: { minuteOfDay: number; overlay: { alpha:number; depth:number };
         update(delta: number, x: number, y: number): void };
       children: { list: Array<{ name: string; visible: boolean }> };
     };
     s.dayNight.minuteOfDay = 22 * 60;
-    s.dayNight.update(16, s.player.x, s.player.y);
+    s.dayNight.update(100, s.player.x, s.player.y);
     return { playerGlow: s.children.list.some(child => child.name === 'night-player-light' && child.visible),
       fireflies: s.children.list.filter(child => child.name === 'firefly-light' && child.visible).length,
-      darkness:s.dayNight.overlay.alpha, overlayAboveWorld:s.dayNight.overlay.depth > s.player.depth,
-      glowAboveOverlay:s.dayNight.playerGlow.depth > s.dayNight.overlay.depth };
+      darkness:(s.textures.get('night-overlay') as Phaser.Textures.CanvasTexture).getContext().getImageData(0,0,1,1).data[3]/255,
+      overlayAboveWorld:s.dayNight.overlay.depth > s.player.depth };
   });
-  expect(lighting.playerGlow).toBe(true); expect(lighting.fireflies).toBeGreaterThan(0);
+  expect(lighting.playerGlow).toBe(false); expect(lighting.fireflies).toBeGreaterThan(0);
   expect(lighting.darkness).toBeGreaterThan(0.6);
-  expect(lighting.overlayAboveWorld).toBe(true); expect(lighting.glowAboveOverlay).toBe(true);
+  expect(lighting.overlayAboveWorld).toBe(true);
   await page.keyboard.press('m');
   await expect(page.getByRole('dialog', { name: 'Mernodna world map' })).toBeVisible();
   await expect.poll(() => page.locator('.world-map-wrap img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
@@ -139,7 +142,15 @@ test('full-health Captain Varr defeat, immediate reload, first quest and fresh g
     return [...s.enemies].find(e => e.instanceId === 'boss:captain-varr')!.hp;
   });
   expect(bossHp).toBe(210);
-  for (let i = 0; i < 12; i++) {
+  // Varr can step between the fixture placement and the input frame. A missed
+  // swing still spends stamina/cooldown, so retry through real input rather
+  // than assuming exactly twelve swings must land on a moving boss.
+  for (let i = 0; i < 18; i++) {
+    const remaining = await page.evaluate(() => {
+      const s = window.__mernondnaGame!.scene.getScene('world') as unknown as { enemies:Set<Enemy> };
+      return [...s.enemies].find(e => e.instanceId === 'boss:captain-varr')?.hp ?? 0;
+    });
+    if (remaining <= 0) break;
     await page.waitForFunction(() => {
       const s = window.__mernondnaGame!.scene.getScene('world') as WorldScene;
       return s.time.now >= (s.player as unknown as { nextAttackAt: number }).nextAttackAt && s.player.stamina >= 8;
@@ -150,8 +161,8 @@ test('full-health Captain Varr defeat, immediate reload, first quest and fresh g
       if (boss) {
         for (let j = 0; j < 8; j++) {
           const angle = Math.PI / 2 + j * Math.PI / 4;
-          const x = boss.x + Math.cos(angle) * 62, y = boss.y + Math.sin(angle) * 62;
-          if (s.hasClearPath(x, y, boss.x, boss.y)) {
+          const x = boss.x + Math.cos(angle) * 55, y = boss.y + Math.sin(angle) * 55;
+          if (s.canEnemyOccupy(x, y) && s.hasClearPath(x, y, boss.x, boss.y)) {
             (s.player.body as Phaser.Physics.Arcade.Body).reset(x, y);
             s.player.lastDirection.set(-Math.cos(angle), -Math.sin(angle));
             return;
@@ -161,10 +172,7 @@ test('full-health Captain Varr defeat, immediate reload, first quest and fresh g
       }
     });
     await page.keyboard.down('Space');
-    await expect.poll(() => page.evaluate(() => {
-      const s = window.__mernondnaGame!.scene.getScene('world') as unknown as { enemies: Set<Enemy> };
-      return [...s.enemies].find(e => e.instanceId === 'boss:captain-varr')?.hp ?? 0;
-    }), { intervals: [30] }).toBeLessThanOrEqual(Math.max(0, 210 - (i + 1) * 18));
+    await page.waitForTimeout(180);
     await page.keyboard.up('Space');
     // Retreat between blows rather than tanking the boss in place.
     await page.evaluate(() => {
@@ -200,8 +208,8 @@ test('full-health Captain Varr defeat, immediate reload, first quest and fresh g
   await page.keyboard.press('e');
   await expect(page.locator('.dialogue-panel')).toContainText('Aldren Vale');
   await closeDialogue(page);
-  await expect(page.locator('.quest-card')).toContainText('No active quest');
-  await expect(page.locator('.quest-guidance')).toHaveCount(0);
+  await expect(page.locator('.quest-card')).toContainText('The Eightfold Blight');
+  await expect(page.locator('.quest-guidance')).toHaveAttribute('data-objective','moonlit-warden');
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Save game', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Game saved locally');
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Start new game' }).click();
@@ -236,13 +244,15 @@ test(`mobile ${viewport.width}px joystick, multitouch sprint, dash, attack, inte
     expect(touchTargets.joystick.left).toBeGreaterThanOrEqual(8);
     expect(touchTargets.joystick.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
     expect(touchTargets.controls.right).toBeLessThanOrEqual(touchTargets.viewport.width - 8);
-    expect(touchTargets.sprint.right).toBeLessThan(touchTargets.controls.left);
+    expect(touchTargets.joystick.right).toBeLessThan(touchTargets.controls.left);
     expect(touchTargets.sprint.left).toBeGreaterThan(touchTargets.joystick.right + 24);
+    expect(touchTargets.sprint.left).toBeGreaterThanOrEqual(touchTargets.controls.left);
+    expect(touchTargets.sprint.right).toBeLessThanOrEqual(touchTargets.controls.right);
     expect(touchTargets.sprint.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
     expect(touchTargets.controls.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
   }
   // Exercise movement on open terrain rather than dashing into Mira's solid NPC body.
-  await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.restoreAt(22 * 1536 + 1068, 25 * 1536 + 1418));
+  await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player.restoreAt(22 * 1536 + 718, 25 * 1536 + 768));
   const cdp = await context.newCDPSession(page);
   const box = (await page.getByLabel('Movement joystick').boundingBox())!;
   const x = box.x + box.width * .85, y = box.y + box.height / 2;

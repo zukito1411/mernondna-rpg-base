@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mernodna compass crest">
+  <defs>
+    <radialGradient id="ground"><stop stop-color="#314536"/><stop offset="1" stop-color="#171b18"/></radialGradient>
+    <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fff0b9"/><stop offset=".55" stop-color="#d8ae58"/><stop offset="1" stop-color="#79532d"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#ground)"/>
+  <circle cx="256" cy="256" r="188" fill="none" stroke="#715935" stroke-width="12"/>
+  <circle cx="256" cy="256" r="157" fill="#182822" stroke="url(#gold)" stroke-width="13"/>
+  <circle cx="256" cy="256" r="127" fill="none" stroke="#a6a87b" stroke-opacity=".48" stroke-width="4"/>
+  <path d="M256 93l16 49-16 24-16-24zm0 326l16-49-16-24-16 24zM93 256l49-16 24 16-24 16zm326 0l-49-16-24 16 24 16z" fill="url(#gold)"/>
+  <path d="M256 150l51 106-51 106-51-106z" fill="url(#gold)" stroke="#fff0c6" stroke-width="5"/>
+  <path d="M256 150l51 106h-51z" fill="#e8d59c"/>
+  <path d="M256 362l-51-106h51z" fill="#8f3d32"/>
+  <circle cx="256" cy="256" r="20" fill="#38281b" stroke="#f8e2a1" stroke-width="8"/>
+</svg>

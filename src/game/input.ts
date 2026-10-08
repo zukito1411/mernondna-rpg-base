@@ -1,4 +1,5 @@
-export type MobileAction = 'attack' | 'dash' | 'interact';
+import type { ActiveSkillAction } from '../data/activeSkills';
+export type MobileAction = 'attack' | 'dash' | 'interact' | ActiveSkillAction;
 
 const mobile = {
   moveX: 0,
@@ -7,6 +8,7 @@ const mobile = {
   dash: false,
   interact: false,
   sprint: false,
+  skill1:false,skill2:false,skill3:false,skill4:false,
 };
 
 export const mobileInput = {
@@ -43,5 +45,6 @@ export const mobileInput = {
     mobile.dash = false;
     mobile.interact = false;
     mobile.sprint = false;
+    mobile.skill1 = mobile.skill2 = mobile.skill3 = mobile.skill4 = false;
   },
 };

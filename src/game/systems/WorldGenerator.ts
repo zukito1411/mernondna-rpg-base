@@ -1,11 +1,14 @@
 import { createNoise2D } from 'simplex-noise';
 import type { RegionId, TerrainKind } from '../types';
 import { REGIONS } from '../../data/regions';
-import { ROAD_CONNECTIONS, TOWN_BY_ID, TOWNS } from '../../data/towns';
+import { TOWN_BY_ID, TOWNS } from '../../data/towns';
+import { onRoadRoute } from '../../data/roadRoutes';
+import { onHighmereBridge, onHighmereRiver, onSettlementRiver } from '../../data/rivers';
 import { CHUNK_SIZE, WORLD_SEED, WORLD_WIDTH, WORLD_HEIGHT } from '../../data/world';
 import { seededRandom } from '../../utils/seededRandom';
 import { FARM_PLOTS } from '../../data/landmarks';
 import { settlementAt, settlementTerrain, onStreet, protectedSettlementAt } from '../../data/settlements';
+import { fortificationBlocksPoint } from '../../data/fortifications';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
 
@@ -15,7 +18,7 @@ const TERRAIN_INDEX: Record<TerrainKind, number> = {
   dirt: 1,
   stone: 2,
   snow: 6,
-  ash: 2,
+  ash: 8,
   sand: 5,
   water: 7,
   farmland: 3,
@@ -26,15 +29,6 @@ function ellipseContains(chunkX: number, chunkY: number, cx: number, cy: number,
   const dy = (chunkY - cy) / ry;
   const edgeNoise = noise2D(chunkX * 0.08, chunkY * 0.08) * 0.12;
   return dx * dx + dy * dy < 1 + edgeNoise;
-}
-
-function pointSegmentDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
-  const abx = bx - ax;
-  const aby = by - ay;
-  const lengthSq = abx * abx + aby * aby;
-  if (lengthSq === 0) return Math.hypot(px - ax, py - ay);
-  const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / lengthSq));
-  return Math.hypot(px - (ax + abx * t), py - (ay + aby * t));
 }
 
 export class WorldGenerator {
@@ -66,12 +60,15 @@ export class WorldGenerator {
   getTerrainAt(worldX: number, worldY: number): TerrainKind {
     const regionId = this.getRegionAt(worldX, worldY);
     if (regionId === 'dead-sea') return 'water';
+    if (onHighmereRiver(worldX,worldY)) return onHighmereBridge(worldX,worldY) ? 'stone' : 'water';
 
     const layout = settlementAt(worldX,worldY);
     if (layout) {
       const town = TOWN_BY_ID[layout.townId];
       return settlementTerrain(layout,worldX - town.world.x,worldY - town.world.y);
     }
+
+    if(onSettlementRiver(worldX,worldY)) return 'water';
 
     if (this.isRoad(worldX, worldY)) return 'dirt';
     if (FARM_PLOTS.some(plot => Math.abs(worldX - plot.x) < plot.width / 2 && Math.abs(worldY - plot.y) < plot.height / 2)) return 'farmland';
@@ -100,26 +97,21 @@ export class WorldGenerator {
 
   isWalkable(worldX: number, worldY: number) {
     return Number.isFinite(worldX) && Number.isFinite(worldY) && worldX >= 0 && worldY >= 0
-      && worldX < WORLD_WIDTH && worldY < WORLD_HEIGHT && this.getTerrainAt(worldX, worldY) !== 'water';
+      && worldX < WORLD_WIDTH && worldY < WORLD_HEIGHT && this.getTerrainAt(worldX, worldY) !== 'water'
+      && !fortificationBlocksPoint(worldX,worldY);
   }
 
   canCreatureOccupy(worldX: number, worldY: number) {
     return this.isWalkable(worldX,worldY) && !protectedSettlementAt(worldX,worldY);
   }
 
-  isRoad(worldX: number, worldY: number) {
+  isRoad(worldX: number, worldY: number, clearance = 0) {
     const layout = settlementAt(worldX,worldY);
     if (layout) {
       const town = TOWN_BY_ID[layout.townId];
-      if (layout.streets.some(s => onStreet(worldX - town.world.x,worldY - town.world.y,s))) return true;
+      if (layout.streets.some(s => onStreet(worldX - town.world.x,worldY - town.world.y,s,clearance))) return true;
     }
-    for (const [aId, bId] of ROAD_CONNECTIONS) {
-      const a = TOWN_BY_ID[aId]?.world;
-      const b = TOWN_BY_ID[bId]?.world;
-      if (!a || !b) continue;
-      if (pointSegmentDistance(worldX, worldY, a.x, a.y, b.x, b.y) < 45) return true;
-    }
-    return false;
+    return onRoadRoute(worldX,worldY,clearance);
   }
 
   getTownAt(worldX: number, worldY: number, radius?: number) {
