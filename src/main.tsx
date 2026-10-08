@@ -1,21 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
 import './styles.css';
-import { loadGame } from './utils/save';
+import {prepareOfflineStartup} from './utils/appStartup';
 
-loadGame();
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
-
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch((error) => {
-      console.warn('Offline app support is unavailable:', error);
-    });
-  });
+async function start(){
+  try{await prepareOfflineStartup();}catch(error){console.warn('Offline preparation:',error);}
+  try{
+    const [{default:App},{loadGame}]=await Promise.all([import('./App'),import('./utils/save')]);
+    loadGame();
+    createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>);
+  }catch(error){window.dispatchEvent(new CustomEvent('mernondna-startup-error',{detail:error}));}
 }
+void start();

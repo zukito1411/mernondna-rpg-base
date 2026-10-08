@@ -17,7 +17,7 @@ export class EventDirector {
 
   update(deltaMs: number, regionId: RegionId, hour: number, playerX: number, playerY: number) {
     this.elapsed += deltaMs;
-    if (this.elapsed < 28000) return;
+    if (this.elapsed < 45000) return;
     this.elapsed = 0;
     if (this.host.countEnemies() >= 10 || regionId === 'dead-sea' || !this.host.isEnemyTerritory(playerX,playerY)) return;
 
@@ -30,7 +30,7 @@ export class EventDirector {
     if (!valid.length) return;
 
     const rng = seededRandom(`event:${this.sequence++}:${Math.floor(playerX / 500)}:${Math.floor(playerY / 500)}`);
-    if (rng() > 0.48) return;
+    if (rng() > 0.32) return;
     const event = valid[Math.floor(rng() * valid.length)];
     if (!event.enemyId || !event.enemyCount) return;
 

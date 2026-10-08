@@ -4,20 +4,22 @@ import { NPCS, NPC_BY_ID } from './npcs';
 import { TOWNS, TOWN_BY_ID } from './towns';
 import { WORLD_ASSET_FRAMES as PROPS } from './art';
 import { FARM_PLOTS } from './landmarks';
-import { SETTLEMENT_BY_ID, SETTLEMENT_LAYOUTS, onStreet, buildingRenderScale } from './settlements';
+import { SETTLEMENT_BY_ID, SETTLEMENT_LAYOUTS, buildingRenderScale } from './settlements';
 import { TOWN_SHRINES, townShrineContent } from './townShrines';
-import { HIGHMERE_RIVER, onHighmereRiver } from './rivers';
+import { HIGHMERE_RIVER, onHighmereRiver,WILDERNESS_BRIDGES } from './rivers';
 import { spriteBounds, overlaps, rectTouchesStreet, propFoundation, type Rect } from './settlementGeometry';
 import { ROAD_ROUTES } from './roadRoutes';
 import type { ArtTextureKey } from './art';
 import { ROYAL_FORTIFICATION_PROPS, fortificationBlocksPoint } from './fortifications';
 import {SETTLEMENT_DEFENSE_PROPS,insideDefense} from './settlementDefenses';
+import {WILDERNESS_SITES} from './wildernessSites';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for (const town of TOWNS) {
   WORLD_CONTENT.push({ id: `town:${town.id}`, kind: 'settlement', townId: town.id, world: { x: town.world.x, y: town.world.y - 80 } });
   const layout = SETTLEMENT_BY_ID[town.id];
   for (const [i,lot] of layout.buildings.entries()) {
+    if(lot.omitted)continue;
     const shrine = TOWN_SHRINES.find(s => s.contentId === `town:${town.id}:building:${i}`);
     if (shrine) { WORLD_CONTENT.push(townShrineContent(shrine)); continue; }
     const world = { x:town.world.x + lot.x,y:town.world.y + lot.y };
@@ -42,7 +44,7 @@ for (const layout of SETTLEMENT_LAYOUTS) {
   }
   if (layout.waterway) for (const [i,y] of layout.waterway.crossings.entries()) WORLD_CONTENT.push({
     id:`bridge:${town.id}:${i}`,kind:'prop',world:{x:town.world.x+layout.waterway.x,y:town.world.y+y},
-    texture:'bridges',frame:2,scale:2.25,solid:false,anchor:'center',
+    texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center',
   });
   if (town.kind==='harbor') WORLD_CONTENT.push({id:`detail:${town.id}:harbor-pier`,kind:'prop',
     world:{x:town.world.x+700,y:town.world.y+825},texture:'bridges',frame:6,scale:1.8,solid:false,anchor:'bottom'});
@@ -86,7 +88,7 @@ for (const [index,bridgeY] of HIGHMERE_RIVER.bridgeY.entries()) {
   const start = HIGHMERE_RIVER.points[segmentIndex], end = HIGHMERE_RIVER.points[segmentIndex + 1];
   const t = end.y === start.y ? 0 : (y - start.y) / (end.y - start.y);
   WORLD_CONTENT.push({ id:`bridge:highmere:${index}`,kind:'prop',world:{ x:start.x + (end.x - start.x) * t,y },
-    texture:'bridges',frame:2,scale:2.25,solid:false,anchor:'center' });
+    texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center' });
 }
 for (const npc of NPCS) {
   const town = TOWN_BY_ID[npc.townId];
@@ -157,12 +159,15 @@ for (const plot of FARM_PLOTS) {
   let fence = 0, wheat = 0;
   for (const side of [-1,1]) for (let x = plot.x - plot.width / 2 + 36; x < plot.x + plot.width / 2; x += 74) {
     const y = plot.y + side * (plot.height / 2 + 8);
-    if (layout.streets.some(s => onStreet(x - town.world.x,y - town.world.y,s,38))) continue;
+    const rect=spriteBounds('world_assets',PROPS.fence,.85,x-town.world.x,y-town.world.y);
+    if (layout.streets.some(s => rectTouchesStreet(rect,s,12))
+      ||![rect.left,rect.right].every(px=>[rect.top,rect.bottom].every(py=>insideDefense(town.id,town.world.x+px,town.world.y+py,-24)))) continue;
     WORLD_CONTENT.push({ id:`${plot.id}:fence:${fence++}`,kind:'prop',world:{ x,y },texture:'world_assets',frame:PROPS.fence,scale:.85,solid:true });
   }
   for (let row = 0; row < 3; row++) for (let col = 0; col < 6; col++) {
     const x = plot.x - plot.width / 2 + 44 + col * (plot.width - 88) / 5, y = plot.y - plot.height / 2 + 44 + row * (plot.height - 88) / 2;
-    if (layout.streets.some(s => onStreet(x - town.world.x,y - town.world.y,s,30))) continue;
+    const rect=spriteBounds('world_assets',PROPS.wheat,.75,x-town.world.x,y-town.world.y);
+    if (layout.streets.some(s => rectTouchesStreet(rect,s,12))) continue;
     WORLD_CONTENT.push({ id:`${plot.id}:wheat:${wheat++}`,kind:'prop',world:{ x,y },texture:'world_assets',frame:PROPS.wheat,scale:.75,solid:false });
   }
 }
@@ -191,6 +196,21 @@ for(const d of WORLD_CONTENT) {
   });
   if(!position) throw new Error('No clear roadside location for '+d.id);
   d.world=position;placed.push(spriteBounds(texture,d.frame,scale,position.x,position.y));
+}
+// Ward furniture was fitted against complete street/roof/tree bounds in the
+// shared layout, not scattered by the older core-only roadside repair pass.
+for(const layout of SETTLEMENT_LAYOUTS){const town=TOWN_BY_ID[layout.townId];
+  for(const detail of layout.details??[])WORLD_CONTENT.push({id:`detail:${town.id}:${detail.id}`,kind:'prop',
+    world:{x:town.world.x+detail.x,y:town.world.y+detail.y},texture:detail.texture,frame:detail.frame,
+    scale:detail.scale,solid:detail.solid,footprint:propFoundation(detail.texture,detail.frame,detail.scale),...(detail.label?{label:detail.label}:{})});
+}
+for(const bridge of WILDERNESS_BRIDGES)WORLD_CONTENT.push({id:bridge.id,kind:'prop',world:{x:bridge.x,y:bridge.y},texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center'});
+for(const site of WILDERNESS_SITES){
+  WORLD_CONTENT.push({id:'discovery:'+site.id,kind:'interactable',world:site.world,texture:'others',frame:11,scale:.58,name:site.name,
+    description:site.description,repeatText:site.description,repeatable:true,discoveryId:site.id,questTargetId:site.id,questEventType:'investigate'});
+  WORLD_CONTENT.push({id:'detail:wilderness:'+site.id,kind:'prop',world:{x:site.world.x-150,y:site.world.y-110},
+    texture:site.style==='ruin'?'world_buildings':site.style==='camp'?'world_assets':'others',frame:site.style==='ruin'?4:site.style==='camp'?6:7,
+    scale:site.style==='ruin'?.8:.65,solid:site.style==='ruin'});
 }
 WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS);
 export const CONTENT_BY_ID = Object.fromEntries(WORLD_CONTENT.map(d => [d.id, d])) as Record<string, ContentDefinition>;

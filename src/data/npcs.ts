@@ -1,6 +1,8 @@
 import type { NpcDefinition } from '../game/types';
 import { CAPITAL_RESIDENTS, REGIONAL_WORKERS } from './capitalResidents';
 import { CIBAR_RESIDENTS } from './cibarResidents';
+import { WARD_RESIDENTS } from './wardResidents';
+import {ROAD_RESIDENTS} from './roadResidents';
 
 export const NPCS: NpcDefinition[] = [
   {
@@ -166,7 +168,7 @@ NPCS.push(...regionalResidents.map(({ work,social,trust,history,dialogueLines,..
   relationshipToLeigneron:{ kind:'acquaintance' as const,trust,summary:history },dialogue:dialogueLines,questIds:[],
 })));
 
-NPCS.push(...CAPITAL_RESIDENTS,...REGIONAL_WORKERS,...CIBAR_RESIDENTS);
+NPCS.push(...CAPITAL_RESIDENTS,...REGIONAL_WORKERS,...CIBAR_RESIDENTS,...WARD_RESIDENTS,...ROAD_RESIDENTS);
 for(const [id,name,x,history] of [
   ['ser-elin-ward','Elin Ward',-1110,'Yselle’s younger sister; remembers Aldren bringing Leigneron to the royal oath ceremony'],
   ['ser-tomas-rowe','Tomas Rowe',-890,'Caldus’s son; exchanged practice swords with Leigneron as a child'],

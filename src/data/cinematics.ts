@@ -5,6 +5,15 @@ export interface StoryScene {id:string;title:string;shots:StoryShot[]}
 const city=TOWN_BY_ID.highmere.world,castle=SETTLEMENT_BY_ID.highmere.buildings[1];
 const shot=(x:number,y:number,line:string,duration=2600,zoom=.85):StoryShot=>({x:city.x+x,y:city.y+y,zoom,duration,line});
 export const CINEMATICS:Record<string,StoryScene>={
+  'charter-audience':{id:'charter-audience',title:'The road belongs to the living',shots:[
+    shot(castle.x,castle.y-100,'Aldren’s account and Tovin’s testimony reach the same public audience. A broken road was the first sign, not the whole crime.',3200,.8),
+    shot(-1360,1585,'The Lower Ward is entered into the charter beside the royal bridges. Those who depend on the road must have a voice in its keeping.',2800,.9),
+    shot(850,0,'Renna’s regional inquiry begins here. The watch carries evidence and household needs, not merely news of fallen enemies.',2800,.9),
+  ]},
+  'regional-charter-return':{id:'regional-charter-return',title:'One continent, many witnesses',shots:[
+    shot(castle.x,castle.y-100,'Forest wards, mountain refuges, clan wells, mine waters and sea channels enter the same public record.',3400,.8),
+    shot(-120,0,'The capital’s promise will be judged by what its neighbors can rebuild. Leigneron’s journey ends with an account the kingdom cannot quietly lose.',3400,.9),
+  ]},
   'highmere-arrival':{id:'highmere-arrival',title:'Highmere — Crown of Trandum',shots:[
     shot(-120,0,'Aldren’s roads meet here: royal charters, river tolls, and the kitchens that feed the kingdom.'),
     shot(castle.x,castle.y-160,'Above the wards, Crown Hall keeps the old roadwarden charters.',3000,.65),

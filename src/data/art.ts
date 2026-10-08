@@ -8,7 +8,7 @@ import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 
 import type { PlayerSkillTexture } from './activeSkills';
 
-export type ArtTextureKey = PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | 'leigneron' | 'leigneron_idle' | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+export type ArtTextureKey = 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | 'leigneron' | 'leigneron_idle' | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
@@ -87,6 +87,10 @@ const castSources:SpriteSource[] = [
 ];
 
 export const ART_SHEETS: readonly ArtSheet[] = [
+  {key:'flora',path:'assets/sprites/flora.png',sourceSize:[1448,1086],columns:12,atlasColumns:6,density:2,frameWidth:160,frameHeight:128,blackBackground:false,
+    regions:[[196,182,162,103],[517,180,178,104],[916,164,169,114],[1106,163,157,107],[26,288,228,173],[1063,272,162,220],
+      [1239,276,183,243],[1116,540,310,146],[1265,862,151,130],[28,873,211,177],[534,587,335,165],[666,450,146,132]],
+    names:['white-wildflowers','yellow-wildflowers','blue-wildflowers','berry-shrub','meadow-shrub','reedbed','cattails','dry-grass','dry-scrub','sage-brush','mossy-stones','woodland-fern']},
 
   { key:'leigneron',path:HERO_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:80,frameHeight:80,blackBackground:false,
 

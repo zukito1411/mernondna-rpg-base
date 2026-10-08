@@ -33,6 +33,8 @@ import { CinematicDirector } from '../systems/CinematicDirector';
 import { formationPosition } from '../systems/npcRoutes';
 import { QUEST_BY_ID } from '../../data/quests';
 import { TargetingSystem } from '../systems/TargetingSystem';
+import {WeatherSystem} from '../systems/WeatherSystem';
+import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import type { Vec2 } from '../types';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
@@ -44,6 +46,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly worldGenerator = new WorldGenerator();
   private chunkManager!: ChunkManager;
   private dayNight!: DayNightSystem;
+  private weather!:WeatherSystem;
   private eventDirector!: EventDirector;
   private readonly enemies = new Set<Enemy>();
   private readonly npcs: Npc[] = [];
@@ -107,6 +110,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     useGameStore.getState().setBossEncounter(null);
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.dayNight = new DayNightSystem(this);
+    this.weather=new WeatherSystem(this,this.worldGenerator);
     this.cinematicDirector=new CinematicDirector(this);
     this.activePlayMs=0;
     this.eventDirector = new EventDirector(this);
@@ -120,8 +124,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.focused = true; this.wasBlocked = false;
 
     const state = useGameStore.getState();
-    const spawnX = this.worldGenerator.isWalkable(state.worldX, state.worldY) ? state.worldX : LEIGNERON.spawn.x;
-    const spawnY = this.worldGenerator.isWalkable(state.worldX, state.worldY) ? state.worldY : LEIGNERON.spawn.y;
+    const nearSaved=[{x:state.worldX,y:state.worldY},...[128,256,512,1024,2048,4096,8192].flatMap(radius=>Array.from({length:24},(_,i)=>({x:state.worldX+Math.cos(i*Math.PI/12)*radius,y:state.worldY+Math.sin(i*Math.PI/12)*radius})))];
+    const safeSaved=nearSaved.find(p=>this.worldGenerator.isWalkable(p.x,p.y))??LEIGNERON.spawn;
+    const spawnX=safeSaved.x,spawnY=safeSaved.y;
     this.player = new Player(this, spawnX, spawnY);
     this.targeting=new TargetingSystem(this);
     this.lastSafe = { x: spawnX, y: spawnY };
@@ -188,11 +193,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     });
 
     this.notify('Oakmere is fully walkable. Follow the eastern road, speak to Aldren, and explore beyond the farms.');
+    this.registry.set('worldReady',true);
   }
 
   update(time: number, delta: number) {
     this.handlePanelHotkeys();
     if(this.cinematicDirector.active) {
+      this.weather.update(this.focused?delta:0,this.player.x,this.player.y,!this.focused);
       this.physics.world.pause();this.player.discardActions();
       if(this.focused){
         this.activePlayMs+=Math.min(delta,250);
@@ -256,6 +263,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       useGameStore.getState().setContentWorld(this.contentManager.snapshot());
     }
     if (!uiBlocked) this.dayNight.update(delta, this.player.x, this.player.y);
+    this.weather.update(uiBlocked?0:delta,this.player.x,this.player.y,uiBlocked);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
@@ -263,7 +271,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (!uiBlocked) this.eventDirector.update(delta, regionId, this.dayNight.getHour(), this.player.x, this.player.y);
 
     if (!uiBlocked) this.spawnAccumulator += delta;
-    if (this.spawnAccumulator > 6500 && !uiBlocked) {
+    if (this.spawnAccumulator > 11000 && !uiBlocked) {
       this.spawnAccumulator = 0;
       this.trySpawnAmbientEnemy(regionId);
     }
@@ -271,6 +279,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.hudAccumulator += delta;
     if (this.hudAccumulator > 180) {
       this.hudAccumulator = 0;
+      this.dayNight.setFirefliesEnabled(['forest','meadow','wetland'].includes(this.worldGenerator.getBiomeAt(this.player.x,this.player.y)));
       const town = this.worldGenerator.getTownAt(this.player.x, this.player.y);
       if(town&&objectiveIsCurrent(useGameStore.getState().quests,'visit',town.id))useGameStore.getState().progressQuest('visit',town.id);
       useGameStore.getState().setWorldStatus(this.player.x, this.player.y, regionId, town?.id ?? null);
@@ -425,7 +434,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   isWalkable(x: number, y: number) { return this.worldGenerator.isWalkable(x, y); }
-  isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y); }
+  isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y)
+    &&!WILDERNESS_SITES.some(s=>(s.style==='camp'||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
   canEnemyOccupy(x: number, y: number) { return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y); }
 
   private isBlockedByBuilding(x: number, y: number) {
@@ -585,9 +595,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase,
         definition.rotation,definition.anchor);
       if(texture==='bridges'&&definition.frame===2){
-        actor.setDepth(y-80);
+        actor.setDepth(y-110);
         const rail=this.add.image(x,y,'bridge-front-rail').setOrigin(actor.originX,actor.originY)
-          .setScale(actor.scaleX,actor.scaleY).setDepth(y+32).setName('bridge-rail:'+definition.id);
+          .setScale(actor.scaleX,actor.scaleY).setDepth(y+46).setName('bridge-rail:'+definition.id);
         actor.once('destroy',()=>rail.destroy());
       }
       if (definition.tint !== undefined) actor.setTint(definition.tint);
@@ -654,6 +664,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
+    if(definition.discoveryId&&!useGameStore.getState().storyFlags['discovery:'+definition.discoveryId])
+      useGameStore.getState().setStoryFlag('discovery:'+definition.discoveryId);
     if(definition.questTargetId&&definition.questEventType) {
       const store=useGameStore.getState();
       const used=this.contentManager.getState(definition.id)?.used;
@@ -731,10 +743,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private trySpawnAmbientEnemy(regionId: RegionId) {
     if (regionId === 'dead-sea' || this.enemies.size >= 8 || !this.isEnemyTerritory(this.player.x,this.player.y)) return;
-    const choices = ENEMIES.filter(e => !e.boss).flatMap(e => Array.from({ length: e.regionWeights[regionId] ?? 0 }, () => e.id));
+    const biome=this.worldGenerator.getBiomeAt(this.player.x,this.player.y);
+    const choices = ENEMIES.filter(e => !e.boss&&(e.id!=='marsh-wraith'||biome==='wetland'||regionId==='darkav')).flatMap(e => Array.from({ length: e.regionWeights[regionId] ?? 0 }, () => e.id));
     if (!choices.length) return;
     const rng = seededRandom(`ambient:${this.spawnAttempts++}:${Math.floor(this.player.x / 256)}:${Math.floor(this.player.y / 256)}`);
-    if (rng() > 0.62) return;
+    if (rng() > 0.42) return;
 
     for (let attempts = 0; attempts < 6; attempts += 1) {
       const angle = rng() * Math.PI * 2;
@@ -794,6 +807,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     this.game.events.off(Phaser.Core.Events.FOCUS, this.onFocus, this);
     this.dayNight?.destroy();
+    this.weather?.destroy();
     this.cinematicDirector?.destroy();
     this.contentManager?.destroy();
     this.questGuide?.destroy();

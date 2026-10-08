@@ -19,6 +19,10 @@ export interface SaveData { version: 4; savedAt: string; state: SavedState }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
+let saveBlocked=false;
+let recoveryNotice:string|null=null;
+export function getSaveRecoveryNotice(){return recoveryNotice;}
+export function allowExplicitNewGame(){saveBlocked=false;recoveryNotice=null;}
 export function setSaveSnapshotProvider(provider?: () => void) { syncSnapshot = provider; }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -57,6 +61,9 @@ function validateContent(value: unknown): ContentWorldState | null {
     if (retiredBoundaryId(id)) continue;
     const definition = Object.hasOwn(CONTENT_BY_ID, id) ? CONTENT_BY_ID[id] : spawns[id];
     if(!definition&&(/^defense:[^:]+:(curtain|tower|entrance):/.test(id)||/^fort:highmere:(curtain|return|corner):/.test(id)))continue;
+    // Cosmetic infill may be omitted/repositioned by a later layout. It must
+    // not invalidate an otherwise valid player/quest/boss save.
+    if(!definition&&(/^detail:/.test(id)||/^farm:[^:]+:/.test(id)||/^town:[^:]+:building:\d+$/.test(id)))continue;
     const decorativeFarm=/^farm:([^:]+):(fence|wheat):\d+$/.exec(id);
     if(!definition && decorativeFarm && Object.hasOwn(TOWN_BY_ID,decorativeFarm[1])) continue;
     if (!definition || !record(s) || !numberIn(s.x, 0, WORLD_WIDTH - 1) || !numberIn(s.y, 0, WORLD_HEIGHT - 1)
@@ -134,7 +141,21 @@ export function parseSave(raw: string): SaveData | null {
         continue;
       }
       if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return null;
-      const progress = quest.objectiveProgress;
+      const progress = {...quest.objectiveProgress};
+      if(definition.id==='eight-regions'&&quest.status==='active'&&s.quests['crown-summons']===undefined){
+        const oldBossObjectives=definition.objectives.filter(o=>o.bossId);
+        const towns=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'];
+        oldBossObjectives.forEach((objective,i)=>{if(progress[objective.id]===1){
+          for(const prefix of ['brief:','evidence:','report:'])progress[prefix+towns[i]]=1;
+        }});
+      }
+      if(definition.id==='eight-regions'&&quest.status==='completed'){
+        const legacy=['moonlit-warden','stonejaw','iron-tusk','rootfather','salt-king','frost-wyrm','ashen-seer','return-aldren-after-regions'];
+        if(legacy.every(id=>progress[id]===1)&&definition.objectives.some(o=>progress[o.id]===undefined)){
+          for(const objective of definition.objectives)if(!legacy.includes(objective.id))progress[objective.id]=objective.amount;
+          storyFlags['legacy:regional-finished']=true;
+        }
+      }
       const objectiveProgress: Record<string, number> = {};
       for (const objective of definition.objectives) {
         const value = progress[objective.id];
@@ -144,10 +165,14 @@ export function parseSave(raw: string): SaveData | null {
       if (quest.status === 'completed' && !definition.objectives.every(o => (Number(progress[o.id]) || 0) >= o.amount)) return null;
       quests[definition.id] = { status: quest.status as 'locked' | 'active' | 'completed', objectiveProgress };
     }
+    if(quests['eight-regions']?.status==='completed'&&s.quests['crown-summons']===undefined){
+      quests['crown-summons']={status:'completed',objectiveProgress:Object.fromEntries(QUESTS.find(q=>q.id==='crown-summons')!.objectives.map(o=>[o.id,o.amount]))};
+      storyFlags['legacy:regional-finished']=true;
+    }
     const state = s as unknown as SavedState;
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
-    const result = advanceQuests(quests, state.defeatedBosses);
+    const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags as Record<string,boolean>);
     const xp = state.xp + result.xp;
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     return { version: 4, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
@@ -161,7 +186,7 @@ export function parseSave(raw: string): SaveData | null {
 }
 
 export function saveGame(): boolean {
-  if (saving) return false;
+  if (saving||saveBlocked) return false;
   saving = true;
   try {
     syncSnapshot?.();
@@ -175,6 +200,8 @@ export function saveGame(): boolean {
       unlockedTownShrines:s.unlockedTownShrines,
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
     } };
+    const prior=localStorage.getItem(SAVE_KEY);
+    if(prior&&parseSave(prior))try{localStorage.setItem(SAVE_KEY+':last-good',prior);}catch{/* Keep saving available if the optional backup quota is full. */}
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     return true;
   } catch { return false; } finally { saving = false; }
@@ -183,7 +210,14 @@ export function saveGame(): boolean {
 export function loadGame(): boolean {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    const data = raw ? parseSave(raw) : null;
+    let data = raw ? parseSave(raw) : null;
+    if(raw&&!data){
+      try{localStorage.setItem(SAVE_KEY+':unreadable-backup',raw);}catch{saveBlocked=true;}
+      const previous=localStorage.getItem(SAVE_KEY+':last-good');data=previous?parseSave(previous):null;
+      if(!data){saveBlocked=true;recoveryNotice='Your save could not be restored. It is preserved; automatic saving is blocked until you explicitly start a new game.';useGameStore.getState().showToast(recoveryNotice);return false;}
+      recoveryNotice=saveBlocked?'Recovered a valid previous save, but storage could not preserve the unreadable file separately. Automatic saving remains blocked.':'Recovered the previous valid save. The unreadable save was preserved separately.';
+      useGameStore.getState().showToast(recoveryNotice);
+    }
     if (!data) return false;
     // Explicit selection prevents a save replacing store actions or transient UI state.
     const s = data.state;
@@ -194,7 +228,9 @@ export function loadGame(): boolean {
       weaponId: s.weaponId, inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
       townId: s.townId, day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,unlockedTownShrines:s.unlockedTownShrines,
-      storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId });
+      storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
+      pendingCinematic:s.storyFlags['legacy:regional-finished']?null:QUESTS.flatMap(q=>q.objectives)
+        .find(o=>o.cinematicId&&!s.storyFlags['scene:'+o.cinematicId]&&QUESTS.some(q=>q.objectives.includes(o)&&(s.quests[q.id]?.objectiveProgress[o.id]??0)>=o.amount))?.cinematicId??null });
     return true;
   } catch { return false; }
 }
@@ -212,5 +248,5 @@ export function watchProgressSaves() {
 }
 
 export function clearSave(): boolean {
-  try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
+  try { localStorage.removeItem(SAVE_KEY);saveBlocked=false; return true; } catch { return false; }
 }

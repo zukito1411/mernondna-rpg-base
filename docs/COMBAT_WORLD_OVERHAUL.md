@@ -1,5 +1,10 @@
 # Character, combat and world continuation — 2026-10-08
 
+Subsequent [settlement infill](SETTLEMENT_INFILL.md) populates the previously
+bare enclosure flanks with named neighborhoods, new frontage plots, planted/
+productive commons and 48 additional residents. It supersedes the empty-flank
+limitation near the end of this historical report. That pass is also unverified.
+
 Implemented in the existing React/TypeScript/Phaser/Zustand repository. No new
 engine, dependency, disconnected region scene or save storage was introduced.
 This supersedes the outer-wall and map limitations in earlier repair notes.

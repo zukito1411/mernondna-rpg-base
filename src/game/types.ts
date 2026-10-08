@@ -9,7 +9,7 @@ export type RegionId =
   | 'darkav'
   | 'dead-sea';
 
-export type TerrainKind = 'grass' | 'forest' | 'dirt' | 'stone' | 'snow' | 'ash' | 'sand' | 'water' | 'farmland';
+export type TerrainKind = 'grass' | 'forest' | 'dirt' | 'stone' | 'snow' | 'ash' | 'sand' | 'water' | 'farmland' | 'marsh' | 'lava';
 
 export type WeaponKind = 'sword' | 'greatsword' | 'axe' | 'spear' | 'bow' | 'crossbow' | 'staff' | 'dagger';
 
@@ -55,6 +55,7 @@ export interface NpcDefinition {
   name: string;
   title: string;
   townId: string;
+  districtId?:string;
   role: string;
   spriteFrame: number;
   worldOffset: Vec2;
@@ -124,7 +125,7 @@ export interface BossDefinition {
 
 export interface QuestObjective {
   id: string;
-  type: 'talk' | 'kill' | 'visit' | 'collect' | 'investigate' | 'deliver' | 'choice' | 'puzzle' | 'train' | 'escort';
+  type: 'talk' | 'kill' | 'visit' | 'collect' | 'investigate' | 'deliver' | 'choice' | 'puzzle' | 'train' | 'escort' | 'quest';
   targetId: string;
   amount: number;
   text: string;
@@ -191,6 +192,7 @@ export interface InteractableContentDefinition extends ContentBase {
   questEventType?: QuestObjective['type'];
   repeatable?: boolean;
   requiredQuestId?: string;
+  discoveryId?:string;
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {

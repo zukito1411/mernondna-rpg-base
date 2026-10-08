@@ -21,6 +21,12 @@ export function resolveQuestTarget(quests: Record<string, QuestRuntimeState>, wo
   const active = activeObjective(quests,trackedQuestId);
   if (!active) return null;
   const { objective, questId } = active;
+  if(objective.type==='quest'){
+    if(quests[objective.targetId]?.status==='active')return resolveQuestTarget(quests,world,player,livePosition,objective.targetId);
+    const dependency=QUEST_BY_ID[objective.targetId],npc=dependency&&NPC_BY_ID[dependency.giverNpcId];
+    if(!npc)return null;const town=TOWN_BY_ID[npc.townId],id='npc:'+npc.id,p=livePosition?.(id)??world.states[id]??{x:town.world.x+npc.worldOffset.x,y:town.world.y+npc.worldOffset.y};
+    return {...p,contentId:id,label:npc.name+' — '+dependency.name,questId,objectiveId:objective.id,type:objective.type};
+  }
   const candidates = WORLD_CONTENT.filter(d => {
     if (world.states[d.id]?.defeated) return false;
     if (objective.contentId) return d.id === objective.contentId;

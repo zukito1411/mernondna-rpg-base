@@ -5,7 +5,7 @@ import { WORLD_CONTENT } from '../../data/content';
 import { WorldGenerator } from './WorldGenerator';
 import { chunkNeighborhood } from './chunkNeighborhood';
 import { TerrainBaker } from './TerrainBaker';
-import { planWildernessTrees } from './sceneryPlan';
+import { planWildernessTrees,planWildernessDetails } from './sceneryPlan';
 
 interface ChunkRuntime {
   image: Phaser.GameObjects.Image;
@@ -76,7 +76,8 @@ export class ChunkManager {
       && Math.abs(d.world.y - (chunkY + .5) * CHUNK_SIZE) < CHUNK_SIZE);
     // At most 36 non-interactive scenery sprites per chunk, owned and released
     // with it. Authored/interactive trees still use the persistent content ledger.
-    for (const tree of planWildernessTrees(chunkX,chunkY,this.world,sites.map(d => d.world))) {
+    const trees=planWildernessTrees(chunkX,chunkY,this.world,sites.map(d=>d.world));
+    for (const tree of trees) {
       const { x:wx,y:wy,frame,scale } = tree;
       ctx.fillStyle = 'rgba(20,30,15,.18)'; ctx.beginPath();
       ctx.ellipse(wx - chunkX * CHUNK_SIZE, wy - chunkY * CHUNK_SIZE - 6, 34 * scale, 10 * scale, 0, 0, Math.PI * 2); ctx.fill();
@@ -87,6 +88,13 @@ export class ChunkManager {
       this.scene.physics.add.existing(trunk, true);
       this.treeBodyGroup.add(trunk);
       treeBodies.push(trunk);
+    }
+    for(const detail of planWildernessDetails(chunkX,chunkY,this.world,[...sites.map(d=>d.world),...trees])){
+      const sprite=this.scene.add.image(detail.x,detail.y,detail.texture,detail.frame).setOrigin(.5,1)
+        .setScale(artScale(detail.texture)*detail.scale).setDepth(detail.y).setName(detail.id);
+      if(detail.tint!==undefined)sprite.setTint(detail.tint);scenery.push(sprite);
+      if(detail.solid){const rock=this.scene.add.rectangle(detail.x,detail.y-12,38,24,0xffffff,0).setVisible(false).setName('rock:'+detail.id);
+        this.scene.physics.add.existing(rock,true);this.treeBodyGroup.add(rock);treeBodies.push(rock);}
     }
     canvasTexture.refresh();
     canvasTexture.setFilter(Phaser.Textures.FilterMode.LINEAR);

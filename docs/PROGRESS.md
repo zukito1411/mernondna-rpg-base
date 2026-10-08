@@ -223,3 +223,50 @@ permission. **No tests, type checks, builds, game/browser launches or benchmarks
 were run for this continuation.** Older recorded results do not verify these
 changes. See [COMBAT_WORLD_OVERHAUL.md](COMBAT_WORLD_OVERHAUL.md) for the fourteen
 requested report categories, principal files, behavior and remaining limits.
+
+## Inhabited perimeter neighborhoods (2026-10-08)
+
+The former building-survey rectangle excluded the large diagonal-wall flanks;
+settlement scenery exclusions then left those interiors bare. Added explicit
+west/east neighborhoods for all twelve settlements, with frontage plots,
+connected spines/terraces, working courts, shared wells/stalls, rear gardens,
+avenue planting, crop commons and wall-side outlooks. Highmere receives the
+largest frontage allocation. Original civic/story districts remain intact.
+
+Added 48 named household residents using existing artwork and street routines,
+with connections to established characters and reserved work/social/home points.
+Original building IDs stay stable; expanded plots fit the enclosure rather than
+being rejected by the old rectangle. New optional infill never scatters to
+arbitrary fallback sites. Farm fences/crops use full-sprite street clearance;
+explicit dirt/paved lane surfaces also appear in the regional map.
+
+No tests, type checks, builds, game launches or benchmarks were run, per the
+standing instruction. Visual results, admitted plot counts, routes, saves and
+performance remain unverified. See [SETTLEMENT_INFILL.md](SETTLEMENT_INFILL.md)
+for the neighborhood identities, changed design rules and remaining limits.
+
+## Wilderness, weather, main story and relaunch source repair (2026-10-08)
+
+Implemented build-specific offline shell caching/early worker control, native
+worker separation, readable startup failures and protected unreadable-save
+recovery. The old HTML-only/late-registration cache gaps were identified in
+source; the user's installed-app failure/platform was not reproduced or confirmed.
+
+Added measured flora crops and bounded habitat scenery; broader biome transitions;
+authored drainage outlets, connected harbor bays and a volcanic fissure; wider
+surface-specific roads and aligned/enlarged crossings. Added reproducible regional
+weather, gradual transitions, roof masking, a small minimap label and optional
+procedural ambience. Twelve lore discoveries and two named field-camp residents
+make roads useful beyond combat; encounter frequency is lower.
+
+New main order: Broken Road → Highmere charter/witness inquiry → regional
+briefings/evidence/bosses/reports → Highmere/Aldren closure. Existing Lower Ward
+content is required by the capital chapter; two new skippable presentations and
+charter dialogue integrate the royal audience. Original boss IDs/progress and
+save version 4 remain, with explicit legacy narrative grandfathering.
+
+No tests, type checks, builds, application/browser launches or benchmarks ran.
+Nothing was deployed to an installed application. See
+[WILDERNESS_WEATHER_STORY.md](WILDERNESS_WEATHER_STORY.md) for all fourteen report
+categories, exact files, implementation/compatibility distinctions and remaining
+native, geography, ship, simulation and performance limits.

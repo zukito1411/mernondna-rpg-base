@@ -1,6 +1,7 @@
 import type { QuestDefinition } from '../game/types';
 import { HIGHMERE_QUESTS } from './highmereQuests';
 import { CIBAR_QUEST } from './cibarQuests';
+import {CROWN_SUMMONS,regionalMainObjectives} from './mainStory';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -15,7 +16,7 @@ export const QUESTS: QuestDefinition[] = [
     ],
     rewardGold: 60,
     rewardXp: 150,
-    nextQuestId: 'eight-regions',
+    nextQuestId: 'crown-summons',
   },
   {
     id: 'eight-regions',
@@ -37,5 +38,10 @@ export const QUESTS: QuestDefinition[] = [
   },
 ];
 
+QUESTS.splice(1,0,CROWN_SUMMONS);
+const regional=QUESTS.find(q=>q.id==='eight-regions')!;
+regional.objectives=regionalMainObjectives(regional.objectives);
+regional.prerequisiteQuestId='crown-summons';
+regional.summary='Carry Highmere’s public inquiry through the mainland and sea regions: hear local witnesses, examine ward records, confront the responsible threats and bring their needs back to the capital.';
 QUESTS.push(...HIGHMERE_QUESTS,CIBAR_QUEST);
 export const QUEST_BY_ID = Object.fromEntries(QUESTS.map((quest) => [quest.id, quest])) as Record<string, QuestDefinition>;

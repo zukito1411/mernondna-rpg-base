@@ -9,7 +9,7 @@ import {SETTLEMENT_DEFENSES} from '../data/settlementDefenses';
 import type {TerrainKind} from '../game/types';
 
 const world=new WorldGenerator(),WIDTH=900,HEIGHT=540,SPAN_X=14000,SPAN_Y=8400;
-const colors:Record<TerrainKind,string>={grass:'#657c4e',forest:'#314d38',dirt:'#ab8d64',stone:'#999287',snow:'#d4dedf',ash:'#56535e',sand:'#c6ab71',water:'#285169',farmland:'#978849'};
+const colors:Record<TerrainKind,string>={grass:'#657c4e',forest:'#314d38',dirt:'#ab8d64',stone:'#999287',snow:'#d4dedf',ash:'#56535e',sand:'#c6ab71',water:'#285169',farmland:'#978849',marsh:'#657363',lava:'#b85835'};
 export function RegionalMap({select}:{select:(id:string,button:HTMLButtonElement)=>void}) {
   const ref=useRef<HTMLCanvasElement>(null),x=useGameStore(s=>s.worldX),y=useGameStore(s=>s.worldY),navigation=useGameStore(s=>s.navigation);
   const origin={x:Math.floor(x/512)*512,y:Math.floor(y/512)*512};
@@ -24,7 +24,7 @@ export function RegionalMap({select}:{select:(id:string,button:HTMLButtonElement
     const line=(points:Array<{x:number;y:number}>,color:string,width:number)=>{ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();points.forEach((p,i)=>{const q=point(p.x,p.y);if(i)ctx.lineTo(q.x,q.y);else ctx.moveTo(q.x,q.y);});ctx.stroke();};
     for(const route of ROAD_ROUTES)line(route.points,'#dfbd81',3);
     for(const layout of SETTLEMENT_LAYOUTS){const town=TOWNS.find(t=>t.id===layout.townId)!;
-      for(const street of layout.streets)line(street.points.map(p=>({x:p.x+town.world.x,y:p.y+town.world.y})),'#d7cdb5',1.6);}
+      for(const street of layout.streets)line(street.points.map(p=>({x:p.x+town.world.x,y:p.y+town.world.y})),street.surface==='dirt'?'#b49a70':'#d7cdb5',street.width>=80?1.8:1.2);}
     for(const wall of ROYAL_WALL_LINES)line([wall.a,wall.b],'#302b26',2);
     for(const defense of SETTLEMENT_DEFENSES)for(const wall of defense.lines)line([wall.a,wall.b],'#302b26',2);
   },[origin.x,origin.y]);

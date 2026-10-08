@@ -11,7 +11,19 @@
     <title>Mernodna</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><p style="padding:24px;color:#f4dfae;font-family:Georgia,serif">Preparing Mernodna…</p></div>
+    <script>
+      (()=>{
+        const report=()=>{
+          const root=document.getElementById('root');if(!root)return;
+          root.replaceChildren();const box=document.createElement('section');box.style.cssText='padding:24px;color:#f4dfae;font-family:Georgia,serif';
+          const text=document.createElement('p');text.textContent='Mernodna could not finish loading. Reconnect to the app’s host and retry. Your save has not been deleted.';
+          const retry=document.createElement('button');retry.textContent='Retry opening';retry.onclick=()=>location.reload();box.append(text,retry);root.append(box);
+        };
+        window.addEventListener('mernondna-startup-error',report);
+        window.addEventListener('error',event=>{if(event.target instanceof HTMLScriptElement)report();},true);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

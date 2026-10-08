@@ -11,6 +11,7 @@ const world = new WorldGenerator();
 const COLORS: Record<TerrainKind,string> = {
   grass: '#617849', forest: '#324e37', dirt: '#ab8b60', stone: '#96908a', snow: '#d1ddd9',
   ash: '#66544e', sand: '#c3ac78', water: '#294d63', farmland: '#918449',
+  marsh:'#657363',lava:'#b85835',
 };
 
 export function MiniMap() {
@@ -20,6 +21,7 @@ export function MiniMap() {
   const navigation = useGameStore(s => s.navigation);
   const day = useGameStore(s => s.day);
   const minute = useGameStore(s => s.minuteOfDay);
+  const weather=useGameStore(s=>s.weatherLabel);
   const open = useGameStore(s => s.openPanel);
   const hour = Math.floor(minute / 60), mins = Math.floor(minute % 60);
   const night = nightStrength(minute) >= .5;
@@ -74,6 +76,7 @@ export function MiniMap() {
       <canvas ref={ref} width={SIZE} height={SIZE} aria-label="Local terrain, Leigneron, nearby NPCs and quest destination" />
       <span className="minimap-legend"><i className="legend-player" /> You <i className="legend-people" /> People <i className="legend-quest" /> Quest <i className="legend-danger" /> Danger</span>
       <span className={`minimap-clock ${night ? 'night' : 'day'}`}><i aria-hidden="true">{night ? '☾' : '☀'}</i><b>Day {day}</b><time>{String(hour).padStart(2, '0')}:{String(mins).padStart(2, '0')}</time></span>
+      <span className="minimap-weather">{weather}</span>
     </button>
   );
 }

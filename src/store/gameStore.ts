@@ -49,6 +49,8 @@ export interface GameState {
   townId: string | null;
   day: number;
   minuteOfDay: number;
+  weatherLabel:string;
+  weatherAudio:boolean;
   panel: Panel;
   dialogue: DialogueState | null;
   toast: string | null;
@@ -124,6 +126,7 @@ const baseState = () => ({
   townId: 'oakmere' as string | null,
   day: 1,
   minuteOfDay: 8 * 60,
+  weatherLabel:'Clear skies',weatherAudio:false,
   panel: null as Panel,
   dialogue: null as DialogueState | null,
   toast: 'Welcome to Mernodna.',
@@ -195,7 +198,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const outcome=state.storyFlags['relief-household-charter']?'The household relief charter is posted. The kitchen allotment is guaranteed.':state.storyFlags['relief-joint-council']?'Maela and Nella now share the relief council. The stock accounts are public.':null;
     const localOutcome=npc.townId==='cibar-plains'&&state.storyFlags['cibar-irrigation-repaired']?
       state.storyFlags['cibar-public-water']?'The pump is repaired. Every household’s water turn is posted at the well.':'The pump is repaired. The growers’ cooperative keeps its records open.':null;
-    const lines=context?.objective.dialogue ?? (localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
+    const charter=state.quests['crown-summons']?.status==='completed'&&npc.townId==='highmere'?
+      state.storyFlags['main-public-reports']?'Renna’s regional reports are public. The kitchens and guilds can check what the crown has promised.':state.storyFlags['main-watch-reports']?'The roadwarden watch now witnesses the regional inquiry. Relief ledgers stay open to the households.':'The regional findings are recorded at Crown Hall. The capital must answer for the roads it guarantees.':null;
+    const lines=context?.objective.dialogue ?? (charter?[charter,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
     set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
     if(context && ['talk','deliver'].includes(context.objective.type)) get().progressQuest(context.objective.type,npcId);
   },
@@ -221,7 +226,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   progressQuest: (type, targetId, amount = 1) => {
     if (!Number.isFinite(amount) || amount <= 0) return;
     const state = get();
-    const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount });
+    const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount },state.storyFlags);
     const completedObjective=Object.entries(state.quests).flatMap(([id])=>{
       const before=QUEST_BY_ID[id];return before?.objectives.filter(o=>o.type===type&&o.targetId===targetId&&o.cinematicId
         && (state.quests[id].objectiveProgress[o.id]??0)<o.amount&&(result.quests[id]?.objectiveProgress[o.id]??0)>=o.amount)??[];
@@ -240,7 +245,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent) => set((state) => {
     if (bossId && state.defeatedBosses.includes(bossId)) return {};
     const defeatedBosses = bossId ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
-    const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 });
+    const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 },state.storyFlags);
     const progression = experienceProgress(state, xp + result.xp);
     return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,
       ...(worldContent ? { worldContent } : {}) };

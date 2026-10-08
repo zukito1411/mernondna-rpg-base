@@ -191,4 +191,20 @@ earlier retired-perimeter notes. See [Highmere's story slice](docs/HIGHMERE_OVER
 for the expanded capital, named residents and multi-stage quests. These latest
 changes have not been tested or built: execution requires the user's permission.
 
+[Settlement infill](docs/SETTLEMENT_INFILL.md) now extends housing, working yards,
+planted commons, crop strips and connected lanes into the previously empty
+enclosure flanks. All twelve settlements have named new neighborhoods and 48
+additional residents with local routines. New plots preserve original content
+IDs and are fitted against full-art road/roof/wall clearances. This continuation
+has not been executed or visually verified.
+
 Open `docs/CODEX_CONTINUATION_PROMPT.md`, copy the prompt into Codex, and let Codex work milestone-by-milestone in this repository.
+
+The [wilderness, weather, story and startup continuation](docs/WILDERNESS_WEATHER_STORY.md)
+adds habitat-based flora, connected river outlets/harbor bays, wider road classes,
+regional weather, named roadside discoveries and a mandatory new-game Highmere
+chapter. Production offline startup now has a coherent build-shell manifest;
+unreadable saves are protected from automatic replacement. These changes are
+source-only and unverified: no build, launch or test was run. Existing installed
+copies need a future authorized build/deployment; Vite dev installs still require
+their running server. Weather ambience is optional in the game menu.

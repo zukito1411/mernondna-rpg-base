@@ -7,16 +7,18 @@ import { TOWN_SHRINE_BY_ID } from './townShrines';
 import { onHighmereRiver } from './rivers';
 import { SETTLEMENT_PROFILES, type SettlementProfile, type SettlementProfileId } from './settlementProfiles';
 import {DEFENSE_BY_ID,insideDefense} from './settlementDefenses';
+import {settlementWardPlan,type WardDetail} from './settlementWards';
 
 export interface LandParcel { id: string; purpose: string; x: number; y: number; width: number; height: number; terrain: TerrainKind }
-export interface Street { id: string; width: number; points: Vec2[] }
-export interface BuildingLot extends Vec2 { frame: number; scale: number; label: string; purpose: string; appearance?:{ texture:'world_buildings' | 'capital_buildings'; frame:number } }
-export interface Planting extends Vec2 { id: string; frame: 0 | 1; scale: number; purpose: string }
+export interface Street { id: string; width: number; points: Vec2[]; surface?:'stone'|'dirt' }
+export interface BuildingLot extends Vec2 { frame: number; scale: number; label: string; purpose: string; appearance?:{ texture:'world_buildings' | 'capital_buildings'; frame:number }; wardId?:string; plot?:Rect; omitted?:boolean }
+export interface Planting extends Vec2 { id: string; frame: 0 | 1; scale: number; purpose: string; wardId?:string }
 export interface SettlementLayout {
   townId: string; authored: boolean; profile: SettlementProfile; bounds: LandParcel; baseTerrain: TerrainKind;
   parcels: LandParcel[]; streets: Street[]; buildings: BuildingLot[]; plantings: Planting[];
   pavedStreets?: boolean;
   waterway?: { x:number; width:number; crossings:number[] };
+  details?:WardDetail[];
 }
 export const inParcel = (x: number, y: number, p: LandParcel) => Math.abs(x - p.x) <= p.width / 2 && Math.abs(y - p.y) <= p.height / 2;
 export function segmentDistance(x: number, y: number, a: Vec2, b: Vec2) {
@@ -278,20 +280,33 @@ function nearbySlots(preferred:Vec2,radius=480):Vec2[] {
 }
 function prepareLayout(layout:SettlementLayout) {
   const town=TOWN_BY_ID[layout.townId], shrine=TOWN_SHRINE_BY_ID[town.id];
+  const wards=settlementWardPlan(town);
+  // Append new lots: original building indices, shrine IDs and story sites stay
+  // intact. Streets are reserved before any new building/decorative placement.
+  layout.streets.push(...wards.streets);
+  layout.parcels.push(...wards.parcels);
+  layout.buildings.push(...wards.buildings);
+  layout.plantings.push(...wards.plantings);
   layout.streets.push(...approaches(town));
   for(const [index,points] of DEFENSE_BY_ID[town.id].approaches.entries())layout.streets.push({id:'defensive-approach:'+index,width:town.id==='highmere'?88:64,
     points:points.map(p=>({x:p.x-town.world.x,y:p.y-town.world.y}))});
-  const reserved:Rect[]=NPCS.filter(n=>n.townId===town.id).map(n=>({ left:n.worldOffset.x-32,right:n.worldOffset.x+32,top:n.worldOffset.y-70,bottom:n.worldOffset.y+35 }));
+  const reserved:Rect[]=NPCS.filter(n=>n.townId===town.id).flatMap(n=>{
+    const anchors=n.districtId?[n.worldOffset,n.homeLocation,...n.schedule.map(s=>s.location)].filter((p):p is Vec2=>Boolean(p)):[n.worldOffset];
+    return anchors.map(p=>({left:p.x-32,right:p.x+32,top:p.y-70,bottom:p.y+35}));
+  });
   reserved.push(spriteBounds('world_buildings',3,shrine.scale,shrine.world.x-town.world.x,shrine.world.y-town.world.y));
   for(const p of layout.parcels.filter(p=>p.terrain==='farmland' || p.terrain==='water')) reserved.push({left:p.x-p.width/2,right:p.x+p.width/2,top:p.y-p.height/2,bottom:p.y+p.height/2});
   const occupied:Rect[]=[];
   const within=(r:Rect)=>r.left>=-layout.bounds.width/2+32 && r.right<=layout.bounds.width/2-32
     && r.top>=layout.bounds.y-layout.bounds.height/2+32 && r.bottom<=layout.bounds.y+layout.bounds.height/2-32;
+  const enclosed=(r:Rect)=>[r.left,r.right].every(x=>[r.top,r.bottom].every(y=>insideDefense(town.id,town.world.x+x,town.world.y+y,-80)));
   const riverFree=(r:Rect)=>!layout.waterway || r.right<layout.waterway.x-layout.waterway.width/2-24 || r.left>layout.waterway.x+layout.waterway.width/2+24;
   const highmereRiverFree=(r:Rect)=>town.id!=='highmere' || ![r.left,(r.left+r.right)/2,r.right].some(x=>
     [r.top,(r.top+r.bottom)/2,r.bottom].some(y=>onHighmereRiver(town.world.x+x,town.world.y+y)));
   // Landmarks reserve their parcel first; processing order never changes IDs.
   const lots=[...layout.buildings.entries()].sort((a,b)=>{
+    // Existing civic/story lots reserve first, then the new constrained plots.
+    if(Boolean(a[1].wardId)!==Boolean(b[1].wardId))return a[1].wardId?1:-1;
     const ra=buildingBounds(a[1]),rb=buildingBounds(b[1]);
     return (rb.right-rb.left)*(rb.bottom-rb.top)-(ra.right-ra.left)*(ra.bottom-ra.top);
   });
@@ -301,9 +316,11 @@ function prepareLayout(layout:SettlementLayout) {
       layout.streets.push(street('shrine-frontage',40,[[lot.x,lot.y+64],[lot.x,lot.y+34]]));continue;
     }
     let placed=false;
-    for(const point of nearbySlots(lot)) {
+    for(const point of nearbySlots(lot,lot.wardId?96:480)) {
       const candidate={ ...lot,...point },rect=buildingBounds(candidate);
-      if(!within(rect)||!riverFree(rect)||!highmereRiverFree(rect)||layout.streets.some(s=>rectTouchesStreet(rect,s,12))
+      const plot=lot.plot;
+      const validSite=lot.wardId?enclosed(rect)&&Boolean(plot&&rect.left>=plot.left&&rect.right<=plot.right&&rect.top>=plot.top&&rect.bottom<=plot.bottom):within(rect);
+      if(!validSite||!riverFree(rect)||!highmereRiverFree(rect)||layout.streets.some(s=>rectTouchesStreet(rect,s,12))
         ||[...reserved,...occupied].some(r=>overlaps(rect,r,24))) continue;
       const door={ x:point.x,y:point.y+34 };
       const connections=layout.streets.flatMap(s=>s.points.slice(1).map((end,i)=>closestPoint(door,s.points[i],end)))
@@ -313,7 +330,12 @@ function prepareLayout(layout:SettlementLayout) {
       Object.assign(lot,point);occupied.push(rect);
       layout.streets.push({id:'frontage:'+index,width:40,points:[connection,door]});placed=true;break;
     }
-    if(!placed) throw new Error('No clear authored parcel for '+town.id+'/'+lot.label);
+    if(!placed){
+      // A road/shore constrained outer plot can remain an open garden. Never
+      // scatter its building elsewhere or abort boot to satisfy a house count.
+      if(lot.wardId)lot.omitted=true;
+      else throw new Error('No clear authored parcel for '+town.id+'/'+lot.label);
+    }
   }
   // Reserve shrine forecourts and approach them from the nearest existing street.
   const shrineDoor={x:shrine.arrival.x-town.world.x,y:shrine.arrival.y-town.world.y};
@@ -329,13 +351,24 @@ function prepareLayout(layout:SettlementLayout) {
   });
   layout.plantings=[];
   for(const tree of authoredTrees) {
-    const p=nearbySlots(tree,tree.id.startsWith('shelter:')?448:1024).find(point=>{
+    const p=nearbySlots(tree,tree.wardId?128:tree.id.startsWith('shelter:')?448:1024).find(point=>{
       const r=spriteBounds('world_assets',tree.frame,tree.scale,point.x,point.y);
-      return within(r)&&riverFree(r)&&highmereRiverFree(r)&&!layout.streets.some(s=>rectTouchesStreet(r,s,20))
+      return (tree.wardId?enclosed(r):within(r))&&riverFree(r)&&highmereRiverFree(r)&&!layout.streets.some(s=>rectTouchesStreet(r,s,20))
         && ![...reserved,...occupied].some(other=>overlaps(r,other,18));
     });
     if(p){const placed={...tree,...p};layout.plantings.push(placed);occupied.push(spriteBounds('world_assets',tree.frame,tree.scale,p.x,p.y));}
-    else if(!tree.id.startsWith('shelter:')) throw new Error('No clear shelter planting for '+town.id+'/'+tree.id);
+    else if(!tree.wardId&&!tree.id.startsWith('shelter:')) throw new Error('No clear shelter planting for '+town.id+'/'+tree.id);
+  }
+  layout.details=[];
+  for(const detail of wards.details){
+    const point=nearbySlots(detail,128).find(p=>{
+      const rect=spriteBounds(detail.texture,detail.frame,detail.scale,p.x,p.y);
+      return enclosed(rect)&&riverFree(rect)&&highmereRiverFree(rect)
+        &&!layout.streets.some(s=>rectTouchesStreet(rect,s,12))
+        &&![...reserved,...occupied].some(r=>overlaps(rect,r,16));
+    });
+    if(point){const placed={...detail,...point};layout.details.push(placed);
+      occupied.push(spriteBounds(detail.texture,detail.frame,detail.scale,point.x,point.y));}
   }
   if(layout.waterway) {
     const water=layout.waterway;
@@ -379,11 +412,12 @@ export function protectedSettlementAt(x: number, y: number) {
 export function settlementTerrain(layout: SettlementLayout, x: number, y: number): TerrainKind {
   if(TOWN_BY_ID[layout.townId].kind==='harbor' && Math.abs(x-700)<=60 && y>=650 && y<=835) return 'stone';
   if(layout.waterway && Math.abs(x-layout.waterway.x)<=layout.waterway.width/2)
-    return layout.waterway.crossings.some(c=>Math.abs(y-c)<=28)?'stone':'water';
+    return layout.waterway.crossings.some(c=>Math.abs(y-c)<=40)?'stone':'water';
   if(layout.parcels.some(p=>p.terrain==='water'&&inParcel(x,y,p))) return 'water';
   // Paved courts override street dirt; streets cut access lanes through fields.
   if (layout.parcels.some(p => p.terrain === 'stone' && inParcel(x,y,p))) return 'stone';
-  if (layout.streets.some(s => onStreet(x,y,s))) return layout.pavedStreets ? 'stone' : 'dirt';
+  const road=layout.streets.find(s=>onStreet(x,y,s));
+  if (road) return road.surface ?? (layout.pavedStreets ? 'stone' : 'dirt');
   if (layout.parcels.some(p=>p.terrain==='farmland'&&inParcel(x,y,p))) return 'farmland';
   return layout.parcels.find(p => inParcel(x,y,p))?.terrain ?? layout.baseTerrain;
 }

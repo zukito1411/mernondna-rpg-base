@@ -20,6 +20,8 @@ export class DayNightSystem {
   private accumulator=0;
   private renderAccumulator=100;
   private previousNight=0;
+  private firefliesEnabled=true;
+  setFirefliesEnabled(enabled:boolean){this.firefliesEnabled=enabled;}
   constructor(private readonly scene:Phaser.Scene) {
     const state=useGameStore.getState();this.day=state.day;this.minuteOfDay=state.minuteOfDay;
     this.texture=scene.textures.createCanvas('night-overlay',Math.max(1,scene.scale.width),Math.max(1,scene.scale.height))!;
@@ -82,8 +84,8 @@ export class DayNightSystem {
     for(const fly of this.fireflies) {
       const drift=this.elapsed*.00035, pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
       const x=cx+fly.dx+Math.sin(drift+fly.phase)*32,y=cy+fly.dy+Math.cos(drift*.8+fly.phase)*24;
-      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(night>.02);
-      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(night>.02);
+      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(this.firefliesEnabled&&night>.02);
+      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(this.firefliesEnabled&&night>.02);
     }
     const camera=this.scene.cameras.main,z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
     this.overlay.setScale(1/z).setPosition(w/2*(1-1/z),h/2*(1-1/z)).setVisible(night>0);
