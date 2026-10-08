@@ -7,6 +7,7 @@ export interface RoadRoute { id:string; from:string; to:string; width:number; po
 // Surveyed mainland corridors. Waypoints follow valley floors and pass
 // approaches rather than drawing a ruler line through every town pair.
 const corridors:Record<string,Array<[number,number]>> = {
+  'deepford:cibar-plains':[[58,62+620/1536],[58.8,62+620/1536],[61,64],[64,66]],
   'oakmere:highmere':[[22.5,24.3],[25,23.4],[28,22.4]],
   'highmere:willowcross':[[34,22.2],[37,23.2]],
   'willowcross:elarion':[[43,24],[47,21],[52,17.8]],

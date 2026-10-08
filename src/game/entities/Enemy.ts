@@ -3,9 +3,10 @@ import type { BossDefinition, EnemyDefinition } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier } from '../../data/enemies';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
-import { artScale, ART_BY_KEY, actorArtLayout } from '../../data/art';
+import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize } from '../../data/art';
 import { enemyAnimation, animationDuration, type EnemyAnimationState } from '../../data/animationPacks';
 import { useGameStore } from '../../store/gameStore';
+import { approachVelocity, strideRate } from '../systems/locomotion';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
@@ -28,6 +29,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private leapTween: Phaser.Tweens.Tween | null = null;
   private attackTelegraph: Phaser.GameObjects.Graphics | null = null;
   private readonly boss: BossDefinition | undefined;
+  private attackEpoch=0;
+  private hitStunUntil=0;
+  private readonly targetIndicator:Phaser.GameObjects.Graphics;
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string, eventSpawn = false) {
     super(scene, x, y, 'enemies', definition.spriteFrame);
@@ -55,12 +59,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       fontFamily: 'Georgia, serif', fontSize: definition.boss ? '12px' : '9px',
       color: definition.boss ? '#f3c69c' : '#edddcb', stroke: '#17120e', strokeThickness: 3,
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
+    this.targetIndicator=scene.add.graphics().setName('enemy-target:'+instanceId);
+    this.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
+      const state=useGameStore.getState();if(!state.panel&&!state.dialogue&&!state.cinematic)scene.targeting.select(this);
+    });
     this.once('destroy', () => {
-      this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
+      this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
     });
   }
 
-  updateEnemy(time: number) {
+  updateEnemy(time: number,delta=16) {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
@@ -87,13 +95,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.updateVisual(time);
       return;
     }
+    if(time<this.hitStunUntil){body.velocity.scale(.85);this.updateVisual(time);return;}
 
     if (distance <= this.definition.aggroRange && scene.isEnemyTerritory(player.x,player.y)) {
       const approachRange = Math.max(30, this.definition.attackRange - 16);
       this.facing.set(player.x - this.x, player.y - this.y).normalize();
-      if (distance > approachRange) scene.physics.moveToObject(this, player, this.definition.moveSpeed);
+      if (distance > approachRange) {
+        const ahead={x:this.x+this.facing.x*24,y:this.y+this.facing.y*24};
+        if(scene.canEnemyOccupy(ahead.x,ahead.y)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
+          body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*this.definition.moveSpeed,delta,90),approachVelocity(body.velocity.y,this.facing.y*this.definition.moveSpeed,delta,90));
+        else {body.setVelocity(0,0);this.nextWanderAt=0;}
+      }
       else body.setVelocity(0, 0);
-      this.setFlipX(this.facing.x < 0);
+      if(Math.abs(this.facing.x)>.2)this.setFlipX(this.facing.x<0);
       this.updateBossSkill(scene, time);
       if (distance <= Math.max(this.definition.attackRange, this.definition.attackRadius ?? 0) && time >= this.nextAttackAt
         && scene.hasClearPath(this.x, this.y, player.x, player.y)) {
@@ -108,9 +122,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         const speed = this.rng() < .25 ? 0 : this.definition.moveSpeed * (0.25 + this.rng() * 0.3);
         this.wander.set(Math.cos(angle) * speed, Math.sin(angle) * speed);
       }
-      body.setVelocity(this.wander.x, this.wander.y);
+      const speed=this.wander.length(),ahead={x:this.x+this.wander.x/Math.max(1,speed)*24,y:this.y+this.wander.y/Math.max(1,speed)*24};
+      if(scene.canEnemyOccupy(ahead.x,ahead.y)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
+        body.setVelocity(approachVelocity(body.velocity.x,this.wander.x,delta,120),approachVelocity(body.velocity.y,this.wander.y,delta,120));
+      else {body.setVelocity(0,0);this.nextWanderAt=time+1000;this.wander.set(0,0);}
     }
-    if (body.velocity.lengthSq() > 4) this.setFlipX(body.velocity.x < -2);
+    if (Math.abs(body.velocity.x)>Math.max(2,Math.abs(body.velocity.y)*.3)) this.setFlipX(body.velocity.x<0);
     this.setDepth(this.y);
     this.lastSafe = { x:this.x,y:this.y };
     this.updateVisual(time);
@@ -130,12 +147,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackTelegraph.lineStyle(this.definition.boss ? 3 : 2, 0xf06c4c, .9)
       .strokeEllipse(player.x, player.y + 8, radius * 2, radius * 1.05);
     const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack');
+    const epoch=++this.attackEpoch;
     this.playAction('attack');
+    this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery);
+    this.visualUntil=time+windup+recovery;
     if (attackStyle === 'pounce' && this.definition.spriteFrame === 0) this.playWolfLeap(attackAnimation);
     scene.time.delayedCall(windup, () => {
+      if(epoch!==this.attackEpoch)return;
       this.attackTelegraph?.destroy();
       this.attackTelegraph = null;
-      if (!this.active || !player.active || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
+      if (epoch!==this.attackEpoch || !this.active || !player.active || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
       const strikeDistance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
       const toPlayer = new Phaser.Math.Vector2(player.x - this.x, player.y - this.y).normalize();
       const facingThreshold = attackStyle === 'slam' ? .15 : attackStyle === 'pounce' ? .35 : .6;
@@ -170,12 +191,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if (time < this.visualUntil) return;
     const body = this.body as Phaser.Physics.Arcade.Body;
     this.anims.play(enemyAnimation(this.definition.spriteFrame,body.velocity.lengthSq() > 4 ? 'walk' : 'idle').key,true);
+    this.anims.timeScale=body.velocity.lengthSq()>4?strideRate(body.velocity.length(),this.definition.moveSpeed):1;
   }
 
   private playAction(state:EnemyAnimationState) {
     const animation = enemyAnimation(this.definition.spriteFrame,state);
     this.visualUntil = this.scene.time.now + animationDuration(animation);
     this.anims.play(animation.key);
+    this.anims.timeScale=1;
   }
 
   private playWolfLeap(animation: ReturnType<typeof enemyAnimation>) {
@@ -189,6 +212,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       .setFlipX(this.flipX).setDepth(this.y + 1).setName(`wolf-leap:${this.instanceId}`);
     this.setAlpha(0);
     this.leapVisual.play(animation.key);
+    this.leapVisual.anims.timeScale=this.anims.timeScale;
     this.leapTween = scene.tweens.add({
       targets: arc, height: 26, duration: 190, ease: 'Sine.easeOut', yoyo: true,
       onUpdate: () => {
@@ -222,6 +246,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   takeDamage(amount: number, knockback: Phaser.Math.Vector2) {
     if (!this.active || this.hp <= 0) return;
     this.hp -= amount;
+    this.attackEpoch++;this.attackTelegraph?.destroy();this.attackTelegraph=null;this.clearWolfLeap();
+    this.hitStunUntil=this.scene.time.now+120;
     (this.scene as WorldScene).playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(knockback.x * 150, knockback.y * 150);
@@ -232,14 +258,28 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   updatePresentation(playerX: number, playerY: number, paused = false) {
+    if(paused)this.leapTween?.pause();else if(this.leapTween?.isPaused())this.leapTween.resume();
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
     const distance = Phaser.Math.Distance.Between(playerX, playerY, this.x, this.y);
     const visible = this.hp > 0 && distance < 700 && (Boolean(this.definition.boss) || this.hp < this.definition.hp || distance < this.definition.aggroRange);
     const width = this.definition.boss ? 48 : this.definition.id === 'road-bandit' ? 35 : 30;
-    const top = this.y + actorArtLayout('enemies').labelY * (this.definition.boss ? 1.45 : 1);
-    this.healthBar.clear().setDepth(this.y + 85).setVisible(visible);
-    this.nameLabel.setPosition(this.x, top - 4).setDepth(this.y + 85).setVisible(visible);
-    if (visible) {
+    const scene=this.scene as WorldScene;
+    const eligible=!paused&&scene.targeting.eligible(this)&&scene.cameras.main.worldView.contains(this.x,this.y);
+    const selected=eligible&&scene.targeting.selected===this;
+    const model=this.leapVisual?.active?this.leapVisual:this;
+    const bounds=(model.frame.customData as {visibleBounds?:{top:number;height:number}}).visibleBounds;
+    const visualHeight=artFrameSize('enemies',Number(this.frame.name)).height*this.scaleY*ART_BY_KEY.enemies.density;
+    const top=bounds?model.y+(bounds.top-model.originY*ART_BY_KEY.enemies.frameHeight)*model.scaleY*ART_BY_KEY.enemies.density-16
+      :this.y+20*enemyAppearanceMultiplier(this.definition)-visualHeight-16;
+    this.targetIndicator.clear().setDepth(this.y+90).setVisible(eligible);
+    if(eligible){const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
+      this.targetIndicator.lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
+      this.targetIndicator.fillTriangle(this.x-size,top-36,this.x+size,top-36,this.x,top-26);
+      if(selected)this.targetIndicator.lineStyle(2,color,.85).strokeEllipse(this.x,this.y+12,this.definition.boss?56:34,14);
+    }
+    this.healthBar.clear().setDepth(this.y + 85).setVisible(visible&&eligible);
+    this.nameLabel.setPosition(this.x, top - 4).setDepth(this.y + 85).setVisible(visible&&eligible);
+    if (visible&&eligible) {
       this.healthBar.fillStyle(0x16110c,.85).fillRoundedRect(this.x - width / 2 - 2, top - 1, width + 4, 6, 2);
       this.healthBar.fillStyle(this.definition.boss ? 0xd89557 : 0xbb6550,1)
         .fillRect(this.x - width / 2, top + 1, width * Math.max(0,this.hp / this.definition.hp), 3);

@@ -1,6 +1,7 @@
 import { TOWN_BY_ID } from './towns';
 import { artFrameSize, ART_BY_KEY } from './art';
 import type { PropContentDefinition, Vec2 } from '../game/types';
+import {outerFortificationBlocksPoint,outerFortificationBlocksPath,curtainBlocksPath} from './settlementDefenses';
 
 // This is a complete royal precinct, not a fake rectangular city perimeter.
 // Diagonal source sections keep their original perspective. The only gate is
@@ -35,20 +36,20 @@ for(const [i,[a,b]] of [[-1400,-1000-shoulderSpan/2],[-1000+shoulderSpan/2,-600]
   for(let j=0;j<count;j++)ROYAL_FORTIFICATION_PROPS.push({id:`fort:highmere:return:${i}:${j}`,kind:'prop',world:world(a+(b-a)*(j+.5)/count,-1300),texture:'royal_walls',frame:2,scale,solid:false,anchor:'center'});
 }
 ROYAL_FORTIFICATION_PROPS.push({id:'fort:highmere:south-gate',kind:'prop',world:gate,texture:'royal_walls',frame:4,scale:gateScale,solid:false,anchor:'center',label:'Royal Audience Gate'});
-for(const [i,p] of vertices.entries())ROYAL_FORTIFICATION_PROPS.push({id:'fort:highmere:corner:'+i,kind:'prop',world:p,texture:'royal_walls',frame:3,scale:1.3,solid:false,anchor:'center'});
+for(const [i,p] of vertices.entries())ROYAL_FORTIFICATION_PROPS.push({id:'fort:highmere:corner:'+i,kind:'prop',world:p,texture:'royal_walls',frame:3,scale:1.3,solid:true,footprint:{width:65,height:31},anchor:'center'});
 
 function distance(p:Vec2,a:Vec2,b:Vec2) {
   const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/l)):0;
   return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
 }
 export function fortificationBlocksPoint(x:number,y:number,radius=12) {
+  if(outerFortificationBlocksPoint(x,y,radius))return true;
   if(Math.abs(x-city.x+1000)>1400||y<city.y-2400||y>city.y-1200)return false;
   return ROYAL_WALL_LINES.some(line=>distance({x,y},line.a,line.b)<radius+9);
 }
 export function fortificationBlocksPath(a:Vec2,b:Vec2,radius=0) {
+  if(outerFortificationBlocksPath(a,b,radius))return true;
   if(Math.max(a.x,b.x)<city.x-2300-radius||Math.min(a.x,b.x)>city.x+300+radius
     ||Math.max(a.y,b.y)<city.y-2400-radius||Math.min(a.y,b.y)>city.y-1200+radius)return false;
-  const length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(length/8));
-  for(let i=0;i<=steps;i++)if(fortificationBlocksPoint(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,radius))return true;
-  return false;
+  return ROYAL_WALL_LINES.some(line=>curtainBlocksPath(a,b,{...line,townId:'highmere'},radius));
 }

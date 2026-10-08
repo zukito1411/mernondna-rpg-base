@@ -11,6 +11,7 @@ import { spriteBounds, overlaps, rectTouchesStreet, propFoundation, type Rect } 
 import { ROAD_ROUTES } from './roadRoutes';
 import type { ArtTextureKey } from './art';
 import { ROYAL_FORTIFICATION_PROPS, fortificationBlocksPoint } from './fortifications';
+import {SETTLEMENT_DEFENSE_PROPS,insideDefense} from './settlementDefenses';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for (const town of TOWNS) {
@@ -51,6 +52,13 @@ for (const layout of SETTLEMENT_LAYOUTS) {
     world:{x:town.world.x-850,y:town.world.y+540},texture:'others',frame:9,scale:.55,solid:true});
 }
 const highmere = TOWN_BY_ID.highmere;
+const cibar=TOWN_BY_ID['cibar-plains'].world;
+WORLD_CONTENT.push({id:'clue:cibar-pump',kind:'interactable',world:{x:cibar.x-360,y:cibar.y+190},texture:'others',frame:10,scale:.6,name:'Shared irrigation pump',
+  description:'The intake is obstructed and the copper coupling is missing. Iren’s field report can identify the stored fittings.',repeatText:'The shared pump awaits its repaired fittings.',questTargetId:'cibar-pump',questEventType:'investigate',repeatable:true});
+for(const [index,[x,y]] of [[-870,-100],[-1080,1040],[1040,1070]].entries())WORLD_CONTENT.push({
+  id:'collect:cibar-fitting:'+index,kind:'loot-container',world:{x:cibar.x+x,y:cibar.y+y},texture:'others',frame:9,scale:.5,name:['Grain-store fitting','West-field fitting','East-field fitting'][index],
+  description:'You recover a sealed copper fitting for Asha’s irrigation repair.',repeatText:'This store’s fitting has already been recovered.',questTargetId:'cibar-fitting',questEventType:'collect',requiredQuestId:'water-stops',
+});
 const cityPoint=(x:number,y:number)=>({x:highmere.world.x+x,y:highmere.world.y+y});
 WORLD_CONTENT.push(
   {id:'clue:grain-receipt',kind:'interactable',world:cityPoint(-1640,1700),texture:'others',frame:6,scale:.65,name:'Lower Ward receipt',description:'A torn kitchen receipt carries Sevrin Hale’s grain-office seal. Its date is later than the river toll entry.',repeatText:'The receipt is recorded in your journal.',questTargetId:'clue:grain-receipt',questEventType:'investigate',repeatable:true},
@@ -87,12 +95,13 @@ for (const npc of NPCS) {
 }
 for (const boss of BOSSES) {
   // Keep authored boss territories outside the larger settlement boundaries.
-  const town = TOWNS.find(t => t.regionId === boss.regionId && (t.kind === 'capital' || t.tags.includes('capital')));
+  const town = TOWNS.find(t => insideDefense(t.id,boss.world.x,boss.world.y,160));
   const layout = town ? SETTLEMENT_BY_ID[town.id] : undefined;
-  const inside = town && layout && Math.abs(boss.world.x-town.world.x)<layout.bounds.width/2+160
-    && Math.abs(boss.world.y-town.world.y)<layout.bounds.height/2+160;
-  const world = inside && town && layout ? {x:town.world.x+layout.bounds.width/2+360,y:boss.world.y}
-    : {x:boss.world.x,y:boss.world.y+(boss.id==='captain-varr'?110:0)};
+  const inside = town && layout && insideDefense(town.id,boss.world.x,boss.world.y,160);
+  let world={x:boss.world.x,y:boss.world.y+(boss.id==='captain-varr'?110:0)};
+  if(inside&&town&&layout){const dx=world.x-town.world.x,dy=world.y-town.world.y,length=Math.max(1,Math.hypot(dx,dy));
+    for(let step=96;step<20000;step+=96){const candidate={x:world.x+(dx||1)/length*step,y:world.y+dy/length*step};
+      if(!TOWNS.some(t=>insideDefense(t.id,candidate.x,candidate.y,180))){world=candidate;break;}}}
   WORLD_CONTENT.push({ id: `boss:${boss.id}`, kind: 'creature', enemyId: boss.enemyId, bossId: boss.id,
     world });
 }
@@ -120,6 +129,9 @@ WORLD_CONTENT.push(
   { id: 'creature:old-shrine-wraith', kind: 'creature', world: near(2000, -1150), enemyId: 'marsh-wraith' },
   { id: 'prop:old-shrine', kind: 'prop', world: near(2050, -1220), frame: 3, scale: 1.2, solid: true },
 );
+const varrSite=WORLD_CONTENT.find(d=>d.id==='boss:captain-varr')!.world;
+const watchtower=WORLD_CONTENT.find(d=>d.id==='prop:east-watchtower')!;
+watchtower.world={x:varrSite.x,y:varrSite.y-110};
 // Preserve the existing Oakmere shrine ID and the capital's shrine building ID.
 // Every other settlement gets an accessible shrine beside its central street.
 for (const shrine of TOWN_SHRINES) {
@@ -180,7 +192,7 @@ for(const d of WORLD_CONTENT) {
   if(!position) throw new Error('No clear roadside location for '+d.id);
   d.world=position;placed.push(spriteBounds(texture,d.frame,scale,position.x,position.y));
 }
-WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS);
+WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS);
 export const CONTENT_BY_ID = Object.fromEntries(WORLD_CONTENT.map(d => [d.id, d])) as Record<string, ContentDefinition>;
 export function initialContentState(definition: ContentDefinition): ContentState {
   return { ...definition.world,

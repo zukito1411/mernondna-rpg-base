@@ -80,7 +80,9 @@ Browser tests use installed Google Chrome, run headlessly, and start a local Vit
 
 The same React/Phaser codebase is used for both.
 
-Click/tap the minimap (or press `M`) to open the full map. Select a settlement
+Click/tap the minimap to open the expanded regional map. Its **World Map** control,
+the HUD **World Map** button, or `M` opens the illustrated Merdnona atlas, with
+zoom and scrolling. Select a settlement
 pin, then confirm **Teleport**. Interact with a settlement's shrine using `E`
 or the touch Interact button to unlock that destination. Shrine discoveries
 persist in your existing save; the shrine's own travel menu also remains available.
@@ -180,5 +182,13 @@ Oakmere now uses shared street/parcel/building/tree definitions rather than scat
 ## Continue with Codex
 
 The current environmental repair is documented in [docs/WORLD_REPAIR.md](docs/WORLD_REPAIR.md): individual layouts for all eleven settlements, full-sprite road clearance, retired perimeter walls, corrected atlas crops, localized night lighting and save-safe placement repair. Original assets and continuous chunk streaming are retained.
+
+The subsequent [combat and world continuation](docs/COMBAT_WORLD_OVERHAUL.md)
+adds shared enemy targeting, traveling Azure Cleave, Skyfall leap/landing,
+corrected wolf walking, separate regional/world maps, Cibar Plains and connected
+perspective-correct enclosures for all twelve settlements. It supersedes the
+earlier retired-perimeter notes. See [Highmere's story slice](docs/HIGHMERE_OVERHAUL.md)
+for the expanded capital, named residents and multi-stage quests. These latest
+changes have not been tested or built: execution requires the user's permission.
 
 Open `docs/CODEX_CONTINUATION_PROMPT.md`, copy the prompt into Codex, and let Codex work milestone-by-milestone in this repository.

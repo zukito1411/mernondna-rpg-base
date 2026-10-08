@@ -30,7 +30,13 @@ Huntress art supplies Mira; blacksmith supplies Joren; general supplies Aldren; 
 
 The updated `gray_wolf/attack.png` is now selected directly. Its six cells are 362x724, unlike the older 176x144 wolf strips. Clip-specific `frameWidth`, `frameHeight` and `renderScale` in the manifest preserve the measured 192–207px attack silhouettes at the normal wolf size. PNG remains the runtime source. Earlier recovered `attack-original` files are unused backups.
 
-The copied `gray_wolf/walk.png` uses the same 362x724 clip geometry, six measured alpha regions and 0.22 render scale. Walk loops at 12 FPS; attack plays once at 12 FPS. Other wolf clips retain their original dimensions. Keeping the separate walk path allows later walk replacements without changing attack artwork.
+The replacement `gray_wolf/walk.png` uses 362x724 clip cells but different visible
+bounds from attack. Its six measured regions retain the legs and airborne pose;
+the shared source ground line is Y=510 with 0.22 render scale. Do not copy the
+attack rectangles into walking. Walking loops at 12 FPS with velocity-based
+playback adjustment; attack playback duration follows windup plus recovery.
+Other wolf clips retain their original dimensions. Supplied wolf clips are side
+views, so mirroring supports left/right, not invented front/back animations.
 
 `npcIdleArt.ts` integrates all nine supplied 2172x724 idle strips: adventurer, attendant, blacksmith, royal guard, Trandum guard, villager, huntress, general and priestess. Measured alpha regions remove padding and keep one scale per strip. Huntress/general use 375px/390px source body references for their normal 76px models. The priestess uses a 412px source body reference and the walking body's 148/160 silhouette ratio, retaining her requested 12% enlargement. Staff/polearm height is excluded from body measurements; 96px priestess and 112px guard canvases preserve weapons. NPC texture changes retain an 18x22 physics body and the same foot baseline. Front-facing idle clips breathe/blink at 2.5 FPS; side/back interaction poses retain directional artwork.
 
@@ -62,5 +68,9 @@ The minimap samples generated terrain, not the lore atlas. It shows nearby struc
 Linear filtering, smooth resampling, antialiasing and fractional camera movement avoid added renderer blockiness. The original pixel-art style remains intentional. Native Android/iOS performance and physical high-DPI displays still need device validation.
 
 ## Failure handling and tests
+
+Current animation/combat/world continuation has not been tested, built or
+launched, per the user's explicit instruction. The descriptions of existing
+test coverage below are not a claim that those suites pass against this code.
 
 Missing required source files stop world boot with a readable path-specific message rather than silently displaying missing-texture actors. Source dimensions and non-empty alpha bounds are checked during atlas preparation. Unit tests verify source PNG/WebP existence, dimensions, manifest rates, all enemy frames, board bounds, oversized sword poses, texture limits and preserved foundations. Browser tests cover loading failure, real NPC facing/portraits, enemy movement/hurt/attack/death and sword-input cleanup alongside the existing movement, touch, streaming, quest, boss, village-safety and persistence suites.

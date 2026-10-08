@@ -317,3 +317,16 @@ kbd { font-size: 10px; opacity: .65; }
 .cinematic-top button { pointer-events:auto; padding:10px 14px; background:#342b1e; color:#ffe4a9; border:1px solid #92784e; border-radius:6px; }
 .cinematic-caption { position:absolute; bottom:0; width:100%; box-sizing:border-box; background:#070909ed; padding:22px 12%; font:17px/1.5 Georgia,serif; text-align:center; }
 @media (max-height:500px) { .cinematic-top { min-height:32px; padding:6px 12px; font-size:12px; }.cinematic-caption { padding:12px 8%; font-size:13px; }.quest-journal { max-height:80dvh; padding:12px; }.journal-link { font-size:8px; padding:2px 5px; } }
+.map-panel { width:min(1480px,96vw); max-height:94dvh; }
+.atlas-player { position:absolute; transform:translate(-50%,-50%); color:#fff5c5; font-size:19px; text-shadow:0 0 3px #14271a,0 1px 4px #000; pointer-events:none; }
+.regional-map-wrap { position:relative; margin:16px; border:1px solid #b49a6b; border-radius:8px; overflow:hidden; background:#294d63; }
+.regional-map-wrap canvas { display:block; width:100%; height:auto; }
+.regional-settlement { position:absolute; transform:translate(-50%,-50%); border:1px solid #b49a6b; border-radius:6px; padding:6px 9px; background:#2a2118e8; color:#ffe5a6; cursor:pointer; font-size:11px; }
+.regional-player,.regional-poi,.regional-quest { position:absolute; pointer-events:none; transform:translate(-50%,-50%); color:#fff4ca; text-shadow:0 1px 3px #000; }
+.regional-poi { color:#d38c71; }.regional-quest { color:#ffde78; }
+.regional-north { position:absolute; top:8px; left:12px; color:#fff4c8; background:#172018bb; padding:5px 8px; font-size:11px; }
+.world-map-wrap { overflow:auto; max-height:70dvh; touch-action:pan-x pan-y; }
+.atlas-survey { position:relative; min-width:100%; }
+.atlas-zoom-controls { display:flex; gap:10px; align-items:center; padding:8px 16px 0; color:#dbc99b; }
+.atlas-zoom-controls button { padding:6px 10px; background:#46361f; color:#ffe9ba; border:1px solid #8a7046; border-radius:6px; cursor:pointer; }
+.atlas-zoom-controls button:disabled { opacity:.45; cursor:default; }

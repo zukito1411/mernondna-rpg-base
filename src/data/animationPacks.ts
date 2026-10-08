@@ -7,6 +7,7 @@ export interface PackClip {
   frameWidth?:number; frameHeight?:number; renderScale?:number;
   regions?:readonly (readonly [number,number,number,number])[];
   frameRects?:readonly {x:number;y:number;width:number;height:number}[];
+  groundY?:number;
 }
 export interface PackManifest { id:string; frameWidth:number; frameHeight:number; animations:Record<string,PackClip> }
 export interface SpriteSource {
@@ -33,7 +34,8 @@ export function clipSources(pack:PackManifest, state:string):SpriteSource[] {
     ? [Math.max(...rects.map(r=>r.x+r.width)),Math.max(...rects.map(r=>r.y+r.height))] : [width*clip.frames,height];
   return Array.from({ length:clip.frames },(_,i):SpriteSource => ({ path:clip.png,
     cell:clip.regions?.[i] ?? (rects?.[i]?[rects[i].x,rects[i].y,rects[i].width,rects[i].height]:[i * width,0,width,height]),imageSize,
-    name:`${pack.id}:${state}:${i}`,...(clip.renderScale ? { renderScale:clip.renderScale } : {}) }));
+    name:`${pack.id}:${state}:${i}`,...(clip.renderScale ? { renderScale:clip.renderScale } : {}),
+    ...(clip.groundY!==undefined&&clip.renderScale?{anchor:[i*width+width/2,clip.groundY-38/clip.renderScale] as const}:{}) }));
 }
 export function directionalSources(pack:PackManifest) { return DIRECTION_CLIPS.flatMap(state => clipSources(pack,state)); }
 export function directionFrame(dx:number, dy:number) {

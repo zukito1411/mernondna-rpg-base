@@ -32,11 +32,15 @@ import { fortificationBlocksPath, fortificationBlocksPoint } from '../../data/fo
 import { CinematicDirector } from '../systems/CinematicDirector';
 import { formationPosition } from '../systems/npcRoutes';
 import { QUEST_BY_ID } from '../../data/quests';
+import { TargetingSystem } from '../systems/TargetingSystem';
+import type { Vec2 } from '../types';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
+const foregroundBuildings=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop');
 
 export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   player!: Player;
+  targeting!:TargetingSystem;
   private readonly worldGenerator = new WorldGenerator();
   private chunkManager!: ChunkManager;
   private dayNight!: DayNightSystem;
@@ -63,6 +67,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private cinematicDirector!:CinematicDirector;
   private reliefWatchMs=0;
   getWorldHour(){return this.dayNight.getHour();}
+  getCombatEnemies(){return [...this.enemies];}
+  canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
+  safeSkillPosition(point:Vec2){return this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
+  skillLanding(target:Vec2,range:number):Vec2 {
+    const from={x:this.player.x,y:this.player.y};
+    const candidates=[32,48,64].flatMap(radius=>Array.from({length:16},(_,i)=>({x:target.x+Math.cos(i*Math.PI/8)*radius,y:target.y+Math.sin(i*Math.PI/8)*radius})));
+    candidates.sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y));
+    return candidates.find(p=>Math.hypot(p.x-from.x,p.y-from.y)<=range&&this.safeSkillPosition(p)&&this.canNpcVisit(from,p))??from;
+  }
+  applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2) {
+    if(!enemy.active||enemy.hp<=0)return;
+    const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
+    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction);
+  }
   streamCinematicView(x:number,y:number){this.chunkManager.update(x,y);this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
   recordTraining(targetId:string) {
     const target=this.contentManager.getActor('training:highmere-target');
@@ -105,6 +123,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const spawnX = this.worldGenerator.isWalkable(state.worldX, state.worldY) ? state.worldX : LEIGNERON.spawn.x;
     const spawnY = this.worldGenerator.isWalkable(state.worldX, state.worldY) ? state.worldY : LEIGNERON.spawn.y;
     this.player = new Player(this, spawnX, spawnY);
+    this.targeting=new TargetingSystem(this);
     this.lastSafe = { x: spawnX, y: spawnY };
 
     this.physics.add.collider(this.player, this.buildings);
@@ -177,7 +196,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.physics.world.pause();this.player.discardActions();
       if(this.focused){
         this.activePlayMs+=Math.min(delta,250);
-        for(const npc of this.npcs)if(npc.definition.formation){npc.updatePatrol(time,delta);npc.updatePresentation(this.player.x,this.player.y,false);}
+        for(const npc of this.npcs)if(npc.definition.formation){npc.updatePatrol(time,delta);npc.advanceCinematic(delta);npc.updatePresentation(this.player.x,this.player.y,false);}
         this.cinematicDirector.update(delta);
       }
       return;
@@ -198,6 +217,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
     if (!uiBlocked) {
       this.activePlayMs+=Math.min(delta,250);
+      this.targeting.update();
       this.player.updatePlayer(time, delta);
       const store=useGameStore.getState();
       if(objectiveIsCurrent(store.quests,'escort','tovin-reed')) {
@@ -207,7 +227,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       for (const npc of this.npcs) if (npc.active) npc.updatePatrol(time,delta);
       for (const enemy of this.enemies) {
-        if (enemy.active) enemy.updateEnemy(time);
+        if (enemy.active) enemy.updateEnemy(time,delta);
       }
       const body=this.player.body as Phaser.Physics.Arcade.Body;
       this.player.hp=this.player.recovery.update(delta,{
@@ -418,7 +438,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private isNpcObscured(x:number,y:number) {
     const person={left:x-25,right:x+25,top:y-72,bottom:y+20};
-    return WORLD_CONTENT.some(d=>d.kind==='settlement-prop' && d.world.y>y
+    return foregroundBuildings.some(d=>d.kind==='settlement-prop' && d.world.y>y
       && overlaps(person,spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y)));
   }
 
@@ -468,6 +488,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     for (const id of this.contentManager.getActiveIds()) {
       const d = this.contentManager.getDefinition(id)!;
       const actor = this.contentManager.getActor(id)!;
+      if(actor instanceof Enemy&&!this.targeting.eligible(actor))continue;
       if (Phaser.Math.Distance.Between(this.player.x,this.player.y,actor.x,actor.y) > 1200) continue;
       if (d.kind === 'prop') continue;
       const kind = d.kind === 'npc' ? 'npc' : d.kind === 'creature' ? d.bossId ? 'boss' : 'enemy'
@@ -591,7 +612,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }).setResolution(2).setOrigin(.5,0).setDepth(y + 80);
       actor.once('destroy',() => caption.destroy());
     }
-    if (state.used) actor.setTint(definition.townShrineId ? 0xc9e7eb : 0x99907b);
+    if (state.used) actor.setTint(definition.id==='clue:cibar-pump'&&useGameStore.getState().storyFlags['cibar-irrigation-repaired']?0xc9f2ed:definition.townShrineId ? 0xc9e7eb : 0x99907b);
     actor.on('pointerdown', () => {
       if (!useGameStore.getState().panel && !useGameStore.getState().dialogue
         && Phaser.Math.Distance.Between(this.player.x, this.player.y, actor.x, actor.y) < 72
@@ -618,8 +639,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const footprint = foundation ?? propFoundation(texture,frame,scale);
       const footprintWidth = footprint.width, footprintHeight = footprint.height;
       body.setSize(footprintWidth, footprintHeight, false)
-        .setOffset((actor.displayWidth - footprintWidth) / 2,
-          anchor === 'center' ? (actor.displayHeight - footprintHeight) / 2 : actor.displayHeight - footprintHeight - 2 * scale);
+        .setOffset(anchor==='center'?actor.displayWidth*actor.originX-footprintWidth/2:(actor.displayWidth-footprintWidth)/2,
+          anchor === 'center' ? actor.displayHeight*actor.originY-footprintHeight/2 : actor.displayHeight - footprintHeight - 2 * scale);
     }
   }
 
@@ -635,12 +656,16 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
     if(definition.questTargetId&&definition.questEventType) {
       const store=useGameStore.getState();
+      const used=this.contentManager.getState(definition.id)?.used;
+      if(used&&!definition.repeatable){this.notify(definition.repeatText);return;}
       if(!objectiveIsCurrent(store.quests,definition.questEventType,definition.questTargetId)) {
         this.notify(definition.repeatText);return;
       }
       this.contentManager.patchState(definition.id,{used:true});
+      const repairing=definition.id==='clue:cibar-pump'&&(store.quests['water-stops']?.objectiveProgress.decision??0)>=1;
       store.progressQuest(definition.questEventType,definition.questTargetId);
-      store.setContentWorld(this.contentManager.snapshot());this.notify(definition.description);return;
+      if(repairing){store.setStoryFlag('cibar-irrigation-repaired');if(actor instanceof Phaser.GameObjects.Sprite)actor.setTint(0xc9f2ed);}
+      store.setContentWorld(this.contentManager.snapshot());this.notify(repairing?'Asha’s fittings restore the pump. The shared water turns are running again.':definition.description);return;
     }
     if (definition.townShrineId) {
       this.contentManager.patchState(definition.id,{ used:true });
@@ -760,6 +785,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   shutdown() {
+    this.targeting?.clear();
     useGameStore.getState().setBossEncounter(null);
     setSaveSnapshotProvider();
     mobileInput.reset();

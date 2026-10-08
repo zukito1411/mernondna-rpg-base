@@ -69,7 +69,7 @@ export function MiniMap() {
     ctx.fillText('N',SIZE / 2,17); ctx.restore();
   }, [x,y,navigation]);
   return (
-    <button type="button" className="minimap-card" onClick={() => open('map')} aria-label="Open world map from minimap">
+    <button type="button" className="minimap-card" onClick={() => open('regional-map')} aria-label="Open expanded regional minimap">
       <span className="minimap-heading">LOCAL MAP <span> N ↑</span></span>
       <canvas ref={ref} width={SIZE} height={SIZE} aria-label="Local terrain, Leigneron, nearby NPCs and quest destination" />
       <span className="minimap-legend"><i className="legend-player" /> You <i className="legend-people" /> People <i className="legend-quest" /> Quest <i className="legend-danger" /> Danger</span>

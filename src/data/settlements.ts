@@ -6,6 +6,7 @@ import { NPCS } from './npcs';
 import { TOWN_SHRINE_BY_ID } from './townShrines';
 import { onHighmereRiver } from './rivers';
 import { SETTLEMENT_PROFILES, type SettlementProfile, type SettlementProfileId } from './settlementProfiles';
+import {DEFENSE_BY_ID,insideDefense} from './settlementDefenses';
 
 export interface LandParcel { id: string; purpose: string; x: number; y: number; width: number; height: number; terrain: TerrainKind }
 export interface Street { id: string; width: number; points: Vec2[] }
@@ -165,13 +166,14 @@ const highmere: SettlementLayout = {
 
 // Every approach follows the actual road polyline, including bends inside a city.
 function approaches(town:TownDefinition):Street[] {
-  const profile = SETTLEMENT_PROFILES[town.id as SettlementProfileId];
   return ROAD_ROUTES.filter(r => r.from === town.id || r.to === town.id).map(route => {
     const points = route.from === town.id ? route.points : [...route.points].reverse();
     const local:Vec2[] = [{ x:0,y:0 }];
     for (const p of points.slice(1)) {
       local.push({ x:p.x-town.world.x,y:p.y-town.world.y });
-      if (Math.abs(p.x-town.world.x) > profile.bounds.width/2 || Math.abs(p.y-town.world.y) > profile.bounds.height/2) break;
+      // The enclosure extends beyond the building survey. Keep the approach
+      // through its actual passage so settlement terrain cannot erase the road.
+      if (!insideDefense(town.id,p.x,p.y)) break;
     }
     return { id:'approach:'+route.id,width:route.width,points:local };
   });
@@ -184,6 +186,15 @@ interface DistrictPlan {
   waterway?: { x:number; width:number };
 }
 const districtPlans:Record<string,DistrictPlan> = {
+  'cibar-plains':{
+    avenues:[['grain-road',88,[[-1250,0],[0,0],[1250,0]]],['irrigation-lane',64,[[0,-1150],[0,0],[0,650],[0,1200]]],['farm-track',60,[[-1100,700],[0,700],[1100,700]]],
+      ['west-field-access',56,[[-740,700],[-740,1040],[-740,1260]]],['east-field-access',56,[[740,700],[740,1040],[740,1260]]]],
+    districts:[['grain-square','Public tally, shared well and caravan market','stone',0,100,430,320],
+      ['farm:cibar-plains:west','Family grain allotments and irrigation access','farmland',-740,1040,500,280],
+      ['farm:cibar-plains:east','Seed plots supplying the river-halls','farmland',740,1040,500,280],
+      ['orchard-yard','Farmhouse gardens and sheltered meeting space','grass',-700,-680,700,550]],
+    lots:[['Grain Exchange',7,-780,-190],['South Road Inn',1,720,-210],['Irrigation Smithy',5,860,430],['Brook Farmhouse',0,-730,440],['Seed Guild House',0,-360,-640],['Caravan Stable',6,-1100,-180],['Plains Watch',2,780,-710]],
+  },
   willowcross: {
     avenues:[['bridge-market',86,[[-1200,0],[0,0],[1200,0]]],['stable-lane',64,[[-1000,600],[0,600],[1000,600]]],['north-road',64,[[0,-1050],[0,0],[0,950]]]],
     districts:[['market','River crossing and caravan market','stone',-300,-170,900,700],['stable-yard','Stables and fletchers beside the east road','dirt',-650,680,800,500],['farm:willowcross','Market gardens with wagon access','farmland',-630,970,440,256]],
@@ -268,6 +279,8 @@ function nearbySlots(preferred:Vec2,radius=480):Vec2[] {
 function prepareLayout(layout:SettlementLayout) {
   const town=TOWN_BY_ID[layout.townId], shrine=TOWN_SHRINE_BY_ID[town.id];
   layout.streets.push(...approaches(town));
+  for(const [index,points] of DEFENSE_BY_ID[town.id].approaches.entries())layout.streets.push({id:'defensive-approach:'+index,width:town.id==='highmere'?88:64,
+    points:points.map(p=>({x:p.x-town.world.x,y:p.y-town.world.y}))});
   const reserved:Rect[]=NPCS.filter(n=>n.townId===town.id).map(n=>({ left:n.worldOffset.x-32,right:n.worldOffset.x+32,top:n.worldOffset.y-70,bottom:n.worldOffset.y+35 }));
   reserved.push(spriteBounds('world_buildings',3,shrine.scale,shrine.world.x-town.world.x,shrine.world.y-town.world.y));
   for(const p of layout.parcels.filter(p=>p.terrain==='farmland' || p.terrain==='water')) reserved.push({left:p.x-p.width/2,right:p.x+p.width/2,top:p.y-p.height/2,bottom:p.y+p.height/2});
@@ -335,7 +348,7 @@ function prepareLayout(layout:SettlementLayout) {
   }
 }
 
-// Oakmere remains a farm village: no artificial north/south wall-gate cross.
+// Oakmere remains a farm village; enclosure approaches are added separately.
 oakmere.streets=[
   street('west-east-road',84,[[-1100,0],[0,0],[1100,0]]),
   street('shrine-walk',56,[[0,0],[0,-120],[40,-120],[40,-220]]),
@@ -348,15 +361,16 @@ export const SETTLEMENT_LAYOUTS:SettlementLayout[]=TOWNS.map(t=>t.id==='oakmere'
 for(const layout of SETTLEMENT_LAYOUTS) prepareLayout(layout);
 export const SETTLEMENT_BY_ID=Object.fromEntries(SETTLEMENT_LAYOUTS.map(s=>[s.townId,s])) as Record<string,SettlementLayout>;
 
-// The supplied perspective wall pieces are retained as art, not rotated into
-// rectangular town prisons. Retired wall/gate IDs are handled by save migration.
+// Enclosures use the supplied horizontal/diagonal perspectives. Retired wall
+// IDs are handled by save migration, not restored as separate invisible solids.
 
 export function settlementAt(x: number, y: number) {
-  return SETTLEMENT_LAYOUTS.find(s => { const town = TOWN_BY_ID[s.townId]; return inParcel(x - town.world.x,y - town.world.y,s.bounds); });
+  return SETTLEMENT_LAYOUTS.find(s => insideDefense(s.townId,x,y));
 }
 export const SETTLEMENT_ENEMY_BUFFER = 96;
 export function protectedSettlementAt(x: number, y: number) {
   return SETTLEMENT_LAYOUTS.find(s => {
+    if(insideDefense(s.townId,x,y,SETTLEMENT_ENEMY_BUFFER))return true;
     const town = TOWN_BY_ID[s.townId], bounds = s.bounds;
     return Math.abs(x - town.world.x - bounds.x) <= bounds.width / 2 + SETTLEMENT_ENEMY_BUFFER
       && Math.abs(y - town.world.y - bounds.y) <= bounds.height / 2 + SETTLEMENT_ENEMY_BUFFER;

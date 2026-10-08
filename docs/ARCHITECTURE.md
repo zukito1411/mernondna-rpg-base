@@ -130,6 +130,21 @@ Persist meaningful deltas, never rendered tiles or Phaser objects.
 
 ## Visual rendering
 
+Current continuation: `settlementDefenses.ts` provides connected, source-oriented
+outer enclosures and explicit road/water openings for all twelve settlements;
+`fortifications.ts` composes these with Highmere's royal precinct. Approach
+streets, protected creature territory and collision use the same surveyed
+perimeter. This supersedes the retired-perimeter description below.
+
+`TargetingSystem` centralizes visibility, range and LOS for enemy indicators and
+automatic combat acquisition. `PlayerSkillSystem` owns transient swept slash
+waves and collision-checked leap casts; no Phaser projectile is persisted.
+`locomotion.ts` supplies frame-rate-independent velocity response/stride timing.
+`RegionalMap` renders actual terrain/roads while `worldMapProjection.ts` projects
+both town and player pins through the same cached atlas control mesh. New story
+flags/quests retain save version 4. See COMBAT_WORLD_OVERHAUL.md; current changes
+have not been executed or verified under the user's no-testing instruction.
+
 The 2026-10-08 world repair adds `settlementGeometry.ts` for shared full-visible
 bounds and road clearance; individual district plans for all eleven settlements;
 and `environmentLights.ts` / `EnvironmentLightArt.ts` for source-measured window,

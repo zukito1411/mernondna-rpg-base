@@ -211,7 +211,8 @@ export class BootScene extends Phaser.Scene {
           drawX, drawY, drawWidth, drawHeight
         );
         ctx.restore();
-        texture.add(frame, 0, x, y, width, height);
+        const preparedFrame=texture.add(frame,0,x,y,width,height);
+        if(preparedFrame)preparedFrame.customData={visibleBounds:{left:(drawX-x)/sheet.density,top:(drawY-y)/sheet.density,width:drawWidth/sheet.density,height:drawHeight/sheet.density}};
       }
 
       if (sheet.blackBackground) {

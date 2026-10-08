@@ -1,5 +1,6 @@
 import type { NpcDefinition } from '../game/types';
 import { CAPITAL_RESIDENTS, REGIONAL_WORKERS } from './capitalResidents';
+import { CIBAR_RESIDENTS } from './cibarResidents';
 
 export const NPCS: NpcDefinition[] = [
   {
@@ -165,7 +166,7 @@ NPCS.push(...regionalResidents.map(({ work,social,trust,history,dialogueLines,..
   relationshipToLeigneron:{ kind:'acquaintance' as const,trust,summary:history },dialogue:dialogueLines,questIds:[],
 })));
 
-NPCS.push(...CAPITAL_RESIDENTS,...REGIONAL_WORKERS);
+NPCS.push(...CAPITAL_RESIDENTS,...REGIONAL_WORKERS,...CIBAR_RESIDENTS);
 for(const [id,name,x,history] of [
   ['ser-elin-ward','Elin Ward',-1110,'Yselle’s younger sister; remembers Aldren bringing Leigneron to the royal oath ceremony'],
   ['ser-tomas-rowe','Tomas Rowe',-890,'Caldus’s son; exchanged practice swords with Leigneron as a child'],
@@ -175,6 +176,14 @@ for(const [id,name,x,history] of [
   relationshipToLeigneron:{kind:'acquaintance',trust:48,summary:history},homeLocation:{x,y:-1190},
   schedule:[{startHour:6,activity:'Guards the audience entrance',location:{x,y:-1190}},{startHour:20,activity:'Keeps the evening audience watch',location:{x,y:-1190}}],
   dialogue:['The audience road stays open. Petitioners enter through the arch, not through the gardens.','Adria hears signed petitions on the castle steps.'],questIds:[],dialoguePersonality:'Courteous and vigilant'});
+for(const [id,name,x,y,history] of [
+  ['annor-lorn','Annor Lorn',1280,-2610,'Sera Lorn’s uncle; taught Leigneron and Sera how to pack a road satchel'],
+  ['hestia-farrow','Hestia Farrow',-720,2590,'Lina Farrow’s sister; helped Aldren distribute the winter grain relief'],
+] as const)NPCS.push({id,name,title:'Highmere Gate Sentinel',townId:'highmere',role:'Keeps the outer gate approach clear and checks incoming relief wagons',spriteTexture:'npc_royal_guard',spriteFrame:0,
+  worldOffset:{x,y},homeLocation:{x,y},patrolRadius:40,combatant:true,weaponId:'oak-shield-blade',faction:'Royal Guard',family:history,
+  connections:[{npcId:'captain-yselle-ward',relationship:'Commanding officer'}],dialoguePersonality:'Alert, practical, welcoming to honest travelers',
+  schedule:[{startHour:6,activity:'Inspects the gate approach',location:{x,y}},{startHour:20,activity:'Keeps the lantern watch',location:{x,y}}],
+  relationshipToLeigneron:{kind:'acquaintance',trust:55,summary:history},dialogue:['The arch is open. Keep wagons to the marked road so the watch can see their cargo.','The city keeps a public relief tally now. Bring the kitchens their promised grain.'],questIds:[]});
 for(const npc of NPCS) {
   if(npc.id==='mairin-reed') npc.questIds=['shadows-highmere'];
   if(npc.id==='captain-yselle-ward') npc.questIds=['royal-guard-trial'];

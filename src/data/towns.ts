@@ -1,5 +1,6 @@
 import type { TownDefinition } from '../game/types';
 import { chunkCenter } from './world';
+import { ATLAS_TOWNS,ATLAS_WIDTH,ATLAS_HEIGHT } from './mapSurvey';
 
 const place = (chunkX: number, chunkY: number, dx = 0, dy = 0) => {
   const center = chunkCenter(chunkX, chunkY);
@@ -64,6 +65,10 @@ export const TOWNS: TownDefinition[] = [
   },
 ];
 
+TOWNS.push({id:'cibar-plains',name:'Cibar Plains',regionId:'druganwoods',kind:'town',world:place(66,66),mapPercent:{x:0,y:0},
+  description:'Druganwoods’ southern grain country: irrigation channels, family farms and a caravan market serving the river-halls.',
+  services:['Grain Exchange','Smithy','Inn','Shrine'],tags:['plains','farmland','river-trade']});
+for(const town of TOWNS){const pixel=ATLAS_TOWNS[town.id];town.mapPercent={x:pixel[0]/ATLAS_WIDTH*100,y:pixel[1]/ATLAS_HEIGHT*100};}
 export const TOWN_BY_ID = Object.fromEntries(TOWNS.map((town) => [town.id, town])) as Record<string, TownDefinition>;
 
 export const ROAD_CONNECTIONS: Array<[string, string]> = [
@@ -75,4 +80,5 @@ export const ROAD_CONNECTIONS: Array<[string, string]> = [
   ['starhold', 'redmesa'],
   ['redmesa', 'deepford'],
   ['deepford', 'highmere'],
+  ['deepford','cibar-plains'],
 ];

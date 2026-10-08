@@ -1,5 +1,6 @@
 import type { QuestDefinition } from '../game/types';
 import { HIGHMERE_QUESTS } from './highmereQuests';
+import { CIBAR_QUEST } from './cibarQuests';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -36,5 +37,5 @@ export const QUESTS: QuestDefinition[] = [
   },
 ];
 
-QUESTS.push(...HIGHMERE_QUESTS);
+QUESTS.push(...HIGHMERE_QUESTS,CIBAR_QUEST);
 export const QUEST_BY_ID = Object.fromEntries(QUESTS.map((quest) => [quest.id, quest])) as Record<string, QuestDefinition>;

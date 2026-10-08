@@ -56,6 +56,7 @@ function validateContent(value: unknown): ContentWorldState | null {
     // Cosmetic perimeter walls/gates were retired. Keep all gameplay records.
     if (retiredBoundaryId(id)) continue;
     const definition = Object.hasOwn(CONTENT_BY_ID, id) ? CONTENT_BY_ID[id] : spawns[id];
+    if(!definition&&(/^defense:[^:]+:(curtain|tower|entrance):/.test(id)||/^fort:highmere:(curtain|return|corner):/.test(id)))continue;
     const decorativeFarm=/^farm:([^:]+):(fence|wheat):\d+$/.exec(id);
     if(!definition && decorativeFarm && Object.hasOwn(TOWN_BY_ID,decorativeFarm[1])) continue;
     if (!definition || !record(s) || !numberIn(s.x, 0, WORLD_WIDTH - 1) || !numberIn(s.y, 0, WORLD_HEIGHT - 1)

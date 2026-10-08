@@ -27,6 +27,7 @@ export function resolveQuestTarget(quests: Record<string, QuestRuntimeState>, wo
     if (['talk','deliver','choice','puzzle'].includes(objective.type)) return d.kind === 'npc' && d.npcId === objective.targetId;
     if (objective.type === 'kill') return d.kind === 'creature' && (objective.bossId ? d.bossId === objective.bossId : d.enemyId === objective.targetId);
     if (objective.type === 'visit') return d.kind === 'settlement' && d.townId === objective.targetId;
+    if('questTargetId' in d && d.questTargetId===objective.targetId)return !world.states[d.id]?.used;
     return d.id === objective.targetId;
   });
   let target: ContentDefinition | undefined, position: Vec2 | undefined, nearest = Infinity;

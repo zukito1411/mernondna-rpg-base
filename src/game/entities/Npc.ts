@@ -10,6 +10,8 @@ import type { WorldScene } from '../scenes/WorldScene';
 import { TOWN_BY_ID } from '../../data/towns';
 import { npcStreetRoute, formationPosition } from '../systems/npcRoutes';
 import { useGameStore } from '../../store/gameStore';
+import { approachVelocity, strideRate } from '../systems/locomotion';
+import { MARCH_SPEED } from '../../data/capitalResidents';
 
 export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly definition: NpcDefinition;
@@ -66,6 +68,13 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;}
   get escorting(){return this.escortGoal!==null;}
+  advanceCinematic(delta:number) {
+    const body=this.body as Phaser.Physics.Arcade.Body,step=Math.min(delta,80)/1000;
+    const point={x:this.x+body.velocity.x*step,y:this.y+body.velocity.y*step};
+    if((this.scene as WorldScene).canNpcVisit(this,point)){
+      this.setPosition(point.x,point.y);body.updateFromGameObject();
+    }else body.setVelocity(0,0);
+  }
   updatePatrol(time: number, delta: number) {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -73,13 +82,15 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     const toLocal=(p:Vec2)=>({x:p.x-town.world.x,y:p.y-town.world.y});
     const toWorld=(p:Vec2)=>({x:p.x+town.world.x,y:p.y+town.world.y});
     if(this.definition.formation && scene.getWorldHour()>=6 && scene.getWorldHour()<20) {
-      const goal=toWorld(formationPosition(scene.activePlayMs,this.definition.formation.rank));
+      const goal=toWorld(formationPosition(scene.activePlayMs+180,this.definition.formation.rank));
       // Common deterministic phase keeps the file together across streaming.
       // Never snap through a wall if a future layout edit invalidates its route.
       if(scene.canNpcVisit(this,goal) && Math.hypot(this.x-goal.x,this.y-goal.y)<160) {
         const dx=goal.x-this.x,dy=goal.y-this.y;
         if(Math.hypot(dx,dy)>.2)this.facing.set(dx,dy).normalize();
-        body.reset(goal.x,goal.y);body.setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,true);this.setDepth(this.y);return;
+        const speed=Math.min(MARCH_SPEED*1.35,Math.hypot(dx,dy)*5);
+        body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*speed,delta,80),approachVelocity(body.velocity.y,this.facing.y*speed,delta,80));
+        this.playDirection(this.facing.x,this.facing.y,body.velocity.length()>3);this.setDepth(this.y);return;
       }
     }
     if(this.escortGoal) {
@@ -139,6 +150,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
     const dx = this.target.x - this.x, dy = this.target.y - this.y;
     if (Math.hypot(dx, dy) <= 10) {
+      if(this.route.length){this.target=this.route.shift()!;return;}
       body.setVelocity(0, 0);
       this.target = null;
       if (!this.returningHome && !this.route.length) this.returningHome = true;
@@ -147,7 +159,8 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     this.facing.set(dx, dy).normalize();
-    body.setVelocity(this.facing.x * 34, this.facing.y * 34);
+    const speed=Math.min(34,Math.hypot(dx,dy)*4);
+    body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*speed,delta,90),approachVelocity(body.velocity.y,this.facing.y*speed,delta,90));
     this.playDirection(this.facing.x, this.facing.y, true);
     this.setDepth(this.y);
   }
@@ -170,14 +183,17 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private playDirection(x: number, y: number, walking: boolean) {
     const direction = Math.abs(x) > Math.abs(y) ? x < 0 ? 'left' : 'right' : y < 0 ? 'up' : 'down';
     const idle = NPC_IDLE_ART.find(entry => entry.walk === this.walkTexture);
-    if (!walking && idle) {
+    if (!walking && idle && direction==='down') {
       this.presentTexture(idle.key,artScale(idle.key));
       this.anims.play(`${this.walkTexture}-idle`,true);
+      this.anims.timeScale=1;
       return;
     }
     this.presentTexture(this.walkTexture,actorScaleForHeight(this.walkTexture,this.definition.spriteFrame,npcApparentHeight(this.walkTexture)));
     const animation = `${this.walkTexture}-${direction}`;
-    if (walking && this.scene.anims.exists(animation)) this.anims.play(animation, true);
+    if (walking && this.scene.anims.exists(animation)) {
+      this.anims.play(animation,true);this.anims.timeScale=strideRate((this.body as Phaser.Physics.Arcade.Body).velocity.length(),34);
+    }
     else {
       this.anims.stop();
       this.setFrame(directionFrame(x, y)).setFlipX(false);

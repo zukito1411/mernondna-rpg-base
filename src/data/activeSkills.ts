@@ -6,16 +6,17 @@ export interface ActiveSkillDefinition {
   id:ActiveSkillId; name:string; slot:1 | 2 | 3 | 4; action:ActiveSkillAction; texture:PlayerSkillTexture;
   description:string; kind:'strike' | 'rally'; staminaCost:number; cooldownMs:number; durationMs:number;
   radius:number; coneDot:number; hitTimes:readonly number[]; damageMultipliers:readonly number[];
+  targetingRange?:number;
 }
 
 // Leigneron's four starter combat arts are usable immediately. Learned passive
 // talents remain separate, preserving existing skill-point purchases and saves.
 export const ACTIVE_SKILLS:readonly ActiveSkillDefinition[] = [
   { id:'azure-cleave',name:'Azure Cleave',slot:1,action:'skill1',texture:'skill_azure_cleave',
-    description:'Sweep a broad arc for double weapon damage.',kind:'strike',staminaCost:18,cooldownMs:4500,durationMs:600,
+    description:'Launch a long-range energy slash at the nearest enemy in sight for double weapon damage.',kind:'strike',staminaCost:18,cooldownMs:4500,durationMs:600,targetingRange:620,
     radius:112,coneDot:-.25,hitTimes:[280],damageMultipliers:[2] },
   { id:'skyfall-slam',name:'Skyfall Slam',slot:2,action:'skill2',texture:'skill_skyfall_slam',
-    description:'Slam the ground, striking nearby enemies for 2.8× weapon damage.',kind:'strike',staminaCost:28,cooldownMs:8500,durationMs:850,
+    description:'Leap toward an enemy and slam a safe landing, dealing 2.8× weapon damage nearby.',kind:'strike',staminaCost:28,cooldownMs:8500,durationMs:850,targetingRange:360,
     radius:150,coneDot:-1,hitTimes:[570],damageMultipliers:[2.8] },
   { id:'crown-rally',name:'Crown Rally',slot:3,action:'skill3',texture:'skill_crown_rally',
     description:'Recover 20% maximum health and take 50% less damage for 5 seconds.',kind:'rally',staminaCost:24,cooldownMs:16000,durationMs:600,

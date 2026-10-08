@@ -10,6 +10,7 @@ import { progressionStats } from '../../data/progression';
 import { ACTIVE_SKILLS } from '../../data/activeSkills';
 import { PlayerSkillSystem } from '../systems/PlayerSkillSystem';
 import { RecoverySystem } from '../systems/RecoverySystem';
+import { approachVelocity, strideRate } from '../systems/locomotion';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly moveSpeed = 165;
@@ -105,10 +106,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const dashMultiplier = time < this.dashUntil ? 2.65 : 1;
     if (time < this.dashUntil) { x = this.dashDirection.x; y = this.dashDirection.y; }
     const speed = this.moveSpeed * progression.speedMultiplier * (sprinting ? 1.42 : 1) * dashMultiplier;
-    body.setVelocity(x * speed, y * speed);
+    const lockedMotion=this.skills.isCasting||time<this.dashUntil;
+    body.setVelocity(lockedMotion?x*speed:approachVelocity(body.velocity.x,x*speed,delta,45),
+      lockedMotion?y*speed:approachVelocity(body.velocity.y,y*speed,delta,45));
     if (time < this.dashUntil && time >= this.nextDashTrailAt) this.createDashTrail(time);
 
-    this.updateAnimation(x, y);
+    this.updateAnimation(body.velocity.x, body.velocity.y);
     this.setDepth(this.y);
     if (this.attackVisual?.active) this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
 
@@ -221,7 +224,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private updateAnimation(x: number, y: number) {
-    if (Math.abs(x) < 0.05 && Math.abs(y) < 0.05) {
+    if (Math.hypot(x,y) < 3) {
+      this.anims.timeScale=1;
+      const standingFrame=directionFrame(this.lastDirection.x,this.lastDirection.y);
+      if(standingFrame!==0){
+        if(this.texture.key!=='leigneron')this.setPresentationTexture('leigneron',artScale('leigneron'));
+        this.anims.stop();this.setFrame(standingFrame);return;
+      }
       if (this.texture.key !== 'leigneron_idle') {
         this.setPresentationTexture('leigneron_idle', actorScaleForHeight('leigneron_idle', 0, 76));
       }
@@ -237,5 +246,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     else key = y < 0 ? 'leigneron-up' : 'leigneron-down';
     this.setFlipX(false);
     this.anims.play(key, true);
+    this.anims.timeScale=strideRate(Math.hypot(x,y),this.moveSpeed);
   }
 }

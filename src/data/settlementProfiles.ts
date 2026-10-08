@@ -1,6 +1,6 @@
 export type SettlementProfileId =
   | 'oakmere' | 'highmere' | 'willowcross' | 'elarion' | 'moonfall' | 'starhold'
-  | 'redmesa' | 'deepford' | 'tidewatch' | 'skallheim' | 'blackspire';
+  | 'redmesa' | 'deepford' | 'tidewatch' | 'skallheim' | 'blackspire' | 'cibar-plains';
 
 export interface SettlementDecoration {
   frame: number;
@@ -33,6 +33,12 @@ export interface SettlementProfile {
 }
 
 export const SETTLEMENT_PROFILES: Record<SettlementProfileId, SettlementProfile> = {
+  'cibar-plains':{
+    id:'cibar-plains',architecture:'Southern riverwood farmhouses and grain halls',defenses:'Joined rural stone curtain and guarded caravan passages',
+    bounds:{width:2700,height:2600},wallStyle:'stone',wallFrame:18,wallTint:0xe8d9b7,buildingTint:0xf2e7c9,wallScale:1.1,wallSpacing:160,
+    gateTexture:'walls',gateFrame:21,gateWidth:200,gateScale:1,watchtowerFrame:2,buildingFrames:[0,1,5,6,7],
+    decorations:[{frame:6,x:-420,y:100,scale:.65},{frame:5,x:420,y:140,scale:.65},{frame:10,x:320,y:-230,scale:.6}],
+  },
   oakmere: {
     id: 'oakmere', architecture: 'Trandum farmstead timber and limewash',
     defenses: 'Low orchard fencing with a broad crown-road gate',

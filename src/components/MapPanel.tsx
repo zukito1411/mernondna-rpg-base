@@ -3,34 +3,41 @@ import { REGIONS, REGION_BY_ID } from '../data/regions';
 import { TOWNS, TOWN_BY_ID } from '../data/towns';
 import { useGameStore } from '../store/gameStore';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
+import { RegionalMap } from './RegionalMap';
+import { worldToAtlas } from '../game/systems/worldMapProjection';
 
 export function MapPanel() {
   const panel = useGameStore((s) => s.panel);
   const close = useGameStore((s) => s.closePanel);
   const townId = useGameStore((s) => s.townId);
+  const x=useGameStore(s=>s.worldX),y=useGameStore(s=>s.worldY),open=useGameStore(s=>s.openPanel);
   const unlockedShrines = useGameStore(s => s.unlockedTownShrines);
   const teleport = useGameStore(s => s.requestMapTravel);
   const [selectedId,setSelectedId] = useState<string | null>(null);
+  const [zoom,setZoom]=useState(1);
   const selectedPin = useRef<HTMLButtonElement | null>(null);
   const localTravel = localSettlementTravelEnabled();
-  useEffect(() => { if (panel !== 'map') setSelectedId(null); },[panel]);
+  useEffect(() => { setSelectedId(null); },[panel]);
   const selected = selectedId ? TOWN_BY_ID[selectedId] : undefined;
   const canTeleport = Boolean(selected && (localTravel || unlockedShrines.includes(selected.id)));
   const closePrompt = () => { setSelectedId(null); selectedPin.current?.focus(); };
-  if (panel !== 'map') return null;
+  if (panel !== 'map'&&panel!=='regional-map') return null;
+  const regional=panel==='regional-map',playerPin=worldToAtlas({x,y});
 
   return (
-    <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Mernodna world map">
+    <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label={regional?'Expanded regional minimap':'Merdnona world map'}>
       <section className="panel map-panel">
-        <header><div><h2>Mernodna</h2><p>{localTravel ? 'Local exploration: click any settlement pin to teleport.'
-          : `Click a settlement pin to teleport · ${unlockedShrines.length} shrines attuned.`}</p></div><button type="button" onClick={close}>Close</button></header>
-        <div className="world-map-wrap">
+        <header><div><h2>{regional?'Regional survey':'Merdnona'}</h2><p>{localTravel ? 'Local exploration: click any settlement pin to teleport.'
+          : `Click a settlement pin to teleport · ${unlockedShrines.length} shrines attuned.`}</p></div>
+          <button onClick={()=>open(regional?'map':'regional-map')}>{regional?'World Map':'Regional Map'}</button><button type="button" onClick={close}>Close</button></header>
+        {!regional&&<div className="atlas-zoom-controls"><button onClick={()=>setZoom(z=>Math.max(1,z-.25))} disabled={zoom<=1}>Zoom out</button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(z=>Math.min(3,z+.25))} disabled={zoom>=3}>Zoom in</button></div>}
+        {regional?<RegionalMap select={(id,button)=>{selectedPin.current=button;setSelectedId(id);}}/>:<div className="world-map-wrap"><div className="atlas-survey" style={{width:zoom*100+'%'}}>
           <img src="assets/reference/mernondna-world-map.jpg" alt="Illustrated map of Mernodna" />
           {TOWNS.map((town) => (
             <button
               type="button"
               className={`map-marker ${town.id === townId ? 'current' : ''} ${unlockedShrines.includes(town.id) ? 'attuned' : ''} ${localTravel || unlockedShrines.includes(town.id) ? 'available' : 'locked'}`}
-              style={{ left: `${town.mapPercent.x}%`, top: `${town.mapPercent.y}%` }}
+              style={{ left: `${worldToAtlas(town.world).x}%`, top: `${worldToAtlas(town.world).y}%` }}
               title={`${town.name} — ${town.description}`}
               aria-label={`Select ${town.name} for teleport`}
               aria-haspopup="dialog"
@@ -41,7 +48,8 @@ export function MapPanel() {
               <b>{localTravel || unlockedShrines.includes(town.id) || town.starterKnown || town.id === townId ? town.name : 'Unknown'}</b>
             </button>
           ))}
-        </div>
+          <span className="atlas-player" style={{left:playerPin.x+'%',top:playerPin.y+'%'}} title="Leigneron’s current world position">▲</span>
+        </div></div>}
         <details className="map-settlement-list">
           <summary>Settlement destinations</summary>
           <div>{TOWNS.map(town => <button type="button" key={town.id}

@@ -62,6 +62,10 @@ export class DayNightSystem {
     });
     this.renderAccumulator=100;
   }
+  isIlluminated(x:number,y:number) {
+    if(nightStrength(this.minuteOfDay)<.7)return true;
+    return [...this.lights].some(light=>Math.hypot(x-light.actor.x-light.x,y-light.actor.y-light.y)<light.radius*.8);
+  }
   update(deltaMs:number,playerX:number,playerY:number) {
     this.elapsed+=deltaMs;this.minuteOfDay+=deltaMs/1000*2.5;
     if(this.minuteOfDay>=1440){this.day+=Math.floor(this.minuteOfDay/1440);this.minuteOfDay%=1440;}

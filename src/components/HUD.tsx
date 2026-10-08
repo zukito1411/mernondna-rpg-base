@@ -70,7 +70,7 @@ export function HUD() {
       {!blocked && interaction && <div className="interaction-hint"><kbd>E</kbd><span>{interaction}</span><small>or tap nearby</small></div>}
 
       <div className="hud-actions">
-        <button type="button" onClick={() => openPanel('map')}>Map <kbd>M</kbd></button>
+        <button type="button" onClick={() => openPanel('map')}>World Map <kbd>M</kbd></button>
         <button type="button" onClick={() => openPanel('inventory')}>Gear <kbd>I</kbd></button>
         <button type="button" onClick={() => openPanel('character')}>Status <kbd>C</kbd></button>
         <button type="button" onClick={() => openPanel('pause')}>Menu <kbd>Esc</kbd></button>

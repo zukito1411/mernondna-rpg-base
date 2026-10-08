@@ -1,5 +1,11 @@
 # Highmere city and story slice — 2026-10-08
 
+Historical slice notes: [COMBAT_WORLD_OVERHAUL.md](COMBAT_WORLD_OVERHAUL.md)
+supersedes the outer-wall limitation, resident count and map behavior below.
+Highmere now also has an outer perspective-correct enclosure, north/south
+gatehouses and two additional named guards. Current changes are unverified;
+no further execution is permitted without an explicit user request.
+
 This continues the existing continuous Phaser world and React/Zustand UI. Towns
 are not separate stages. The 3×3 near-player terrain/content streaming limit,
 original content IDs, original image files, Capacitor and save storage remain.
@@ -119,4 +125,4 @@ audio, native-device performance and final non-human regional architecture
 remain future work. Existing regional town plans are retained and populated,
 not replaced by another random settlement generator.
 
-Validation results are recorded in PROGRESS.md after runtime checks finish.
+Do not treat earlier checks as verification of the subsequent continuation.

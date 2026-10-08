@@ -10,7 +10,7 @@ import { BASE_ATTRIBUTES, levelForExperience, progressionStats, SKILLS, type Att
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 
-type Panel = 'map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -176,7 +176,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { travelRequest:townId,travelRequestSource:'shrine',panel:null };
   }),
   requestMapTravel:(townId) => set(state => {
-    if (state.panel !== 'map' || state.dialogue || !Object.hasOwn(TOWN_BY_ID,townId)
+    if (!['map','regional-map'].includes(state.panel??'') || state.dialogue || !Object.hasOwn(TOWN_BY_ID,townId)
       || !localSettlementTravelEnabled() && !state.unlockedTownShrines.includes(townId)) return {};
     return { travelRequest:townId,travelRequestSource:'map',travelOriginTownId:null,panel:null };
   }),
@@ -193,7 +193,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
     const outcome=state.storyFlags['relief-household-charter']?'The household relief charter is posted. The kitchen allotment is guaranteed.':state.storyFlags['relief-joint-council']?'Maela and Nella now share the relief council. The stock accounts are public.':null;
-    const lines=context?.objective.dialogue ?? (outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
+    const localOutcome=npc.townId==='cibar-plains'&&state.storyFlags['cibar-irrigation-repaired']?
+      state.storyFlags['cibar-public-water']?'The pump is repaired. Every household’s water turn is posted at the well.':'The pump is repaired. The growers’ cooperative keeps its records open.':null;
+    const lines=context?.objective.dialogue ?? (localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
     set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
     if(context && ['talk','deliver'].includes(context.objective.type)) get().progressQuest(context.objective.type,npcId);
   },

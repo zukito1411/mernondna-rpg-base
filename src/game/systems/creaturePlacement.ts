@@ -1,5 +1,6 @@
 import { protectedSettlementAt, SETTLEMENT_ENEMY_BUFFER } from '../../data/settlements';
 import { TOWN_BY_ID } from '../../data/towns';
+import {SETTLEMENT_PROFILES,type SettlementProfileId} from '../../data/settlementProfiles';
 import type { ContentDefinition, ContentWorldState, Vec2 } from '../types';
 
 interface CreatureTerritory { canCreatureOccupy(x: number, y: number): boolean }
@@ -8,12 +9,15 @@ export function findCreaturePlacement(preferred: Vec2, territory: CreatureTerrit
   if (territory.canCreatureOccupy(preferred.x,preferred.y)) return { ...preferred };
   const layout = protectedSettlementAt(preferred.x,preferred.y);
   if (layout) {
-    const town = TOWN_BY_ID[layout.townId], b = layout.bounds, gap = SETTLEMENT_ENEMY_BUFFER + 32;
+    const town = TOWN_BY_ID[layout.townId], profile=SETTLEMENT_PROFILES[layout.townId as SettlementProfileId];
+    const gap = SETTLEMENT_ENEMY_BUFFER + 32;
+    const hx=profile.bounds.width/2+160,hy=profile.bounds.height/2+160;
+    const flank=hx+2*Math.max(0,hy-Math.abs(preferred.y-town.world.y));
     const candidates = [
-      { x:town.world.x + b.x - b.width / 2 - gap,y:preferred.y },
-      { x:town.world.x + b.x + b.width / 2 + gap,y:preferred.y },
-      { x:preferred.x,y:town.world.y + b.y - b.height / 2 - gap },
-      { x:preferred.x,y:town.world.y + b.y + b.height / 2 + gap },
+      { x:town.world.x - flank - gap*3,y:preferred.y },
+      { x:town.world.x + flank + gap*3,y:preferred.y },
+      { x:preferred.x,y:town.world.y - hy - gap },
+      { x:preferred.x,y:town.world.y + hy + gap },
     ].sort((a,b) => Math.hypot(a.x - preferred.x,a.y - preferred.y) - Math.hypot(b.x - preferred.x,b.y - preferred.y));
     for (const candidate of candidates) if (territory.canCreatureOccupy(candidate.x,candidate.y)) return candidate;
   }

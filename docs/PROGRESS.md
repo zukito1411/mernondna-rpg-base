@@ -192,3 +192,34 @@ rotate around the retained skill sprite to communicate the circular attack.
 Range, damage, stamina cost, cooldown and duration are unchanged. Solid obstacles
 still block hits, and knockback remains outward from the player. No tests,
 type checks or builds were run, as requested.
+
+## Highmere stories, animation, combat and world continuation (2026-10-08)
+
+- Retained the expanded Highmere survey, 34 building lots, connected wards,
+  named capital/regional residents, marching watch, three multi-stage stories,
+  journal/tracking, physical witness escort, persistent decisions, skippable
+  story presentations and peaceful settlement/idle healing.
+- Reconciled newer hero source geometry; corrected the replacement wolf walk's
+  six measured crops and common ground anchor. Preserved standing directions,
+  added velocity easing/stride timing, removed per-frame formation body resets
+  and tied monster action playback to combat timing.
+- Added shared visibility/LOS target eligibility, selected/ordinary enemy
+  indicators and tap/click selection. Azure Cleave now travels and hits on
+  contact; Skyfall Slam visibly leaps toward a collision-checked landing.
+- Split compact → regional minimap expansion from the illustrated Merdnona
+  World Map. Added shared atlas calibration, aligned player/town pins, full-map
+  zoom/scrolling and retained shrine/local-development travel permissions.
+- Added Cibar Plains: seven lots, planned farm/market streets, five named
+  residents, Deepford road, shrine and an eight-stage irrigation quest with
+  distinct caches and persistent repair/governance consequences.
+- Added connected horizontal/diagonal perspective enclosures for all twelve
+  settlements. Road/water openings follow actual routes; Highmere has outer
+  north/south gatehouses in addition to its royal precinct. No sideways gate
+  sprites or rotated horizontal walls were introduced. Approach terrain and
+  legacy-creature relocation now use the enlarged perimeter.
+
+The latest attachment and AGENTS.md explicitly prohibit execution without
+permission. **No tests, type checks, builds, game/browser launches or benchmarks
+were run for this continuation.** Older recorded results do not verify these
+changes. See [COMBAT_WORLD_OVERHAUL.md](COMBAT_WORLD_OVERHAUL.md) for the fourteen
+requested report categories, principal files, behavior and remaining limits.

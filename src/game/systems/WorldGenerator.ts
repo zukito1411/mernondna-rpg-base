@@ -78,6 +78,9 @@ export class WorldGenerator {
 
     const n = noise2D(worldX * 0.0018, worldY * 0.0018);
     const detail = noise2D(worldX * 0.008, worldY * 0.008);
+    const cibar=TOWN_BY_ID['cibar-plains'].world;
+    if(regionId==='druganwoods'&&Math.hypot((worldX-cibar.x)/1.3,worldY-cibar.y)<4200)
+      return n>-.6?'grass':'forest';
 
     if (regionId === 'nardorous') {
       if (n > 0.1) return 'snow';
