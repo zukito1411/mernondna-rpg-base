@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type {WorldGenerator} from './WorldGenerator';
+import {overlayViewport,fitViewportOverlay} from './renderSizing';
 
 interface WaterCell {x:number;y:number;shore:boolean}
 /** Small viewport-only animated water. The terrain predicate masks bridges,
@@ -12,20 +13,21 @@ export class WaterSurfaceSystem {
   private destroyed=false;
   private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator){
-    this.texture=scene.textures.createCanvas('moving-water',scene.scale.width,scene.scale.height)!;
+    const viewport=overlayViewport(scene);
+    this.texture=scene.textures.createCanvas('moving-water',viewport.width,viewport.height)!;
     this.overlay=scene.add.image(0,0,'moving-water').setOrigin(0).setScrollFactor(0).setDepth(-990).setName('river-and-sea-surface');
   }
   update(delta:number){
     if(!this.reducedMotion.matches)this.elapsed+=Math.min(delta,100);
     this.drawMs+=delta;
-    const camera=this.scene.cameras.main,z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height,view=camera.worldView;
+    const camera=this.scene.cameras.main,{zoom:z,width:w,height:h}=overlayViewport(this.scene),view=camera.worldView;
     const ox=Math.floor(view.x/32)*32,oy=Math.floor(view.y/32)*32;
     const key=`${ox}:${oy}:${w}:${h}:${z}`;
     const changed=key!==this.cacheKey;
     if(!changed&&this.drawMs<80)return;this.drawMs=0;
     if(this.texture.width!==w||this.texture.height!==h){this.texture.setSize(w,h);this.mask.width=w;this.mask.height=h;}
     if(this.mask.width!==w||this.mask.height!==h){this.mask.width=w;this.mask.height=h;}
-    this.overlay.setScale(1/z).setPosition(w/2*(1-1/z),h/2*(1-1/z));
+    fitViewportOverlay(this.scene,this.overlay);
     if(changed){this.cacheKey=key;this.cells=[];
       const water=new Set<string>();
       for(let y=oy-32;y<oy+h/z+64;y+=32)for(let x=ox-32;x<ox+w/z+64;x+=32)

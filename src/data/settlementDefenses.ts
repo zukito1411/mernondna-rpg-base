@@ -53,7 +53,8 @@ export const SETTLEMENT_DEFENSES:DefensiveSurvey[]=TOWNS.map(town=>{
     }
   const northX=town.id==='highmere'?1400:town.id==='oakmere'?-550:0,southX=town.id==='highmere'?-600:0;
   const north=point(northX,-hy),south=point(southX,hy);
-  add(north,town.id==='highmere'?500:170,'road',true);add(south,town.id==='highmere'?500:170,town.kind==='harbor'?'water':'road',true);
+  const gateWidth=town.id==='highmere'?500:town.id==='blackspire'?260:170;
+  add(north,gateWidth,'road',true);add(south,gateWidth,town.kind==='harbor'?'water':'road',true);
   if(town.id==='highmere'){
     entrances.filter(e=>Math.hypot(e.point.x-north.x,e.point.y-north.y)<1||Math.hypot(e.point.x-south.x,e.point.y-south.y)<1).forEach(e=>{e.gateArtwork=true;});
     approaches.push([point(850,-1200),point(850,-2400),point(1400,-2400),north],[point(-600,2250),south]);

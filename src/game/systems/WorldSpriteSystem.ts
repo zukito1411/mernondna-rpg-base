@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {worldSpriteProfile,polygonGroundBands,STONE_BRIDGE,type GroundPoint} from '../../data/worldSpriteGeometry';
+import {segmentTouchesRect} from '../../data/settlementGeometry';
+import type {Vec2} from '../types';
 
 type WorldActor=Phaser.GameObjects.Image|Phaser.GameObjects.Sprite;
 interface VisibleArt {left:number;top:number;width:number;height:number}
@@ -13,11 +15,13 @@ export class WorldSpriteSystem {
   private readonly owned=new Map<WorldActor,Phaser.GameObjects.Rectangle[]>();
   constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup){}
   register(actor:WorldActor,texture:ArtTextureKey,frame:number,scale:number,solid:boolean,fallback?:{width:number;height:number},center=false){
-    const sheet=ART_BY_KEY[texture],metadata=actor.frame.customData as PreparedArt;
+    const sheet=ART_BY_KEY[texture],metadata=(actor.frame.customData??{}) as PreparedArt;
     const visible=metadata.visibleBounds??{left:0,top:0,width:sheet.frameWidth,height:sheet.frameHeight};
     const point=(x:number,y:number)=>({
-      x:actor.x+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale,
-      y:actor.y+(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale,
+      x:actor.x+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*Math.cos(actor.rotation)
+        -(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*Math.sin(actor.rotation),
+      y:actor.y+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*Math.sin(actor.rotation)
+        +(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*Math.cos(actor.rotation),
     });
     const sourcePoint=([x,y]:GroundPoint)=>{
       const source=metadata.sourceRegion??sheet.regions?.[frame];
@@ -45,8 +49,9 @@ export class WorldSpriteSystem {
     }else{
       actor.setDepth(profile?.floor?-950:profile?point(.5,profile.sortY).y:actor.y);
       if(solid||profile?.forceSolid){
-        if(profile?.solids.length){for(const polygon of profile.solids)for(const rect of polygonGroundBands(polygon)){
-          const a=point(rect.left,rect.top),b=point(rect.right,rect.bottom);add(a.x,a.y,b.x,b.y);
+        if(profile?.solids.length){for(const polygon of profile.solids){
+          const worldPolygon=polygon.map(([x,y]):GroundPoint=>{const p=point(x,y);return [p.x,p.y];});
+          for(const rect of polygonGroundBands(worldPolygon))add(rect.left,rect.top,rect.right,rect.bottom);
         }}else if(solid&&!profile?.floor){
           const width=fallback?.width??visible.width*scale*.72,height=fallback?.height??Math.min(56,visible.height*scale*.25);
           const bottom=center?actor.y+height/2:point(.5,1).y;
@@ -60,6 +65,18 @@ export class WorldSpriteSystem {
   private release(actor:WorldActor){
     const shapes=this.owned.get(actor);if(!shapes)return;this.owned.delete(actor);
     for(const shape of shapes)this.bodies.remove(shape,true,true);
+  }
+  blocksPath(from:Vec2,to:Vec2,width=18,height=22){
+    if(Math.hypot(to.x-from.x,to.y-from.y)<.01)return false;
+    // Broad-phase lookup uses Phaser's existing static spatial index. Swept
+    // feet stop a fast dash skipping a thin contour between physics frames.
+    const nearby=this.scene.physics.world.staticTree.search({
+      minX:Math.min(from.x,to.x)-width/2,minY:Math.min(from.y,to.y)-height,
+      maxX:Math.max(from.x,to.x)+width/2,maxY:Math.max(from.y,to.y),
+    }) as Phaser.Physics.Arcade.StaticBody[];
+    return nearby.some(body=>body.enable&&body.gameObject?.getData(WORLD_SPRITE_OWNER)&&
+      segmentTouchesRect(from,to,{left:body.left-width/2+.15,right:body.right+width/2-.15,
+        top:body.top+.15,bottom:body.bottom+height-.15}));
   }
   destroy(){for(const actor of this.owned.keys())this.release(actor);}
 }

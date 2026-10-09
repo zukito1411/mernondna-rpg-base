@@ -70,10 +70,13 @@ function validateContent(value: unknown): ContentWorldState | null {
       || (s.defeated !== undefined && typeof s.defeated !== 'boolean') || (s.used !== undefined && typeof s.used !== 'boolean')
       || (s.trust !== undefined && !numberIn(s.trust, 0, 100))
       || (s.hp !== undefined && (definition.kind !== 'creature' || !numberIn(s.hp, 0, ENEMY_BY_ID[definition.enemyId].hp)))
+      || (s.respawnAt!==undefined && (!numberIn(s.respawnAt)||!Number.isInteger(s.respawnAt)||s.defeated!==true
+        ||definition.kind!=='creature'||!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs)))
       || (s.hp === 0 && s.defeated !== true)) return null;
     states[id] = { x: s.x, y: s.y,
       ...(typeof s.hp === 'number' ? { hp: s.hp } : {}), ...(typeof s.trust === 'number' ? { trust: s.trust } : {}),
       ...(typeof s.defeated === 'boolean' ? { defeated: s.defeated } : {}), ...(typeof s.used === 'boolean' ? { used: s.used } : {}),
+      ...(typeof s.respawnAt==='number'?{respawnAt:s.respawnAt}:{}),
     };
   }
   return { states, spawns, nextSpawnSequence: value.nextSpawnSequence };

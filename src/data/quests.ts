@@ -4,6 +4,7 @@ import { CIBAR_QUEST } from './cibarQuests';
 import {CROWN_SUMMONS,regionalMainObjectives} from './mainStory';
 import { NPC_NAME_ALIASES } from './npcs';
 import { rewriteNpcMentions } from './npcPresentation';
+import {DRAGON_QUEST} from './dragonLair';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -45,7 +46,7 @@ const regional=QUESTS.find(q=>q.id==='eight-regions')!;
 regional.objectives=regionalMainObjectives(regional.objectives);
 regional.prerequisiteQuestId='crown-summons';
 regional.summary='Follow the strange signs from Highmere across the mainland and sea. Face the creatures that haunt the old roads, learn what woke them, and bring the people’s warnings home to Oakmere.';
-QUESTS.push(...HIGHMERE_QUESTS,CIBAR_QUEST);
+QUESTS.push(...HIGHMERE_QUESTS,CIBAR_QUEST,DRAGON_QUEST);
 for (let i = 0; i < QUESTS.length; i += 1) {
   QUESTS[i] = rewriteNpcMentions(QUESTS[i], NPC_NAME_ALIASES);
 }

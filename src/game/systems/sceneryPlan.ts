@@ -9,12 +9,14 @@ import {spriteBounds, rectTouchesStreet, overlaps, type Rect} from '../../data/s
 import {REGION_SCENERY} from '../../data/regionScenery';
 import {treeScale, type TreeTexture} from '../../data/treeArt';
 import {artFrameSize, type ArtTextureKey} from '../../data/art';
+import {inDragonArena} from '../../data/dragonLair';
 
 const standNoise=createNoise2D(seededRandom('mernondna:woodland-stands'));
 export interface SceneryReservation extends Vec2 {bounds?:Rect}
 export interface SceneryTree extends Vec2 {texture:TreeTexture;frame:0|1;scale:number;id:string}
 const reservedBounds=(site:SceneryReservation):Rect=>site.bounds??{left:site.x-90,right:site.x+90,top:site.y-115,bottom:site.y+75};
 function clearSite(bounds:Rect,world:WorldGenerator,reserved:SceneryReservation[],gap:number){
+  if([bounds.left,(bounds.left+bounds.right)/2,bounds.right].some(x=>[bounds.top,(bounds.top+bounds.bottom)/2,bounds.bottom].some(y=>inDragonArena(x,y,180))))return false;
   if(reserved.some(p=>overlaps(bounds,reservedBounds(p),gap)))return false;
   if(ROAD_ROUTES.some(road=>rectTouchesStreet(bounds,road,gap)))return false;
   // Sample the middle too: a river can cross an otherwise dry rectangle.
@@ -65,5 +67,10 @@ export function planWildernessDetails(chunkX:number,chunkY:number,world:WorldGen
     const size=artFrameSize(choice.texture,choice.frame);
     result.push({id:`habitat:${chunkX}:${chunkY}:${row}:${col}`,x,y,texture:choice.texture,frame:choice.frame,scale,
       solid:choice.solid??false,footprint:{width:size.width*scale*.52,height:Math.min(48,size.height*scale*.22)}});
+    // Fire belongs to selected deadwood bases, inside the already admitted
+    // composition. It reuses the real campfire art and night-light registration.
+    if(region==='darkav'&&choice.texture==='darkav_props'&&choice.frame<=2&&rng()<.3&&result.length<40)
+      result.push({id:`habitat:${chunkX}:${chunkY}:${row}:${col}:embers`,x:x+18,y:y+8,texture:'world_assets',frame:6,scale:.35,
+        solid:false,footprint:{width:12,height:10}});
   }return result;
 }

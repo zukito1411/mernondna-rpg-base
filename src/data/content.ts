@@ -15,6 +15,8 @@ import { ROYAL_FORTIFICATION_PROPS, fortificationBlocksPoint } from './fortifica
 import {SETTLEMENT_DEFENSE_PROPS,insideDefense} from './settlementDefenses';
 import {WILDERNESS_SITES} from './wildernessSites';
 import {isTreeArt} from './treeArt';
+import {DRAGON_LAIR_CONTENT} from './dragonLair';
+import {LAVA_FLOW} from './worldLandscape';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for (const town of TOWNS) {
@@ -175,9 +177,24 @@ for (const plot of FARM_PLOTS) {
 }
 // Place loose objects alongside circulation, never on it. Full visible bounds
 // protect roofs, canopies, named residents, shrine forecourts and other props.
+// Optional new court dressing yields to existing story/stock/civic placements.
+// Reserve the fitted furniture here too: the later append must not let the
+// loose-object pass unknowingly move a sign or cache into the same footprint.
+const fittedDetailBounds:Rect[]=[];
+for(const layout of SETTLEMENT_LAYOUTS){
+  const town=TOWN_BY_ID[layout.townId];
+  const originals=WORLD_CONTENT.filter(d=>'frame' in d&&Math.abs(d.world.x-town.world.x)<layout.bounds.width&&Math.abs(d.world.y-town.world.y)<layout.bounds.height)
+    .map(d=>'frame' in d?spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y):{left:0,right:0,top:0,bottom:0});
+  layout.details=(layout.details??[]).filter(detail=>{
+    const rect=spriteBounds(detail.texture,detail.frame,detail.scale,town.world.x+detail.x,town.world.y+detail.y);
+    if(detail.id.startsWith('court:')&&originals.some(r=>overlaps(rect,r,12)))return false;
+    fittedDetailBounds.push(rect);return true;
+  });
+}
 const placed:Rect[] = WORLD_CONTENT.filter(d=>d.kind==='settlement-prop' || d.kind==='npc' || 'townShrineId' in d || d.id.startsWith('detail:') && 'frame' in d && isTreeArt(d.texture??'',d.frame))
   .map(d=>d.kind==='npc' ? {left:d.world.x-32,right:d.world.x+32,top:d.world.y-76,bottom:d.world.y+35}
     : 'frame' in d ? spriteBounds(d.texture??'world_objects',d.frame,'scale' in d?d.scale??1:1,d.world.x,d.world.y) : {left:0,right:0,top:0,bottom:0});
+placed.push(...fittedDetailBounds);
 for(const d of WORLD_CONTENT) {
   if(!('frame' in d)||d.kind==='settlement-prop'||'townShrineId' in d||d.id.startsWith('farm:')||d.id.startsWith('bridge:')
     ||d.id.endsWith('harbor-pier')||isTreeArt(d.texture??'',d.frame)&&d.id.startsWith('detail:')) continue;
@@ -211,10 +228,19 @@ for(const site of WILDERNESS_SITES){
   WORLD_CONTENT.push({id:'discovery:'+site.id,kind:'interactable',world:site.world,texture:'others',frame:11,scale:.58,name:site.name,
     description:site.description,repeatText:site.description,repeatable:true,discoveryId:site.id,questTargetId:site.id,questEventType:'investigate'});
   WORLD_CONTENT.push({id:'detail:wilderness:'+site.id,kind:'prop',world:{x:site.world.x-150,y:site.world.y-110},
-    texture:site.style==='ruin'?'world_buildings':site.style==='camp'?'world_assets':'others',frame:site.style==='ruin'?4:site.style==='camp'?6:7,
+    texture:site.id.startsWith('darkav:')?'darkav_props':site.style==='ruin'?'world_buildings':site.style==='camp'?'world_assets':'others',
+    frame:site.id.startsWith('darkav:')?3:site.style==='ruin'?4:site.style==='camp'?6:7,
     scale:site.style==='ruin'?.8:.65,solid:site.style==='ruin'});
 }
-WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS);
+WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS,...DRAGON_LAIR_CONTENT);
+WORLD_CONTENT.push({id:'landmark:darkav-cinderpeak',kind:'prop',world:{...LAVA_FLOW[0]},texture:'darkav_volcano',frame:0,
+  scale:3.2,solid:true,streamRadiusChunks:2,label:'Cinderpeak Volcano'});
+const blackspireTint=SETTLEMENT_BY_ID.blackspire.profile.buildingTint;
+for(const definition of WORLD_CONTENT){
+  if(!('frame' in definition)||!insideDefense('blackspire',definition.world.x,definition.world.y))continue;
+  if(definition.kind==='prop'||definition.kind==='settlement-prop'||'description' in definition)
+    definition.tint=blackspireTint;
+}
 for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
   WORLD_CONTENT[i] = rewriteNpcMentions(WORLD_CONTENT[i], NPC_NAME_ALIASES);
 }

@@ -1,5 +1,6 @@
 import type { BossDefinition, EnemyDefinition } from '../game/types';
 import { TOWN_BY_ID } from './towns';
+import {DRAGON_LAIR,DRAGON_BOSS_ID,DRAGON_RETURN_MS} from './dragonLair';
 
 export const ENEMIES: EnemyDefinition[] = [
   {
@@ -19,8 +20,8 @@ export const ENEMIES: EnemyDefinition[] = [
     xp: 32, goldMin: 1, goldMax: 4, regionWeights: { druganwoods: 1 },
   },
   {
-    id: 'cave-troll', name: 'Cave Troll', spriteFrame: 3, hp: 180, damage: 17, moveSpeed: 58, aggroRange: 300, attackRange: 70, attackCooldownMs: 1500,
-    xp: 65, goldMin: 10, goldMax: 22, attackWindupMs: 620, attackRecoveryMs: 750, regionWeights: { nardorous: 5, druganwoods: 4 },
+    id: 'cave-troll', name: 'Cave Troll', spriteFrame: 4,spriteTexture:'enemy_troll',appearanceMultiplier:1.3,bodyRadius:20,combatStyle:'troll',hp: 180, damage: 17, moveSpeed: 58, aggroRange: 300, attackRange: 100, attackRadius:110,attackCooldownMs: 1500,
+    xp: 65, goldMin: 10, goldMax: 22, attackWindupMs: 620, attackRecoveryMs: 750, regionWeights: { nardorous: 5, druganwoods: 4,rindass:2,darkav:2 },
   },
   {
     id: 'bandit-captain', name: 'Captain Varr', spriteFrame: 1, hp: 210, damage: 18, moveSpeed: 84, aggroRange: 320, attackRange: 68, attackCooldownMs: 760,
@@ -33,7 +34,7 @@ export const ENEMIES: EnemyDefinition[] = [
     summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 20000, attackRadius: 88, regionWeights: { narenthil: 5 },
   },
   {
-    id: 'stonejaw-troll', name: 'Stonejaw', spriteFrame: 3, hp: 420, damage: 27, moveSpeed: 52, aggroRange: 330, attackRange: 84, attackCooldownMs: 1900,
+    id: 'stonejaw-troll', name: 'Stonejaw', spriteFrame: 4,spriteTexture:'enemy_troll',appearanceMultiplier:1.9,bodyRadius:32,combatStyle:'troll',hp: 420, damage: 27, moveSpeed: 52, aggroRange: 330, attackRange: 120, attackCooldownMs: 1900,
     xp: 220, goldMin: 35, goldMax: 55, boss: true, attackWindupMs: 900, attackRecoveryMs: 1250,
     summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 21000,
     attackRadius: 112, regionWeights: { nardorous: 5, druganwoods: 4 },
@@ -65,9 +66,12 @@ export const ENEMIES: EnemyDefinition[] = [
   },
 ];
 
+ENEMIES.push({id:'ash-dragon',name:'Varkhul, the Returning Ember',spriteFrame:5,spriteTexture:'enemy_dragon',appearanceMultiplier:1.6,
+  bodyRadius:64,combatStyle:'dragon',hp:1800,damage:36,moveSpeed:72,aggroRange:650,attackRange:170,attackRadius:240,
+  attackCooldownMs:2200,attackWindupMs:1000,attackRecoveryMs:900,xp:520,goldMin:70,goldMax:100,boss:true,regionWeights:{}});
 export const ENEMY_BY_ID = Object.fromEntries(ENEMIES.map((enemy) => [enemy.id, enemy])) as Record<string, EnemyDefinition>;
 export function enemyAppearanceMultiplier(definition: EnemyDefinition) {
-  return definition.boss ? 1.45 : definition.id === 'road-bandit' ? 1.16 : 1;
+  return definition.appearanceMultiplier??(definition.boss ? 1.45 : definition.id === 'road-bandit' ? 1.16 : 1);
 }
 
 const oakmere = TOWN_BY_ID.oakmere.world;
@@ -121,4 +125,7 @@ export const BOSSES: BossDefinition[] = [
     attackStyle: 'slam',
   },
 ];
+BOSSES.push({id:DRAGON_BOSS_ID,enemyId:'ash-dragon',name:'Varkhul, the Returning Ember',regionId:'darkav',world:{...DRAGON_LAIR},
+  lore:'An ancient ember dragon that retreats to recover above Darkav’s molten ridges rather than dying at the hands of challengers.',
+  respawns:true,respawnDelayMs:DRAGON_RETURN_MS,attackStyle:'slam'});
 export const BOSS_BY_ID = Object.fromEntries(BOSSES.map((boss) => [boss.id, boss])) as Record<string, BossDefinition>;

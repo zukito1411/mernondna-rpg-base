@@ -207,5 +207,10 @@ const capitalRoutines:Record<string,Array<{x:number;y:number}>>={
   'tamsin-reed':[{x:-1390,y:55},{x:-120,y:90},{x:-1390,y:55}],
 };
 for(const npc of NPCS) if(capitalRoutines[npc.id])npc.schedule=npc.schedule.map((p,i)=>({...p,location:capitalRoutines[npc.id][i]}));
+for(const npc of NPCS)if(['blackspire-forgemaster','blackspire-warder'].includes(npc.id)){
+  npc.questIds.push('returning-ember');
+  npc.dialogue.push(npc.id==='blackspire-forgemaster'?'The old ward chains buy shelter, not the death of a dragon. Varkhul always returns to the molten shelf.'
+    :'The dragon’s western ash trail runs outside our defenses. Keep challengers there, away from the furnace households.');
+}
 export const NPC_NAME_ALIASES = prepareNpcPresentation(NPCS);
 export const NPC_BY_ID = Object.fromEntries(NPCS.map((npc) => [npc.id, npc])) as Record<string, NpcDefinition>;

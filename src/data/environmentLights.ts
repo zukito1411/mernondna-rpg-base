@@ -4,6 +4,7 @@ type Light = { x:number; y:number; radius:number; fire:boolean; mask:number };
 // Source-space window/lantern centers, not guessed atlas cells. Flames can stay
 // active by day; their environmental illumination is still night-only.
 const centers:Partial<Record<ArtTextureKey,number[][][]>>={
+  darkav_volcano:[[[640,300,1],[640,1010,1]]],
   climate_props:[[],[],[],[],[],[[1038,500,1]],[[224,808,1]],[[631,828,1]],[[1042,832,1]],[[233,1030,1]],[[634,1040,1],[545,1095,1],[718,1095,1]],[[1031,1120,1]]],
   world_objects:[[[282,445]],[[794,293],[817,452]],[],[[1950,398]]],
   world_buildings:[[[250,290],[197,406]],[[715,254],[855,304],[854,399],[764,398]],[[1240,375],[1320,390,1]],[[252,828]],[],[[1159,690],[1279,700]]],

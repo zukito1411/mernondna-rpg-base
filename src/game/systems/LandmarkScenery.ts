@@ -18,7 +18,8 @@ function dressing(region:RegionId,style:string):Piece[]{
     piece('desert_props',8,.52,240,-60),piece('desert_props',6,.7,350,160),piece('desert_props',7,.48,-170,200)];
   if(region==='nardorous'||region==='frostlands')return [piece('climate_props',5,.7,-230,-180),piece('climate_props',2,.7,310,-140),
     piece('climate_props',4,.8,280,150),piece('climate_props',3,.85,-320,170)];
-  if(region==='darkav')return [piece('climate_props',10,1,-280,-220),piece('climate_props',9,.7,220,-170),piece('climate_props',7,1.2,360,120)];
+  if(region==='darkav')return [piece('darkav_props',3,1.1,-330,-240),piece('darkav_props',0,1.15,340,-150),
+    piece('darkav_props',1,.8,330,190),piece('climate_props',9,.65,-240,170),piece('climate_props',7,1.1,500,260)];
   if(style==='camp')return [piece('desert_props',9,.96,-330,-230),piece('desert_props',8,.5,250,-30),
     piece('desert_props',6,.66,300,170),piece('woodland_props',7,.42,-250,170)];
   if(style==='grove')return [piece('woodland_props',7,.8,-260,-180),piece('woodland_props',10,.3,240,140,false),

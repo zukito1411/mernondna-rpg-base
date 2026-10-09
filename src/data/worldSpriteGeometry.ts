@@ -56,6 +56,9 @@ const others:WorldSpriteProfile[]=[
   profile(base(.12,.81,.87,.98)),
 ];
 export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpriteProfile|undefined {
+  if(texture==='darkav_props')return frame===0?profile(base(.25,.80,.78,.98)):
+    frame===3?buildings[4]:profile(base(.06,.62,.95,.98));
+  if(texture==='darkav_volcano')return profile([[.49,.22],[.70,.43],[.89,.64],[.98,.82],[.87,.97],[.15,.98],[.025,.82],[.07,.62],[.29,.40]],.975);
   if(texture==='world_buildings')return buildings[frame];
   if(texture==='capital_buildings')return capital[frame];
   if(texture==='world_objects')return [profile(base(.04,.70,.96,.96)),profile(base(.03,.72,.97,.97)),
@@ -71,9 +74,9 @@ export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpri
   if(texture==='desert_props')return frame===2||frame===3||frame===10?{solids:[],sortY:.96}:
     frame===11?{solids:[base(.05,.69,.40,.97),base(.70,.71,.97,.97)],sortY:.97,forceSolid:true}:
       frame===7?profile(base(.22,.79,.76,.96)):frame===9?profile(base(.04,.73,.97,.98)):
-        profile(base(.055,frame===0||frame===1?.78:.57,.95,.97));
+        profile(base(.055,frame===0||frame===1 ? .78 : .57,.95,.97));
   if(texture==='climate_props')return frame<=1?winterTrees[frame]:frame===11?floor:
-    profile(base(.045,frame===4?.76:frame===5||frame===9?.72:.66,.965,.97));
+    profile(base(.045,frame===4 ? .76 : frame===5||frame===9 ? .72 : .66,.965,.97));
   if(texture==='flora')return {solids:[],sortY:.96};
   if(texture==='royal_walls')return frame===3?profile(base(.12,.79,.9,.98)):
     {solids:[],sortY:.97}; // curtain/gate collision remains the surveyed seams

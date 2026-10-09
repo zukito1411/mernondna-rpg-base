@@ -1,0 +1,61 @@
+{
+  "id": "enemies/dragon",
+  "frameWidth": 192,
+  "frameHeight": 152,
+  "animations": {
+    "idle": {
+      "png": "assets/enemies/dragon/idle.png",
+      "webp": "assets/enemies/dragon/idle.webp",
+      "frames": 6,
+      "frameRate": 5,
+      "repeat": -1
+    },
+    "walk": {
+      "png": "assets/enemies/dragon/walk.png",
+      "webp": "assets/enemies/dragon/walk.webp",
+      "frames": 6,
+      "frameRate": 9,
+      "repeat": -1
+    },
+    "attack": {
+      "png": "assets/enemies/dragon/attack.png",
+      "webp": "assets/enemies/dragon/attack.webp",
+      "frames": 5,
+      "frameRate": 10,
+      "repeat": 0
+    },
+    "hurt": {
+      "png": "assets/enemies/dragon/hurt.png",
+      "webp": "assets/enemies/dragon/hurt.webp",
+      "frames": 6,
+      "frameRate": 9,
+      "repeat": 0
+    },
+    "fly": {
+      "png": "assets/enemies/dragon/flying.png",
+      "frames": 6,
+      "frameWidth": 362,
+      "frameHeight": 724,
+      "imageSize": [2172, 724],
+      "renderScale": 0.8,
+      "frameRects": [
+        {"x":19,"y":134,"width":336,"height":400},
+        {"x":383,"y":203,"width":335,"height":312},
+        {"x":718,"y":232,"width":390,"height":270},
+        {"x":1110,"y":328,"width":360,"height":243},
+        {"x":1496,"y":202,"width":335,"height":317},
+        {"x":1842,"y":142,"width":316,"height":401}
+      ],
+      "groundAnchors": [[225,531],[608,513],[968,500],[1345,520],[1731,517],[2062,541]],
+      "frameRate": 9,
+      "repeat": -1
+    },
+    "death": {
+      "png": "assets/enemies/dragon/death.png",
+      "webp": "assets/enemies/dragon/death.webp",
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": 0
+    }
+  }
+}

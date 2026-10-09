@@ -317,7 +317,138 @@ instead of displaying a sideways run. Existing stride-phase continuity remains.
 
 Fixed texture-switch registration: explicitly select frame zero, restore the
 shared foot origin, and align the invariant 18×22 player body above that origin
-rather than 20 world units below the artwork. Side animation definitions now
+at world y. A subsequent contact audit found the offset-only correction left
+the rendered soles 20px below that body; the shared origin is corrected in the
+world-sprite geometry pass below. Side animation definitions now
 forward optional manifest frame durations. PC and mobile share this path; PNGs
 and unrelated NPC/world work are preserved. No tests, type checks, builds or
 game/browser launches were run; runtime results remain unverified.
+
+## World-sprite ground contact and occlusion (2026-10-09)
+
+Inspected all eleven world sprite sheets and relevant character, prop, bridge,
+lighting and collision code. Fixed the rendered-foot/body mismatch from the
+previous player animation change and aligned NPC/enemy/sword/skill presentation
+to the same ground line. Replaced generic scenery contact with shared surveyed
+ground contours, including tree roots, building sides/stoops, solid stock and
+separate hollow-structure pillars. Both persistent authored content and chunk
+scenery use the same owner-cleaned geometry and source-based sort depth.
+
+Replaced the bridge's horizontal foreground crop with curved front/back masks
+and source-aligned rail contact while leaving its deck separate. Fixed window
+emissions painting above foreground actors. Added swept foot-path protection
+against thin-contour tunneling, preserved interaction target exclusions and
+existing shrine/story state, and kept unrelated dirty-worktree edits intact.
+
+No tests, builds, type checks, game/browser launches or simulations were run.
+Visual contact, bridge traversal, routes, old saves and mobile performance
+remain unverified. See [WORLD_SPRITE_GEOMETRY.md](WORLD_SPRITE_GEOMETRY.md) for
+the actual source findings, contour approximation and remaining limits.
+
+## Reference-inspired settlement environment detail (2026-10-09)
+
+Requested 12% larger building presentation with fitted visible footprints,
+per-lot smaller-growth fallbacks and original-scale retry for constrained cores.
+Added workplace-specific entrance supplies/furniture and public-court planting,
+seating and civic details using existing assets. Existing ward landmarks and
+story/stock/civic objects retain priority; new optional pieces are omitted when
+they cannot clear circulation and existing footprints. Added reservations so
+the older loose-prop relocation pass cannot overlap fitted furniture.
+
+Added chunk-baked regional flowers, ferns, mushrooms, dry vegetation and stones,
+with denser settlement margins and clear working courts, roof bounds, paths,
+water and crop rows. Enlarged stone cobbles and world-aligned all terrain
+patterns to avoid phase resets at chunk seams. GUI, camera zoom, source PNGs,
+quests and continuous world topology were not changed.
+
+No tests, builds, type checks, game/browser launches or simulations were run.
+Actual visual results, placement admission, traversal and device performance
+remain unverified; APK output was not rebuilt. See
+[ENVIRONMENT_DETAIL.md](ENVIRONMENT_DETAIL.md) for precise scope and limits.
+
+## Density-aware phone rendering and shared ground rings (2026-10-09)
+
+Replaced CSS-pixel-only RESIZE rendering with bounded density-sized backing
+dimensions and FIT display scaling, using the installed Phaser 3.90 APIs.
+Responsive world zoom still uses CSS breakpoints; gameplay and cinematic zoom
+include the density multiplier. Added resize/DPR observers with destruction
+cleanup and kept the React HUD/mobile controls at their existing CSS sizes.
+Soft night/weather/water buffers retain logical resolution with corrected
+viewport fitting and world-to-screen conversion to limit texture upload cost.
+
+Centralized NPC quest and enemy selection rings at the physical foot line +2;
+the enemy ring no longer uses its separate +4 offset. Added an unexecuted
+`cap:android:refresh` script for production build plus Android asset sync. No
+generated Android files were manually patched, and no installed APK changed.
+
+No tests, builds, type checks, game/browser launches, simulations or Capacitor
+commands were run. Sharpness, input, rotation, cutscenes and platform performance
+remain unverified. See [MOBILE_RENDERING.md](MOBILE_RENDERING.md) for implementation,
+quality budgets and the future authorized APK refresh workflow.
+## New troll art and repeatable Darkav dragon (2026-10-09)
+
+Inspected the new troll/dragon strips, including transparent bounds, irregular
+dragon flight illustrations and two empty club-impact cells. Added separate
+registered atlases instead of forcing large artwork into generic enemy cells.
+Common trolls and existing Stonejaw now use actual troll animations and a
+telegraphed club-impact slam; original enemy/boss IDs remain intact.
+
+Added Varkhul as a large, strong quest boss with fire breath, stomp circles,
+airborne reposition and marked landing strikes. Added a lava-rimmed basalt lair,
+shared terrain/clearance ash trail, clue/return marker and optional volcanic
+dressing. Existing Vexa/Dain anchor the five-objective Returning Ember quest.
+The dragon retreats in flight instead of dying and returns after a saved
+30-real-minute UTC deadline. Rematches award combat loot/XP without resetting
+quest completion or duplicating quest rewards. Permanent bosses retain their
+existing one-time behavior. Optional cooldown state remains within v4 saves.
+
+No tests, builds, type checks, game/browser launches or gameplay simulations
+were run. Rendering, navigation, balance, cooldown/reward persistence and device
+performance remain unverified. See [DRAGON_TROLL.md](DRAGON_TROLL.md) for source
+findings, complete scope and limitations.
+
+## Darkav volcanic floor identity (2026-10-09)
+
+Replaced Darkav's use of pale/mossy global paving with a regional charcoal
+basalt palette. Added porous ash with subtle warm mineral seams, scorched
+trails and brighter molten channels around cooled crust. Regional masks apply
+per world cell to Blackspire, the countryside and the dragon's safe deck;
+other regions and authoritative terrain/walkability remain unchanged. Ground
+relief no longer adds green shadows to Darkav ash. Patterns are prepared once
+and remain aligned across chunk seams; no whole-scene tint was introduced.
+
+No tests, builds, type checks, game/browser launches or simulations were run.
+Visuals, edge blending and device performance remain unverified; packaged app
+assets were not rebuilt. See [DARKAV_GROUND.md](DARKAV_GROUND.md).
+
+## Darkav red-rock asset correction (2026-10-09)
+
+Superseded neutral charcoal paving with ember-red ground tones matching the
+volcanic props. Ground detail now samples actual lava-boulder and lava-pool
+surface interiors from the prepared `lava_snow.png` atlas. Removed generated
+fissure polylines, outlined polygon crust and the old five-line generic lava
+texture. The dragon's molten rim shares the asset-derived lava surface. Existing
+roads, safe fighting deck and lava collision boundaries are preserved.
+
+No tests, builds, type checks, game/browser launches or simulations ran.
+Actual palette/texture appearance and device performance remain unverified.
+
+## Darkav ashfall, burnt sites and Cinderpeak (2026-10-09)
+
+Added default regional ashfall with layered drifting flakes, sparse rising
+embers and restrained reddish haze. Derived burnt bare trees, logs, stumps and
+ruins from existing source art at boot; original winter/woodland sheets remain
+unchanged. Some admitted deadwood bases use the existing fire sprite and night
+lighting. Added three named discoverable ruin sites with fitted compositions.
+
+Used the imagegen skill/built-in image tool for a dedicated transparent volcano
+sprite, saved in `public/assets/sprites/darkav_volcano.png`. Cinderpeak stands at
+the existing lava headwater, with surveyed broad contact and extended actor-only
+streaming so the summit can appear before the base chunk loads. Roads, Blackspire
+and the dragon encounter remain separate from its footprint.
+
+No tests, builds, type checks, game/browser launches or gameplay simulations
+ran. Runtime art, navigation, streaming, lighting and mobile performance remain
+unverified. See [DARKAV_ATMOSPHERE.md](DARKAV_ATMOSPHERE.md) for details, generated
+asset provenance/final prompt and remaining limitations.
+

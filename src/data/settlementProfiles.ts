@@ -124,8 +124,8 @@ export const SETTLEMENT_PROFILES: Record<SettlementProfileId, SettlementProfile>
   },
   blackspire: {
     id: 'blackspire', architecture: 'Darkav black basalt, iron, and volcanic glass',
-    defenses: 'Basalt curtain wall with heavily watched citadel gates',
-    bounds: { width: 3200, height: 2900 }, wallStyle: 'stone', wallFrame: 18, wallTint: 0x777e89,buildingTint:0xbab8c0,
+    defenses: 'Charcoal basalt curtain wall with heavily watched citadel gates',
+    bounds: { width: 3200, height: 2900 }, wallStyle: 'stone', wallFrame: 18, wallTint: 0x55575c,buildingTint:0x55575c,
     wallScale: 1.5, wallSpacing: 230, gateTexture: 'walls', gateFrame: 21, gateWidth: 420, gateScale: .9,
     watchtowerFrame: 9, buildingFrames: [8, 2, 5, 0, 7, 9],
     decorations: [{ frame: 3, x: -400, y: -165, scale: .75 }, { frame: 13, x: 360, y: 170, scale: .7 }],

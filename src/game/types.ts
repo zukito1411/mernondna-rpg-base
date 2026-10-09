@@ -93,6 +93,10 @@ export interface EnemyDefinition {
   id: string;
   name: string;
   spriteFrame: number;
+  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon';
+  appearanceMultiplier?:number;
+  bodyRadius?:number;
+  combatStyle?:'troll'|'dragon';
   hp: number;
   damage: number;
   moveSpeed: number;
@@ -120,6 +124,7 @@ export interface BossDefinition {
   world: Vec2;
   lore: string;
   respawns: boolean;
+  respawnDelayMs?:number;
   attackStyle: 'melee' | 'slam' | 'pounce';
 }
 
@@ -166,7 +171,7 @@ export interface QuestRuntimeState {
 }
 
 interface ContentBase { id: string; world: Vec2 }
-export type WorldPropTexture = 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
+export type WorldPropTexture = 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export interface CreatureContentDefinition extends ContentBase {
   kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;
@@ -178,6 +183,7 @@ export interface PropContentDefinition extends ContentBase {
   rotation?: number;
   anchor?: 'center' | 'bottom';
   centerCollider?: boolean;
+  streamRadiusChunks?:number;
   tint?: number;
   label?: string;
 }
@@ -187,6 +193,7 @@ export interface InteractableContentDefinition extends ContentBase {
   name: string; frame: number; description: string; repeatText: string;
   rewardGold?: number; restoreHp?: number;
   texture?: WorldPropTexture; scale?: number;
+  tint?: number;
   solid?: boolean;
   townShrineId?: string;
   questTargetId?: string;
@@ -198,6 +205,7 @@ export interface InteractableContentDefinition extends ContentBase {
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {
   hp?: number; defeated?: boolean; used?: boolean; trust?: number;
+  respawnAt?:number;
 }
 export interface ContentWorldState {
   states: Record<string, ContentState>;

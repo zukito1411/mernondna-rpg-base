@@ -1,5 +1,6 @@
 import { TOWNS } from './towns';
 import type { InteractableContentDefinition, Vec2 } from '../game/types';
+import {BUILDING_PRESENTATION_GROWTH} from './environmentPresentation';
 
 export interface TownShrine {
   townId:string; contentId:string; name:string; world:Vec2; arrival:Vec2; scale:number;
@@ -11,7 +12,7 @@ export const TOWN_SHRINES:TownShrine[] = TOWNS.map(town => {
   return { townId:town.id,contentId:town.id === 'oakmere' ? 'shrine:oakmere-road'
     : town.id === 'highmere' ? 'town:highmere:building:12' : `shrine:${town.id}:wayfarer`,
     name:`${town.name} ${town.id === 'highmere' ? 'Crown' : 'Wayfarer'} Shrine`,world,
-    arrival:{ x:world.x,y:world.y + 64 },scale:town.id === 'highmere' ? .9 : .8 };
+    arrival:{ x:world.x,y:world.y + 64 },scale:(town.id === 'highmere' ? .9 : .8)*BUILDING_PRESENTATION_GROWTH };
 });
 export const TOWN_SHRINE_BY_ID = Object.fromEntries(TOWN_SHRINES.map(shrine => [shrine.townId,shrine])) as Record<string,TownShrine>;
 

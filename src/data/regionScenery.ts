@@ -25,6 +25,10 @@ export const REGION_SCENERY:Record<RegionId,RegionSceneryProfile>={
   druganwoods:{treeTexture:'world_assets',treeHeight:325,treeVariation:65,groundTint:'#708569',fogTint:[163,187,184],meadow:[w(1,.32),w(4,.42),w(5,.85)],forest:[...woodland,w(6,.82,true)],rocky:highland},
   portquill:{treeTexture:'world_assets',treeHeight:285,treeVariation:40,groundTint:'#9cac82',fogTint:[190,211,214],meadow:[w(0,.38),w(4,.36),f(9,.8)],forest:[w(6,.7,true),w(2,.4),w(5,.85)],rocky:[w(9,.9,true),w(8,.6,true)]},
   frostlands:{treeTexture:'climate_props',treeHeight:320,treeVariation:55,groundTint:'#9cbdca',fogTint:[192,212,232],meadow:[c(1,1.1,true),c(3,.8,true)],forest:[c(1,1.2,true),c(3,.8,true)],rocky:[c(2,.85,true),c(3,1,true)]},
-  darkav:{treeTexture:'world_assets',treeHeight:260,treeVariation:0,groundTint:'#8b6261',fogTint:[120,111,118],meadow:[c(6,.55,true),c(8,.6,true)],forest:[c(7,.95,true),c(6,.6,true)],rocky:[c(7,1.15,true),c(8,.9,true),c(6,.75,true)]},
+  darkav:{treeTexture:'world_assets',treeHeight:260,treeVariation:0,groundTint:'#a43b23',fogTint:[128,70,52],
+    meadow:[c(6,.55,true),c(8,.6,true)],forest:[c(7,.95,true),c(6,.6,true)],
+    rocky:[c(7,1.15,true),c(8,.9,true),c(6,.75,true),{texture:'darkav_props',frame:0,scale:1.08,solid:true},
+      {texture:'darkav_props',frame:0,scale:.94,solid:true},{texture:'darkav_props',frame:1,scale:.65,solid:true},
+      {texture:'darkav_props',frame:2,scale:.72,solid:true}]},
   'dead-sea':{treeTexture:'world_assets',treeHeight:285,treeVariation:0,groundTint:'#719ba8',fogTint:[187,209,216],meadow:[],forest:[],rocky:[]},
 };

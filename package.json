@@ -12,6 +12,7 @@
     "test:browser": "playwright test",
     "test:types": "tsc -p tsconfig.tests.json",
     "cap:sync": "npx cap sync",
+    "cap:android:refresh": "npm run build && npx cap sync android",
     "cap:android": "npx cap open android"
   },
   "dependencies": {

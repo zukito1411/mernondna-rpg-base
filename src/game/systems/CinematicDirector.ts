@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CINEMATICS, type StoryScene } from '../../data/cinematics';
 import { useGameStore } from '../../store/gameStore';
 import type { WorldScene } from '../scenes/WorldScene';
+import {renderDensity} from './renderSizing';
 
 /** Finite camera beats. No quest rewards depend on watching rather than skipping. */
 export class CinematicDirector {
@@ -15,7 +16,7 @@ export class CinematicDirector {
     const state=useGameStore.getState(),data=CINEMATICS[id];
     if(this.active||!data||state.dialogue||state.panel||state.storyFlags['scene:'+id])return false;
     this.sceneData=data;this.index=0;this.elapsed=0;
-    this.origin={x:this.scene.player.x,y:this.scene.player.y,zoom:this.scene.cameras.main.zoom};
+    this.origin={x:this.scene.player.x,y:this.scene.player.y,zoom:this.scene.cameras.main.zoom/renderDensity(this.scene)};
     this.scene.player.resetInput();this.scene.physics.world.pause();this.scene.cameras.main.stopFollow();this.frame();return true;
   }
   update(delta:number){
@@ -30,14 +31,17 @@ export class CinematicDirector {
     const data=this.sceneData!,shot=data.shots[this.index];
     // Stream the framed location without moving/healing the logical player.
     this.scene.streamCinematicView(shot.x,shot.y);
-    this.scene.cameras.main.setZoom(shot.zoom).centerOn(shot.x,shot.y);
+    this.refreshZoom();this.scene.cameras.main.centerOn(shot.x,shot.y);
     useGameStore.getState().hydrate({cinematic:{id:data.id,title:data.title,line:shot.line},skipCinematicRequested:false});
+  }
+  refreshZoom(){
+    if(this.sceneData)this.scene.cameras.main.setZoom(this.sceneData.shots[this.index].zoom*renderDensity(this.scene));
   }
   finish(){
     if(!this.sceneData)return;
     const id=this.sceneData.id;this.sceneData=null;
     this.scene.streamCinematicView(this.origin.x,this.origin.y);
-    this.scene.cameras.main.setZoom(this.origin.zoom).centerOn(this.origin.x,this.origin.y).startFollow(this.scene.player,false,.12,.12);
+    this.scene.cameras.main.setZoom(this.origin.zoom*renderDensity(this.scene)).centerOn(this.origin.x,this.origin.y).startFollow(this.scene.player,false,.12,.12);
     this.scene.player.resetInput();useGameStore.getState().hydrate({cinematic:null,pendingCinematic:null,skipCinematicRequested:false});
     useGameStore.getState().setStoryFlag('scene:'+id);
   }

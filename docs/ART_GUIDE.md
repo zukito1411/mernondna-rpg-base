@@ -19,8 +19,11 @@ Side idle plays after left/right movement. Walk/run transitions preserve stride
 progress, frame rates/durations come from the manifest, and shared registered
 source scales/ground anchors keep the body consistent through leaning/airborne
 poses. Texture switches now explicitly select frame zero and put the unchanged
-18×22 physical body immediately above the foot anchor: the prior switching
-offset put its lower edge 20 world units below the artwork. Both PC and touch
+18×22 physical body immediately above the foot anchor. The later world-contact
+audit found this offset-only fix incomplete: the rendered soles still sat 20px
+below the body. The shared rendered origin and physical foot line are now
+corrected together; see [WORLD_SPRITE_GEOMETRY.md](WORLD_SPRITE_GEOMETRY.md).
+Both PC and touch
 use the same presentation path. Source images are untouched. No tests, builds,
 type checks or game launches were run; runtime appearance remains unverified.
 
@@ -99,6 +102,75 @@ or their collisions. Natural ground patterns, painted upland relief, pond/ice
 terrain, moving water and layered mist complement the existing source art.
 See [REGIONAL_SCENERY.md](REGIONAL_SCENERY.md) for all asset assignments, sizing,
 regional direction, source-only review and explicit remaining limits.
+
+## Ground contours and draw order (2026-10-09)
+
+Prepared frame metadata now includes actual source/crop registration. Shared
+`WorldSpriteSystem` uses surveyed per-asset ground contours and sort lines for
+authored props and streamed scenery, replacing the narrow generic trunk/base
+boxes. Root spreads, side foundations, stockpiles and hollow pillar openings
+are distinguished from roofs/canopies and padding. The currently used stone
+bridge has separate curved back/front layers and matching rail boundaries;
+window emissions respect structure depth instead of painting over foreground
+actors. Character feet, physical contact and depth share world y. See
+[WORLD_SPRITE_GEOMETRY.md](WORLD_SPRITE_GEOMETRY.md) for the regression found in
+the previous animation offset, exact implementation and unverified limits.
+
+## Reference-inspired settlement detail (2026-10-09)
+
+Buildings request a 12% increase with footprint-aware fitting and smaller
+growth/original-scale fallbacks for constrained lots. Existing district details
+retain priority; new role-aware core courts use flowers, shrubs, awnings,
+seating, supplies, fountains and noticeboards where clearance permits. Low
+regional cover is baked from measured atlas crops into chunk ground textures,
+without extra collision bodies. Stone paving has larger, world-aligned cobbles.
+The reference is used for environment composition only; GUI and source images
+remain unchanged. See [ENVIRONMENT_DETAIL.md](ENVIRONMENT_DETAIL.md) for exact
+scope, implementation and source-only verification limits.
+
+## Phone rendering density (2026-10-09)
+
+The main backing canvas now grows with bounded device pixel ratio (up to 2x),
+with matching gameplay/cinematic camera zoom and FIT-based input mapping. This
+retains the CSS-sized field of view and HUD while rendering world sprites and
+marker strokes with more pixels. Soft night/weather/water overlays keep smaller
+working buffers with density-aware fitting. NPC and enemy ground rings share
+the actor foot line +2. Original raster resolution and pixel-art style remain;
+old installed APKs require a future authorized build/sync/reinstall. See
+[MOBILE_RENDERING.md](MOBILE_RENDERING.md); runtime/device results are unverified.
+
+## Troll and dragon sheets (2026-10-09)
+
+New troll ground/impact and dragon ground/flying illustrations use separate
+2x atlases and body/foot registration. The dragon flight manifest has measured
+irregular silhouette rectangles, not equal-width crops; lower padding keeps
+downstroke wings intact. Empty impact cells are excluded. Existing generic
+species IDs and source rasters are preserved. Stonejaw/common trolls now use
+actual troll art. Varkhul uses fire, stomp and flight presentation and retreats
+without playing the available death strip. See [DRAGON_TROLL.md](DRAGON_TROLL.md)
+for asset inspection, sizing, encounter behavior and unverified limits.
+
+## Darkav ground palette (2026-10-09)
+
+Darkav uses ember-red basalt paving, red ash and scorched red-brown trails.
+Surface detail comes from interior crops of the supplied lava boulder and lava
+pool in `lava_snow.png`, combined with existing ground relief. Synthetic fissure
+lines, outlined rock polygons and the old generic five-line lava pattern have
+been removed. Per-cell masks cover Blackspire and the dragon deck without
+scene-wide tinting or changes to road/lava navigation. See
+[DARKAV_GROUND.md](DARKAV_GROUND.md) for implementation and unverified limits.
+
+## Darkav atmosphere and mountain (2026-10-09)
+
+Default ashfall uses reusable flake sprites, three depth bands and sparse ember
+motes. `darkav_props` reuses existing bare-tree/log/stump/ruin illustrations with
+runtime snow removal and red-charcoal recoloring; original sheets are preserved.
+Burning deadwood bases reuse the actual fire sprite. The dedicated transparent
+`darkav_volcano.png` was generated with the imagegen skill and saved in the
+project; it anchors Cinderpeak at the lava headwater. Extended actor streaming,
+source-based contour contact and night lights cover the large landmark without
+increasing terrain streaming radius. See [DARKAV_ATMOSPHERE.md](DARKAV_ATMOSPHERE.md)
+for final generation prompt, provenance and source-only verification limits.
 
 ## Failure handling and tests
 

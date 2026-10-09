@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BOSSES, ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
+import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import { TOWN_BY_ID } from '../../data/towns';
@@ -36,6 +36,11 @@ import { TargetingSystem } from '../systems/TargetingSystem';
 import {WeatherSystem} from '../systems/WeatherSystem';
 import {TreeSwaySystem} from '../systems/TreeSwaySystem';
 import {WaterSurfaceSystem} from '../systems/WaterSurfaceSystem';
+import {WorldSpriteSystem,WORLD_SPRITE_OWNER} from '../systems/WorldSpriteSystem';
+import {VolcanicTremor} from '../systems/VolcanicTremor';
+import {renderDensity} from '../systems/renderSizing';
+import {groundMarkerPosition} from '../systems/groundMarkers';
+import {inDragonArena,DRAGON_BOSS_ID} from '../../data/dragonLair';
 import {isTreeArt,treeFootprint} from '../../data/treeArt';
 import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import type { Vec2 } from '../types';
@@ -52,6 +57,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private weather!:WeatherSystem;
   private treeSway!:TreeSwaySystem;
   private waterSurface!:WaterSurfaceSystem;
+  private worldSprites!:WorldSpriteSystem;
+  private readonly volcanicTremor=new VolcanicTremor();
   private eventDirector!: EventDirector;
   private readonly enemies = new Set<Enemy>();
   private readonly npcs: Npc[] = [];
@@ -88,7 +95,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2) {
     if(!enemy.active||enemy.hp<=0)return;
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction,false);
+    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction);
   }
   streamCinematicView(x:number,y:number){this.chunkManager.update(x,y);this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
   recordTraining(targetId:string) {
@@ -124,9 +131,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.eventDirector = new EventDirector(this);
     this.buildings = this.physics.add.staticGroup();
     this.treeBodies = this.physics.add.staticGroup();
+    this.worldSprites=new WorldSpriteSystem(this,this.treeBodies);
     this.npcBodies = this.physics.add.group();
     this.creatureBodies = this.physics.add.group();
-    this.chunkManager = new ChunkManager(this, this.worldGenerator, this.treeBodies,this.treeSway,this.dayNight);
+    this.chunkManager = new ChunkManager(this,this.worldGenerator,this.treeSway,this.dayNight,this.worldSprites);
     this.enemies.clear(); this.npcs.length = 0; this.interactables.clear();
     this.spawnAttempts = 0; this.spawnAccumulator = 0; this.hudAccumulator = 0;
     this.focused = true; this.wasBlocked = false;
@@ -148,6 +156,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.physics.add.collider(this.npcBodies, this.treeBodies);
     let logical = { ...state.worldContent, states: { ...state.worldContent.states } };
     for (const bossId of state.defeatedBosses) {
+      if(BOSS_BY_ID[bossId]?.respawns)continue; // Victory history is not permanent dragon removal.
       const definition = WORLD_CONTENT.find(d => d.id === `boss:${bossId}`);
       if (definition) logical.states[definition.id] = { ...initialContentState(definition), hp: 0, defeated: true };
     }
@@ -227,6 +236,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     this.handleShrineTravel();
     const uiBlocked = !this.focused || Boolean(useGameStore.getState().panel || useGameStore.getState().dialogue);
+    this.volcanicTremor.update(delta,this.worldGenerator.getRegionAt(this.player.x,this.player.y)==='darkav',uiBlocked,
+      ()=>this.cameras.main.shake(420,.0018));
     if (uiBlocked && !this.wasBlocked) this.player.resetInput();
     this.wasBlocked = uiBlocked;
     if (uiBlocked) this.physics.world.pause();
@@ -330,7 +341,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const progression = progressionStats(useGameStore.getState().attributes, useGameStore.getState().learnedSkills);
 
     for (const enemy of this.enemies) {
-      if (!enemy.active) continue;
+      if (!enemy.active||!enemy.canBeTargeted) continue;
       const toEnemy = new Phaser.Math.Vector2(enemy.x - player.x, enemy.y - player.y);
       const distance = toEnemy.length();
       if (distance > weapon.reach + (enemy.definition.boss ? 18 : 8)) continue;
@@ -346,9 +357,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * multiplier));
-    let hit = false;
     for (const enemy of this.enemies) {
-      if (!enemy.active || enemy.hp <= 0) continue;
+      if (!enemy.active || enemy.hp <= 0 || !enemy.canBeTargeted) continue;
       const offset = new Phaser.Math.Vector2(enemy.x - player.x,enemy.y - player.y);
       if (offset.length() > skill.radius + (enemy.definition.boss ? 18 : 8)) continue;
       const outward = offset.lengthSq() > 0 ? offset.normalize() : direction.clone();
@@ -356,10 +366,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       // targets are included even if normalization introduces rounding error.
       if (skill.coneDot > -1 && direction.dot(outward) < skill.coneDot) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(damage,outward,false);
-      hit = true;
+      enemy.takeDamage(damage,outward);
     }
-    if (hit) this.playSkillSound(skill.id, 'impact');
   }
 
   playAudio(key:string,volume=.3,rate=1) {
@@ -368,38 +376,38 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   playSwordSwing() {
-    this.playAudio(this.randomSound(['sfx-blade-slice-1','sfx-blade-slice-2']),.42,Phaser.Math.FloatBetween(.9,1.08));
+    this.playAudio('sfx-sword-slash',.86,Phaser.Math.FloatBetween(.9,1.08));
   }
 
-  playSkillSound(skillId:ActiveSkillDefinition['id'], phase:'cast'|'impact') {
+  playSkillSound(skillId:ActiveSkillDefinition['id'], phase:'cast'|'impact'|'swing') {
     if (skillId === 'azure-cleave') {
       const cast = phase === 'cast';
-      this.playAudio(cast ? 'sfx-blade-slice-2' : 'sfx-energy-impact', cast ? .48 : .4, cast ? .72 : 1);
+      this.playAudio(cast ? 'sfx-sword-slash' : 'sfx-energy-impact', cast ? .88 : .82, cast ? .78 : 1);
     } else if (skillId === 'skyfall-slam') {
       const cast = phase === 'cast';
-      this.playAudio(cast ? 'sfx-sword-whoosh' : 'sfx-heavy-slam', cast ? .55 : .72, cast ? .68 : .82);
+      if(cast)this.playAudio('sfx-sword-slash',.9,.72);
+      else this.playAudio('sfx-heavy-slam',1,.82);
     } else if (skillId === 'crown-rally' && phase === 'cast') {
       this.playAudio('sfx-heal-bell', .28, .9);
     } else if (skillId === 'crescent-flurry') {
-      this.playAudio(this.randomSound(['sfx-blade-slice-1', 'sfx-blade-slice-2']), phase === 'cast' ? .34 : .28,
-        phase === 'cast' ? 1.18 : Phaser.Math.FloatBetween(1.02, 1.28));
+      if(phase==='swing'){
+        this.playAudio('sfx-sword-slash',.72,Phaser.Math.FloatBetween(1.04,1.24));
+      }else if(phase==='cast'){
+        this.playAudio('sfx-sword-slash',.76,1.08);
+      }else this.playAudio('sfx-energy-impact',.7,Phaser.Math.FloatBetween(1.02,1.18));
     }
   }
 
   playFootstep(x:number,y:number,sprinting:boolean) {
     const surface=this.worldGenerator.getFootstepSurface(x,y);
     const variation=Phaser.Math.Between(1,3);
-    this.playAudio(`sfx-footstep-${surface}-${variation}`,sprinting ? .24 : .18);
-  }
-
-  private randomSound(keys:readonly string[]) {
-    return keys[Phaser.Math.Between(0,keys.length-1)];
+    this.playAudio(`sfx-footstep-${surface}-${variation}`,sprinting ? .56 : .42);
   }
 
   private playCombatImpact(volume:number) {
     if(this.time.now<this.nextImpactSoundAt)return;
-    this.nextImpactSoundAt=this.time.now+90;
-    this.playAudio(this.randomSound(['sfx-impact-1','sfx-impact-2','sfx-impact-3']),volume);
+    this.nextImpactSoundAt=this.time.now+110;
+    this.playAudio('sfx-sword-flesh-impact',Math.min(1,volume*2.1),.96);
   }
 
   tryInteract(x: number, y: number) {
@@ -431,6 +439,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   spawnEnemy(enemyId: string, x: number, y: number, eventSpawn = false) {
     const definition = ENEMY_BY_ID[enemyId];
     if (!definition || definition.boss || this.enemies.size >= 12 || this.contentManager.getSpawnCount() >= 512
+      ||inDragonArena(x,y,240)
       || !this.canEnemyOccupy(x, y)) return false;
     this.contentManager.addSpawn(enemyId, { x, y }, eventSpawn);
     this.contentManager.update(this.player.x, this.player.y);
@@ -442,7 +451,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.player.takeDamage(amount);
   }
 
-  playEffect(kind: 'fortification' | 'hit' | 'heal' | 'slash' | 'teleport', x: number, y: number, direction?: Phaser.Math.Vector2, sound = true) {
+  playEffect(kind: 'fortification' | 'hit' | 'heal' | 'slash' | 'teleport', x: number, y: number, direction?: Phaser.Math.Vector2) {
     const texture = ({
       fortification:'effect_fortification', hit:'effect_hit', heal:'effect_heal',
       slash:'effect_slash', teleport:'effect_teleport',
@@ -452,7 +461,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       .setScale(artScale(texture) * (kind === 'slash' || kind === 'teleport' ? 1.35 : 1))
       .setDepth(y + 1).setName(`combat-effect:${kind}`);
     if (direction) effect.setRotation(Math.atan2(direction.y, direction.x) - Math.PI / 4);
-    if(kind==='hit'&&sound)this.playCombatImpact(.35);
+    if(kind==='hit')this.playCombatImpact(.42);
     else if(kind==='heal')this.playAudio('sfx-heal-bell',.2);
     effect.play(animation);
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => effect.destroy());
@@ -463,15 +472,21 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const rng = seededRandom(`${enemy.instanceId}:loot`);
     const gold = definition.goldMin + Math.floor(rng() * (definition.goldMax - definition.goldMin + 1));
     const bossId = enemy.instanceId.startsWith('boss:') ? enemy.instanceId.slice(5) : undefined;
-    enemy.createDeathVisual();
-    this.contentManager.patchState(enemy.instanceId, { hp: 0, defeated: true });
+    const boss=bossId?BOSS_BY_ID[bossId]:undefined;
+    if(boss?.respawns)enemy.createRetreatVisual();else enemy.createDeathVisual();
+    this.contentManager.patchState(enemy.instanceId, { hp: 0, defeated: true,
+      ...(boss?.respawns&&boss.respawnDelayMs?{respawnAt:Date.now()+boss.respawnDelayMs}:{}),
+    });
     useGameStore.getState().recordEnemyDefeat(definition.id, definition.xp, gold, bossId, this.contentManager.snapshot());
 
     if (enemy.instanceId.startsWith('boss:')) {
       useGameStore.getState().setBossEncounter(null);
-      this.notify(`${definition.name} defeated. The world state remembers this.`);
+      this.notify(boss?.respawns?`${definition.name} takes flight! He returns to his lair in 30 minutes.`
+        :`${definition.name} defeated. The world state remembers this.`);
     }
-
+    // Persist the retreat deadline and reward together; a streamed-away dragon
+    // cannot return early, and quest completion remains separate from cooldown.
+    if(boss?.respawns)saveGame();
   }
 
   respawnPlayer() {
@@ -497,14 +512,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private isBlockedByBuilding(x: number, y: number) {
     if(fortificationBlocksPoint(x,y,20))return true;
+    const feet={left:x-11,right:x+11,top:y-24,bottom:y+2};
     return [...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      return x >= body.left - 20 && x <= body.right + 20 && y >= body.top - 20 && y <= body.bottom + 20;
+      return body?.enable&&overlaps(feet,{left:body.left,right:body.right,top:body.top,bottom:body.bottom});
     });
   }
 
   private isNpcObscured(x:number,y:number) {
-    const person={left:x-25,right:x+25,top:y-72,bottom:y+20};
+    const person={left:x-25,right:x+25,top:y-76,bottom:y+2};
     return foregroundBuildings.some(d=>d.kind==='settlement-prop' && d.world.y>y
       && overlaps(person,spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y)));
   }
@@ -513,9 +529,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(fortificationBlocksPath({x:ax,y:ay},{x:bx,y:by}))return false;
     const line = new Phaser.Geom.Line(ax, ay, bx, by);
     return ![...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
-      if (object === exclude) return false;
+      if (object === exclude || (exclude&&object.getData(WORLD_SPRITE_OWNER)===exclude)) return false;
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      return Phaser.Geom.Intersects.LineToRectangle(line, new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height));
+      return body?.enable&&Phaser.Geom.Intersects.LineToRectangle(line,new Phaser.Geom.Rectangle(body.x,body.y,body.width,body.height));
     });
   }
 
@@ -591,7 +607,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.questGuide.lineTo(x - dx * 5 + dy * 6,y - dy * 5 - dx * 6);
       this.questGuide.closePath(); this.questGuide.fillPath(); this.questGuide.strokePath();
     }
-    this.questGuide.lineStyle(2,0xffd976,.8).strokeEllipse(live.x,live.y + 23,28,10);
+    const ground=groundMarkerPosition(live);
+    this.questGuide.lineStyle(2,0xffd976,.8).strokeEllipse(ground.x,ground.y,28,10);
     this.questGuide.fillStyle(0xffdf91,.95).fillPoints([
       { x: live.x, y: live.y - 116 }, { x: live.x + 5, y: live.y - 110 },
       { x: live.x, y: live.y - 104 }, { x: live.x - 5, y: live.y - 110 },
@@ -646,18 +663,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const solid = definition.solid || isTreeArt(texture,definition.frame);
       const treeBase = isTreeArt(texture,definition.frame)
         ? treeFootprint(texture,definition.frame,definition.scale) : definition.footprint;
-      const actor = solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
-        : this.add.sprite(x, y, texture, definition.frame);
+      const actor = this.add.sprite(x,y,texture,definition.frame);
       actor.setName(definition.id);
+      if (definition.tint !== undefined) actor.setTint(definition.tint);
       this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase,
         definition.rotation,definition.anchor);
-      if(texture==='bridges'&&definition.frame===2){
-        actor.setDepth(y-110);
-        const rail=this.add.image(x,y,'bridge-front-rail').setOrigin(actor.originX,actor.originY)
-          .setScale(actor.scaleX,actor.scaleY).setDepth(y+46).setName('bridge-rail:'+definition.id);
-        actor.once('destroy',()=>rail.destroy());
-      }
-      if (definition.tint !== undefined) actor.setTint(definition.tint);
       if (definition.label) {
         const caption = this.add.text(x, y + 14, definition.label, {
           fontFamily: 'Georgia, serif', fontSize: '10px', color: '#e7d7ad', stroke: '#211b12', strokeThickness: 3,
@@ -669,8 +679,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (!('description' in definition)) throw new Error(`Unknown content type: ${definition.id}`);
     const texture = definition.texture ?? 'world_objects';
     const solid = definition.solid ?? (definition.kind !== 'harvestable' || definition.texture === 'world_assets');
-    const actor = (solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
-      : this.add.sprite(x, y, texture, definition.frame)).setName(definition.id).setInteractive({ useHandCursor: true });
+    const actor=this.add.sprite(x,y,texture,definition.frame).setName(definition.id).setInteractive({useHandCursor:true});
+    if(definition.tint!==undefined)actor.setTint(definition.tint);
     const footprint = propFoundation(texture,definition.frame,definition.scale??.6);
     this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6, solid, footprint);
     if (definition.townShrineId) {
@@ -694,21 +704,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     anchor:'center'|'bottom' = 'bottom') {
     const origin=worldPropOrigin(texture,frame,anchor);
     actor.setOrigin(origin.x,origin.y).setScale(artScale(texture) * scale).setDepth(actor.y).setRotation(rotation);
+    this.worldSprites.register(actor,texture,frame,scale,solid,foundation,anchor==='center');
     this.dayNight.register(actor,texture,frame,scale);
     const size = artFrameSize(texture, frame), width = size.width * scale, height = size.height * scale;
     const shadow = this.add.ellipse(actor.x, actor.y - 5, width * .7, Math.min(18, height * .12), 0x182015, .18)
       .setDepth(actor.y - height - 1).setName(`shadow:${actor.name}`);
+    if(texture==='darkav_volcano')shadow.setVisible(false); // Mountain has its own illustrated ground shading.
     actor.once('destroy', () => shadow.destroy());
-    if (solid && actor instanceof Phaser.Physics.Arcade.Sprite) {
-      actor.refreshBody();
-      // Collide with the grounded foundation, not the roof/canopy or empty atlas padding.
-      const body = actor.body as Phaser.Physics.Arcade.StaticBody;
-      const footprint = foundation ?? propFoundation(texture,frame,scale);
-      const footprintWidth = footprint.width, footprintHeight = footprint.height;
-      body.setSize(footprintWidth, footprintHeight, false)
-        .setOffset(anchor==='center'?actor.displayWidth*actor.originX-footprintWidth/2:(actor.displayWidth-footprintWidth)/2,
-          anchor === 'center' ? actor.displayHeight*actor.originY-footprintHeight/2 : actor.displayHeight - footprintHeight - 2 * scale);
-    }
     this.treeSway.register(actor,texture,frame);
   }
 
@@ -722,6 +724,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
+    if(definition.id==='clue:varkhul-ward'){
+      const returnAt=this.contentManager.getState('boss:'+DRAGON_BOSS_ID)?.respawnAt;
+      if(returnAt&&returnAt>Date.now()&&!objectiveIsCurrent(useGameStore.getState().quests,'investigate','varkhul-ward')){
+        this.notify(`Varkhul is recovering above the ridge. Returns in ${Math.ceil((returnAt-Date.now())/60000)} minutes.`);return;
+      }
+    }
     if(definition.discoveryId&&!useGameStore.getState().storyFlags['discovery:'+definition.discoveryId])
       useGameStore.getState().setStoryFlag('discovery:'+definition.discoveryId);
     if(definition.questTargetId&&definition.questEventType) {
@@ -820,7 +828,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private enforceLandCollision() {
     if (this.worldGenerator.isWalkable(this.player.x, this.player.y)
-      && !fortificationBlocksPath(this.lastSafe,this.player,12)) {
+      && !fortificationBlocksPath(this.lastSafe,this.player,12)
+      && !this.worldSprites.blocksPath(this.lastSafe,this.player)) {
       this.lastSafe = { x: this.player.x, y: this.player.y };
     } else {
       (this.player.body as Phaser.Physics.Arcade.Body).reset(this.lastSafe.x, this.lastSafe.y);
@@ -851,9 +860,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private updateCameraZoom() {
-    const width = this.scale.width;
-    const shortSide = Math.min(width, this.scale.height);
-    this.cameras.main.setZoom(shortSide < 500 ? .82 : width < 1100 ? 1.1 : 1.25);
+    if(this.cinematicDirector?.active){this.cinematicDirector.refreshZoom();return;}
+    const density=renderDensity(this),width=this.scale.width/density;
+    const shortSide = Math.min(width, this.scale.height/density);
+    this.cameras.main.setZoom((shortSide < 500 ? .82 : width < 1100 ? 1.1 : 1.25)*density);
   }
 
   shutdown() {
@@ -873,5 +883,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.chunkManager?.destroy();
     this.treeSway?.destroy();
     this.waterSurface?.destroy();
+    this.worldSprites?.destroy();
   }
 }

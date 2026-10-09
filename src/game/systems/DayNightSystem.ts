@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { seededRandom } from '../../utils/seededRandom';
 import { ART_BY_KEY, type ArtTextureKey } from '../../data/art';
 import { environmentLightPoints, nightStrength } from '../../data/environmentLights';
+import {overlayViewport,fitViewportOverlay} from './renderSizing';
 
 interface LocalLight {
   actor:Phaser.GameObjects.Sprite; x:number; y:number; radius:number; fire:boolean; phase:number;
@@ -24,7 +25,8 @@ export class DayNightSystem {
   setFirefliesEnabled(enabled:boolean){this.firefliesEnabled=enabled;}
   constructor(private readonly scene:Phaser.Scene) {
     const state=useGameStore.getState();this.day=state.day;this.minuteOfDay=state.minuteOfDay;
-    this.texture=scene.textures.createCanvas('night-overlay',Math.max(1,scene.scale.width),Math.max(1,scene.scale.height))!;
+    const viewport=overlayViewport(scene);
+    this.texture=scene.textures.createCanvas('night-overlay',viewport.width,viewport.height)!;
     this.overlay=scene.add.image(0,0,'night-overlay').setOrigin(0).setScrollFactor(0).setDepth(1_000_000).setName('night-darkness');
     if(!scene.textures.exists('warm-light')) {
       const t=scene.textures.createCanvas('warm-light',128,128)!,ctx=t.getContext();
@@ -54,7 +56,8 @@ export class DayNightSystem {
     let emission:Phaser.GameObjects.Sprite|undefined;
     if(this.scene.textures.exists(key+':emission')) {
       emission=this.scene.add.sprite(actor.x,actor.y,key+':emission',frame).setOrigin(actor.originX,actor.originY)
-        .setScale(actor.scaleX,actor.scaleY).setDepth(1_000_002).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setName('window-emission:'+actor.name);
+        .setScale(actor.scaleX,actor.scaleY).setRotation(actor.rotation).setDepth(actor.depth+.005).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0)
+        .setData('emissionOwner',actor).setName('window-emission:'+actor.name);
       this.emissions.add(emission);
     }
     actor.once('destroy',()=>{
@@ -78,7 +81,12 @@ export class DayNightSystem {
       const flicker=node.fire ? .92+Math.sin(this.elapsed*.013+node.phase)*.055+Math.sin(this.elapsed*.021+node.phase)*.025 : 1;
       node.glow.setPosition(node.actor.x+node.x,node.actor.y+node.y).setAlpha(night*.15*flicker).setVisible(night>0);
     }
-    for(const emission of this.emissions) emission.setAlpha(night*.8).setVisible(night>0);
+    for(const emission of this.emissions){
+      const owner=emission.getData('emissionOwner') as Phaser.GameObjects.Sprite;
+      // Lit windows belong to the structure's draw order. Painting their
+      // pixels above every actor makes a foreground character merge into it.
+      emission.setDepth(owner.depth+.005).setAlpha(night*.8).setVisible(night>0&&owner.visible);
+    }
     // Stable world-space pockets. Camera zoom never gets applied twice.
     const cx=Math.floor(playerX/1024)*1024+512,cy=Math.floor(playerY/1024)*1024+512;
     for(const fly of this.fireflies) {
@@ -87,8 +95,8 @@ export class DayNightSystem {
       fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(this.firefliesEnabled&&night>.02);
       fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(this.firefliesEnabled&&night>.02);
     }
-    const camera=this.scene.cameras.main,z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
-    this.overlay.setScale(1/z).setPosition(w/2*(1-1/z),h/2*(1-1/z)).setVisible(night>0);
+    const camera=this.scene.cameras.main,{zoom:z,width:w,height:h}=overlayViewport(this.scene);
+    fitViewportOverlay(this.scene,this.overlay);this.overlay.setVisible(night>0);
     if(night===0) {
       if(this.previousNight>0){this.texture.getContext().clearRect(0,0,w,h);this.texture.refresh();}
       this.previousNight=0;return; // No full-screen texture uploads in daylight.
@@ -119,5 +127,6 @@ export class DayNightSystem {
     for(const fly of this.fireflies){fly.glow.destroy();fly.light.destroy();}
     this.scene.textures.remove('night-overlay');
   }
-  private onResize(size:Phaser.Structs.Size){this.texture.setSize(Math.max(1,size.width),Math.max(1,size.height));this.renderAccumulator=100;}
+  private onResize(){const viewport=overlayViewport(this.scene);
+    this.texture.setSize(viewport.width,viewport.height);this.renderAccumulator=100;}
 }

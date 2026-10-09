@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ContentWorldState, NavigationState, QuestObjective, QuestRuntimeState, RegionId } from '../game/types';
 import { LEIGNERON } from '../data/player';
 import { NPC_BY_ID } from '../data/npcs';
+import {BOSS_BY_ID} from '../data/enemies';
 import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
@@ -243,8 +244,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
   recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent) => set((state) => {
-    if (bossId && state.defeatedBosses.includes(bossId)) return {};
-    const defeatedBosses = bossId ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
+    const known=bossId&&state.defeatedBosses.includes(bossId);
+    if (known && !BOSS_BY_ID[bossId!]?.respawns) return {};
+    const defeatedBosses = bossId&&!known ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 },state.storyFlags);
     const progression = experienceProgress(state, xp + result.xp);
     return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,

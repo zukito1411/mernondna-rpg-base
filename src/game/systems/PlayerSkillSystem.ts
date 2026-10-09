@@ -44,13 +44,15 @@ export class PlayerSkillSystem {
     const target=skill.targetingRange?this.scene.targeting.nearest(skill.targetingRange):null;
     const direction = target?new Phaser.Math.Vector2(target.x-this.player.x,target.y-this.player.y).normalize():this.player.lastDirection.clone().normalize();
     if(target){this.scene.targeting.selected=target;this.player.lastDirection.copy(direction);}
-    const visual = this.scene.add.sprite(this.player.x,this.player.y,skill.texture,0)
+    // These effect canvases retain 20px below their centered ground anchor so
+    // airborne poses are not cropped. Offset the presentation, not physics.
+    const visual = this.scene.add.sprite(this.player.x,this.player.y-20,skill.texture,0)
       .setOrigin(.5).setScale(artScale(skill.texture)).setFlipX(direction.x < 0)
       .setDepth(this.player.y + 2).setName(`player-skill:${id}`);
     visual.play(`player-skill:${id}`);
     const start={x:this.player.x,y:this.player.y};
     const landing=id==='skyfall-slam'?this.scene.skillLanding(target??{x:start.x+direction.x*90,y:start.y+direction.y*90},skill.targetingRange??90):undefined;
-    const shadow=id==='skyfall-slam'?this.scene.add.ellipse(start.x,start.y+12,34,12,0x101512,.3).setDepth(start.y-1).setName('player-slam-shadow'):undefined;
+    const shadow=id==='skyfall-slam'?this.scene.add.ellipse(start.x,start.y+2,34,12,0x101512,.3).setDepth(start.y-1).setName('player-slam-shadow'):undefined;
     this.cast = { skill,elapsed:0,nextHit:0,direction,visual,start,landing,shadow };
     this.player.setAlpha(0);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
@@ -76,9 +78,9 @@ export class PlayerSkillSystem {
         (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
       else {cast.start={x:this.player.x,y:this.player.y};cast.landing={...cast.start};}
       height=Math.sin(fraction*Math.PI)*64;
-      cast.shadow?.setPosition(this.player.x,this.player.y+12).setScale(1-height/140).setAlpha(.3-height/400);
+      cast.shadow?.setPosition(this.player.x,this.player.y+2).setScale(1-height/140).setAlpha(.3-height/400);
     }
-    cast.visual.setPosition(this.player.x,this.player.y-height).setDepth(this.player.y+2);
+    cast.visual.setPosition(this.player.x,this.player.y-height-20).setDepth(this.player.y+2);
     while (cast.nextHit < cast.skill.hitTimes.length && cast.elapsed >= cast.skill.hitTimes[cast.nextHit]) {
       if (cast.skill.kind === 'rally') {
         this.player.hp = Math.min(this.player.maxHp,this.player.hp + Math.round(this.player.maxHp * .2));
@@ -98,11 +100,13 @@ export class PlayerSkillSystem {
         this.scene.recordTraining(cast.skill.id);
       } else {
         if(cast.skill.id==='skyfall-slam') {
+          this.scene.playSkillSound(cast.skill.id,'impact');
           this.scene.playEffect('fortification',this.player.x,this.player.y);
           for(let side=0;side<4;side++){const angle=side*Math.PI/2,ray=new Phaser.Math.Vector2(Math.cos(angle),Math.sin(angle));this.scene.playEffect('slash',this.player.x+ray.x*30,this.player.y+ray.y*30,ray);}
           this.scene.cameras.main.shake(140,.003);
         }
         if (cast.skill.id === 'crescent-flurry') {
+          this.scene.playSkillSound(cast.skill.id,'swing');
           // Surround the standing skill sprite with arcs; only the effects
           // rotate, never Leigneron's model. Each damage pulse hits all sides.
           for (let side = 0; side < 4; side++) {
@@ -127,7 +131,7 @@ export class PlayerSkillSystem {
           const dx=to.x-from.x,dy=to.y-from.y,len=dx*dx+dy*dy,t=len?Phaser.Math.Clamp(((enemy.x-from.x)*dx+(enemy.y-from.y)*dy)/len,0,1):0;
           return {enemy,t,distance:Math.hypot(enemy.x-from.x-t*dx,enemy.y-from.y-t*dy)};
         }).filter(hit=>hit.distance<=(hit.enemy.definition.boss?24:11)+14).sort((a,b)=>a.t-b.t);
-        if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction);this.scene.playSkillSound(wave.skill.id,'impact');this.scene.playEffect('slash',hit.enemy.x,hit.enemy.y,wave.direction);terminated=true;break;}
+        if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction);this.scene.playEffect('slash',hit.enemy.x,hit.enemy.y,wave.direction);terminated=true;break;}
         wave.sprite.setPosition(to.x,to.y).setDepth(to.y+4);wave.remaining-=step;travel-=step;
       }
       if(terminated||wave.remaining<=0){wave.sprite.destroy();this.waves.delete(wave);}

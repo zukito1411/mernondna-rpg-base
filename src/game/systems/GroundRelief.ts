@@ -18,7 +18,7 @@ export function drawGroundRelief(ctx:CanvasRenderingContext2D,mask:HTMLCanvasEle
     const height=hills(x*.0007,y*.0007),dx=hills((x+64)*.0007,y*.0007)-height,dy=hills(x*.0007,(y+64)*.0007)-height;
     const upland=region==='nardorous'||region==='druganwoods';
     const shade=Math.max(-1,Math.min(1,height*.45-(dx+dy)*(upland?3.4:1.2)));
-    const color=shade<-.05?'#22342d':profile.groundTint;
+    const color=shade<-.05?(region==='darkav'?'#351610':'#22342d'):profile.groundTint;
     pixels.data[cell*4]=parseInt(color.slice(1,3),16);pixels.data[cell*4+1]=parseInt(color.slice(3,5),16);pixels.data[cell*4+2]=parseInt(color.slice(5,7),16);
     pixels.data[cell*4+3]=Math.round(8+Math.abs(shade)*(upland?48:27));
   }

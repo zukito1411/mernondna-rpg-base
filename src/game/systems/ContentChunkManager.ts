@@ -1,5 +1,6 @@
 import type { ContentDefinition, ContentState, ContentWorldState, CreatureContentDefinition, Vec2 } from '../types';
 import { chunkNeighborhood, contentChunkKey } from './chunkNeighborhood';
+import {CHUNK_SIZE,STREAM_RADIUS} from '../../data/world';
 
 export interface ContentHost<Actor> {
   initialState(definition: ContentDefinition): ContentState;
@@ -18,6 +19,8 @@ export class ContentChunkManager<Actor> {
   private readonly buckets = new Map<string, Set<string>>();
   private readonly locations = new Map<string, string>();
   private readonly active = new Map<string, Actor>();
+  private readonly returns=new Set<string>();
+  private readonly oversized=new Map<string,number>();
   private wanted = new Set<string>();
   private centerKey = '';
   private nextSpawnSequence: number;
@@ -30,6 +33,7 @@ export class ContentChunkManager<Actor> {
       // Static placements are authored, not world relocations. Layout repairs
       // apply to old saves while preserving opened caches and attuned shrines.
       this.states.set(id,{...state,...(d.kind!=='npc'&&d.kind!=='creature'?d.world:{})});
+      if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);
     }
     for (const definition of definitions) this.register(definition);
     for (const definition of Object.values(persisted.spawns)) {
@@ -40,13 +44,24 @@ export class ContentChunkManager<Actor> {
   update(x: number, y: number): boolean {
     const center = contentChunkKey(x, y);
     let changed = center !== this.centerKey;
+    const now=Date.now();
+    // Only scheduled returns are inspected, even while their chunks are far
+    // away. The saved UTC deadline includes time spent offline/in menus.
+    for(const id of this.returns){
+      const state=this.states.get(id),definition=this.definitions.get(id);
+      if(!state||!definition||state.respawnAt===undefined){this.returns.delete(id);continue;}
+      if(state.respawnAt>now)continue;
+      const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined};
+      this.states.set(id,restored);this.index(id,contentChunkKey(restored.x,restored.y));
+      this.returns.delete(id);changed=true;
+    }
     if (changed) { this.centerKey = center; this.wanted = chunkNeighborhood(x, y); }
     // Only near actors are inspected. Bucket migration lets moving creatures cross chunks.
     for (const [id, actor] of this.active) {
       const position = this.host.position(actor);
       const key = contentChunkKey(position.x, position.y);
       this.index(id, key);
-      if (!this.wanted.has(key)) { this.deactivate(id); changed = true; }
+      if (!this.wanted.has(key)&&!this.nearOversized(id,position,x,y)) { this.deactivate(id); changed = true; }
     }
     for (const key of this.wanted) {
       for (const id of this.buckets.get(key) ?? []) {
@@ -58,6 +73,15 @@ export class ContentChunkManager<Actor> {
         this.active.set(id, this.host.create(definition, { ...state }));
         changed = true;
       }
+    }
+    // A mountain's visible extent can enter view before its base chunk does.
+    // Keep just those authored actors alive; terrain streaming stays bounded.
+    for(const [id] of this.oversized){
+      if(this.active.has(id))continue;const state=this.getState(id)!;
+      if(state.defeated||!this.nearOversized(id,state,x,y))continue;
+      const definition=this.definitions.get(id)!;
+      if(this.host.canActivate&&!this.host.canActivate(definition,state))continue;
+      this.active.set(id,this.host.create(definition,{...state}));changed=true;
     }
     return changed;
   }
@@ -86,6 +110,7 @@ export class ContentChunkManager<Actor> {
     this.capture(id);
     const state = { ...this.getState(id)!, ...patch };
     this.states.set(id, state);
+    if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);else this.returns.delete(id);
     this.index(id, contentChunkKey(state.x, state.y));
     // A logical relocation disposes the old actor before it can overwrite the new position.
     if (state.defeated || patch.x !== undefined || patch.y !== undefined) this.deactivate(id, false);
@@ -104,6 +129,8 @@ export class ContentChunkManager<Actor> {
   private register(definition: ContentDefinition) {
     if (this.definitions.has(definition.id)) throw new Error(`Duplicate content ID: ${definition.id}`);
     this.definitions.set(definition.id, definition);
+    if('streamRadiusChunks' in definition&&definition.streamRadiusChunks)
+      this.oversized.set(definition.id,Math.min(3,definition.streamRadiusChunks));
     const state = this.getState(definition.id)!;
     this.index(definition.id, contentChunkKey(state.x, state.y));
   }
@@ -117,6 +144,12 @@ export class ContentChunkManager<Actor> {
     }
     if (!this.buckets.has(key)) this.buckets.set(key, new Set());
     this.buckets.get(key)!.add(id); this.locations.set(id, key);
+  }
+  private nearOversized(id:string,p:Vec2,x:number,y:number){
+    const extra=this.oversized.get(id);if(extra===undefined)return false;
+    const radius=STREAM_RADIUS+extra;
+    return Math.abs(Math.floor(p.x/CHUNK_SIZE)-Math.floor(x/CHUNK_SIZE))<=radius
+      &&Math.abs(Math.floor(p.y/CHUNK_SIZE)-Math.floor(y/CHUNK_SIZE))<=radius;
   }
   private capture(id: string) {
     const actor = this.active.get(id), definition = this.definitions.get(id);

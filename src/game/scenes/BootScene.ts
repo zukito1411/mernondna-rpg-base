@@ -7,12 +7,14 @@ import { alphaFrameBounds } from '../systems/spriteArt';
 import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
 import { prepareBridgeRail } from '../systems/BridgeArt';
 import { prepareTreeArt } from '../systems/TreeArt';
+import {renderDensity} from '../systems/renderSizing';
+import {prepareScorchedArt} from '../systems/ScorchedArt';
 
 const AUDIO_ASSETS = [
   ['sfx-blade-draw', 'assets/audio/drawKnife1.ogg'],
-  ['sfx-blade-slice-1', 'assets/audio/knifeSlice.ogg'],
-  ['sfx-blade-slice-2', 'assets/audio/knifeSlice2.ogg'],
   ['sfx-sword-whoosh', 'assets/audio/sword-whoosh.ogg'],
+  ['sfx-sword-slash', 'assets/audio/sword-slash.mp3'],
+  ['sfx-sword-flesh-impact', 'assets/audio/sword-flesh-impact.wav'],
   ['sfx-energy-impact', 'assets/audio/energy-impact.ogg'],
   ['sfx-heavy-slam', 'assets/audio/heavy-slam.ogg'],
   ['sfx-footstep-grass-1', 'assets/audio/footstep_grass_000.ogg'],
@@ -29,6 +31,8 @@ const AUDIO_ASSETS = [
   ['sfx-impact-1', 'assets/audio/impactSoft_medium_000.ogg'],
   ['sfx-impact-2', 'assets/audio/impactSoft_medium_002.ogg'],
   ['sfx-impact-3', 'assets/audio/impactSoft_medium_004.ogg'],
+  ['sfx-impact-heavy-1', 'assets/audio/impactPunch_heavy_000.ogg'],
+  ['sfx-impact-heavy-2', 'assets/audio/impactPunch_heavy_003.ogg'],
   ['sfx-heal-bell', 'assets/audio/impactBell_heavy_002.ogg'],
   ['sfx-dash', 'assets/audio/drawKnife3.ogg'],
 ] as const;
@@ -93,9 +97,10 @@ export class BootScene extends Phaser.Scene {
     if (this.failures.length) {
       const message = `Art could not load:\n${this.failures.join('\n')}\nCheck public/assets and the pack manifests, then reload.`;
       this.registry.set('assetError', message);
-      this.add.text(20, 20, message, {
-        fontSize: '16px', color: '#ffe1bd',
-        wordWrap: { width: Math.max(280, this.scale.width - 40) }
+      const density=renderDensity(this);
+      this.add.text(20*density,20*density,message,{
+        fontSize: `${16*density}px`, color: '#ffe1bd',
+        wordWrap: { width: Math.max(280*density,this.scale.width-40*density) }
       });
       return;
     }
@@ -238,7 +243,7 @@ export class BootScene extends Phaser.Scene {
             ? x + width / 2 + (region[0] - packed.anchor[0]) * fit * sheet.density
             : x + (width - drawWidth) / 2;
         const drawY = packed?.groundAnchor && region
-          ? y + height - 2 * sheet.density + (region[1] - packed.groundAnchor[1]) * fit * sheet.density
+          ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - packed.groundAnchor[1]) * fit * sheet.density
           : isHeroArt
           ? y + height - 2 * sheet.density - drawHeight
           : packed?.anchor && region
@@ -275,6 +280,7 @@ export class BootScene extends Phaser.Scene {
       prepareEnvironmentLightArt(this, sheet.key);
     }
 
+    prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
     for (const path of loaded) this.textures.remove(`source:${path}`);

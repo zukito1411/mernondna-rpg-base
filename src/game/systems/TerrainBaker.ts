@@ -4,17 +4,25 @@ import { WorldGenerator } from './WorldGenerator';
 import { sampleTerrainGrid, seamlessTerrainPixels, TERRAIN_MASK_SIZE, TERRAIN_PATTERN_SIZE } from './terrainArt';
 import {drawGroundRelief} from './GroundRelief';
 import {naturalGroundPattern} from './NaturalGroundArt';
+import {GroundCoverBaker} from './GroundCoverBaker';
+import {PAVING_PATTERN_SIZE} from '../../data/environmentPresentation';
+import {darkavGroundPatterns,darkavGroundFrame,DARKAV_GROUND_FRAMES} from './DarkavGroundArt';
+import {TOWN_BY_ID} from '../../data/towns';
+import {insideDefense} from '../../data/settlementDefenses';
 
 export class TerrainBaker {
   private readonly patterns: CanvasPattern[] = [];
   private readonly layer = document.createElement('canvas');
   private readonly mask = document.createElement('canvas');
+  private readonly cover:GroundCoverBaker;
 
   constructor(scene: Phaser.Scene) {
+    this.cover=new GroundCoverBaker(scene);
     this.layer.width = this.layer.height = CHUNK_SIZE;
     this.mask.width = this.mask.height = TERRAIN_MASK_SIZE;
     const source = scene.textures.get('terrain').getSourceImage() as CanvasImageSource;
     const size = TERRAIN_PATTERN_SIZE;
+    const swatches:HTMLCanvasElement[]=[];
     for (let frame = 0; frame < 12; frame++) {
       const tile = document.createElement('canvas');
       tile.width = tile.height = size;
@@ -23,27 +31,51 @@ export class TerrainBaker {
       const pixels = ctx.getImageData(0,0,size,size);
       pixels.data.set(seamlessTerrainPixels(pixels.data,size));
       ctx.putImageData(pixels,0,0);
+      if(frame===1||frame===2)swatches[frame]=tile;
       if(frame===8){ctx.globalCompositeOperation='multiply';ctx.fillStyle='#777c89';ctx.fillRect(0,0,size,size);ctx.globalCompositeOperation='source-over';}
       if(frame===9){ctx.globalCompositeOperation='multiply';ctx.fillStyle='#687360';ctx.fillRect(0,0,size,size);ctx.globalCompositeOperation='source-over';}
-      if(frame===10){ctx.fillStyle='rgba(58,30,25,.75)';ctx.fillRect(0,0,size,size);ctx.strokeStyle='#ff7737';ctx.lineWidth=5;
-        for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(i*53,0);ctx.bezierCurveTo(i*53+55,70,i*53-40,170,i*53+15,256);ctx.stroke();}}
       if(frame===11){ctx.fillStyle='rgba(177,215,232,.76)';ctx.fillRect(0,0,size,size);ctx.strokeStyle='rgba(228,248,255,.45)';ctx.lineWidth=1.5;
         for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(i*71,0);ctx.lineTo(i*71+19,78);ctx.lineTo(i*71-8,147);ctx.lineTo(i*71+15,256);ctx.stroke();}}
-      this.patterns.push(this.layer.getContext('2d')!.createPattern(naturalGroundPattern(tile,frame), 'repeat')!);
+      let pattern=naturalGroundPattern(tile,frame);
+      if(frame===2){pattern=document.createElement('canvas');pattern.width=pattern.height=PAVING_PATTERN_SIZE;
+        pattern.getContext('2d')!.drawImage(tile,0,0,PAVING_PATTERN_SIZE,PAVING_PATTERN_SIZE);}
+      this.patterns.push(this.layer.getContext('2d')!.createPattern(pattern,'repeat')!);
     }
+    const volcanic=darkavGroundPatterns(scene,swatches[1],swatches[2]);
+    // Retire the old generic five-line lava swatch too. All molten ground uses
+    // the supplied lava-pool illustration, including the dragon's rim.
+    this.patterns[10]=this.layer.getContext('2d')!.createPattern(volcanic[3],'repeat')!;
+    for(const tile of volcanic)
+      this.patterns.push(this.layer.getContext('2d')!.createPattern(tile,'repeat')!);
   }
 
   draw(ctx: CanvasRenderingContext2D, world: WorldGenerator, chunkX: number, chunkY: number) {
+    // Pattern size need not divide CHUNK_SIZE: align paving phase in world
+    // coordinates so its larger stones never reset at a streaming seam.
+    const transform=new DOMMatrix().translate(-chunkX*CHUNK_SIZE,-chunkY*CHUNK_SIZE);
+    for(const pattern of this.patterns)pattern.setTransform(transform);
     const grid = sampleTerrainGrid(chunkX, chunkY, (x, y) => world.getTerrainIndex(world.getTerrainAt(x, y)));
+    // Regional art is masked per cell, not chosen from a chunk's center. This
+    // also recolors paved settlement courts/roads and the dragon's safe deck.
+    const painted=grid.slice();
+    const blackspire=TOWN_BY_ID.blackspire.world;
+    for(let row=0;row<TERRAIN_MASK_SIZE;row++)for(let col=0;col<TERRAIN_MASK_SIZE;col++){
+      const x=chunkX*CHUNK_SIZE+(col-.5)*TILE_SIZE,y=chunkY*CHUNK_SIZE+(row-.5)*TILE_SIZE;
+      const i=row*TERRAIN_MASK_SIZE+col;
+      if(world.getRegionAt(x,y)==='darkav'){
+        const inBlackspire=insideDefense('blackspire',x,y);
+        painted[i]=darkavGroundFrame(grid[i],inBlackspire,world.isRoad(x,y));
+      }
+    }
     const layerCtx = this.layer.getContext('2d')!, maskCtx = this.mask.getContext('2d')!;
     const pixels = maskCtx.createImageData(TERRAIN_MASK_SIZE, TERRAIN_MASK_SIZE);
     ctx.fillStyle = this.patterns[0]; ctx.fillRect(0, 0, CHUNK_SIZE, CHUNK_SIZE);
     // Roads and cultivated ground sit over the natural vegetation.
-    for (const frame of [4, 5, 6, 7, 8, 9, 10, 11, 2, 1, 3]) {
-      if (!grid.includes(frame)) continue;
-      for (let i = 0; i < grid.length; i++) {
+    for (const frame of [4, 5, 6, 7, 8, 9, 10, 11, 2, 1, 3,...DARKAV_GROUND_FRAMES]) {
+      if (!painted.includes(frame)) continue;
+      for (let i = 0; i < painted.length; i++) {
         pixels.data[i * 4] = pixels.data[i * 4 + 1] = pixels.data[i * 4 + 2] = 255;
-        pixels.data[i * 4 + 3] = grid[i] === frame ? 255 : 0;
+        pixels.data[i * 4 + 3] = painted[i] === frame ? 255 : 0;
       }
       maskCtx.putImageData(pixels, 0, 0);
       layerCtx.globalCompositeOperation = 'copy';
@@ -57,10 +89,12 @@ export class TerrainBaker {
       ctx.drawImage(this.layer, 0, 0);
     }
     drawGroundRelief(ctx,this.mask,world,chunkX,chunkY,grid);
+    this.cover.draw(ctx,world,chunkX,chunkY);
   }
 
   destroy() {
     this.patterns.length = 0;
+    this.cover.destroy();
     this.layer.width = this.layer.height = this.mask.width = this.mask.height = 1;
   }
 }

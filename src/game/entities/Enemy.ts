@@ -7,6 +7,8 @@ import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize } from '../../data/a
 import { enemyAnimation, animationDuration, type EnemyAnimationState } from '../../data/animationPacks';
 import { useGameStore } from '../../store/gameStore';
 import { approachVelocity, strideRate } from '../systems/locomotion';
+import {groundMarkerPosition} from '../systems/groundMarkers';
+import {DragonCombat} from '../systems/DragonCombat';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
@@ -32,9 +34,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private attackEpoch=0;
   private hitStunUntil=0;
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
+  private readonly dragonCombat:DragonCombat|undefined;
+  get canBeTargeted(){return !this.dragonCombat?.airborne;}
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string, eventSpawn = false) {
-    super(scene, x, y, 'enemies', definition.spriteFrame);
+    const idle=enemyAnimation(definition.spriteFrame,'idle');
+    super(scene, x, y, idle.texture, idle.frames[0]);
     this.definition = definition;
     this.boss = instanceId.startsWith('boss:') ? BOSS_BY_ID[instanceId.slice(5)] : undefined;
     this.hp = definition.hp;
@@ -43,14 +48,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.rng = seededRandom(instanceId);
     this.lastSafe = { x, y };
     scene.add.existing(this);
-    this.setScale(artScale('enemies') * enemyAppearanceMultiplier(definition)).setOrigin(.5, actorArtLayout('enemies').originY);
+    const texture=definition.spriteTexture??'enemies',sheet=ART_BY_KEY[texture];
+    this.setScale(artScale(texture) * enemyAppearanceMultiplier(definition)).setOrigin(.5, actorArtLayout(texture).originY);
     scene.physics.add.existing(this);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    const radius = definition.boss ? 24 : 11;
-    const density = ART_BY_KEY.enemies.density;
-    body.setCircle(radius / this.scaleX, ART_BY_KEY.enemies.frameWidth * density / 2 - radius / this.scaleX,
-      this.originY * ART_BY_KEY.enemies.frameHeight * density - 2 * radius / this.scaleY);
+    const radius = definition.bodyRadius??(definition.boss ? 24 : 11);
+    const density = sheet.density;
+    body.setCircle(radius / this.scaleX, sheet.frameWidth * density / 2 - radius / this.scaleX,
+      this.originY * sheet.frameHeight * density - 2 * radius / this.scaleY);
     body.setCollideWorldBounds(true);
     this.setDepth(y);
     this.anims.play(enemyAnimation(definition.spriteFrame,'idle').key);
@@ -60,11 +66,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       color: definition.boss ? '#f3c69c' : '#edddcb', stroke: '#17120e', strokeThickness: 3,
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
     this.targetIndicator=scene.add.graphics().setName('enemy-target:'+instanceId);
+    if(definition.combatStyle==='dragon')this.dragonCombat=new DragonCombat(this,scene);
     this.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
       const state=useGameStore.getState();if(!state.panel&&!state.dialogue&&!state.cinematic)scene.targeting.select(this);
     });
     this.once('destroy', () => {
       this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
+      this.dragonCombat?.destroy();
     });
   }
 
@@ -72,6 +80,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
+    if(this.dragonCombat){this.dragonCombat.update(delta);return;}
 
     const distance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -137,19 +146,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const windup = this.definition.attackWindupMs ?? 220;
     const recovery = this.definition.attackRecoveryMs ?? 320;
     const radius = this.definition.attackRadius ?? this.definition.attackRange;
-    const attackStyle = this.boss?.attackStyle ?? (this.definition.id === 'gray-wolf' ? 'pounce' : 'melee');
+    const attackStyle = this.definition.combatStyle==='troll'?'slam':this.boss?.attackStyle ?? (this.definition.id === 'gray-wolf' ? 'pounce' : 'melee');
     this.lockedUntil = time + windup + recovery;
     this.nextAttackAt = this.lockedUntil + this.definition.attackCooldownMs;
     this.attackTelegraph?.destroy();
     this.attackTelegraph = scene.add.graphics().setDepth(player.y - 2)
       .setName(`attack-telegraph:${this.instanceId}`);
-    this.attackTelegraph.fillStyle(0x9c271d, .22).fillEllipse(player.x, player.y + 8, radius * 2, radius * 1.05);
+    const center=attackStyle==='slam'?this:player;
+    this.attackTelegraph.fillStyle(0x9c271d, .22).fillEllipse(center.x, center.y + 2, radius * 2, radius * 2);
     this.attackTelegraph.lineStyle(this.definition.boss ? 3 : 2, 0xf06c4c, .9)
-      .strokeEllipse(player.x, player.y + 8, radius * 2, radius * 1.05);
+      .strokeEllipse(center.x, center.y + 2, radius * 2, radius * 2);
     const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack');
     const epoch=++this.attackEpoch;
     this.playAction('attack');
     this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery);
+    if(this.definition.combatStyle==='troll')this.anims.timeScale=(attackAnimation.frames.length-1)*1000/(attackAnimation.frameRate*windup);
     this.visualUntil=time+windup+recovery;
     if (attackStyle === 'pounce' && this.definition.spriteFrame === 0) this.playWolfLeap(attackAnimation);
     scene.time.delayedCall(windup, () => {
@@ -157,9 +168,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.attackTelegraph?.destroy();
       this.attackTelegraph = null;
       if (epoch!==this.attackEpoch || !this.active || !player.active || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
+      if(this.definition.combatStyle==='troll'){
+        const impact=scene.add.sprite(this.x,this.y,'effect_troll_impact',0).setOrigin(.5,actorArtLayout('effect_troll_impact').originY)
+          .setScale(artScale('effect_troll_impact')*radius/40).setDepth(this.y+1).play('effect-troll-impact');
+        impact.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>impact.destroy());scene.playAudio('sfx-heavy-slam',.3);
+      }
       const strikeDistance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
       const toPlayer = new Phaser.Math.Vector2(player.x - this.x, player.y - this.y).normalize();
-      const facingThreshold = attackStyle === 'slam' ? .15 : attackStyle === 'pounce' ? .35 : .6;
+      const facingThreshold = attackStyle === 'slam' ? -1 : attackStyle === 'pounce' ? .35 : .6;
       if (strikeDistance > radius || this.facing.dot(toPlayer) < facingThreshold
         || !scene.hasClearPath(this.x, this.y, player.x, player.y)) return;
       scene.playEffect('hit', player.x, player.y, toPlayer);
@@ -236,28 +252,30 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   createDeathVisual() {
     const animation = enemyAnimation(this.definition.spriteFrame,'death');
-    const effect = this.scene.add.sprite(this.x,this.y,'enemies',animation.frames[0]).setScale(this.scaleX,this.scaleY)
+    const effect = this.scene.add.sprite(this.x,this.y,animation.texture,animation.frames[0]).setScale(this.scaleX,this.scaleY)
       .setOrigin(this.originX,this.originY).setFlipX(this.flipX).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
     effect.play(animation.key);
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE,() => effect.destroy());
     this.scene.time.delayedCall(animationDuration(animation) + 200,() => { if (effect.active) effect.destroy(); });
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, impactSound = true) {
-    if (!this.active || this.hp <= 0) return;
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2) {
+    if (!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     this.hp -= amount;
     this.attackEpoch++;this.attackTelegraph?.destroy();this.attackTelegraph=null;this.clearWolfLeap();
     this.hitStunUntil=this.scene.time.now+120;
-    (this.scene as WorldScene).playEffect('hit', this.x, this.y, undefined, impactSound);
+    (this.scene as WorldScene).playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(knockback.x * 150, knockback.y * 150);
+    body.setVelocity(this.dragonCombat?0:knockback.x * 150,this.dragonCombat?0:knockback.y * 150);
     this.setTintFill(0xffffff);
     this.scene.time.delayedCall(70, () => { if (this.active) this.clearTint(); });
     if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
-    else this.playAction('hurt');
+    else if(this.dragonCombat)this.dragonCombat.reactToHit();else this.playAction('hurt');
   }
+  createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
 
   updatePresentation(playerX: number, playerY: number, paused = false) {
+    this.dragonCombat?.pause(paused);
     if(paused)this.leapTween?.pause();else if(this.leapTween?.isPaused())this.leapTween.resume();
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
     const distance = Phaser.Math.Distance.Between(playerX, playerY, this.x, this.y);
@@ -266,16 +284,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const scene=this.scene as WorldScene;
     const eligible=!paused&&scene.targeting.eligible(this)&&scene.cameras.main.worldView.contains(this.x,this.y);
     const selected=eligible&&scene.targeting.selected===this;
-    const model=this.leapVisual?.active?this.leapVisual:this;
+    const model=this.dragonCombat?.visual??(this.leapVisual?.active?this.leapVisual:this);
     const bounds=(model.frame.customData as {visibleBounds?:{top:number;height:number}}).visibleBounds;
-    const visualHeight=artFrameSize('enemies',Number(this.frame.name)).height*this.scaleY*ART_BY_KEY.enemies.density;
-    const top=bounds?model.y+(bounds.top-model.originY*ART_BY_KEY.enemies.frameHeight)*model.scaleY*ART_BY_KEY.enemies.density-16
-      :this.y+20*enemyAppearanceMultiplier(this.definition)-visualHeight-16;
+    const texture=this.definition.spriteTexture??'enemies',sheet=ART_BY_KEY[texture];
+    const visualHeight=artFrameSize(texture,Number(this.frame.name)).height*this.scaleY*sheet.density;
+    const modelSheet=ART_BY_KEY[model.texture.key as keyof typeof ART_BY_KEY];
+    const top=bounds?model.y+(bounds.top-model.originY*modelSheet.frameHeight)*model.scaleY*modelSheet.density-16
+      :this.y-visualHeight-16;
     this.targetIndicator.clear().setDepth(this.y+90).setVisible(eligible);
     if(eligible){const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
       this.targetIndicator.lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
       this.targetIndicator.fillTriangle(this.x-size,top-36,this.x+size,top-36,this.x,top-26);
-      if(selected)this.targetIndicator.lineStyle(2,color,.9).strokeEllipse(this.x,this.y+4,this.definition.boss?56:34,10);
+      if(selected){const ground=groundMarkerPosition(this);
+        this.targetIndicator.lineStyle(2,color,.9).strokeEllipse(ground.x,ground.y,
+          Math.max(this.definition.boss?56:34,(this.definition.bodyRadius??0)*2.2),Math.max(10,(this.definition.bodyRadius??0)*.45));}
     }
     this.healthBar.clear().setDepth(this.y + 85).setVisible(visible&&eligible);
     this.nameLabel.setPosition(this.x, top - 4).setDepth(this.y + 85).setVisible(visible&&eligible);

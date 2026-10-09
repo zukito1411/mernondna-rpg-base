@@ -8,7 +8,7 @@ export class TargetingSystem {
   constructor(private readonly scene:WorldScene){}
   eligible(enemy:Enemy,range=680) {
     const player=this.scene.player;
-    return enemy.active&&enemy.visible&&enemy.hp>0
+    return enemy.active&&enemy.visible&&enemy.hp>0&&enemy.canBeTargeted
       && Math.hypot(enemy.x-player.x,enemy.y-player.y)<=range
       && this.scene.canSeeEnemy(enemy)&&this.scene.hasClearPath(player.x,player.y,enemy.x,enemy.y);
   }

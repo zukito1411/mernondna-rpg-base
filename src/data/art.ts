@@ -1,4 +1,4 @@
-import { HERO_PACK, GUARD_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES, DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
+import { HERO_PACK, GUARD_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,TROLL_SOURCES,DRAGON_SOURCES,DRAGON_FLY_SOURCES,TROLL_IMPACT_SOURCES,DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
 
@@ -10,7 +10,7 @@ import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
-export type ArtTextureKey = 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+export type ArtTextureKey = 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
@@ -24,6 +24,7 @@ interface ArtSheet {
   blackBackground: boolean; sourceSize?: readonly [number, number]; regions?: readonly SpriteRegion[];
 
   density: number; atlasColumns?: number;
+  groundPadding?:number;
 
   sourceInset?: number;
 
@@ -69,6 +70,16 @@ const castSources:SpriteSource[] = [
 ];
 
 export const ART_SHEETS: readonly ArtSheet[] = [
+  {key:'darkav_volcano',path:'assets/sprites/darkav_volcano.png',sourceSize:[1254,1254],columns:1,density:1,
+    frameWidth:1024,frameHeight:1024,blackBackground:false,trimRegions:true,regions:[[0,0,1254,1254]],names:['cinderpeak-volcano']},
+  {key:'darkav_props',path:'assets/sprites/lava_snow.png',columns:4,atlasColumns:4,density:2,
+    frameWidth:320,frameHeight:352,blackBackground:false,
+    sources:[
+      {path:'assets/sprites/lava_snow.png',cell:[475,53,314,350],imageSize:[1254,1254],renderScale:.8,name:'charred-bare-tree'},
+      {path:'assets/sprites/fauna_1.png',cell:[615,572,335,216],imageSize:[1254,1254],renderScale:.8,name:'burnt-fallen-log'},
+      {path:'assets/sprites/fauna_1.png',cell:[979,570,258,223],imageSize:[1254,1254],renderScale:.8,name:'burnt-stump'},
+      {path:'assets/sprites/buildings.png',cell:[500,633,464,390],imageSize:[1448,1086],renderScale:.64,name:'scorched-ruined-arch'},
+    ],names:['charred-bare-tree','burnt-fallen-log','burnt-stump','scorched-ruined-arch']},
   // These are irregular illustrations, not a 3x4 tile grid. Bounds measured
   // from the supplied 1254px originals preserve whole objects (no cut edges).
   {key:'desert_props',path:'assets/sprites/desert_1.png',sourceSize:[1254,1254],columns:12,atlasColumns:4,density:2,frameWidth:256,frameHeight:256,blackBackground:false,
@@ -119,6 +130,14 @@ export const ART_SHEETS: readonly ArtSheet[] = [
   { key:'enemies',path:ENEMY_SOURCES[0].path,columns:ENEMY_SOURCES.length,atlasColumns:10,density:2,frameWidth:96,frameHeight:80,blackBackground:false,
 
     sources:ENEMY_SOURCES,contentSize:[176,158],names:ENEMY_SOURCES.map(source => source.name) },
+  {key:'enemy_troll',path:TROLL_SOURCES[0].path,columns:TROLL_SOURCES.length,atlasColumns:8,density:2,frameWidth:160,frameHeight:128,groundPadding:8,blackBackground:false,
+    sources:TROLL_SOURCES,names:TROLL_SOURCES.map(s=>s.name)},
+  {key:'enemy_dragon',path:DRAGON_SOURCES[0].path,columns:DRAGON_SOURCES.length,atlasColumns:6,density:2,frameWidth:256,frameHeight:224,blackBackground:false,
+    sources:DRAGON_SOURCES,names:DRAGON_SOURCES.map(s=>s.name)},
+  {key:'enemy_dragon_fly',path:DRAGON_FLY_SOURCES[0].path,columns:6,atlasColumns:3,density:2,frameWidth:416,frameHeight:416,groundPadding:64,blackBackground:false,
+    sources:DRAGON_FLY_SOURCES,names:DRAGON_FLY_SOURCES.map(s=>s.name)},
+  {key:'effect_troll_impact',path:TROLL_IMPACT_SOURCES[0].path,columns:4,atlasColumns:4,density:2,frameWidth:96,frameHeight:64,groundPadding:16,blackBackground:false,
+    sources:TROLL_IMPACT_SOURCES,names:TROLL_IMPACT_SOURCES.map(s=>s.name)},
 
   { key: 'world_objects', path: 'assets/sprites/world_objects.png', columns: 4, density: 2, frameWidth: 224, frameHeight: 224, blackBackground: false,
 
@@ -248,15 +267,14 @@ export function actorScaleForHeight(key: ArtTextureKey, frame: number, height: n
 
 }
 
-// Keep feet and gameplay bodies at their old world coordinates even when the
-
-// illustration above them gets larger. Origins are measured in logical units.
+// Artwork feet, gameplay footpoints and depth share world y. Padding remains
+// inside the atlas; do not leave the visible soles twenty pixels below y.
 
 export function actorArtLayout(key: ArtTextureKey) {
 
   const sheet = ART_BY_KEY[key];
 
-  return { originY: (sheet.frameHeight - 2) / sheet.frameHeight,
+  return { originY: (sheet.frameHeight - (sheet.groundPadding??2)) / sheet.frameHeight,
 
     bodyX: sheet.frameWidth / 2 - 9, bodyY: sheet.frameHeight - 24,
 

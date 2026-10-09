@@ -31,4 +31,9 @@ for(const [townId,id,name,description] of [
   ['skallheim','ice-bay-outlook','Frost Harbor','The wyrm’s tracks lead from the frozen sea toward the beacon. Whatever drove it from the ice is still out there.'],
 ] as const){const t=TOWN_BY_ID[townId].world;WILDERNESS_SITES.push({id,name,description,style:'overlook',world:{x:t.x+1900,y:t.y+1700}});}
 const dark=TOWN_BY_ID.blackspire.world;
+for(const [id,name,x,y,description] of [
+  ['darkav:ashwood-watch','Ashwood Watch',-6200,-3400,'Charred trees surround an abandoned watch arch. Its warning bell fell silent when the first ash storm buried the old patrol road.'],
+  ['darkav:burnt-chainworks','The Burnt Chainworks',-3600,4200,'Scorched stone and broken timber mark a furnace outpost abandoned before Vexa reforged the city wards. Ember beds still burn beside the fallen roofs.'],
+  ['darkav:cinder-pilgrim-ruin','Cinder Pilgrims’ Rest',4200,-3000,'The pilgrims once stopped here before approaching the living mountain. Only blackened arches, ash-covered stumps and a few glowing braziers remain.'],
+] as const)WILDERNESS_SITES.push({id,name,description,style:'ruin',world:{x:dark.x+x,y:dark.y+y}});
 WILDERNESS_SITES.push({id:'ash-vent-watch',name:'The Cinder Vent',style:'overlook',world:{x:dark.x+6100,y:dark.y-6500},description:'A deep crack splits the mountain beside the old forge. Black glass glitters in the ash, and the stones around it have been opened from within.'});
