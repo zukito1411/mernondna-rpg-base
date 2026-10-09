@@ -200,7 +200,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if (useGameStore.getState().dialogue) this.panelActions.add('dialogue');
     });
 
-    this.notify('Oakmere is fully walkable. Follow the eastern road, speak to Aldren, and explore beyond the farms.');
+    this.notify('Oakmere is open to explore. Follow the eastern road and speak with Edmund beyond the farms.');
     this.registry.set('worldReady',true);
   }
 
@@ -256,7 +256,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if(objectiveIsCurrent(store.quests,'train','relief-watch')&&standard
         && Math.hypot(this.player.x-standard.x,this.player.y-standard.y)<100&&!this.player.skills.isCasting) {
         this.reliefWatchMs+=Math.min(delta,250);
-        if(this.reliefWatchMs>=12000){store.progressQuest('train','relief-watch');this.notify('Relief stores verified. Return to Captain Yselle.');}
+        if(this.reliefWatchMs>=12000){store.progressQuest('train','relief-watch');this.notify('The storehouse is safe. Return to Captain Isabel.');}
       }else this.reliefWatchMs=0;
     } else {
       this.player.discardActions();
@@ -735,7 +735,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const repairing=definition.id==='clue:cibar-pump'&&(store.quests['water-stops']?.objectiveProgress.decision??0)>=1;
       store.progressQuest(definition.questEventType,definition.questTargetId);
       if(repairing){store.setStoryFlag('cibar-irrigation-repaired');if(actor instanceof Phaser.GameObjects.Sprite)actor.setTint(0xc9f2ed);}
-      store.setContentWorld(this.contentManager.snapshot());this.notify(repairing?'Asha’s fittings restore the pump. The shared water turns are running again.':definition.description);return;
+      store.setContentWorld(this.contentManager.snapshot());this.notify(repairing?'The new fittings set the pump running, and water flows to the fields again.':definition.description);return;
     }
     if (definition.townShrineId) {
       this.contentManager.patchState(definition.id,{ used:true });

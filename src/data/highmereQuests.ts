@@ -3,9 +3,9 @@ import type { QuestDefinition } from '../game/types';
 export const HIGHMERE_QUESTS:QuestDefinition[] = [
   {
     "id": "shadows-highmere",
-    "name": "Shadows Beneath Highmere",
+    "name": "The Empty Granary",
     "giverNpcId": "mairin-reed",
-    "summary": "Missing dockworkers and stolen relief grain expose a false requisition trail linking the Lower Ward to the crown stores. Mairin asks for evidence, not revenge.",
+    "summary": "Flour meant for Oakmere has vanished, and Tovin Reed has not come home. Mairin believes the missing carter found the truth behind the theft—and that someone in Highmere wants him silenced.",
     "rewardGold": 140,
     "rewardXp": 360,
     "objectives": [
@@ -14,10 +14,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "mairin-reed",
         "amount": 1,
-        "text": "Hear Mairin’s account at the Lower Ward kitchen.",
+        "text": "Find out why Tovin vanished from the Lower Ward kitchen.",
         "dialogue": [
-          "Tovin has not come home in three nights. The guard calls him a thief, but he was carrying grain to my kitchen.",
-          "Find the torn delivery receipt at the shared well. Bring facts before you bring soldiers."
+          "Tovin has been gone three nights. They call him a thief, but he was carrying flour to feed our neighbors.",
+          "Find the torn waybill by the well. If it bears the mark I fear, someone has stolen more than a cartload."
         ]
       },
       {
@@ -26,17 +26,17 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "clue:grain-receipt",
         "contentId": "clue:grain-receipt",
         "amount": 1,
-        "text": "Examine the torn grain receipt near the Lower Ward well."
+        "text": "Search beside the Lower Ward well for the torn waybill."
       },
       {
         "id": "customs",
         "type": "talk",
         "targetId": "davin-bridge",
         "amount": 1,
-        "text": "Ask Davin to compare the torn receipt with his bridge ledger.",
+        "text": "Ask the bridge warden what he remembers about the missing flour cart.",
         "dialogue": [
-          "That seal is real. The cargo date is not. Sevrin’s office requisitioned grain after the wagon had already crossed.",
-          "Pell Rusk knows the yard where those wagons vanished. I cannot leave my desk without warning the office."
+          "The crown's mark is true, but the date was scratched in later. That cart never reached the palace storehouse.",
+          "Pell Rusk saw where it turned aside. I dare not leave my post; the man who changed that mark may still be watching."
         ]
       },
       {
@@ -44,21 +44,21 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "choice",
         "targetId": "pell-rusk",
         "amount": 1,
-        "text": "Gain Pell’s cooperation without frightening the witness.",
+        "text": "Win Pell's trust and learn where Tovin is hiding.",
         "dialogue": [
           "You brought a guard’s sword into our lane. Tell me why I should lead you to Tovin."
         ],
         "choices": [
           {
             "id": "protect",
-            "text": "I will protect Tovin and follow the evidence.",
-            "response": "Then follow the lane to the abandoned weighhouse. Keep your sword sheathed.",
+            "text": "I will keep Tovin safe. Show me where he is.",
+            "response": "The old weighhouse, beyond the south lane. Go quietly; the watch there takes orders from Sevrin.",
             "flag": "witness-protected"
           },
           {
             "id": "warrant",
-            "text": "The truth deserves a public hearing, not a beating.",
-            "response": "A hearing, then. I will hold you to those words.",
+            "text": "No one will lay a hand on him. Highmere will hear his story.",
+            "response": "Then I will take you there. Remember your promise when the guards arrive.",
             "flag": "witness-public-hearing"
           }
         ]
@@ -69,7 +69,7 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "clue:weighhouse-ledger",
         "contentId": "clue:weighhouse-ledger",
         "amount": 1,
-        "text": "Discover the hidden requisition ledger at the abandoned weighhouse.",
+        "text": "Search the abandoned weighhouse for the hidden grain tally.",
         "cinematicId": "lower-meeting"
       },
       {
@@ -77,10 +77,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "tovin-reed",
         "amount": 1,
-        "text": "Find Tovin hiding beside the weighhouse.",
+        "text": "Find Tovin hiding beside the old weighhouse.",
         "dialogue": [
-          "I saw the deputy’s seal on grain marked for Oakmere. They told me to burn the kitchen receipts.",
-          "I kept the ledger. I will testify, but I cannot cross the ward alone."
+          "I saw Sevrin's mark on the flour sacks. His men told me to burn the waybill.",
+          "I found their tally hidden under a loose stone. I will tell the truth, but I cannot cross the ward alone."
         ]
       },
       {
@@ -89,17 +89,17 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "tovin-reed",
         "contentId": "npc:tovin-reed",
         "amount": 1,
-        "text": "Escort Tovin along the Lower Ward lanes to Mairin’s kitchen."
+        "text": "Lead Tovin safely through the Lower Ward to Mairin's kitchen."
       },
       {
         "id": "confront",
         "type": "talk",
         "targetId": "sevrin-hale",
         "amount": 1,
-        "text": "Confront Sevrin with the witness and matching ledgers.",
+        "text": "Face Sevrin with Tovin and the hidden tally.",
         "dialogue": [
-          "The relief stock was diverted under emergency authority. A city must protect its own interests.",
-          "You have two ledgers and a living witness. Take them to the archivist, if you insist on making this public."
+          "I kept the grain for Highmere. A city must look to its own before it feeds every village on the road.",
+          "You have a frightened carter and a scrap of marks. Take them to Renna, if you mean to make a spectacle of this."
         ]
       },
       {
@@ -107,21 +107,21 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "choice",
         "targetId": "mairin-reed",
         "amount": 1,
-        "text": "Decide how the recovered evidence should be handled.",
+        "text": "Decide how Highmere should answer for the stolen grain.",
         "dialogue": [
-          "Tovin is home. Now tell me whether the city will hear him."
+          "Tovin is home. Now tell me who should hear what he saw."
         ],
         "choices": [
           {
             "id": "public",
-            "text": "Publish the ledgers and protect every witness.",
-            "response": "Renna will open the records. No kitchen should have to beg in secret.",
+            "text": "Tell the whole story in the town square.",
+            "response": "Renna will speak before the people, and Tovin can tell them what he saw. No kitchen should beg in secret.",
             "flag": "grain-public-inquiry"
           },
           {
             "id": "guard",
-            "text": "Give Yselle the evidence for a guarded prosecution.",
-            "response": "I will trust her watch if it keeps Tovin safe. Let the kitchens see the stock tallies.",
+            "text": "Have Captain Yselle guard Tovin and seize the stolen grain.",
+            "response": "I will trust her watch if it keeps Tovin safe. Let the flour go to the kitchens before another cart leaves.",
             "flag": "grain-guarded-inquiry"
           }
         ],
@@ -131,9 +131,9 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
   },
   {
     "id": "royal-guard-trial",
-    "name": "The Royal Guard’s Trial",
+    "name": "The Captain's Trial",
     "giverNpcId": "captain-yselle-ward",
-    "summary": "Yselle tests Aldren’s pupil through disciplined drills, an interrupted supply inspection and a relief-store watch. Skill without judgment is not enough.",
+    "summary": "Captain Yselle will not trust a sword arm alone. Prove your skill in the yard, then help the watch uncover how a stolen wagon slipped through Highmere after dark.",
     "rewardGold": 120,
     "rewardXp": 320,
     "objectives": [
@@ -142,10 +142,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "captain-yselle-ward",
         "amount": 1,
-        "text": "Accept Yselle’s instructions at the western watch.",
+        "text": "Hear Captain Yselle's challenge at the western watch.",
         "dialogue": [
-          "Aldren taught you to survive. Caldus will see whether you can keep others alive.",
-          "Report to the drill ground. No live steel aimed at citizens, and no glory at their expense."
+          "Aldren taught you to survive. Sir Caldus will see whether you can keep others safe.",
+          "Meet him in the yard. Keep your blade from the townsfolk, and your pride out of the way."
         ]
       },
       {
@@ -153,10 +153,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "ser-caldus-rowe",
         "amount": 1,
-        "text": "Meet Caldus beside the military drill ground.",
+        "text": "Meet Sir Caldus beside the practice yard.",
         "dialogue": [
-          "Control first. Show me a sword stroke, a measured dash, and Azure Cleave within this yard.",
-          "The practice targets do not need to die to teach you something."
+          "Show me a clean sword stroke, a quick dash, and Azure Cleave. Do it without striking anyone outside the yard.",
+          "The straw dummies are brave enough to take the blows. Save your strength for the road."
         ]
       },
       {
@@ -165,7 +165,7 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "drill-sword",
         "contentId": "training:highmere-target",
         "amount": 3,
-        "text": "Land three practice sword strokes in the drill yard."
+        "text": "Strike the practice dummy three times."
       },
       {
         "id": "dash",
@@ -173,7 +173,7 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "drill-dash",
         "contentId": "training:highmere-target",
         "amount": 2,
-        "text": "Perform two controlled dashes within the drill yard."
+        "text": "Dash across the yard twice without leaving its bounds."
       },
       {
         "id": "art",
@@ -181,17 +181,17 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "azure-cleave",
         "contentId": "training:highmere-target",
         "amount": 1,
-        "text": "Demonstrate Azure Cleave inside the drill yard."
+        "text": "Show Sir Caldus Azure Cleave in the yard."
       },
       {
         "id": "stores",
         "type": "talk",
         "targetId": "barric-thorne",
         "amount": 1,
-        "text": "Inspect the suspicious quartermaster seal with Barric.",
+        "text": "Ask the keeper of the king's stores about a wagon that vanished at dusk.",
         "dialogue": [
-          "The relief seal has been used twice, but only one wagon left. Someone is using training hours to move the other load.",
-          "Read the three marks at the armory board. Their order tells the watch which store to inspect."
+          "I heard wheels after the west gate was barred. By dawn, a wagon was gone and the watch swore it had never passed.",
+          "The old signal board shows where the guards stood that night. Read the marks, and we may find which way the wagon went."
         ]
       },
       {
@@ -200,29 +200,29 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "clue:watch-signals",
         "contentId": "clue:watch-signals",
         "amount": 1,
-        "text": "Read the armory’s watch-signal board."
+        "text": "Examine the old watch board in the armory."
       },
       {
         "id": "decode",
         "type": "puzzle",
         "targetId": "ser-caldus-rowe",
         "amount": 1,
-        "text": "Tell Caldus the correct watch-signal order.",
+        "text": "Tell Sir Caldus where the watch stood through the day.",
         "dialogue": [
-          "What is the order on the altered watch board? Read the oldest mark first: dawn grain tally, noon bridge inspection, evening relief muster."
+          "The marks were made at dawn, noon, and dusk. Where was the watch sent first, and where did it leave the road unguarded?"
         ],
         "choices": [
           {
             "id": "correct",
-            "text": "Grain tally → bridge inspection → relief muster.",
-            "response": "Correct. Take this warning to Iven before the evening load leaves.",
+            "text": "East gate → river bridge → old storehouse.",
+            "response": "That's it. The guards were drawn away from the old storehouse. Take word to Iven before nightfall.",
             "flag": "watch-code-decoded",
             "correct": true
           },
           {
             "id": "wrong",
-            "text": "Relief muster → grain tally → bridge inspection.",
-            "response": "That would leave the stores unwatched at dawn. Read the dated marks again.",
+            "text": "Old storehouse → east gate → river bridge.",
+            "response": "No. That would leave the east road open first. Look again at the marks and their order.",
             "flag": "",
             "correct": false
           }
@@ -233,9 +233,9 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "deliver",
         "targetId": "iven-harrow",
         "amount": 1,
-        "text": "Deliver the sealed warning to Iven at the relief warehouse.",
+        "text": "Warn Iven at the old storehouse before the next wagon arrives.",
         "dialogue": [
-          "Barric’s seal? I will lock the second load and count it in front of witnesses. Stand by the yard while I check the stores."
+          "So that is why they sent the watch away. Stay here with me; if another wagon comes, we will meet it at the gate."
         ]
       },
       {
@@ -244,17 +244,17 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "relief-watch",
         "contentId": "watch:relief-yard",
         "amount": 1,
-        "text": "Hold the marked relief watch for twelve seconds without leaving."
+        "text": "Keep watch at the storehouse until Iven finishes his search."
       },
       {
         "id": "report",
         "type": "talk",
         "targetId": "captain-yselle-ward",
         "amount": 1,
-        "text": "Report the secured supplies to Yselle.",
+        "text": "Tell Captain Yselle the storehouse is safe.",
         "dialogue": [
-          "You kept a kitchen supplied without starting a riot. That is service.",
-          "The guard will keep the public tally open. Aldren should hear what his pupil accomplished."
+          "You stood your ground without drawing blood. That is the sort of strength I can trust.",
+          "The stolen flour is safe, and the watch has its honor back. Aldren will be glad to hear it."
         ],
         "cinematicId": "guard-muster"
       }
@@ -262,10 +262,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
   },
   {
     "id": "kingdom-divided",
-    "name": "A Kingdom Divided",
+    "name": "The King's Bread",
     "giverNpcId": "renna-vale",
     "prerequisiteQuestId": "shadows-highmere",
-    "summary": "The grain inquiry pits merchant privilege against hungry households. Renna asks Leigneron to gather both sides, carry a joint petition and choose an enforceable reform.",
+    "summary": "The stolen grain is found, but Highmere's kitchens are still hungry. Hear the merchants and the workers, then help Lady Matilda choose how the crown will feed the city before winter closes the roads.",
     "rewardGold": 180,
     "rewardXp": 450,
     "objectives": [
@@ -274,10 +274,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "renna-vale",
         "amount": 1,
-        "text": "Discuss the grain inquiry with Renna.",
+        "text": "Ask Renna how Highmere can keep its kitchens fed.",
         "dialogue": [
-          "Evidence can expose one official. A fair rule can outlive him.",
-          "Speak to Maela and Nella before drafting a petition. A reform nobody can obey is another kind of cruelty."
+          "One thief can be punished. That will not fill an empty bowl.",
+          "Hear Beatrice at the market and Agnes among the workers. Then we can ask Lady Matilda to make good the crown's promise."
         ]
       },
       {
@@ -285,10 +285,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "maela-quill",
         "amount": 1,
-        "text": "Hear Maela’s merchant case.",
+        "text": "Hear Beatrice's fears for the market.",
         "dialogue": [
-          "Without reserves, a ruined bridge empties every stall. Without public accounts, reserves become a hiding place.",
-          "I can support published tallies and guaranteed bread if the crown shares transport costs."
+          "If the wagons stop, the stalls go bare. But what good is a full storehouse if its doors stay shut?",
+          "I will help carry flour to the kitchens, if the crown shares the burden with the market."
         ]
       },
       {
@@ -296,10 +296,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "nella-harrow",
         "amount": 1,
-        "text": "Hear Nella’s account of worker prices.",
+        "text": "Ask Agnes what the missing grain has meant to the workers.",
         "dialogue": [
-          "A cart delayed is an inconvenience for the hall. It is a missed meal here.",
-          "Put the household ration in writing. Not a favor, not a season’s promise."
+          "A late cart is a small matter in the castle. Here, it means a child goes to bed hungry.",
+          "We do not ask for a feast. Only enough bread to see us through the cold."
         ]
       },
       {
@@ -308,17 +308,17 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "targetId": "clue:relief-tally",
         "contentId": "clue:relief-tally",
         "amount": 1,
-        "text": "Compare the physical relief stock with the published tally."
+        "text": "Search the storehouse and see how much grain remains for the hungry."
       },
       {
         "id": "petition",
         "type": "deliver",
         "targetId": "lady-adria-vale",
         "amount": 1,
-        "text": "Carry the signed petition to Adria at the castle audience steps.",
+        "text": "Take the words of the market and the kitchens to Lady Matilda.",
         "dialogue": [
-          "The signatures cross the river and the wards. That matters more than the number of seals.",
-          "Tell me which obligation the crown should enforce first."
+          "You have brought the voices of the market and the kitchens together. That is worth more than a chest of gold.",
+          "Tell me, then: how should the crown see the people through winter?"
         ]
       },
       {
@@ -326,21 +326,21 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "choice",
         "targetId": "lady-adria-vale",
         "amount": 1,
-        "text": "Choose a binding relief reform at the royal audience.",
+        "text": "Choose how the crown will feed Highmere through winter.",
         "dialogue": [
-          "This decision will change the city’s public accounts and who supervises the kitchens."
+          "The road will soon freeze. There is little time to choose."
         ],
         "choices": [
           {
             "id": "charter",
-            "text": "Guarantee household rations under a public relief charter.",
-            "response": "The household charter will be posted in the Lower Ward. Kitchens receive a guaranteed allotment.",
+            "text": "Open the crown granaries and feed every household.",
+            "response": "The granaries will open at dawn. Let every family take enough to last through the first snow.",
             "flag": "relief-household-charter"
           },
           {
             "id": "joint",
-            "text": "Create a joint merchant-worker council with open accounts.",
-            "response": "Maela and Nella will sit together. Every reserve entry will be open to inspection.",
+            "text": "Have the market and the kitchens share the food and the work.",
+            "response": "Beatrice and Agnes will see the wagons divided fairly. Highmere will stand together this winter.",
             "flag": "relief-joint-council"
           }
         ],
@@ -351,10 +351,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "mairin-reed",
         "amount": 1,
-        "text": "Return to Mairin and explain the enacted reform.",
+        "text": "Tell Mairin how the crown will feed the city.",
         "dialogue": [
-          "No more erased entries? Then we can plan meals instead of pleading for them.",
-          "Tovin is taking honest loads again. The people will remember whether the promise holds."
+          "The ovens can burn again, then. You have given folk more than bread—you have given them a reason to hope.",
+          "Tovin is carrying the first flour cart at dawn. He says the road feels less dark already."
         ]
       },
       {
@@ -362,10 +362,10 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "type": "talk",
         "targetId": "renna-vale",
         "amount": 1,
-        "text": "Close the petition with Renna and record the city’s decision.",
+        "text": "Return to Renna and learn what the old tally has revealed.",
         "dialogue": [
-          "Aldren records roads that stay open. I record promises that survive their makers.",
-          "Your decision is entered into the charter, Leigneron. Now we have to live by it."
+          "The hidden tally bears a mark I have seen before—in an old tale of the blight. This theft reaches farther than Highmere.",
+          "You gave the city its bread. Now take this mark to Edmund. He will know where the trail leads."
         ],
         "cinematicId": "city-resolution"
       }

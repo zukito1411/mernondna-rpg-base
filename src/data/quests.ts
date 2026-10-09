@@ -2,6 +2,8 @@ import type { QuestDefinition } from '../game/types';
 import { HIGHMERE_QUESTS } from './highmereQuests';
 import { CIBAR_QUEST } from './cibarQuests';
 import {CROWN_SUMMONS,regionalMainObjectives} from './mainStory';
+import { NPC_NAME_ALIASES } from './npcs';
+import { rewriteNpcMentions } from './npcPresentation';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -42,6 +44,9 @@ QUESTS.splice(1,0,CROWN_SUMMONS);
 const regional=QUESTS.find(q=>q.id==='eight-regions')!;
 regional.objectives=regionalMainObjectives(regional.objectives);
 regional.prerequisiteQuestId='crown-summons';
-regional.summary='Carry Highmere’s public inquiry through the mainland and sea regions: hear local witnesses, examine ward records, confront the responsible threats and bring their needs back to the capital.';
+regional.summary='Follow the strange signs from Highmere across the mainland and sea. Face the creatures that haunt the old roads, learn what woke them, and bring the people’s warnings home to Oakmere.';
 QUESTS.push(...HIGHMERE_QUESTS,CIBAR_QUEST);
+for (let i = 0; i < QUESTS.length; i += 1) {
+  QUESTS[i] = rewriteNpcMentions(QUESTS[i], NPC_NAME_ALIASES);
+}
 export const QUEST_BY_ID = Object.fromEntries(QUESTS.map((quest) => [quest.id, quest])) as Record<string, QuestDefinition>;

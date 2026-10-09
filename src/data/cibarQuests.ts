@@ -3,7 +3,7 @@ export const CIBAR_QUEST:QuestDefinition={
   "id": "water-stops",
   "name": "When the Water Stops",
   "giverNpcId": "celia-brook",
-  "summary": "A failed irrigation pump threatens the southern seed allotment. Trace the failure, recover stored fittings, and decide how the repaired system should serve the families who rely on it.",
+  "summary": "The shared well has run dry, and the fields are turning brown. Find the missing pieces, mend the old pump, and help the growers share the water.",
   "rewardGold": 75,
   "rewardXp": 180,
   "objectives": [
@@ -12,10 +12,10 @@ export const CIBAR_QUEST:QuestDefinition={
       "type": "talk",
       "targetId": "celia-brook",
       "amount": 1,
-      "text": "Hear Celia’s account of the dry irrigation turns.",
+      "text": "Speak with Celia beside the dry fields.",
       "dialogue": [
-        "The pump stopped before the eastern plots were watered. If the seed stock is used as wages, we will repair the channel and still go hungry.",
-        "Inspect the pump. Iren marked the storage caches; Asha needs the fittings, not a new battle."
+        "The pump stopped before the eastern fields were watered. If we trade away our seed to buy water, we will have nothing to plant.",
+        "Look at the pump, then find Iren. Asha can mend it if we bring her the missing pieces."
       ]
     },
     {
@@ -24,17 +24,17 @@ export const CIBAR_QUEST:QuestDefinition={
       "targetId": "cibar-pump",
       "contentId": "clue:cibar-pump",
       "amount": 1,
-      "text": "Inspect the irrigation pump beside the shared well."
+      "text": "Examine the old pump beside the shared well."
     },
     {
       "id": "field-report",
       "type": "talk",
       "targetId": "iren-copperwake",
       "amount": 1,
-      "text": "Compare Iren’s field report with the pump damage.",
+      "text": "Ask Iren what she saw near the pump.",
       "dialogue": [
-        "The intake was blocked, not broken by an animal. Someone held back the copper fittings to raise the price of water.",
-        "The three marked stores still contain the pieces we need. Take one fitting from each and deliver them to Asha."
+        "The pump was stopped by a hand, not a beast. Someone hid the copper pieces so we would pay dearly for every drop.",
+        "I hid spares in three old stores. Find them, and Asha can set the water running again."
       ]
     },
     {
@@ -42,17 +42,17 @@ export const CIBAR_QUEST:QuestDefinition={
       "type": "collect",
       "targetId": "cibar-fitting",
       "amount": 3,
-      "text": "Recover fittings from the grain, west-field and east-field stores."
+      "text": "Search the three old stores for the pump fittings."
     },
     {
       "id": "delivery",
       "type": "deliver",
       "targetId": "asha-stonevein",
       "amount": 1,
-      "text": "Deliver the three fittings to Asha.",
+      "text": "Bring the fittings to Asha at the well.",
       "dialogue": [
-        "Every seal is intact. They were stockpiled while the families waited. I can repair this without taking a single seed sack.",
-        "Should the water turns be managed as a public allotment or by the growers’ cooperative?"
+        "These are the right pieces. I can mend the pump without taking a single seed sack.",
+        "When the water flows again, who should see that every field gets its turn?"
       ]
     },
     {
@@ -60,21 +60,21 @@ export const CIBAR_QUEST:QuestDefinition={
       "type": "choice",
       "targetId": "celia-brook",
       "amount": 1,
-      "text": "Choose who will keep the shared water-turn records.",
+      "text": "Choose how the growers will share the water.",
       "dialogue": [
-        "Both groups can maintain the pump. The question is who can be held to account when the fields are dry."
+        "Every family needs water, and every family must have a say."
       ],
       "choices": [
         {
           "id": "public",
-          "text": "Post a public household water-turn schedule.",
-          "response": "The turns will be posted beside the well for every family to inspect.",
+          "text": "Set the turns together at the village well.",
+          "response": "We will meet at the well each week and make sure no field is forgotten.",
           "flag": "cibar-public-water"
         },
         {
           "id": "cooperative",
-          "text": "Let the growers’ cooperative keep open records.",
-          "response": "Iren and the growers will rotate the keeper. The tally remains open to everyone.",
+          "text": "Let the growers take turns tending the pump.",
+          "response": "Iren and the growers will share the work. The water belongs to all of us.",
           "flag": "cibar-growers-cooperative"
         }
       ]
@@ -85,17 +85,17 @@ export const CIBAR_QUEST:QuestDefinition={
       "targetId": "cibar-pump",
       "contentId": "clue:cibar-pump",
       "amount": 1,
-      "text": "Return to the pump and install Asha’s repaired fittings."
+      "text": "Fit the new pieces and start the pump."
     },
     {
       "id": "return",
       "type": "talk",
       "targetId": "celia-brook",
       "amount": 1,
-      "text": "Report the restored irrigation to Celia.",
+      "text": "Tell Celia the water is flowing again.",
       "dialogue": [
-        "The turns are running again, and the seed reserve is still seed. That is a repair worth remembering.",
-        "Tell Nella the southern plots will send their promised grain. We will not forget who kept the road honest."
+        "Listen—the water is running again. We can plant before the sun dries the earth.",
+        "Tell Agnes we will share our harvest with Oakmere. Folk who stand by us in hard times deserve our thanks."
       ]
     }
   ]

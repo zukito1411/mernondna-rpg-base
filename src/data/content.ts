@@ -1,6 +1,7 @@
 import type { ContentDefinition, ContentState } from '../game/types';
 import { BOSSES, ENEMY_BY_ID } from './enemies';
-import { NPCS, NPC_BY_ID } from './npcs';
+import { NPCS, NPC_BY_ID, NPC_NAME_ALIASES } from './npcs';
+import { rewriteNpcMentions } from './npcPresentation';
 import { TOWNS, TOWN_BY_ID } from './towns';
 import { WORLD_ASSET_FRAMES as PROPS } from './art';
 import { FARM_PLOTS } from './landmarks';
@@ -57,19 +58,19 @@ for (const layout of SETTLEMENT_LAYOUTS) {
 const highmere = TOWN_BY_ID.highmere;
 const cibar=TOWN_BY_ID['cibar-plains'].world;
 WORLD_CONTENT.push({id:'clue:cibar-pump',kind:'interactable',world:{x:cibar.x-360,y:cibar.y+190},texture:'others',frame:10,scale:.6,name:'Shared irrigation pump',
-  description:'The intake is obstructed and the copper coupling is missing. Iren’s field report can identify the stored fittings.',repeatText:'The shared pump awaits its repaired fittings.',questTargetId:'cibar-pump',questEventType:'investigate',repeatable:true});
+  description:'The intake is blocked and a copper fitting is gone. Iren knows where the spare pieces were hidden.',repeatText:'The shared pump awaits its repaired fittings.',questTargetId:'cibar-pump',questEventType:'investigate',repeatable:true});
 for(const [index,[x,y]] of [[-870,-100],[-1080,1040],[1040,1070]].entries())WORLD_CONTENT.push({
   id:'collect:cibar-fitting:'+index,kind:'loot-container',world:{x:cibar.x+x,y:cibar.y+y},texture:'others',frame:9,scale:.5,name:['Grain-store fitting','West-field fitting','East-field fitting'][index],
   description:'You recover a sealed copper fitting for Asha’s irrigation repair.',repeatText:'This store’s fitting has already been recovered.',questTargetId:'cibar-fitting',questEventType:'collect',requiredQuestId:'water-stops',
 });
 const cityPoint=(x:number,y:number)=>({x:highmere.world.x+x,y:highmere.world.y+y});
 WORLD_CONTENT.push(
-  {id:'clue:grain-receipt',kind:'interactable',world:cityPoint(-1640,1700),texture:'others',frame:6,scale:.65,name:'Lower Ward receipt',description:'A torn kitchen receipt carries Sevrin Hale’s grain-office seal. Its date is later than the river toll entry.',repeatText:'The receipt is recorded in your journal.',questTargetId:'clue:grain-receipt',questEventType:'investigate',repeatable:true},
-  {id:'clue:weighhouse-ledger',kind:'interactable',world:cityPoint(-2250,2340),texture:'others',frame:9,scale:.55,name:'Hidden requisition ledger',description:'The hidden ledger lists grain diverted from Oakmere relief wagons. Tovin’s signature was copied, not written.',repeatText:'The forged requisitions are recorded.',questTargetId:'clue:weighhouse-ledger',questEventType:'investigate',repeatable:true},
-  {id:'clue:watch-signals',kind:'interactable',world:cityPoint(-1960,-250),texture:'others',frame:11,scale:.6,name:'Armory watch-signal board',description:'Dawn: grain tally. Noon: bridge inspection. Evening: relief muster. The latest orders have reversed the dated sequence.',repeatText:'Oldest first: grain tally, bridge inspection, relief muster.',questTargetId:'clue:watch-signals',questEventType:'investigate',repeatable:true},
-  {id:'clue:relief-tally',kind:'interactable',world:cityPoint(1790,2190),texture:'others',frame:11,scale:.55,name:'Public relief stock tally',description:'Physical stock and delivery records agree when the forged requisitions are removed. Both wards can be supplied if reserves are public.',repeatText:'The physical tally supports a public relief agreement.',questTargetId:'clue:relief-tally',questEventType:'investigate',repeatable:true},
-  {id:'training:highmere-target',kind:'interactable',world:cityPoint(-1780,-320),texture:'others',frame:12,scale:.6,name:'Royal practice standard',description:'Caldus’s drill yard: three sword strokes, two dashes, then Azure Cleave. Training counts only within reach of this yard, not against citizens.',repeatText:'Practice within the marked drill yard.',repeatable:true},
-  {id:'watch:relief-yard',kind:'interactable',world:cityPoint(2190,2090),texture:'others',frame:12,scale:.6,name:'Relief watch standard',description:'Hold the watch beside the marked yard for twelve seconds while Iven verifies the supplies.',repeatText:'The relief stores are kept under witness.',repeatable:true},
+  {id:'clue:grain-receipt',kind:'interactable',world:cityPoint(-1640,1700),texture:'others',frame:6,scale:.65,name:'Torn waybill',description:'The torn waybill bears the royal grain seal. Its date was scratched in after the flour cart crossed the river.',repeatText:'The torn waybill is tucked safely away.',questTargetId:'clue:grain-receipt',questEventType:'investigate',repeatable:true},
+  {id:'clue:weighhouse-ledger',kind:'interactable',world:cityPoint(-2250,2340),texture:'others',frame:9,scale:.55,name:'Charred grain tally',description:'Behind a loose stone is a list of the stolen flour sacks. Tovin’s name was forged beside the royal seal.',repeatText:'The hidden tally points to the stolen flour.',questTargetId:'clue:weighhouse-ledger',questEventType:'investigate',repeatable:true},
+  {id:'clue:watch-signals',kind:'interactable',world:cityPoint(-1960,-250),texture:'others',frame:11,scale:.6,name:'Old watch board',description:'The marks send the guards to the east gate at dawn, the river bridge at noon, and the old storehouse at dusk. The order reveals which road was left open.',repeatText:'East gate at dawn, river bridge at noon, old storehouse at dusk.',questTargetId:'clue:watch-signals',questEventType:'investigate',repeatable:true},
+  {id:'clue:relief-tally',kind:'interactable',world:cityPoint(1790,2190),texture:'others',frame:11,scale:.55,name:'Granary count',description:'The sacks left in the storehouse are enough to feed both wards through the first snow—if the doors are opened.',repeatText:'There is enough grain to feed the city.',questTargetId:'clue:relief-tally',questEventType:'investigate',repeatable:true},
+  {id:'training:highmere-target',kind:'interactable',world:cityPoint(-1780,-320),texture:'others',frame:12,scale:.6,name:'Practice dummy',description:'Use this yard to practise three sword strikes, two dashes, and Azure Cleave. Keep your blade away from the townsfolk.',repeatText:'Practise inside the yard.',repeatable:true},
+  {id:'watch:relief-yard',kind:'interactable',world:cityPoint(2190,2090),texture:'others',frame:12,scale:.6,name:'Storehouse watch',description:'Keep watch beside the storehouse while Iven checks the stolen flour.',repeatText:'The storehouse is safe for now.',repeatable:true},
 );
 // More detail follows authored district functions; the existing clearance pass
 // still checks full art bounds before admitting these roadside objects.
@@ -214,6 +215,9 @@ for(const site of WILDERNESS_SITES){
     scale:site.style==='ruin'?.8:.65,solid:site.style==='ruin'});
 }
 WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS);
+for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
+  WORLD_CONTENT[i] = rewriteNpcMentions(WORLD_CONTENT[i], NPC_NAME_ALIASES);
+}
 export const CONTENT_BY_ID = Object.fromEntries(WORLD_CONTENT.map(d => [d.id, d])) as Record<string, ContentDefinition>;
 export function initialContentState(definition: ContentDefinition): ContentState {
   return { ...definition.world,

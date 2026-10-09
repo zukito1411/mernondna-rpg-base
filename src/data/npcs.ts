@@ -3,6 +3,7 @@ import { CAPITAL_RESIDENTS, REGIONAL_WORKERS } from './capitalResidents';
 import { CIBAR_RESIDENTS } from './cibarResidents';
 import { WARD_RESIDENTS } from './wardResidents';
 import {ROAD_RESIDENTS} from './roadResidents';
+import { prepareNpcPresentation } from './npcPresentation';
 
 export const NPCS: NpcDefinition[] = [
   {
@@ -206,4 +207,5 @@ const capitalRoutines:Record<string,Array<{x:number;y:number}>>={
   'tamsin-reed':[{x:-1390,y:55},{x:-120,y:90},{x:-1390,y:55}],
 };
 for(const npc of NPCS) if(capitalRoutines[npc.id])npc.schedule=npc.schedule.map((p,i)=>({...p,location:capitalRoutines[npc.id][i]}));
+export const NPC_NAME_ALIASES = prepareNpcPresentation(NPCS);
 export const NPC_BY_ID = Object.fromEntries(NPCS.map((npc) => [npc.id, npc])) as Record<string, NpcDefinition>;

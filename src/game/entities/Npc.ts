@@ -104,7 +104,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       if(Math.hypot(this.x-scene.player.x,this.y-scene.player.y)>210){body.setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);return;}
       if(Math.hypot(this.x-this.escortGoal.x,this.y-this.escortGoal.y)<28){
         this.escortGoal=null;this.route=[];this.target=null;this.routineAnchor={x:this.x,y:this.y};
-        useGameStore.getState().progressQuest('escort',this.definition.id);scene.notify('Tovin reaches the kitchen safely.');
+        useGameStore.getState().progressQuest('escort',this.definition.id);scene.notify(`${this.definition.name} reaches the kitchen safely.`);
       }else if(!this.target&&!this.route.length)this.route=npcStreetRoute(this.definition.townId,toLocal(this),toLocal(this.escortGoal),(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
     } else {
       const hour=scene.getWorldHour(),schedule=[...this.definition.schedule].sort((a,b)=>a.startHour-b.startHour);

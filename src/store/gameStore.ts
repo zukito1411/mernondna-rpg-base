@@ -195,12 +195,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
-    const outcome=state.storyFlags['relief-household-charter']?'The household relief charter is posted. The kitchen allotment is guaranteed.':state.storyFlags['relief-joint-council']?'Maela and Nella now share the relief council. The stock accounts are public.':null;
+    const outcome=state.storyFlags['relief-household-charter']?'The crown granaries are open. Every household will have bread through winter.':state.storyFlags['relief-joint-council']?'The market and the kitchens now share the stores. Highmere will face winter together.':null;
     const localOutcome=npc.townId==='cibar-plains'&&state.storyFlags['cibar-irrigation-repaired']?
-      state.storyFlags['cibar-public-water']?'The pump is repaired. Every household’s water turn is posted at the well.':'The pump is repaired. The growers’ cooperative keeps its records open.':null;
-    const charter=state.quests['crown-summons']?.status==='completed'&&npc.townId==='highmere'?
-      state.storyFlags['main-public-reports']?'Renna’s regional reports are public. The kitchens and guilds can check what the crown has promised.':state.storyFlags['main-watch-reports']?'The roadwarden watch now witnesses the regional inquiry. Relief ledgers stay open to the households.':'The regional findings are recorded at Crown Hall. The capital must answer for the roads it guarantees.':null;
-    const lines=context?.objective.dialogue ?? (charter?[charter,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
+      state.storyFlags['cibar-public-water']?'The pump is mended, and every family has its turn at the well.':'The pump is mended. The growers take turns tending it.':null;
+    const highmereOutcome=state.quests['crown-summons']?.status==='completed'&&npc.townId==='highmere'?
+      state.storyFlags['main-public-reports']?'The warning has been spoken in every town square. Folk are watching the old roads.':state.storyFlags['main-watch-reports']?'The riders carry the warning from town to town, unseen by the danger.':'The signs from the far roads have reached Highmere. The crown knows what threatens them.':null;
+    const lines=context?.objective.dialogue ?? (highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
     set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
     if(context && ['talk','deliver'].includes(context.objective.type)) get().progressQuest(context.objective.type,npcId);
   },
