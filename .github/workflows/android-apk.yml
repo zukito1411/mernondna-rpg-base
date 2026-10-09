@@ -38,7 +38,7 @@ jobs:
         run: |
           npm ci
           npm run test:types
-          npm test -- tests/dragonBreath.test.ts tests/passageStory.test.ts tests/travelRoutes.test.ts tests/questProgress.test.ts tests/contentStreaming.test.ts
+          npm test -- tests/directionalActors.test.ts tests/dragonBreath.test.ts tests/passageStory.test.ts tests/travelRoutes.test.ts tests/questProgress.test.ts tests/contentStreaming.test.ts
       - name: Build web assets and sync Android
         run: npm run cap:android:refresh
       - name: Build installable APK

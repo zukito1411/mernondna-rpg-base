@@ -3,6 +3,7 @@ import type { NpcDefinition, Vec2 } from '../types';
 import { ART_BY_KEY, actorScaleForHeight, artScale, type ArtTextureKey } from '../../data/art';
 import { NPC_IDLE_ART } from '../../data/npcIdleArt';
 import { directionFrame } from '../../data/animationPacks';
+import {actorTravelDirection,type ActorDirection} from '../../data/directionalEnemyArt';
 import { npcApparentHeight } from '../../data/progression';
 import { patrolDestination } from '../systems/npcPatrol';
 import { seededRandom } from '../../utils/seededRandom';
@@ -14,7 +15,7 @@ import { approachVelocity, strideRate } from '../systems/locomotion';
 import { MARCH_SPEED } from '../../data/capitalResidents';
 
 const NPC_WALK_SPEED = 44;
-type WalkDirection = 'down' | 'left' | 'right' | 'up';
+type WalkDirection = ActorDirection;
 
 export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly definition: NpcDefinition;
@@ -27,9 +28,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private returningHome = false;
   private nextPatrolAt = 0;
   private facing = new Phaser.Math.Vector2(0, 1);
-  // Resting only uses front/back art. Horizontal travel keeps the last vertical
-  // rest direction rather than leaving a side-facing walking pose on screen.
-  private idleFacingY: -1 | 1 = 1;
+  // Keep the last actual travel direction when stopping, including side views.
   private walkDirection: WalkDirection = 'down';
   private readonly walkTexture:ArtTextureKey;
   private route:Vec2[]=[];
@@ -192,26 +191,15 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       .setVisible(distance < 260);
   }
 
-  private playDirection(x: number, y: number, walking: boolean) {
+  private playDirection(_x: number, _y: number, walking: boolean) {
     const body = this.body as Phaser.Physics.Arcade.Body;
     const speed = body.velocity.length();
     walking = walking && speed >= 3 && (Boolean(this.definition.formation) || this.stalledMs < 200);
     if (walking) {
       // Face the actual travel while acceleration rounds a route corner.
-      x = body.velocity.x / speed;
-      y = body.velocity.y / speed;
-      const sideways = this.walkDirection === 'left' || this.walkDirection === 'right';
-      // A margin around diagonals prevents rapid side/front switching.
-      if (Math.abs(x) > Math.abs(y) * (sideways ? .85 : 1.15)) {
-        this.walkDirection = x < 0 ? 'left' : 'right';
-      } else {
-        this.walkDirection = y < 0 ? 'up' : 'down';
-      }
-      if (Math.abs(y) > .25) this.idleFacingY = y < 0 ? -1 : 1;
+      this.walkDirection=actorTravelDirection(body.velocity.x,body.velocity.y,this.walkDirection);
     }
-    const facingX = walking ? x : 0;
-    const facingY = walking ? y : this.idleFacingY;
-    const direction: WalkDirection = walking ? this.walkDirection : this.idleFacingY < 0 ? 'up' : 'down';
+    const direction: WalkDirection = this.walkDirection;
     const idle = NPC_IDLE_ART.find(entry => entry.walk === this.walkTexture);
     if (!walking && idle && direction==='down') {
       this.presentTexture(idle.key,artScale(idle.key));
@@ -233,7 +221,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     else {
       this.anims.stop();
       const frame = ART_BY_KEY[this.walkTexture].columns === 24
-        ? directionFrame(facingX, facingY) : this.definition.spriteFrame;
+        ? directionFrame(direction==='left'?-1:direction==='right'?1:0,direction==='up'?-1:direction==='down'?1:0) : this.definition.spriteFrame;
       this.setFrame(frame).setFlipX(false);
     }
   }

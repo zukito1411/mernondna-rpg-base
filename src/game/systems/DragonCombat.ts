@@ -37,7 +37,9 @@ export class DragonCombat {
   private enter(phase:Phase){this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();}
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state!=='attack'&&this.clock<this.hurtUntil)return;
-    this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);this.enemy.anims.timeScale=1;
+    if(state==='attack')this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);
+    else this.enemy.playLocomotion(state);
+    this.enemy.anims.timeScale=1;
   }
   private leaveAir(){
     (this.enemy.body as Phaser.Physics.Arcade.Body).checkCollision.none=false;

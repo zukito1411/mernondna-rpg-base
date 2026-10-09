@@ -9,6 +9,7 @@ import { useGameStore } from '../../store/gameStore';
 import { approachVelocity, strideRate } from '../systems/locomotion';
 import {groundMarkerPosition} from '../systems/groundMarkers';
 import {DragonCombat} from '../systems/DragonCombat';
+import {actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../../data/directionalEnemyArt';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
@@ -35,6 +36,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private hitStunUntil=0;
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
   private readonly dragonCombat:DragonCombat|undefined;
+  private visualDirection:ActorDirection='right';
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string, eventSpawn = false) {
@@ -206,11 +208,22 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private updateVisual(time:number) {
     if (time < this.visualUntil) return;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    this.anims.play(enemyAnimation(this.definition.spriteFrame,body.velocity.lengthSq() > 4 ? 'walk' : 'idle').key,true);
-    this.anims.timeScale=body.velocity.lengthSq()>4?strideRate(body.velocity.length(),this.definition.moveSpeed):1;
+    this.playLocomotion(body.velocity.lengthSq()>9?'walk':'idle');
+    this.anims.timeScale=body.velocity.lengthSq()>9?strideRate(body.velocity.length(),this.definition.moveSpeed):1;
+  }
+
+  playLocomotion(state:'idle'|'walk'){
+    const body=this.body as Phaser.Physics.Arcade.Body;
+    if(state==='walk')this.visualDirection=actorTravelDirection(body.velocity.x,body.velocity.y,this.visualDirection);
+    const key=enemyLocomotionKey(this.definition.spriteFrame,state,this.visualDirection);
+    const progress=this.anims.currentAnim?.key.includes(':walk:')?this.anims.getProgress():0;
+    const changed=this.anims.currentAnim?.key!==key;
+    this.setFlipX(false).anims.play(key,true);
+    if(changed&&state==='walk'&&progress>0)this.anims.setProgress(progress);
   }
 
   private playAction(state:EnemyAnimationState) {
+    this.setFlipX(this.facing.x<0);
     const animation = enemyAnimation(this.definition.spriteFrame,state);
     this.visualUntil = this.scene.time.now + animationDuration(animation);
     this.anims.play(animation.key);
@@ -253,7 +266,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   createDeathVisual() {
     const animation = enemyAnimation(this.definition.spriteFrame,'death');
     const effect = this.scene.add.sprite(this.x,this.y,animation.texture,animation.frames[0]).setScale(this.scaleX,this.scaleY)
-      .setOrigin(this.originX,this.originY).setFlipX(this.flipX).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
+      .setOrigin(this.originX,this.originY).setFlipX(this.visualDirection==='left'||this.flipX).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
     effect.play(animation.key);
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE,() => effect.destroy());
     this.scene.time.delayedCall(animationDuration(animation) + 200,() => { if (effect.active) effect.destroy(); });
