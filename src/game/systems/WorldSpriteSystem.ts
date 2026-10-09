@@ -42,10 +42,7 @@ export class WorldSpriteSystem {
         layer.setTint(actor.tintTopLeft,actor.tintTopRight,actor.tintBottomLeft,actor.tintBottomRight);
         actor.once('destroy',()=>layer.destroy());
       }
-      for(const polygon of [...STONE_BRIDGE.backSolids,...STONE_BRIDGE.frontSolids])
-        for(const rect of polygonGroundBands(polygon,4,true)){
-          const a=sourcePoint([rect.left,rect.top]),b=sourcePoint([rect.right,rect.bottom]);add(a.x,a.y,b.x,b.y);
-        }
+      // Bridge rail art is decorative; terrain bounds already constrain the crossing.
     }else{
       actor.setDepth(profile?.floor?-950:profile?point(.5,profile.sortY).y:actor.y);
       if(solid||profile?.forceSolid){
