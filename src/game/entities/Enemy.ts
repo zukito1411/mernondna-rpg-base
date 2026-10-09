@@ -243,12 +243,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.scene.time.delayedCall(animationDuration(animation) + 200,() => { if (effect.active) effect.destroy(); });
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2) {
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, impactSound = true) {
     if (!this.active || this.hp <= 0) return;
     this.hp -= amount;
     this.attackEpoch++;this.attackTelegraph?.destroy();this.attackTelegraph=null;this.clearWolfLeap();
     this.hitStunUntil=this.scene.time.now+120;
-    (this.scene as WorldScene).playEffect('hit', this.x, this.y);
+    (this.scene as WorldScene).playEffect('hit', this.x, this.y, undefined, impactSound);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(knockback.x * 150, knockback.y * 150);
     this.setTintFill(0xffffff);

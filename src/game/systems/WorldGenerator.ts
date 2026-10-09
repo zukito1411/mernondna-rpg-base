@@ -35,6 +35,14 @@ function ellipseContains(chunkX: number, chunkY: number, cx: number, cy: number,
 }
 
 export class WorldGenerator {
+  getFootstepSurface(x:number,y:number):'grass'|'stone'|'snow'|'wood'{
+    if(onHighmereBridge(x,y))return 'wood';
+    const terrain=this.getTerrainAt(x,y);
+    if(terrain==='snow'||terrain==='ice')return 'snow';
+    if(terrain==='stone'||terrain==='lava'||terrain==='ash'||terrain==='sand')return 'stone';
+    return 'grass';
+  }
+
   getBiomeAt(x:number,y:number){
     const region=this.getRegionAt(x,y),cx=x/CHUNK_SIZE,cy=y/CHUNK_SIZE;
     if(region==='dead-sea'||harborBay(x,y))return 'coast';

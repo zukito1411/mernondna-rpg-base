@@ -37,9 +37,9 @@ export function HomeMenu({ canContinue, message, onContinue, onNewGame }: HomeMe
               <button type="button" aria-label="Close options" onClick={() => setOptionsOpen(false)}>×</button>
             </header>
             <button type="button" className="home-option-toggle" aria-pressed={ambience} onClick={toggleAmbience}>
-              <span>World ambience</span><strong>{ambience ? 'On' : 'Off'}</strong>
+              <span>Music &amp; world sounds</span><strong>{ambience ? 'On' : 'Off'}</strong>
             </button>
-            <p>Adjust the game’s ambient weather audio.</p>
+            <p>Original fantasy score, weather ambience and gameplay sound effects.</p>
           </section>
         </div>
       )}

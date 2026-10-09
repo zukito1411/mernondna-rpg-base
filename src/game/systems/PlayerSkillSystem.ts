@@ -38,6 +38,9 @@ export class PlayerSkillSystem {
     }
     this.player.stamina -= skill.staminaCost;
     this.cooldowns[id] = skill.cooldownMs;
+    if (id !== 'crown-rally' || this.player.hp >= this.player.maxHp) {
+      this.scene.playSkillSound(id, 'cast');
+    }
     const target=skill.targetingRange?this.scene.targeting.nearest(skill.targetingRange):null;
     const direction = target?new Phaser.Math.Vector2(target.x-this.player.x,target.y-this.player.y).normalize():this.player.lastDirection.clone().normalize();
     if(target){this.scene.targeting.selected=target;this.player.lastDirection.copy(direction);}
@@ -124,7 +127,7 @@ export class PlayerSkillSystem {
           const dx=to.x-from.x,dy=to.y-from.y,len=dx*dx+dy*dy,t=len?Phaser.Math.Clamp(((enemy.x-from.x)*dx+(enemy.y-from.y)*dy)/len,0,1):0;
           return {enemy,t,distance:Math.hypot(enemy.x-from.x-t*dx,enemy.y-from.y-t*dy)};
         }).filter(hit=>hit.distance<=(hit.enemy.definition.boss?24:11)+14).sort((a,b)=>a.t-b.t);
-        if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction);this.scene.playEffect('slash',hit.enemy.x,hit.enemy.y,wave.direction);terminated=true;break;}
+        if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction);this.scene.playSkillSound(wave.skill.id,'impact');this.scene.playEffect('slash',hit.enemy.x,hit.enemy.y,wave.direction);terminated=true;break;}
         wave.sprite.setPosition(to.x,to.y).setDepth(to.y+4);wave.remaining-=step;travel-=step;
       }
       if(terminated||wave.remaining<=0){wave.sprite.destroy();this.waves.delete(wave);}

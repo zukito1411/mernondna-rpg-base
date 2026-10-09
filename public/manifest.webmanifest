@@ -1,16 +1,16 @@
 {
-  "name": "Mernodna",
-  "short_name": "Mernodna",
+  "name": "Tales of Leighneron",
+  "short_name": "Tales of Leighneron",
   "id": "./",
   "start_url": ".",
   "scope": ".",
-  "display": "standalone",
-  "display_override": ["standalone", "fullscreen"],
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "background_color": "#17120d",
   "theme_color": "#17120d",
   "orientation": "landscape",
   "icons": [
-    { "src": "icons/mernondna-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/mernondna-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icons/tales-of-leighneron-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/tales-of-leighneron-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }

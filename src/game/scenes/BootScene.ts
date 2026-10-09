@@ -8,6 +8,31 @@ import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
 import { prepareBridgeRail } from '../systems/BridgeArt';
 import { prepareTreeArt } from '../systems/TreeArt';
 
+const AUDIO_ASSETS = [
+  ['sfx-blade-draw', 'assets/audio/drawKnife1.ogg'],
+  ['sfx-blade-slice-1', 'assets/audio/knifeSlice.ogg'],
+  ['sfx-blade-slice-2', 'assets/audio/knifeSlice2.ogg'],
+  ['sfx-sword-whoosh', 'assets/audio/sword-whoosh.ogg'],
+  ['sfx-energy-impact', 'assets/audio/energy-impact.ogg'],
+  ['sfx-heavy-slam', 'assets/audio/heavy-slam.ogg'],
+  ['sfx-footstep-grass-1', 'assets/audio/footstep_grass_000.ogg'],
+  ['sfx-footstep-grass-2', 'assets/audio/footstep_grass_002.ogg'],
+  ['sfx-footstep-grass-3', 'assets/audio/footstep_grass_004.ogg'],
+  ['sfx-footstep-stone-1', 'assets/audio/footstep_concrete_001.ogg'],
+  ['sfx-footstep-stone-2', 'assets/audio/footstep_concrete_003.ogg'],
+  ['sfx-footstep-stone-3', 'assets/audio/footstep_concrete_004.ogg'],
+  ['sfx-footstep-snow-1', 'assets/audio/footstep_snow_000.ogg'],
+  ['sfx-footstep-snow-2', 'assets/audio/footstep_snow_002.ogg'],
+  ['sfx-footstep-snow-3', 'assets/audio/footstep_snow_004.ogg'],
+  ['sfx-footstep-wood-1', 'assets/audio/footstep_wood_001.ogg'],
+  ['sfx-footstep-wood-2', 'assets/audio/footstep_wood_003.ogg'],
+  ['sfx-impact-1', 'assets/audio/impactSoft_medium_000.ogg'],
+  ['sfx-impact-2', 'assets/audio/impactSoft_medium_002.ogg'],
+  ['sfx-impact-3', 'assets/audio/impactSoft_medium_004.ogg'],
+  ['sfx-heal-bell', 'assets/audio/impactBell_heavy_002.ogg'],
+  ['sfx-dash', 'assets/audio/drawKnife3.ogg'],
+] as const;
+
 // Generated sprite sheets contain almost-transparent stray pixels outside the
 // actual character. Use a visibility threshold before calculating render scale.
 // Without this, the 360px-high idle character is scaled against a ~682px cell.
@@ -44,7 +69,14 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.failures.length = 0;
-    this.load.on('loaderror', (file: Phaser.Loader.File) => this.failures.push(String(file.url)));
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      if (file.type === 'audio') {
+        console.warn(`[audio] Could not load ${file.url}`);
+        return;
+      }
+      this.failures.push(String(file.url));
+    });
+    for (const [key, path] of AUDIO_ASSETS) this.load.audio(key, path);
 
     const files = new Set<string>();
     for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {

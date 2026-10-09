@@ -25,10 +25,11 @@ export class WeatherSystem {
   private readonly overlay:Phaser.GameObjects.Image;
   private kind:Kind='clear';private target:Kind='clear';private strength=0;private elapsed=0;private drawMs=100;
   private roofMs=500;private roofs:Rect[]=[];
-  private readonly fogArt=new FogArt();private ambientMist=0;private nextBirdMs=0;
+  private readonly fogArt=new FogArt();private ambientMist=0;
   private readonly points:Array<{x:number;y:number;speed:number;phase:number}>;
   private audio:AudioContext|null=null;private gain:GainNode|null=null;private source:AudioBufferSourceNode|null=null;
   private audioBus:GainNode|null=null;private audioFilter:BiquadFilterNode|null=null;
+  private music: HTMLAudioElement | null = null;
   private destroyed=false;
   get windStrength(){return this.kind==='wind'||this.kind==='storm'||this.kind==='dust'?this.strength:.18+this.strength*.25;}
   constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator){
@@ -40,20 +41,36 @@ export class WeatherSystem {
     window.addEventListener('keydown',this.unlockAudio);
     document.addEventListener('visibilitychange',this.visibility);
   }
-  private visibility=()=>{if(document.hidden)void this.audio?.suspend().catch(()=>{});else if(useGameStore.getState().weatherAudio)void this.audio?.resume().catch(()=>{});};
+  private visibility=()=>{
+    if(document.hidden){void this.audio?.suspend().catch(()=>{});this.music?.pause();}
+    else if(useGameStore.getState().weatherAudio){void this.audio?.resume().catch(()=>{});this.startMusic();}
+  };
   private unlockAudio=()=>{if(useGameStore.getState().weatherAudio&&(!this.audio||this.audio.state==='suspended'))this.enableAudio();};
   private enableAudio=()=>{
-    if(!useGameStore.getState().weatherAudio)return;
+    if(!useGameStore.getState().weatherAudio){this.music?.pause();return;}
     try{if(!this.audio){this.audio=new AudioContext();const buffer=this.audio.createBuffer(1,this.audio.sampleRate*2,this.audio.sampleRate),channel=buffer.getChannelData(0);
       for(let i=0;i<channel.length;i++)channel[i]=(Math.random()-.5)*.5;
       this.source=this.audio.createBufferSource();this.source.buffer=buffer;this.source.loop=true;
       this.audioFilter=this.audio.createBiquadFilter();this.audioFilter.type='lowpass';this.audioFilter.frequency.value=700;
       this.audioBus=this.audio.createGain();this.audioBus.gain.value=0;
       this.gain=this.audio.createGain();this.gain.gain.value=0;
-      this.source.connect(this.audioFilter).connect(this.gain).connect(this.audioBus).connect(this.audio.destination);this.source.start();}
+      this.source.connect(this.audioFilter).connect(this.gain).connect(this.audioBus).connect(this.audio.destination);this.source.start();
+      }
       void this.audio.resume().catch(()=>{});
+      this.startMusic();
     }catch{/* Unsupported/muted audio never prevents play. */}
   };
+  private startMusic(){
+    if(!useGameStore.getState().weatherAudio||document.hidden)return;
+    if(!this.music){
+      this.music=new Audio('/assets/audio/the-britons.mp3');
+      this.music.loop=true;
+      this.music.preload='auto';
+      this.music.addEventListener('error',()=>console.error('[audio] The licensed background music could not be loaded.'),{once:true});
+    }
+    this.music.volume=.24;
+    void this.music.play().catch(error=>console.warn('[audio] Background music is waiting for a player gesture.',error));
+  }
   update(delta:number,x:number,y:number,paused=false){
     const state=useGameStore.getState(),biome=this.world.getBiomeAt(x,y),region=this.world.getRegionAt(x,y);
     this.target=weatherFor(region,biome,state.day,state.minuteOfDay);
@@ -67,6 +84,8 @@ export class WeatherSystem {
     this.ambientMist+=Math.max(-step,Math.min(step,mistTarget-this.ambientMist));
     if(state.weatherLabel!==labels[this.kind])state.hydrate({weatherLabel:labels[this.kind]});
     this.updateAmbience(region,biome,night,paused||!state.weatherAudio);
+    if(paused||!state.weatherAudio)this.music?.pause();
+    else if(this.music?.paused&&this.audio?.state==='running')this.startMusic();
     if(this.drawMs<50)return;this.drawMs=0;
     const camera=this.scene.cameras.main,z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
     if(this.texture.width!==w||this.texture.height!==h)this.texture.setSize(w,h);
@@ -97,25 +116,15 @@ export class WeatherSystem {
     if(!this.audio||!this.gain||!this.audioBus||!this.audioFilter)return;
     const now=this.audio.currentTime,coast=region==='dead-sea'||biome==='coast';
     this.audioBus.gain.setTargetAtTime(muted?0:1,now,.18);
-    const weather=['rain','storm','wind','dust'].includes(this.kind)?this.strength*.045:0;
+    const weather=['rain','storm','wind','dust'].includes(this.kind)
+      ? this.strength*(this.kind==='storm'?.075:this.kind==='rain'?.052:.035):0;
     const bed=coast ? .013+Math.sin(this.elapsed*.0007)*.005 : biome==='forest' ? (night>.5 ? .005 : .002) :
       region==='nardorous'||region==='frostlands' ? .007 : region==='darkav' ? .005 : .002;
     this.gain.gain.setTargetAtTime(weather+bed,now,.8);
-    this.audioFilter.frequency.setTargetAtTime(this.kind==='rain'||this.kind==='storm'?1100:coast?420:260,now,1);
-    // Optional, quiet synthesized birds/crickets; bounded voices and no asset
-    // downloads. Respect the existing audio toggle and browser gesture policy.
-    if(muted||this.audio.state!=='running'||biome!=='forest'||this.elapsed<this.nextBirdMs)return;
-    this.nextBirdMs=this.elapsed+6500+Math.sin(this.elapsed*.001)*1800;
-    const voice=this.audio.createOscillator(),envelope=this.audio.createGain();
-    voice.type='sine';voice.frequency.setValueAtTime(night>.5?3300:1450,now);
-    voice.frequency.linearRampToValueAtTime(night>.5?3600:2100,now+.12);
-    voice.frequency.linearRampToValueAtTime(night>.5?3300:1650,now+.24);
-    envelope.gain.setValueAtTime(0,now);envelope.gain.linearRampToValueAtTime(night>.5 ? .004 : .008,now+.05);
-    envelope.gain.linearRampToValueAtTime(0,now+.35);voice.connect(envelope).connect(this.audioBus);
-    voice.onended=()=>{voice.disconnect();envelope.disconnect();};voice.start(now);voice.stop(now+.4);
+    this.audioFilter.frequency.setTargetAtTime(this.kind==='storm'?1500:this.kind==='rain'?1050:coast?420:260,now,1);
   }
   destroy(){if(this.destroyed)return;this.destroyed=true;
     window.removeEventListener('mernondna-weather-audio',this.enableAudio);window.removeEventListener('pointerdown',this.unlockAudio);window.removeEventListener('keydown',this.unlockAudio);
-    document.removeEventListener('visibilitychange',this.visibility);this.source?.stop();void this.audio?.close().catch(()=>{});
+    document.removeEventListener('visibilitychange',this.visibility);this.source?.stop();this.music?.pause();this.music?.removeAttribute('src');this.music?.load();void this.audio?.close().catch(()=>{});
     this.fogArt.destroy();this.overlay.destroy();this.scene.textures.remove('weather-overlay');}
 }

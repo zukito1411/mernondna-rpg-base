@@ -126,7 +126,7 @@ const baseState = () => ({
   townId: 'oakmere' as string | null,
   day: 1,
   minuteOfDay: 8 * 60,
-  weatherLabel:'Clear skies',weatherAudio:false,
+  weatherLabel:'Clear skies',weatherAudio:true,
   panel: null as Panel,
   dialogue: null as DialogueState | null,
   toast: 'Welcome to Mernodna.',

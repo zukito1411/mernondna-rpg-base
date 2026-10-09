@@ -131,6 +131,7 @@ The base also works directly in mobile browsers, so Android packaging is not req
 - local autosave
 - original Mernodna world map shown in the in-game map UI
 - local minimap with heading, nearby people/danger and the current quest destination
+- licensed recorded medieval background music; synthesized regional weather ambience; CC0 footsteps, sword and impact sounds
 - objective-aware quest compass, world direction arrow and destination beacon
 - NPC name/title labels, conversation portraits, trust values and nearby interaction hints
 - creature/boss health bars and streamed farm/camp/woodland details using every supplied sprite sheet
@@ -138,6 +139,15 @@ The base also works directly in mobile browsers, so Android packaging is not req
 - supplied directional character packs, enemy idle/walk/attack/hurt/death clips and Leigneron's directional sword animation
 - role-specific Oakmere architecture, with original streets/foundations and persistent content IDs retained
 - Vitest integrity tests
+
+## Audio
+
+The in-game **Music & world sounds** option controls the licensed medieval
+background track, weather ambience, and gameplay sound effects together. Audio
+starts after browser interaction to respect mobile autoplay restrictions.
+Background music is “The Britons” by Kevin MacLeod; Kenney footstep, blade,
+skill-specific, and impact clips are CC0. Sources and license details are in
+`public/assets/audio/README.txt`.
 
 ## Project layout
 

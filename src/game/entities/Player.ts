@@ -24,6 +24,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly keys: Record<'up' | 'down' | 'left' | 'right' | 'sprint' | MobileAction, Phaser.Input.Keyboard.Key>;
   private nextAttackAt = 0;
   private nextDashAt = 0;
+  private nextFootstepAt = 0;
   private dashUntil = 0;
   private dashDirection = new Phaser.Math.Vector2(0, 1);
   private nextDashTrailAt = 0;
@@ -95,6 +96,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       scene.recordTraining('drill-dash');
       scene.cameras.main.shake(75, 0.0015);
       scene.playEffect('fortification', this.x, this.y, this.dashDirection);
+      scene.playAudio('sfx-dash',.32);
     }
 
     const dashing = time < this.dashUntil;
@@ -131,6 +133,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const lockedMotion=this.skills.isCasting||dashing;
     body.setVelocity(lockedMotion?x*speed:approachVelocity(body.velocity.x,x*speed,delta,45),
       lockedMotion?y*speed:approachVelocity(body.velocity.y,y*speed,delta,45));
+    if(!dashing&&movement.lengthSq()>.01&&body.velocity.length()>28&&time>=this.nextFootstepAt){
+      this.nextFootstepAt=time+(sprinting?330:475);
+      scene.playFootstep(this.x,this.y,sprinting);
+    }
     const runningAnimation = dashing || (sprinting && !this.sprintExhausted);
     this.updateAnimation(body.velocity.x, body.velocity.y, runningAnimation, x, y);
     if (dashing && time >= this.nextDashTrailAt) this.createDashTrail(time);
@@ -154,6 +160,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       if (this.stamina >= weapon.staminaCost) {
         this.nextAttackAt = time + cooldown;
         this.stamina = Math.max(0, this.stamina - weapon.staminaCost);
+        scene.playSwordSwing();
         scene.performPlayerAttack(this, this.lastDirection, weapon);
         if (weapon.kind === 'sword' || weapon.kind === 'greatsword') this.playSwordVisual(cooldown);
       }

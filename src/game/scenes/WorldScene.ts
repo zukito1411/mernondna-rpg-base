@@ -74,6 +74,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   activePlayMs=0;
   private cinematicDirector!:CinematicDirector;
   private reliefWatchMs=0;
+  private nextImpactSoundAt=0;
   getWorldHour(){return this.dayNight.getHour();}
   getCombatEnemies(){return [...this.enemies];}
   canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
@@ -87,7 +88,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2) {
     if(!enemy.active||enemy.hp<=0)return;
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction);
+    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction,false);
   }
   streamCinematicView(x:number,y:number){this.chunkManager.update(x,y);this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
   recordTraining(targetId:string) {
@@ -335,7 +336,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if (distance > weapon.reach + (enemy.definition.boss ? 18 : 8)) continue;
       toEnemy.normalize();
       if (facing.dot(toEnemy) < 0.25) continue;
-      if (!this.hasClearPath(player.x, player.y, enemy.x, enemy.y)) continue;
+      if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
       enemy.takeDamage(Math.round(weapon.damage * progression.damageMultiplier), facing);
     }
   }
@@ -345,6 +346,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * multiplier));
+    let hit = false;
     for (const enemy of this.enemies) {
       if (!enemy.active || enemy.hp <= 0) continue;
       const offset = new Phaser.Math.Vector2(enemy.x - player.x,enemy.y - player.y);
@@ -354,8 +356,50 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       // targets are included even if normalization introduces rounding error.
       if (skill.coneDot > -1 && direction.dot(outward) < skill.coneDot) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(damage,outward);
+      enemy.takeDamage(damage,outward,false);
+      hit = true;
     }
+    if (hit) this.playSkillSound(skill.id, 'impact');
+  }
+
+  playAudio(key:string,volume=.3,rate=1) {
+    if(!useGameStore.getState().weatherAudio||this.sound.locked||!this.cache.audio.exists(key))return;
+    this.sound.play(key,{volume,rate});
+  }
+
+  playSwordSwing() {
+    this.playAudio(this.randomSound(['sfx-blade-slice-1','sfx-blade-slice-2']),.42,Phaser.Math.FloatBetween(.9,1.08));
+  }
+
+  playSkillSound(skillId:ActiveSkillDefinition['id'], phase:'cast'|'impact') {
+    if (skillId === 'azure-cleave') {
+      const cast = phase === 'cast';
+      this.playAudio(cast ? 'sfx-blade-slice-2' : 'sfx-energy-impact', cast ? .48 : .4, cast ? .72 : 1);
+    } else if (skillId === 'skyfall-slam') {
+      const cast = phase === 'cast';
+      this.playAudio(cast ? 'sfx-sword-whoosh' : 'sfx-heavy-slam', cast ? .55 : .72, cast ? .68 : .82);
+    } else if (skillId === 'crown-rally' && phase === 'cast') {
+      this.playAudio('sfx-heal-bell', .28, .9);
+    } else if (skillId === 'crescent-flurry') {
+      this.playAudio(this.randomSound(['sfx-blade-slice-1', 'sfx-blade-slice-2']), phase === 'cast' ? .34 : .28,
+        phase === 'cast' ? 1.18 : Phaser.Math.FloatBetween(1.02, 1.28));
+    }
+  }
+
+  playFootstep(x:number,y:number,sprinting:boolean) {
+    const surface=this.worldGenerator.getFootstepSurface(x,y);
+    const variation=Phaser.Math.Between(1,3);
+    this.playAudio(`sfx-footstep-${surface}-${variation}`,sprinting ? .24 : .18);
+  }
+
+  private randomSound(keys:readonly string[]) {
+    return keys[Phaser.Math.Between(0,keys.length-1)];
+  }
+
+  private playCombatImpact(volume:number) {
+    if(this.time.now<this.nextImpactSoundAt)return;
+    this.nextImpactSoundAt=this.time.now+90;
+    this.playAudio(this.randomSound(['sfx-impact-1','sfx-impact-2','sfx-impact-3']),volume);
   }
 
   tryInteract(x: number, y: number) {
@@ -398,7 +442,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.player.takeDamage(amount);
   }
 
-  playEffect(kind: 'fortification' | 'hit' | 'heal' | 'slash' | 'teleport', x: number, y: number, direction?: Phaser.Math.Vector2) {
+  playEffect(kind: 'fortification' | 'hit' | 'heal' | 'slash' | 'teleport', x: number, y: number, direction?: Phaser.Math.Vector2, sound = true) {
     const texture = ({
       fortification:'effect_fortification', hit:'effect_hit', heal:'effect_heal',
       slash:'effect_slash', teleport:'effect_teleport',
@@ -408,6 +452,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       .setScale(artScale(texture) * (kind === 'slash' || kind === 'teleport' ? 1.35 : 1))
       .setDepth(y + 1).setName(`combat-effect:${kind}`);
     if (direction) effect.setRotation(Math.atan2(direction.y, direction.x) - Math.PI / 4);
+    if(kind==='hit'&&sound)this.playCombatImpact(.35);
+    else if(kind==='heal')this.playAudio('sfx-heal-bell',.2);
     effect.play(animation);
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => effect.destroy());
   }
