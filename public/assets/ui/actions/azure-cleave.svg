@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="blade" x1="0" y1="1" x2=".8" y2="0">
+      <stop stop-color="#8deaff"/>
+      <stop offset=".48" stop-color="#f1ffff"/>
+      <stop offset="1" stop-color="#48a8ff"/>
+    </linearGradient>
+    <linearGradient id="hilt" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#7c431f"/>
+      <stop offset=".48" stop-color="#ffd77a"/>
+      <stop offset="1" stop-color="#9b5527"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M8 48C10 25 28 10 52 9 38 16 29 29 26 43" fill="none" stroke="#167bff" stroke-width="9" stroke-linecap="round" opacity=".55"/>
+  <path d="M8 48C12 28 29 15 50 12 36 20 29 31 26 43" fill="none" stroke="url(#blade)" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="m18 51 30-34-22 39-5 2z" fill="url(#blade)" stroke="#f3ffff" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="m20 49 9 8" fill="none" stroke="url(#hilt)" stroke-width="5" stroke-linecap="round"/>
+  <path d="m16 52 7-7 5 5-7 7z" fill="#e8bc63" stroke="#59361d" stroke-width="1.5"/>
+  <path d="m12 47 7 7m-10-2 6 6" fill="none" stroke="#ffe4a0" stroke-width="2" stroke-linecap="round"/>
+  <path d="m49 7 1-4m5 8 4-2M7 39l-4-1" stroke="#a9f2ff" stroke-width="2" stroke-linecap="round"/>
+</svg>

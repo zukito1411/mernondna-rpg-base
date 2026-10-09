@@ -806,7 +806,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private updateCameraZoom() {
     const width = this.scale.width;
-    this.cameras.main.setZoom(width < 700 ? 1.12 : width < 1100 ? 1.2 : 1.3);
+    const shortSide = Math.min(width, this.scale.height);
+    this.cameras.main.setZoom(shortSide < 500 ? .82 : width < 1100 ? 1.1 : 1.25);
   }
 
   shutdown() {

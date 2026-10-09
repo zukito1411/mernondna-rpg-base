@@ -9,11 +9,11 @@ export async function prepareOfflineStartup() {
     return;
   }
   if(!import.meta.env.PROD)return;
-  await navigator.serviceWorker.register(new URL('sw.js',scope),{scope,updateViaCache:'none'});
-  if(navigator.serviceWorker.controller)return;
-  await new Promise<void>((resolve,reject)=>{
-    const changed=()=>{if(navigator.serviceWorker.controller){clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',changed);resolve();}};
-    const timer=window.setTimeout(()=>{navigator.serviceWorker.removeEventListener('controllerchange',changed);reject(new Error('Offline preparation is incomplete. Keep the app online until assets finish loading.'));},15000);
-    navigator.serviceWorker.addEventListener('controllerchange',changed);changed();
-  });
+  if(typeof navigator.storage?.persist==='function'){
+    void navigator.storage.persist().then(persisted=>{
+      if(!persisted)console.info('Persistent offline storage was not granted; the browser may clear cached game assets when storage is low.');
+    }).catch(error=>console.warn('Persistent offline storage request failed:',error));
+  }
+  void navigator.serviceWorker.register(new URL('sw.js',scope),{scope,updateViaCache:'none'})
+    .catch(error=>console.warn('Offline app registration failed:',error));
 }

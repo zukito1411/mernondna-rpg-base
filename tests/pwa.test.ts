@@ -6,6 +6,7 @@ describe('installable web app assets', () => {
   it('provides a scoped standalone manifest and actual 192/512 PNG icons', () => {
     const manifest = JSON.parse(readFileSync(resolve('public/manifest.webmanifest'),'utf8'));
     expect(manifest.display).toBe('standalone');
+    expect(manifest.display_override).toEqual(['fullscreen','standalone']);
     expect(manifest.start_url).toBe('.');
     expect(manifest.scope).toBe('.');
     for (const size of [192,512]) {
@@ -17,6 +18,8 @@ describe('installable web app assets', () => {
       expect(png.readUInt32BE(20)).toBe(size);
     }
     expect(readFileSync(resolve('index.html'),'utf8')).toContain('manifest.webmanifest');
-    expect(readFileSync(resolve('public/sw.js'),'utf8')).toContain("self.addEventListener('fetch'");
+    const worker = readFileSync(resolve('public/sw.js'),'utf8');
+    expect(worker).toContain("self.addEventListener('fetch'");
+    expect(worker).toContain("cache.match(request,{ignoreVary:true})");
   });
 });

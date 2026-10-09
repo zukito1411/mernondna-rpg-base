@@ -236,11 +236,23 @@ test(`mobile ${viewport.width}px joystick, multitouch sprint, dash, attack, inte
       controls:rect('.touch-actions'),
       attack:rect('.touch-button.attack'),
       sprint:rect('.touch-button.sprint'),
+      skills:['.skill-1','.skill-2','.skill-3','.skill-4'].map(rect),
+      controlsStyle:(()=>{
+        const style=getComputedStyle(document.querySelector('.touch-actions')!);
+        return {backgroundColor:style.backgroundColor,backgroundImage:style.backgroundImage,borderWidth:style.borderWidth,boxShadow:style.boxShadow};
+      })(),
     };
   });
+  expect(await page.evaluate(() => (window.__mernondnaGame!.scene.getScene('world') as WorldScene).cameras.main.zoom)).toBeLessThan(1);
   expect(touchTargets.attack.width).toBeGreaterThanOrEqual(70);
   expect(touchTargets.attack.height).toBeGreaterThanOrEqual(70);
+  expect(touchTargets.controlsStyle).toEqual({backgroundColor:'rgba(0, 0, 0, 0)',backgroundImage:'none',borderWidth:'0px',boxShadow:'none'});
   if (touchTargets.viewport.width > touchTargets.viewport.height) {
+    expect(touchTargets.skills[0].left).toBeLessThan(touchTargets.skills[1].left);
+    expect(touchTargets.skills[1].left).toBeLessThan(touchTargets.skills[2].left);
+    expect(Math.abs(touchTargets.skills[0].top-touchTargets.skills[1].top)).toBeLessThan(1);
+    expect(Math.abs(touchTargets.skills[1].top-touchTargets.skills[2].top)).toBeLessThan(1);
+    expect(touchTargets.attack.left).toBeGreaterThan(touchTargets.skills[2].right);
     expect(touchTargets.joystick.left).toBeGreaterThanOrEqual(8);
     expect(touchTargets.joystick.bottom).toBeLessThanOrEqual(touchTargets.viewport.height - 8);
     expect(touchTargets.controls.right).toBeLessThanOrEqual(touchTargets.viewport.width - 8);
@@ -256,17 +268,18 @@ test(`mobile ${viewport.width}px joystick, multitouch sprint, dash, attack, inte
   const cdp = await context.newCDPSession(page);
   const box = (await page.getByLabel('Movement joystick').boundingBox())!;
   const x = box.x + box.width * .85, y = box.y + box.height / 2;
-  const run = (await page.getByRole('button', { name: 'Sprint', exact: true }).boundingBox())!;
+  const run = (await page.getByRole('button', { name: 'Tap to dash, hold to sprint' }).boundingBox())!;
   const start = await snapshot(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
   await expect.poll(async () => (await snapshot(page)).vx).toBeGreaterThan(120);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }, { x: run.x + run.width / 2, y: run.y + run.height / 2, id: 2 }] });
   await expect.poll(async () => (await snapshot(page)).vx).toBeGreaterThan(200);
+  await page.waitForTimeout(220);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect.poll(async () => (await snapshot(page)).vx).toBe(0);
   expect((await snapshot(page)).x).toBeGreaterThan(start.x);
   const beforeDash = (await snapshot(page)).x;
-  await page.getByRole('button', { name: 'Dash', exact: true }).tap();
+  await page.getByRole('button', { name: 'Tap to dash, hold to sprint' }).tap();
   await expect.poll(async () => (await snapshot(page)).x).toBeGreaterThan(beforeDash + 25);
   const beforeAttack = await page.evaluate(() => {
     const player = (window.__mernondnaGame!.scene.getScene('world') as WorldScene).player;
@@ -281,7 +294,7 @@ test(`mobile ${viewport.width}px joystick, multitouch sprint, dash, attack, inte
   await expect.poll(async () => (await snapshot(page)).vx).toBeGreaterThan(100);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
   await expect.poll(async () => (await snapshot(page)).vx).toBe(0);
-  await page.getByRole('button', { name: /^Map\b/ }).tap();
+  await page.getByRole('button', { name: 'World Map' }).tap();
   await expect(page.getByRole('dialog', { name: 'Mernodna world map' })).toBeVisible();
   await page.getByRole('button', { name: 'Close', exact: true }).tap();
   await page.getByRole('button', { name: 'Gear' }).tap();

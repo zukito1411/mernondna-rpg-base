@@ -25,7 +25,7 @@ export function MapPanel() {
   const regional=panel==='regional-map',playerPin=worldToAtlas({x,y});
 
   return (
-    <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label={regional?'Expanded regional minimap':'Merdnona world map'}>
+    <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label={regional?'Expanded regional minimap':'Mernodna world map'}>
       <section className="panel map-panel">
         <header><div><h2>{regional?'Regional survey':'Merdnona'}</h2><p>{localTravel ? 'Local exploration: click any settlement pin to teleport.'
           : `Click a settlement pin to teleport · ${unlockedShrines.length} shrines attuned.`}</p></div>

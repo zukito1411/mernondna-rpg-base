@@ -275,7 +275,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(eligible){const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
       this.targetIndicator.lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
       this.targetIndicator.fillTriangle(this.x-size,top-36,this.x+size,top-36,this.x,top-26);
-      if(selected)this.targetIndicator.lineStyle(2,color,.85).strokeEllipse(this.x,this.y+12,this.definition.boss?56:34,14);
+      if(selected)this.targetIndicator.lineStyle(2,color,.9).strokeEllipse(this.x,this.y+4,this.definition.boss?56:34,10);
     }
     this.healthBar.clear().setDepth(this.y + 85).setVisible(visible&&eligible);
     this.nameLabel.setPosition(this.x, top - 4).setDepth(this.y + 85).setVisible(visible&&eligible);

@@ -14,7 +14,7 @@ export function prepareTreeArt(scene:Phaser.Scene){
     for(let frame=0;frame<2;frame++){
       const pixels=original.getContext().getImageData(frame%columns*width,Math.floor(frame/columns)*height,width,height);
       const foliage=leaves.getContext().createImageData(width,height);
-      const visible=original.get(frame).customData?.visibleBounds as {top:number;height:number}|undefined;
+      const visible=(original.get(frame).customData as {visibleBounds?:{top:number;height:number}}).visibleBounds;
       const top=(visible?.top??0)*sheet.density,span=(visible?.height??sheet.frameHeight)*sheet.density;
       for(let y=0;y<height;y++)for(let x=0;x<width;x++){
         const i=(y*width+x)*4,r=pixels.data[i],g=pixels.data[i+1],b=pixels.data[i+2];

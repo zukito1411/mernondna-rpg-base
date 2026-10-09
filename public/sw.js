@@ -16,7 +16,9 @@ self.addEventListener('install', event => {
     if (data.version!==BUILD_VERSION || !Array.isArray(data.files)) throw new Error('Invalid offline build manifest.');
     installed = data;
     const cache=await caches.open(PREFIX+data.version);
-    await cache.addAll(data.files.map(path => new Request(new URL(path,root), {cache:'reload'})));
+    const requests=data.files.map(path => new Request(new URL(path,root), {cache:'reload'}));
+    for(let offset=0;offset<requests.length;offset+=8)
+      await cache.addAll(requests.slice(offset,offset+8));
     await cache.put(manifestUrl,new Response(JSON.stringify(data)));
     // Updates wait for old clients to close instead of mixing active module graphs.
   })());
@@ -35,17 +37,17 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const data = await manifest(),cache = await caches.open(PREFIX+data.version);
     if(request.mode==='navigate') {
-      const shell = await cache.match(root) || await cache.match(new URL('index.html',root));
+      const shell = await cache.match(root,{ignoreVary:true}) || await cache.match(new URL('index.html',root),{ignoreVary:true});
       if(shell)return shell;
     }
-    const hit=await cache.match(request);if(hit)return hit;
+    const hit=await cache.match(request,{ignoreVary:true});if(hit)return hit;
     try {
       const response=await fetch(request);
       if(response.ok && response.type==='basic')try{await cache.put(request,response.clone());}catch{/* Storage pressure must not break a live load. */}
       return response;
     } catch(error) {
       if(/\/[\w-]+-[\w-]+\.(js|css)$/.test(url.pathname))for(const key of await caches.keys())
-        if(key.startsWith(PREFIX)){const older=await (await caches.open(key)).match(request);if(older)return older;}
+        if(key.startsWith(PREFIX)){const older=await (await caches.open(key)).match(request,{ignoreVary:true});if(older)return older;}
       throw error;
     }
   })());

@@ -70,10 +70,11 @@ export function HUD() {
       {!blocked && interaction && <div className="interaction-hint"><kbd>E</kbd><span>{interaction}</span><small>or tap nearby</small></div>}
 
       <div className="hud-actions">
-        <button type="button" onClick={() => openPanel('map')}>World Map <kbd>M</kbd></button>
-        <button type="button" onClick={() => openPanel('inventory')}>Gear <kbd>I</kbd></button>
-        <button type="button" onClick={() => openPanel('character')}>Status <kbd>C</kbd></button>
-        <button type="button" onClick={() => openPanel('pause')}>Menu <kbd>Esc</kbd></button>
+        <button type="button" aria-label="World Map" onClick={() => openPanel('map')}><span className="hud-icon" aria-hidden="true">⌖</span><span>Map</span><kbd>M</kbd></button>
+        <button type="button" aria-label="Quest Journal" onClick={() => openPanel('journal')}><span className="hud-icon" aria-hidden="true">☷</span><span>Quest</span><kbd>J</kbd></button>
+        <button type="button" aria-label="Gear" onClick={() => openPanel('inventory')}><span className="hud-icon" aria-hidden="true">▣</span><span>Bag</span><kbd>I</kbd></button>
+        <button type="button" aria-label="Status" onClick={() => openPanel('character')}><span className="hud-icon" aria-hidden="true">♙</span><span>Status</span><kbd>C</kbd></button>
+        <button type="button" aria-label="Menu" onClick={() => openPanel('pause')}><span className="hud-icon" aria-hidden="true">☰</span><span>Menu</span><kbd>Esc</kbd></button>
       </div>
 
       <div className="pc-hint">WASD move · Shift sprint · Q dash · Space attack · 1–4 combat arts · E interact · C status</div>

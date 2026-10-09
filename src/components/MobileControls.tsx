@@ -4,31 +4,32 @@ import type { ActiveSkillId } from '../data/activeSkills';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 
-function SkillGlyph({ id }: { id: ActiveSkillId }) {
-  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  if (id === 'azure-cleave') {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M5 18c8 1 14-5 13-13M5 18l4-5m-4 5 6 1M18 5l-5 4m5-4-1 6" /></svg>;
-  }
-  if (id === 'skyfall-slam') {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="m13 2-2 8 5-1-6 13 1-9-4 1 6-12ZM4 20h16" /></svg>;
-  }
-  if (id === 'crown-rally') {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="m3 7 5 4 4-7 4 7 5-4-2 11H5L3 7ZM6 21h12" /></svg>;
-  }
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M4 19c7 0 13-6 13-13M7 20c6 0 11-5 11-11M10 21c5 0 9-4 9-9M4 19l4-1m-1 2 1-4" /></svg>;
-}
+const SKILL_ICONS: Record<ActiveSkillId, string> = {
+  'azure-cleave': '/assets/ui/actions/azure-cleave.svg',
+  'skyfall-slam': '/assets/ui/actions/skyfall-slam.svg',
+  'crown-rally': '/assets/ui/actions/crown-rally.svg',
+  'crescent-flurry': '/assets/ui/actions/crescent-flurry.svg',
+};
 
 export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState({ x: 0, y: 0 });
   const pointerId = useRef<number | null>(null);
+  const sprintPointer = useRef<{id:number;startedAt:number;timer:number}|null>(null);
   const panel = useGameStore(s => s.panel);
   const dialogue = useGameStore(s => s.dialogue);
   const cinematic=useGameStore(s=>s.cinematic);
   const activeSkillStatus = useGameStore(s => s.activeSkillStatus);
+  const interaction = useGameStore(s => s.navigation.interaction);
   const blocked = Boolean(panel || dialogue || cinematic);
   useEffect(() => {
-    const reset = () => { pointerId.current = null; setStick({ x: 0, y: 0 }); mobileInput.reset(); };
+    const reset = () => {
+      pointerId.current = null;
+      if(sprintPointer.current)window.clearTimeout(sprintPointer.current.timer);
+      sprintPointer.current = null;
+      setStick({ x: 0, y: 0 });
+      mobileInput.reset();
+    };
     reset();
     window.addEventListener('blur', reset);
     document.addEventListener('visibilitychange', reset);
@@ -53,6 +54,15 @@ export function MobileControls() {
     pointerId.current = null;
     setStick({ x: 0, y: 0 });
     mobileInput.releaseMove();
+  };
+
+  const releaseSprint = (pointerId: number, dashOnTap: boolean) => {
+    const press = sprintPointer.current;
+    if (!press || press.id !== pointerId) return;
+    window.clearTimeout(press.timer);
+    sprintPointer.current = null;
+    mobileInput.setSprint(false);
+    if (dashOnTap && performance.now() - press.startedAt < 180) mobileInput.press('dash');
   };
 
   return (
@@ -95,25 +105,31 @@ export function MobileControls() {
               {cooldown && <span className="touch-cooldown-ring" style={{
                 background: `conic-gradient(rgba(12, 19, 23, .78) ${progress * 360}deg, transparent 0)`,
               }} />}
-              <span className="touch-skill-glyph"><SkillGlyph id={skill.id} /></span>
+              <span className="touch-skill-glyph"><img src={SKILL_ICONS[skill.id]} alt="" /></span>
               <span className="touch-skill-slot">{skill.slot}</span>
             </button>
           );
         })}
-        <button type="button" aria-label="Interact" className="touch-button interact" onPointerDown={() => mobileInput.press('interact')}>
-          <span className="touch-glyph">E</span><small>Talk / use</small>
-        </button>
-        <button type="button" aria-label="Dash" className="touch-button dash" onPointerDown={() => mobileInput.press('dash')}>
-          <span className="touch-glyph">⇢</span><small>Dash</small>
-        </button>
+        {interaction && <button type="button" aria-label={`Interact: ${interaction}`} title={interaction} className="touch-button interact" onPointerDown={() => mobileInput.press('interact')}>
+          <span className="touch-glyph">E</span><small>Interact</small>
+        </button>}
         <button type="button" aria-label="Attack" className="touch-button attack" onPointerDown={() => mobileInput.press('attack')}>
-          <span className="touch-glyph">⚔</span><small>Attack</small>
+          <span className="touch-glyph"><img src="/assets/ui/actions/attack.svg" alt="" /></span><small>Attack</small>
         </button>
-        <button type="button" aria-label="Sprint" className="touch-button sprint"
-          onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); mobileInput.setSprint(true); }}
-          onPointerUp={() => mobileInput.setSprint(false)} onPointerCancel={() => mobileInput.setSprint(false)}
-          onLostPointerCapture={() => mobileInput.setSprint(false)}>
-          <span className="touch-glyph">»</span><small>Sprint</small>
+        <button type="button" aria-label="Tap to dash, hold to sprint" title="Tap to dash · Hold to sprint" className="touch-button sprint"
+          onPointerDown={(event) => {
+            if (sprintPointer.current) return;
+            const press = {id:event.pointerId,startedAt:performance.now(),timer:0};
+            press.timer = window.setTimeout(() => {
+              if(sprintPointer.current?.id===event.pointerId)mobileInput.setSprint(true);
+            },180);
+            sprintPointer.current = press;
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerUp={(event) => releaseSprint(event.pointerId, true)}
+          onPointerCancel={(event) => releaseSprint(event.pointerId, false)}
+          onLostPointerCapture={(event) => releaseSprint(event.pointerId, false)}>
+          <span className="touch-glyph"><img src="/assets/ui/actions/dash.svg" alt="" /></span><small>Dash / Sprint</small>
         </button>
       </div>
     </div>
