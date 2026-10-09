@@ -1,11 +1,11 @@
-import type {TownDefinition,Vec2} from '../game/types';
+import type {TownDefinition,Vec2,WorldPropTexture} from '../game/types';
 import {TOWN_BY_ID} from './towns';
 import {SETTLEMENT_PROFILES,type SettlementProfileId} from './settlementProfiles';
 import type {BuildingLot,LandParcel,Planting,Street} from './settlements';
 import type {Rect} from './settlementGeometry';
 
 export interface WardDetail extends Vec2 {
-  id:string; texture:'others'|'world_assets'; frame:number; scale:number;
+  id:string; texture:WorldPropTexture; frame:number; scale:number;
   solid:boolean; label?:string;
 }
 interface WardTheme {
@@ -125,6 +125,43 @@ export function settlementWardPlan(town:TownDefinition):WardPlan {
       detail('commons-bench:'+i,x,140,7,.5,false);
       detail('commons-lamp:'+i,x,-100,town.regionId==='darkav'?3:1,.45,false);
       if(theme.use==='trade'||theme.use==='quay')detail('commons-stall:'+i,x+150,-100,5,.55,true);
+    }
+    // Regional work/garden courts have their own authored palette. These
+    // anchors are fitted against roads, whole roofs, trees and residents by
+    // prepareLayout; a busy court omits decoration instead of blocking access.
+    const regional=(name:string,x:number,y:number,texture:WorldPropTexture,frame:number,scale:number,solid=false)=>
+      result.details.push({id:id+':regional:'+name,...toPoint(x,y),texture,frame,scale,solid});
+    if(town.regionId==='rindass'){
+      regional('herder-tent',avenue+660,-hy*.56,'desert_props',9,1.05,true);
+      regional('fodder-stocks',avenue+980,-hy*.52,'desert_props',8,.55,true);
+      regional('cart-repair',avenue+760,hy*.43,'desert_props',6,.72,true);
+      regional('clan-waymarker',avenue+170,-hy*.55,'desert_props',7,.48,true);
+      regional('old-clan-arch',outlook-180,-150,'desert_props',11,1.2,true);
+      regional('courtyard-cactus',avenue+450,hy*.48,'desert_props',0,.8,true);
+    }else if(town.regionId==='frostlands'||town.regionId==='nardorous'){
+      regional('winter-beacon',avenue+420,-hy*.58,'climate_props',5,.68,true);
+      regional('snow-fence',avenue+700,hy*.48,'climate_props',4,.74,true);
+      regional('snow-outcrop',outlook-150,-200,'climate_props',3,.88,true);
+      regional('winter-garden',avenue+700,-hy*.58,'climate_props',1,1.2,true);
+      if(town.regionId==='frostlands')regional('ice-marker',outlook-90,190,'climate_props',2,.72,true);
+    }else if(town.regionId==='darkav'){
+      regional('forge-flame',avenue+420,-hy*.56,'climate_props',9,.75,true);
+      regional('ward-runes',outlook-180,-180,'climate_props',10,1.05,true);
+      regional('basalt-garden',avenue+800,hy*.48,'climate_props',7,1.1,true);
+      regional('ember-stores',avenue+700,-hy*.58,'climate_props',6,.55,true);
+    }else{
+      regional('rear-flowers',avenue+460,-hy*.6,'woodland_props',1,.42);
+      regional('garden-shrub',avenue+750,-hy*.6,'woodland_props',4,.5);
+      regional('herb-ferns',avenue+550,hy*.5,'woodland_props',2,.4);
+      if(theme.use==='forge'||theme.use==='quay'||town.id==='oakmere'){
+        regional('timber-yard',avenue+800,hy*.43,'woodland_props',6,.78,true);
+        regional('cut-stump',avenue+1030,hy*.43,'woodland_props',7,.42,true);
+      }
+      if(theme.use==='grove'){
+        regional('old-growth-stump',outlook-150,-180,'woodland_props',7,.75,true);
+        regional('grove-mushrooms',outlook-120,170,'woodland_props',10,.26);
+      }
+      regional('garden-waymarker',avenue+130,-hy*.5,'woodland_props',11,.42,true);
     }
   }
   return result;

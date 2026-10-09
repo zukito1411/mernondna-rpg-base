@@ -9,7 +9,7 @@ import {SETTLEMENT_DEFENSES} from '../data/settlementDefenses';
 import type {TerrainKind} from '../game/types';
 
 const world=new WorldGenerator(),WIDTH=900,HEIGHT=540,SPAN_X=14000,SPAN_Y=8400;
-const colors:Record<TerrainKind,string>={grass:'#657c4e',forest:'#314d38',dirt:'#ab8d64',stone:'#999287',snow:'#d4dedf',ash:'#56535e',sand:'#c6ab71',water:'#285169',farmland:'#978849',marsh:'#657363',lava:'#b85835'};
+const colors:Record<TerrainKind,string>={grass:'#657c4e',forest:'#314d38',dirt:'#ab8d64',stone:'#999287',snow:'#d4dedf',ash:'#56535e',sand:'#c6ab71',water:'#285169',farmland:'#978849',marsh:'#657363',lava:'#b85835',ice:'#9fc8df'};
 export function RegionalMap({select}:{select:(id:string,button:HTMLButtonElement)=>void}) {
   const ref=useRef<HTMLCanvasElement>(null),x=useGameStore(s=>s.worldX),y=useGameStore(s=>s.worldY),navigation=useGameStore(s=>s.navigation);
   const origin={x:Math.floor(x/512)*512,y:Math.floor(y/512)*512};

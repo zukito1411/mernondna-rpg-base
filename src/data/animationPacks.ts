@@ -4,9 +4,11 @@ const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_ba
 
 export interface PackClip {
   png:string; webp?:string; frames:number; frameRate:number; repeat:number;
+  frameDurations?:readonly number[];
   frameWidth?:number; frameHeight?:number; renderScale?:number;
   regions?:readonly (readonly [number,number,number,number])[];
   frameRects?:readonly {x:number;y:number;width:number;height:number}[];
+  groundAnchors?:readonly (readonly [number,number])[];
   groundY?:number;
 }
 export interface PackManifest { id:string; frameWidth:number; frameHeight:number; animations:Record<string,PackClip> }
@@ -14,8 +16,12 @@ export interface SpriteSource {
   path:string; cell:readonly [number,number,number,number]; imageSize:readonly [number,number]; name:string;
   renderScale?:number;
   anchor?:readonly [number,number];
+  groundAnchor?:readonly [number,number];
 }
-export interface SpriteAnimation { key:string; texture:string; frames:number[]; frameRate:number; repeat:number }
+export interface SpriteAnimation {
+  key:string; texture:string; frames:number[]; frameRate:number; repeat:number;
+  frameDurations?:readonly number[];
+}
 export const SPRITE_PACKS:readonly PackManifest[] = [hero,guard,priestess,wolf,bandit,boar,wraith];
 export const DIRECTION_CLIPS = ['walk_down','walk_left','walk_right','walk_up'] as const;
 export const ENEMY_STATES = ['idle','walk','attack','hurt','death'] as const;
@@ -35,6 +41,7 @@ export function clipSources(pack:PackManifest, state:string):SpriteSource[] {
   return Array.from({ length:clip.frames },(_,i):SpriteSource => ({ path:clip.png,
     cell:clip.regions?.[i] ?? (rects?.[i]?[rects[i].x,rects[i].y,rects[i].width,rects[i].height]:[i * width,0,width,height]),imageSize,
     name:`${pack.id}:${state}:${i}`,...(clip.renderScale ? { renderScale:clip.renderScale } : {}),
+    ...(clip.groundAnchors?.[i] ? { groundAnchor:clip.groundAnchors[i] } : {}),
     ...(clip.groundY!==undefined&&clip.renderScale?{anchor:[i*width+width/2,clip.groundY-38/clip.renderScale] as const}:{}) }));
 }
 export function directionalSources(pack:PackManifest) { return DIRECTION_CLIPS.flatMap(state => clipSources(pack,state)); }

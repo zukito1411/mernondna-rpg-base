@@ -14,7 +14,7 @@ import { mobileInput } from '../input';
 import { Enemy } from '../entities/Enemy';
 import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
-import type { ContentDefinition, ContentState, InteractableContentDefinition, NavigationMarker, QuestTarget, RegionId, WeaponDefinition } from '../types';
+import type { ContentDefinition, ContentState, InteractableContentDefinition, NavigationMarker, QuestTarget, RegionId, WeaponDefinition, WorldPropTexture } from '../types';
 import { ChunkManager } from '../systems/ChunkManager';
 import { DayNightSystem } from '../systems/DayNightSystem';
 import { EventDirector, type EventDirectorHost } from '../systems/EventDirector';
@@ -34,6 +34,9 @@ import { formationPosition } from '../systems/npcRoutes';
 import { QUEST_BY_ID } from '../../data/quests';
 import { TargetingSystem } from '../systems/TargetingSystem';
 import {WeatherSystem} from '../systems/WeatherSystem';
+import {TreeSwaySystem} from '../systems/TreeSwaySystem';
+import {WaterSurfaceSystem} from '../systems/WaterSurfaceSystem';
+import {isTreeArt,treeFootprint} from '../../data/treeArt';
 import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import type { Vec2 } from '../types';
 
@@ -47,6 +50,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private chunkManager!: ChunkManager;
   private dayNight!: DayNightSystem;
   private weather!:WeatherSystem;
+  private treeSway!:TreeSwaySystem;
+  private waterSurface!:WaterSurfaceSystem;
   private eventDirector!: EventDirector;
   private readonly enemies = new Set<Enemy>();
   private readonly npcs: Npc[] = [];
@@ -111,6 +116,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.dayNight = new DayNightSystem(this);
     this.weather=new WeatherSystem(this,this.worldGenerator);
+    this.treeSway=new TreeSwaySystem(this);
+    this.waterSurface=new WaterSurfaceSystem(this,this.worldGenerator);
     this.cinematicDirector=new CinematicDirector(this);
     this.activePlayMs=0;
     this.eventDirector = new EventDirector(this);
@@ -118,7 +125,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.treeBodies = this.physics.add.staticGroup();
     this.npcBodies = this.physics.add.group();
     this.creatureBodies = this.physics.add.group();
-    this.chunkManager = new ChunkManager(this, this.worldGenerator, this.treeBodies);
+    this.chunkManager = new ChunkManager(this, this.worldGenerator, this.treeBodies,this.treeSway,this.dayNight);
     this.enemies.clear(); this.npcs.length = 0; this.interactables.clear();
     this.spawnAttempts = 0; this.spawnAccumulator = 0; this.hudAccumulator = 0;
     this.focused = true; this.wasBlocked = false;
@@ -200,6 +207,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.handlePanelHotkeys();
     if(this.cinematicDirector.active) {
       this.weather.update(this.focused?delta:0,this.player.x,this.player.y,!this.focused);
+      this.treeSway.update(this.focused?delta:0,this.weather.windStrength);
+      this.waterSurface.update(this.focused?delta:0);
       this.physics.world.pause();this.player.discardActions();
       if(this.focused){
         this.activePlayMs+=Math.min(delta,250);
@@ -264,6 +273,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (!uiBlocked) this.dayNight.update(delta, this.player.x, this.player.y);
     this.weather.update(uiBlocked?0:delta,this.player.x,this.player.y,uiBlocked);
+    this.treeSway.update(uiBlocked?0:delta,this.weather.windStrength);
+    this.waterSurface.update(uiBlocked?0:delta);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
@@ -586,9 +597,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (definition.kind === 'prop' || definition.kind === 'settlement-prop') {
       const texture = definition.texture ?? 'world_objects';
-      const solid = definition.solid || texture === 'world_assets' && (definition.frame === 0 || definition.frame === 1);
-      const treeBase = texture === 'world_assets' && (definition.frame === 0 || definition.frame === 1)
-        ? { width: 24 * definition.scale, height: 26 * definition.scale } : definition.footprint;
+      const solid = definition.solid || isTreeArt(texture,definition.frame);
+      const treeBase = isTreeArt(texture,definition.frame)
+        ? treeFootprint(texture,definition.frame,definition.scale) : definition.footprint;
       const actor = solid ? this.buildings.create(x, y, texture, definition.frame) as Phaser.Physics.Arcade.Sprite
         : this.add.sprite(x, y, texture, definition.frame);
       actor.setName(definition.id);
@@ -632,7 +643,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     return actor;
   }
 
-  private presentWorldSprite(actor: Phaser.GameObjects.Sprite, texture: 'world_objects' | 'world_assets' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls',
+  private presentWorldSprite(actor: Phaser.GameObjects.Sprite, texture: WorldPropTexture,
     frame: number, scale: number, solid = false, foundation?:{ width:number; height:number }, rotation = 0,
     anchor:'center'|'bottom' = 'bottom') {
     const origin=worldPropOrigin(texture,frame,anchor);
@@ -652,6 +663,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         .setOffset(anchor==='center'?actor.displayWidth*actor.originX-footprintWidth/2:(actor.displayWidth-footprintWidth)/2,
           anchor === 'center' ? actor.displayHeight*actor.originY-footprintHeight/2 : actor.displayHeight - footprintHeight - 2 * scale);
     }
+    this.treeSway.register(actor,texture,frame);
   }
 
   private destroyContentActor(actor: ContentActor) {
@@ -812,5 +824,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.contentManager?.destroy();
     this.questGuide?.destroy();
     this.chunkManager?.destroy();
+    this.treeSway?.destroy();
+    this.waterSurface?.destroy();
   }
 }

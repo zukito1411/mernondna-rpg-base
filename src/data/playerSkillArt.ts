@@ -27,7 +27,7 @@ export const PLAYER_SKILL_ART:readonly SkillArt[] = [
 export function skillArtSources(art:SkillArt):SpriteSource[] {
   const scale = 76 / art.bodyHeight;
   return art.regions.map((cell,i):SpriteSource => ({ path:art.path,cell,imageSize:[2172,724],renderScale:scale,
-    anchor:[art.roots[i],art.groundY - 20 / scale],name:`${art.id}:${i}` }));
+    anchor:[art.roots[i],art.groundY],name:`${art.id}:${i}` }));
 }
 export const PLAYER_SKILL_ANIMATIONS:SpriteAnimation[] = PLAYER_SKILL_ART.map(art => ({
   key:`player-skill:${art.id}`,texture:art.texture,frames:[0,1,2,3,4,5],

@@ -12,7 +12,7 @@ export const NPC_IDLE_ART = [
     regions:[[8,155,358,412],[369,163,358,404],[730,160,359,407],[1090,155,360,412],[1453,162,360,405],[1817,159,354,408]] },
   { walk:'npc_royal_guard',key:'npc_royal_guard_idle',path:'assets/npcs/royal_guard/idle_royal_g.png',bodyHeight:374,height:112,
     regions:[[30,135,319,438],[387,131,316,442],[744,140,328,433],[1110,135,322,438],[1473,133,319,440],[1833,135,319,438]] },
-  { walk:'npc_guard',key:'npc_guard_idle',path:'assets/npcs/trandum_guard/idle_tran.png',bodyHeight:381,height:112,
+  { walk:'npc_guard',key:'npc_guard_idle',path:'assets/npcs/trandum_guard/idle_tran.png',bodyHeight:381,walkBodyRatio:142/160,height:112,
     regions:[[49,128,284,454],[398,130,303,448],[755,127,302,455],[1112,128,306,450],[1471,128,308,454],[1841,134,301,448]] },
   { walk:'npc_villager',key:'npc_villager_idle',path:'assets/npcs/villager_woman/idle_vill_w.png',bodyHeight:410,height:80,
     regions:[[31,191,330,407],[392,189,331,409],[748,189,325,409],[1103,188,331,410],[1458,189,334,409],[1822,189,331,410]] },

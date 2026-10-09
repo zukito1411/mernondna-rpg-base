@@ -4,12 +4,13 @@ import { REGIONS } from '../../data/regions';
 import { TOWN_BY_ID, TOWNS } from '../../data/towns';
 import { onRoadRoute,roadSurfaceAt } from '../../data/roadRoutes';
 import { onHighmereBridge, onHighmereRiver, onSettlementRiver,onWildernessBridge } from '../../data/rivers';
-import {drainageDistance,harborBay,harborShoreDistance,LAVA_FLOW,pathDistance,RIDGES} from '../../data/worldLandscape';
+import {drainageDistance,harborBay,harborShoreDistance,LAVA_FLOW,pathDistance,RIDGES,onHeadwaterStream,WOODLAND_UPLANDS,CROWN_DOWNS} from '../../data/worldLandscape';
 import { CHUNK_SIZE, WORLD_SEED, WORLD_WIDTH, WORLD_HEIGHT } from '../../data/world';
 import { seededRandom } from '../../utils/seededRandom';
 import { FARM_PLOTS } from '../../data/landmarks';
 import { settlementAt, settlementTerrain, onStreet, protectedSettlementAt } from '../../data/settlements';
 import { fortificationBlocksPoint } from '../../data/fortifications';
+import {lakeAt,lakeShoreDistance} from '../../data/landscapeFeatures';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
 
@@ -23,7 +24,7 @@ const TERRAIN_INDEX: Record<TerrainKind, number> = {
   sand: 5,
   water: 7,
   farmland: 3,
-  marsh:9,lava:10,
+  marsh:9,lava:10,ice:11,
 };
 
 function ellipseContains(chunkX: number, chunkY: number, cx: number, cy: number, rx: number, ry: number) {
@@ -44,9 +45,12 @@ export class WorldGenerator {
     if(region==='frostlands')return 'snowfield';
     if(drainageDistance(x,y)<750&&region==='druganwoods'&&cy>58)return 'wetland';
     if(region==='nardorous')return pathDistance(x,y,RIDGES)<5500?'snowfield':'highland';
-    if(region==='rindass')return drainageDistance(x,y)<500?'meadow':'dryland';
+    if(region==='rindass')return drainageDistance(x,y)<500?'meadow':cy<49&&pathDistance(x,y,RIDGES)<3000?'highland':'dryland';
     const cibar=TOWN_BY_ID['cibar-plains'].world;
     if(Math.hypot((x-cibar.x)/1.3,y-cibar.y)<6500)return 'meadow';
+    const uplandWidth=1400+noise2D(x*.00025,y*.00025)*650;
+    if((region==='druganwoods'&&pathDistance(x,y,WOODLAND_UPLANDS,2500)<uplandWidth)||
+      (region==='trandum'&&pathDistance(x,y,CROWN_DOWNS,2000)<uplandWidth*.65))return 'highland';
     const cover=noise2D(x*.00012,y*.00012);
     const crown=Math.hypot(cx-25,cy-23),wood=Math.min(Math.hypot(cx-56,cy-16),Math.hypot(cx-58,cy-62));
     const transition=Math.max(0,Math.min(1,.5+(crown-wood)/18));
@@ -89,10 +93,11 @@ export class WorldGenerator {
       return settlementTerrain(layout,worldX - town.world.x,worldY - town.world.y);
     }
 
-    if(onSettlementRiver(worldX,worldY)) return onWildernessBridge(worldX,worldY)?'stone':'water';
+    if(onSettlementRiver(worldX,worldY)||onHeadwaterStream(worldX,worldY)) return onWildernessBridge(worldX,worldY)?'stone':'water';
 
     const road=roadSurfaceAt(worldX,worldY);if(road)return road;
     if (FARM_PLOTS.some(plot => Math.abs(worldX - plot.x) < plot.width / 2 && Math.abs(worldY - plot.y) < plot.height / 2)) return 'farmland';
+    const lake=lakeAt(worldX,worldY);if(lake)return lake.frozen?'ice':'water';
 
     const region = REGIONS.find((entry) => entry.id === regionId);
     if (!region) return 'grass';
@@ -101,7 +106,7 @@ export class WorldGenerator {
     if(biome==='coast')return regionId==='frostlands'?'snow':regionId==='darkav'?'stone':'sand';
     if(biome==='wetland')return n>.35?'grass':'marsh';
     if(biome==='snowfield')return n<-.45?'stone':'snow';
-    if(biome==='highland')return n>.2?'grass':'stone';
+    if(biome==='highland')return regionId==='rindass'?(n>.2?'dirt':'stone'):n>-.05?'grass':'stone';
     if(biome==='volcanic')return pathDistance(worldX,worldY,LAVA_FLOW,220)<110?'lava':n>.1?'ash':'stone';
     if(biome==='dryland')return n<-.25?'dirt':'sand';
     return biome==='forest'?'forest':'grass';
@@ -109,6 +114,10 @@ export class WorldGenerator {
 
   getTerrainIndex(kind: TerrainKind) {
     return TERRAIN_INDEX[kind];
+  }
+
+  distanceToWater(x:number,y:number){
+    return Math.min(drainageDistance(x,y),harborShoreDistance(x,y),lakeShoreDistance(x,y));
   }
 
   isWalkable(worldX: number, worldY: number) {

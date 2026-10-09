@@ -13,12 +13,13 @@
       "renderScale": 1
     },
     "walk_left": {
-      "png": "assets/characters/leigneron/walk_left.png",
+      "png": "assets/characters/leigneron/walking.png",
       "frames": 6,
-      "frameRate": 9,
+      "frameRate": 12,
       "repeat": -1,
-      "renderScale": 0.205,
       "frameAlignment": "bottom-center",
+      "groundAnchors": [[193.5,568],[563.5,568],[923,568],[1281,568],[1651,568],[2017.5,568]],
+      "renderScale": 0.1953727506426735,
       "frameRects": [
         { "x": 0, "y": 0, "width": 362, "height": 724 },
         { "x": 362, "y": 0, "width": 362, "height": 724 },
@@ -29,12 +30,13 @@
       ]
     },
     "walk_right": {
-      "png": "assets/characters/leigneron/walk_right.png",
+      "png": "assets/characters/leigneron/walking.png",
       "frames": 6,
-      "frameRate": 9,
+      "frameRate": 12,
       "repeat": -1,
-      "renderScale": 0.205,
       "frameAlignment": "bottom-center",
+      "groundAnchors": [[193.5,568],[563.5,568],[923,568],[1281,568],[1651,568],[2017.5,568]],
+      "renderScale": 0.1953727506426735,
       "frameRects": [
         { "x": 0, "y": 0, "width": 362, "height": 724 },
         { "x": 362, "y": 0, "width": 362, "height": 724 },
@@ -43,6 +45,37 @@
         { "x": 1448, "y": 0, "width": 362, "height": 724 },
         { "x": 1810, "y": 0, "width": 362, "height": 724 }
       ]
+    },
+    "run_side": {
+      "png": "assets/characters/leigneron/running.png",
+      "frames": 6,
+      "frameWidth": 362,
+      "frameHeight": 724,
+      "groundAnchors": [[204.5,559],[575,559],[947.5,559],[1300,559],[1656,559],[2025,559]],
+      "renderScale": 0.1953727506426735,
+      "frameRate": 14,
+      "repeat": -1
+    },
+    "idle_front": {
+      "png": "assets/characters/leigneron/idle.png",
+      "frames": 6,
+      "frameWidth": 362,
+      "frameHeight": 724,
+      "groundAnchors": [[178.5,564],[530,564],[893.5,564],[1256,564],[1615.5,564],[1980,564]],
+      "renderScale": 0.1953727506426735,
+      "frameRate": 10,
+      "frameDurations": [900,900,120,900,900,120],
+      "repeat": -1
+    },
+    "idle_side": {
+      "png": "assets/characters/leigneron/idle_sides.png",
+      "frames": 6,
+      "frameWidth": 362,
+      "frameHeight": 724,
+      "groundAnchors": [[176.5,553],[537.5,553],[899.5,553],[1261.5,553],[1623.5,553],[1986,553]],
+      "renderScale": 0.1953727506426735,
+      "frameRate": 2,
+      "repeat": -1
     },
     "walk_up": {
       "png": "assets/characters/leigneron/walk_up.png",

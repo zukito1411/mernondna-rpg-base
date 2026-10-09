@@ -13,6 +13,9 @@ import { useGameStore } from '../../store/gameStore';
 import { approachVelocity, strideRate } from '../systems/locomotion';
 import { MARCH_SPEED } from '../../data/capitalResidents';
 
+const NPC_WALK_SPEED = 44;
+type WalkDirection = 'down' | 'left' | 'right' | 'up';
+
 export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly definition: NpcDefinition;
   readonly nameLabel: Phaser.GameObjects.Text;
@@ -24,6 +27,10 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private returningHome = false;
   private nextPatrolAt = 0;
   private facing = new Phaser.Math.Vector2(0, 1);
+  // Resting only uses front/back art. Horizontal travel keeps the last vertical
+  // rest direction rather than leaving a side-facing walking pose on screen.
+  private idleFacingY: -1 | 1 = 1;
+  private walkDirection: WalkDirection = 'down';
   private readonly walkTexture:ArtTextureKey;
   private route:Vec2[]=[];
   private routineKey='';
@@ -45,12 +52,12 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.labelY = -(apparentHeight + 12);
     scene.add.existing(this);
     const sheet = ART_BY_KEY[texture], modelScale = actorScaleForHeight(texture,definition.spriteFrame,apparentHeight);
-    this.setScale(modelScale).setOrigin(.5,1 - (2 * sheet.density + 20 / modelScale) / (sheet.frameHeight * sheet.density));
+    this.setScale(modelScale).setOrigin(.5,1 - 2 / sheet.frameHeight);
     scene.physics.add.existing(this);
     const scaleX = this.scaleX, scaleY = this.scaleY, density = ART_BY_KEY[texture].density;
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(18 / scaleX, 22 / scaleY)
-      .setOffset(sheet.frameWidth * density / 2 - 9 / scaleX, this.originY * sheet.frameHeight * density - 2 / scaleY)
+      .setOffset(sheet.frameWidth * density / 2 - 9 / scaleX, this.originY * sheet.frameHeight * density - 22 / scaleY)
       .setCollideWorldBounds(true).setImmovable(true);
     body.pushable = false;
     this.setDepth(y);
@@ -148,9 +155,13 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    // Advance nearby route corners in this update, rather than holding the
+    // previous velocity and facing for a frame at each waypoint.
+    while (this.route.length && Math.hypot(this.target.x-this.x,this.target.y-this.y) <= 6) {
+      this.target = this.route.shift()!;
+    }
     const dx = this.target.x - this.x, dy = this.target.y - this.y;
-    if (Math.hypot(dx, dy) <= 10) {
-      if(this.route.length){this.target=this.route.shift()!;return;}
+    if (Math.hypot(dx, dy) <= 3) {
       body.setVelocity(0, 0);
       this.target = null;
       if (!this.returningHome && !this.route.length) this.returningHome = true;
@@ -159,7 +170,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     this.facing.set(dx, dy).normalize();
-    const speed=Math.min(34,Math.hypot(dx,dy)*4);
+    const speed=Math.min(NPC_WALK_SPEED,Math.hypot(dx,dy)*4);
     body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*speed,delta,90),approachVelocity(body.velocity.y,this.facing.y*speed,delta,90));
     this.playDirection(this.facing.x, this.facing.y, true);
     this.setDepth(this.y);
@@ -181,7 +192,25 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private playDirection(x: number, y: number, walking: boolean) {
-    const direction = Math.abs(x) > Math.abs(y) ? x < 0 ? 'left' : 'right' : y < 0 ? 'up' : 'down';
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    const speed = body.velocity.length();
+    walking = walking && speed >= 3 && (Boolean(this.definition.formation) || this.stalledMs < 200);
+    if (walking) {
+      // Face the actual travel while acceleration rounds a route corner.
+      x = body.velocity.x / speed;
+      y = body.velocity.y / speed;
+      const sideways = this.walkDirection === 'left' || this.walkDirection === 'right';
+      // A margin around diagonals prevents rapid side/front switching.
+      if (Math.abs(x) > Math.abs(y) * (sideways ? .85 : 1.15)) {
+        this.walkDirection = x < 0 ? 'left' : 'right';
+      } else {
+        this.walkDirection = y < 0 ? 'up' : 'down';
+      }
+      if (Math.abs(y) > .25) this.idleFacingY = y < 0 ? -1 : 1;
+    }
+    const facingX = walking ? x : 0;
+    const facingY = walking ? y : this.idleFacingY;
+    const direction: WalkDirection = walking ? this.walkDirection : this.idleFacingY < 0 ? 'up' : 'down';
     const idle = NPC_IDLE_ART.find(entry => entry.walk === this.walkTexture);
     if (!walking && idle && direction==='down') {
       this.presentTexture(idle.key,artScale(idle.key));
@@ -192,11 +221,19 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.presentTexture(this.walkTexture,actorScaleForHeight(this.walkTexture,this.definition.spriteFrame,npcApparentHeight(this.walkTexture)));
     const animation = `${this.walkTexture}-${direction}`;
     if (walking && this.scene.anims.exists(animation)) {
-      this.anims.play(animation,true);this.anims.timeScale=strideRate((this.body as Phaser.Physics.Arcade.Body).velocity.length(),34);
+      const previousKey = this.anims.currentAnim?.key;
+      const preserveStride = this.anims.isPlaying && previousKey !== animation &&
+        previousKey?.startsWith(`${this.walkTexture}-`) && !previousKey.endsWith('-idle');
+      const progress = preserveStride ? this.anims.getProgress() : 0;
+      this.anims.play(animation,true);
+      if (preserveStride) this.anims.setProgress(progress);
+      this.anims.timeScale=strideRate(speed,NPC_WALK_SPEED);
     }
     else {
       this.anims.stop();
-      this.setFrame(directionFrame(x, y)).setFlipX(false);
+      const frame = ART_BY_KEY[this.walkTexture].columns === 24
+        ? directionFrame(facingX, facingY) : this.definition.spriteFrame;
+      this.setFrame(frame).setFlipX(false);
     }
   }
 
@@ -204,12 +241,12 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     if (this.texture.key === texture) return;
     this.anims.stop();
     const sheet = ART_BY_KEY[texture];
-    // Both presentations keep the feet at y+20 and the body at y-2..y+20,
-    // even when a guard's spear requires a taller canvas.
-    const originY = 1 - (2 * sheet.density + 20 / scale) / (sheet.frameHeight * sheet.density);
+    // Visible ground, physics feet and sort depth all share world y, including
+    // taller pike/idle canvases. The body occupies y-22..y, not y-2..y+20.
+    const originY = 1 - 2 / sheet.frameHeight;
     this.setTexture(texture,0).setScale(scale).setOrigin(.5,originY).setFlipX(false);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(18 / scale,22 / scale).setOffset(sheet.frameWidth * sheet.density / 2 - 9 / scale,
-      originY * sheet.frameHeight * sheet.density - 2 / scale);
+      originY * sheet.frameHeight * sheet.density - 22 / scale);
   }
 }

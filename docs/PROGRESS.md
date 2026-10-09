@@ -270,3 +270,54 @@ Nothing was deployed to an installed application. See
 [WILDERNESS_WEATHER_STORY.md](WILDERNESS_WEATHER_STORY.md) for all fourteen report
 categories, exact files, implementation/compatibility distinctions and remaining
 native, geography, ship, simulation and performance limits.
+
+## NPC front/back resting poses (2026-10-09)
+
+NPCs now rest facing only up or down after walking, roaming, escort waiting or
+conversation stops. Vertical travel records the resting direction; horizontal
+travel retains it, defaulting to down. Down-facing rests use the supplied idle
+strip; up-facing rests use the standing back frame because no back idle strip
+is supplied. Walking still supports all four directions. Actor sizes, foot
+anchors, collisions and the rule against facing Leigneron are unchanged.
+No tests, builds or game launches were run.
+
+## Larger trees, regional object integration and atmosphere (2026-10-09)
+
+Inspected all world sprite sheets, terrain and world/lore references. Integrated
+all twelve objects from each new desert, woodland and snow/lava sheet with
+measured crops and appropriate regional placement roles. Enlarged visible
+tree heights, retained smaller orchards/saplings and refitted town canopies
+against circulation/roofs/residents. Cold forests use actual snow-pine art.
+Added runtime leaf-only wind motion with stationary trunk collision.
+
+Added region-specific habitat/work/garden palettes, discovery-site and lake-bank
+compositions, connected headwater streams, off-road pond/tarn candidates,
+solid-ice terrain, rocky upland bands, larger blended natural ground patterns
+and painted hill/valley relief. Added viewport water movement, layered
+volumetric-style 2D mist and new molten/brazier/rune night emissions. Expanded
+the optional World ambience switch with quiet procedural regional sound beds
+and woodland day/night calls. Existing continuous traversal, source images,
+story/boss/quest state, shrine travel and character-normalization edits remain.
+
+No tests, type checks, builds, application/browser launches, simulations or
+benchmarks were run. Visual results, admitted decoration counts, navigation,
+save behavior and platform performance are unverified. This is not a finished
+continent/sea-travel/ecology implementation. See
+[REGIONAL_SCENERY.md](REGIONAL_SCENERY.md) for precise scope and remaining work.
+
+## Leigneron side-pose integration follow-through (2026-10-09)
+
+Inspected the supplied six-frame right-facing side idle, walking and running
+strips and retained their existing manifest/ground-anchor integration. The idle
+file currently lives under `characters/leigneron/idle_sides.png`, not its parent
+folder. Left/right standing and walking use the side art mirrored for left;
+horizontal sprint/dash uses the running strip with the same mirror behavior.
+Vertical travel retains real front/back poses with velocity-adjusted cadence
+instead of displaying a sideways run. Existing stride-phase continuity remains.
+
+Fixed texture-switch registration: explicitly select frame zero, restore the
+shared foot origin, and align the invariant 18×22 player body above that origin
+rather than 20 world units below the artwork. Side animation definitions now
+forward optional manifest frame durations. PC and mobile share this path; PNGs
+and unrelated NPC/world work are preserved. No tests, type checks, builds or
+game/browser launches were run; runtime results remain unverified.

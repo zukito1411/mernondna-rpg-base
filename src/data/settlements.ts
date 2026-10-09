@@ -8,11 +8,13 @@ import { onHighmereRiver } from './rivers';
 import { SETTLEMENT_PROFILES, type SettlementProfile, type SettlementProfileId } from './settlementProfiles';
 import {DEFENSE_BY_ID,insideDefense} from './settlementDefenses';
 import {settlementWardPlan,type WardDetail} from './settlementWards';
+import {treeScale,type TreeTexture} from './treeArt';
+import {REGION_SCENERY} from './regionScenery';
 
 export interface LandParcel { id: string; purpose: string; x: number; y: number; width: number; height: number; terrain: TerrainKind }
 export interface Street { id: string; width: number; points: Vec2[]; surface?:'stone'|'dirt' }
 export interface BuildingLot extends Vec2 { frame: number; scale: number; label: string; purpose: string; appearance?:{ texture:'world_buildings' | 'capital_buildings'; frame:number }; wardId?:string; plot?:Rect; omitted?:boolean }
-export interface Planting extends Vec2 { id: string; frame: 0 | 1; scale: number; purpose: string; wardId?:string }
+export interface Planting extends Vec2 { id: string; frame: 0 | 1; scale: number; texture?:TreeTexture; purpose: string; wardId?:string }
 export interface SettlementLayout {
   townId: string; authored: boolean; profile: SettlementProfile; bounds: LandParcel; baseTerrain: TerrainKind;
   parcels: LandParcel[]; streets: Street[]; buildings: BuildingLot[]; plantings: Planting[];
@@ -350,14 +352,22 @@ function prepareLayout(layout:SettlementLayout) {
     scale:1.15,purpose:'District edge shelter belt, clear of approaches',
   });
   layout.plantings=[];
-  for(const tree of authoredTrees) {
+  for(const original of authoredTrees) {
+    // Orchard trees are pruned; courtyard trees and woodland giants are not.
+    const cold=town.regionId==='frostlands'||town.regionId==='nardorous';
+    const texture:TreeTexture=cold?'climate_props':'world_assets';
+    const frame:0|1=cold?0:original.frame;
+    const height=original.id.includes('orchard')?190:original.wardId?245:Math.min(335,REGION_SCENERY[town.regionId].treeHeight);
+    const tree={...original,texture,frame,scale:treeScale(texture,frame,height)};
+    if(town.regionId==='darkav'||town.regionId==='rindass'&&original.id.startsWith('shelter:'))continue;
     const p=nearbySlots(tree,tree.wardId?128:tree.id.startsWith('shelter:')?448:1024).find(point=>{
-      const r=spriteBounds('world_assets',tree.frame,tree.scale,point.x,point.y);
+      const r=spriteBounds(texture,tree.frame,tree.scale,point.x,point.y);
       return (tree.wardId?enclosed(r):within(r))&&riverFree(r)&&highmereRiverFree(r)&&!layout.streets.some(s=>rectTouchesStreet(r,s,20))
         && ![...reserved,...occupied].some(other=>overlaps(r,other,18));
     });
-    if(p){const placed={...tree,...p};layout.plantings.push(placed);occupied.push(spriteBounds('world_assets',tree.frame,tree.scale,p.x,p.y));}
-    else if(!tree.wardId&&!tree.id.startsWith('shelter:')) throw new Error('No clear shelter planting for '+town.id+'/'+tree.id);
+    if(p){const placed={...tree,...p};layout.plantings.push(placed);occupied.push(spriteBounds(texture,tree.frame,tree.scale,p.x,p.y));}
+    // Decorative shade never forces a blocked street or prevents startup when
+    // a larger canopy cannot fit a constrained plot. Story content stays put.
   }
   layout.details=[];
   for(const detail of wards.details){

@@ -11,7 +11,7 @@ const world = new WorldGenerator();
 const COLORS: Record<TerrainKind,string> = {
   grass: '#617849', forest: '#324e37', dirt: '#ab8b60', stone: '#96908a', snow: '#d1ddd9',
   ash: '#66544e', sand: '#c3ac78', water: '#294d63', farmland: '#918449',
-  marsh:'#657363',lava:'#b85835',
+  marsh:'#657363',lava:'#b85835',ice:'#9fc8df',
 };
 
 export function MiniMap() {

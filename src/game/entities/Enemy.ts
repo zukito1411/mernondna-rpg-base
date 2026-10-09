@@ -50,7 +50,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const radius = definition.boss ? 24 : 11;
     const density = ART_BY_KEY.enemies.density;
     body.setCircle(radius / this.scaleX, ART_BY_KEY.enemies.frameWidth * density / 2 - radius / this.scaleX,
-      this.originY * ART_BY_KEY.enemies.frameHeight * density + (1 - radius) / this.scaleY);
+      this.originY * ART_BY_KEY.enemies.frameHeight * density - 2 * radius / this.scaleY);
     body.setCollideWorldBounds(true);
     this.setDepth(y);
     this.anims.play(enemyAnimation(definition.spriteFrame,'idle').key);

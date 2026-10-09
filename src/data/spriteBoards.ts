@@ -1,4 +1,5 @@
-import type { SpriteSource, SpriteAnimation } from './animationPacks';
+import { HERO_PACK, type SpriteSource, type SpriteAnimation } from './animationPacks';
+import { registerNpcWalkSources } from './npcWalkArt';
 type Region = readonly [number,number,number,number];
 export interface SpriteBoard { key:string; path:string; regions:readonly Region[]; frameWidth:number; frameHeight:number; scale:number }
 // Connected alpha-component bounds, not assumed 256px cells. Some polearms
@@ -30,7 +31,7 @@ export const SPRITE_BOARDS:readonly SpriteBoard[] = [
     [51,513,200,228],[294,512,209,229],[551,513,202,229],[798,515,203,227],[1049,514,203,227],[1297,514,203,227],
     [55,753,191,230],[304,753,194,230],[555,753,187,233],[803,754,191,232],[1055,753,194,233],[1304,753,192,233]] },
   // Taller canvas accommodates the pike; do not shrink the guard to weapon height.
-  { key:'npc_royal_guard',path:'assets/npcs/royal_guard/royal_guard.png',frameWidth:96,frameHeight:112,scale:76/196,regions:[
+  { key:'npc_royal_guard',path:'assets/npcs/royal_guard/royal_guard.png',frameWidth:112,frameHeight:112,scale:76/196,regions:[
     [84,4,184,254],[299,4,177,260],[521,4,179,260],[771,4,183,256],[1024,4,179,260],[1261,4,175,260],
     [78,267,196,234],[301,267,200,239],[523,267,210,239],[776,267,210,241],[1019,267,216,239],[1264,267,195,239],
     [61,508,207,239],[273,508,218,241],[509,508,214,238],[759,509,217,240],[1004,508,218,241],[1246,508,212,241],
@@ -47,13 +48,17 @@ export const SPRITE_BOARDS:readonly SpriteBoard[] = [
     [44,786,179,197],[292,772,186,211],[548,783,212,200],[801,790,237,193],[1067,772,211,211],[1321,789,184,194]] },
 ];
 export function boardSources(board:SpriteBoard):SpriteSource[] {
-  return board.regions.map((cell,i) => ({ path:board.path,cell,imageSize:[1536,1024],name:`${board.key}:${i}`,renderScale:board.scale }));
+  return registerNpcWalkSources(board.key,board.regions.map((cell,i):SpriteSource => ({
+    path:board.path,cell,imageSize:[1536,1024],name:`${board.key}:${i}`,renderScale:board.scale,
+  })));
 }
 export const PLAYER_ATTACK_ANIMATIONS:SpriteAnimation[] = ['down','left','right','up'].map((direction,row) => ({
   key:`leigneron-attack-${direction}`,texture:'leigneron_attack',frames:Array.from({ length:6 },(_,i) => row * 6 + i),frameRate:18,repeat:0,
 }));
 export const PLAYER_IDLE_ANIMATION:SpriteAnimation = {
-  key:'leigneron-idle',texture:'leigneron_idle',frames:Array.from({ length:6 },(_,i) => i),frameRate:2,repeat:-1,
+  key:'leigneron-idle',texture:'leigneron_idle',frames:Array.from({ length:HERO_PACK.animations.idle_front.frames },(_,i) => i),
+  frameRate:HERO_PACK.animations.idle_front.frameRate,repeat:HERO_PACK.animations.idle_front.repeat,
+  frameDurations:HERO_PACK.animations.idle_front.frameDurations,
 };
 export const PLAYER_EFFECTS = [
   { name:'fortification',path:'assets/characters/leigneron/effects/fortification_effect.png' },

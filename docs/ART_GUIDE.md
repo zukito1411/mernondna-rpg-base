@@ -4,6 +4,26 @@ Original PNGs/WebPs remain untouched. Transparent board previews can display hid
 
 ## Manifest-based animation packs
 
+### Leigneron side idle, walking and running (2026-10-09)
+
+The current supplied files are `characters/leigneron/idle_sides.png`,
+`characters/leigneron/walking.png` and `characters/leigneron/running.png`.
+The parent-folder `characters/idle_sides.png` is not present. The manifest
+references the actual nested idle file; no PNG was moved, renamed or duplicated.
+All three strips contain six right-facing poses. Side walking and standing
+mirror left with `flipX`; horizontal sprint/dash uses the faster running strip
+with the same mirroring. Front/back locomotion retains its existing directional
+art (with speed-adjusted cadence), since no front/back running strip exists.
+
+Side idle plays after left/right movement. Walk/run transitions preserve stride
+progress, frame rates/durations come from the manifest, and shared registered
+source scales/ground anchors keep the body consistent through leaning/airborne
+poses. Texture switches now explicitly select frame zero and put the unchanged
+18×22 physical body immediately above the foot anchor: the prior switching
+offset put its lower edge 20 world units below the artwork. Both PC and touch
+use the same presentation path. Source images are untouched. No tests, builds,
+type checks or game launches were run; runtime appearance remains unverified.
+
 `public/assets/**/manifest.json` is the source of truth for the seven strip packs. Paths point to `assets/…`, not the absent `assets/v2/…`. `scripts/assetManifestPlugin.ts` exposes these public manifests through a watched virtual module in Vite/Vitest, avoiding duplicate manifests and unsupported direct public-directory imports.
 
 | Pack | Frames and current use |
@@ -66,6 +86,19 @@ Settlement terrain, authored trees, orchard rows, streets and wheat/fence placem
 The minimap samples generated terrain, not the lore atlas. It shows nearby structures, people, danger, player heading and current quest target. Terrain caching and the existing throttled HUD bridge avoid per-frame React world updates. Names, titles, health bars, building captions and shadows unload with their owner. No image, marker or portrait introduces a teleport or disconnected region.
 
 Linear filtering, smooth resampling, antialiasing and fractional camera movement avoid added renderer blockiness. The original pixel-art style remains intentional. Native Android/iOS performance and physical high-DPI displays still need device validation.
+
+## Regional object sheets and larger trees (2026-10-09)
+
+`desert_1.png`, `fauna_1.png` and `lava_snow.png` now have measured 1254×1254
+source rectangles and twelve individually named frames each. They are used in
+regional habitats, settlement work/garden courts and existing discovery sites,
+not treated as grid terrain tiles or untyped clutter. Mature trees are sized by
+visible body/canopy height; snow pines replace green trees in cold regions.
+Runtime compact wood/leaf atlases enable leaf-only sway without moving trunks
+or their collisions. Natural ground patterns, painted upland relief, pond/ice
+terrain, moving water and layered mist complement the existing source art.
+See [REGIONAL_SCENERY.md](REGIONAL_SCENERY.md) for all asset assignments, sizing,
+regional direction, source-only review and explicit remaining limits.
 
 ## Failure handling and tests
 

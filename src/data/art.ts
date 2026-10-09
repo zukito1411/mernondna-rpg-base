@@ -1,18 +1,20 @@
-import { HERO_PACK, GUARD_PACK, SHRINE_PACK, directionalSources, ENEMY_SOURCES, DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
+import { HERO_PACK, GUARD_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES, DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
 
 import { NPC_IDLE_ART, npcIdleSources } from './npcIdleArt';
+import { registerNpcWalkSources } from './npcWalkArt';
 
 import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 
 import type { PlayerSkillTexture } from './activeSkills';
 
-export type ArtTextureKey = 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | 'leigneron' | 'leigneron_idle' | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
+export type ArtTextureKey = 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
-// Shared target for all player walking directions and the idle animation.
+// Shared target for all player walking, running and idle animations.
 export const HERO_VISIBLE_HEIGHT = 76;
 
 interface ArtSheet {
@@ -45,28 +47,8 @@ const poseNames = ['front','left','right','back'].flatMap(direction =>
 
   Array.from({ length: 6 }, (_, i) => `${direction}-${i === 0 ? 'idle' : `step-${i}`}`));
 
-// The original walk_down/up sheets are 768x144 (6 x 128x144 frames).
-// Actual replacement PNGs are 2172x724, NOT the resized 2048px preview.
-const heroFrameEdges = [0, 362, 724, 1086, 1448, 1810, 2172] as const;
-const heroDirectionalSources: SpriteSource[] = directionalSources(HERO_PACK).map((source, index) => {
-  const isSide = index >= 6 && index < 18; // down, left, right, up
-  const frame = index % 6;
-  if (!isSide) {
-    return {
-      ...source,
-      imageSize: [768, 144],
-      cell: [frame * 128, 0, 128, 144],
-    };
-  }
-  // The old pack may contain anchors/scales for the 128x144 sheets.
-  // Drop them so BootScene can alpha-trim and scale these 2048x682 sheets.
-  const { anchor: _oldAnchor, renderScale: _oldRenderScale, ...cleanSource } = source;
-  return {
-    ...cleanSource,
-    imageSize: [2172, 724],
-    cell: [heroFrameEdges[frame]!, 0, heroFrameEdges[frame + 1]! - heroFrameEdges[frame]!, 724],
-  };
-});
+// Preserve manifest crops, registration points and the shared side-pose scale.
+const heroDirectionalSources: SpriteSource[] = directionalSources(HERO_PACK);
 
 const boardFront = (key:string):SpriteSource => boardSources(SPRITE_BOARDS.find(board => board.key === key)!)[0];
 
@@ -87,6 +69,20 @@ const castSources:SpriteSource[] = [
 ];
 
 export const ART_SHEETS: readonly ArtSheet[] = [
+  // These are irregular illustrations, not a 3x4 tile grid. Bounds measured
+  // from the supplied 1254px originals preserve whole objects (no cut edges).
+  {key:'desert_props',path:'assets/sprites/desert_1.png',sourceSize:[1254,1254],columns:12,atlasColumns:4,density:2,frameWidth:256,frameHeight:256,blackBackground:false,
+    regions:[[44,75,273,327],[351,107,262,292],[654,132,274,269],[964,143,253,255],[32,440,295,264],[344,505,279,197],
+      [637,489,372,221],[1028,432,188,270],[19,821,301,239],[338,731,384,335],[733,839,237,226],[981,739,254,327]],
+    names:['flowering-cactus','prickly-pear','desert-scrub','dry-grass','sandstone-stack','sandstone-shelf','abandoned-wagon','caravan-sign','caravan-crates','trader-tent','bleached-bones','ruined-sandstone-arch']},
+  {key:'woodland_props',path:'assets/sprites/fauna_1.png',sourceSize:[1254,1254],columns:12,atlasColumns:4,density:2,frameWidth:256,frameHeight:256,blackBackground:false,
+    regions:[[24,165,271,243],[334,177,269,236],[635,152,299,262],[971,175,264,236],[21,507,275,275],[369,475,201,312],
+      [615,572,335,216],[979,570,258,223],[22,974,255,174],[304,875,336,275],[668,937,273,208],[995,851,220,302]],
+    names:['bank-reeds','wildflower-bed','woodland-fern','dense-shrub','flowering-shrub','young-tree','fallen-mossy-log','old-stump','mossy-stones','highland-outcrop','mushroom-colony','forest-waymarker']},
+  {key:'climate_props',path:'assets/sprites/lava_snow.png',sourceSize:[1254,1254],columns:12,atlasColumns:4,density:2,frameWidth:256,frameHeight:256,blackBackground:false,
+    regions:[[79,13,331,384],[475,53,314,350],[851,44,325,353],[42,412,367,269],[444,452,382,222],[872,394,328,292],
+      [57,688,351,255],[466,680,330,265],[837,717,388,230],[57,934,346,301],[441,947,368,286],[845,1019,379,210]],
+    names:['snow-pine','bare-winter-tree','blue-ice-spire','snow-boulder','snow-fence','winter-watch-brazier','ember-crystals','basalt-columns','lava-boulder','cinder-brazier','volcanic-rune-altar','lava-pool']},
   {key:'flora',path:'assets/sprites/flora.png',sourceSize:[1448,1086],columns:12,atlasColumns:6,density:2,frameWidth:160,frameHeight:128,blackBackground:false,
     regions:[[196,182,162,103],[517,180,178,104],[916,164,169,114],[1106,163,157,107],[26,288,228,173],[1063,272,162,220],
       [1239,276,183,243],[1116,540,310,146],[1265,862,151,130],[28,873,211,177],[534,587,335,165],[666,450,146,132]],
@@ -96,21 +92,25 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
     sources:heroDirectionalSources,contentSize:[104,128],names:poseNames },
 
-  { key:'leigneron_idle',path:'assets/characters/leigneron/idle.png',columns:6,atlasColumns:6,density:4,
-
-    frameWidth:80,frameHeight:80,blackBackground:false,sourceSize:[2172,724],trimRegions:true,
-
-    regions:Array.from({ length:6 },(_,i):SpriteRegion => [heroFrameEdges[i]!,0,heroFrameEdges[i+1]! - heroFrameEdges[i]!,724]),
-
+  { key:'leigneron_idle',path:HERO_PACK.animations.idle_front.png,columns:6,atlasColumns:6,density:4,
+    frameWidth:80,frameHeight:80,blackBackground:false,sources:clipSources(HERO_PACK,'idle_front'),
     names:Array.from({ length:6 },(_,i) => `idle-${i}`) },
 
-  { key:'npc_guard',path:GUARD_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
+  { key:'leigneron_idle_sides',path:HERO_PACK.animations.idle_side.png,columns:6,atlasColumns:6,density:4,
+    frameWidth:80,frameHeight:80,blackBackground:false,sources:clipSources(HERO_PACK,'idle_side'),
+    names:Array.from({ length:6 },(_,i) => `idle-side-${i}`) },
 
-    sources:directionalSources(GUARD_PACK),contentSize:[128,160],names:poseNames },
+  { key:'leigneron_running',path:HERO_PACK.animations.run_side.png,columns:6,atlasColumns:6,density:4,
+    frameWidth:80,frameHeight:80,blackBackground:false,sources:clipSources(HERO_PACK,'run_side'),
+    names:Array.from({ length:6 },(_,i) => `run-side-${i}`) },
+
+  { key:'npc_guard',path:GUARD_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:96,frameHeight:80,blackBackground:false,
+
+    sources:registerNpcWalkSources('npc_guard',directionalSources(GUARD_PACK)),contentSize:[128,160],names:poseNames },
 
   { key:'npc_woman',path:SHRINE_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
 
-    sources:directionalSources(SHRINE_PACK),contentSize:[128,160],names:poseNames },
+    sources:registerNpcWalkSources('npc_woman',directionalSources(SHRINE_PACK)),contentSize:[128,160],names:poseNames },
 
   { key:'npcs',path:castSources[0].path,columns:8,density:4,frameWidth:96,frameHeight:80,blackBackground:false,sources:castSources,
 
@@ -256,7 +256,7 @@ export function actorArtLayout(key: ArtTextureKey) {
 
   const sheet = ART_BY_KEY[key];
 
-  return { originY: (sheet.frameHeight - 22) / sheet.frameHeight,
+  return { originY: (sheet.frameHeight - 2) / sheet.frameHeight,
 
     bodyX: sheet.frameWidth / 2 - 9, bodyY: sheet.frameHeight - 24,
 
@@ -268,6 +268,7 @@ export function artFrameSize(key: ArtTextureKey, frame: number) {
   // Gameplay calculations must agree with the standardized render height.
   if (key === 'leigneron') return { width: frame >= 6 && frame < 18 ? 69 : 59, height: HERO_VISIBLE_HEIGHT };
   if (key === 'leigneron_idle') return { width: 59, height: HERO_VISIBLE_HEIGHT };
+  if (key === 'leigneron_idle_sides' || key === 'leigneron_running') return { width: 69, height: HERO_VISIBLE_HEIGHT };
 
   const sheet = ART_BY_KEY[key], region = sheet.regions?.[frame];
 
@@ -333,7 +334,14 @@ export const PLAYER_ANIMATIONS = [...DIRECTION_CLIPS.map((state,direction) => ({
 
   frames:Array.from({ length:HERO_PACK.animations[state].frames },(_,i) => direction * 6 + i),
 
-  frameRate:HERO_PACK.animations[state].frameRate,repeat:HERO_PACK.animations[state].repeat })),PLAYER_IDLE_ANIMATION];
+  frameRate:HERO_PACK.animations[state].frameRate,repeat:HERO_PACK.animations[state].repeat })),PLAYER_IDLE_ANIMATION,
+  ...(['idle_side','run_side'] as const).map(state => ({
+    key:state === 'idle_side' ? 'leigneron-idle-side' : 'leigneron-run-side',
+    texture:state === 'idle_side' ? 'leigneron_idle_sides' : 'leigneron_running',
+    frames:Array.from({ length:HERO_PACK.animations[state].frames },(_,i) => i),
+    frameRate:HERO_PACK.animations[state].frameRate,repeat:HERO_PACK.animations[state].repeat,
+    frameDurations:HERO_PACK.animations[state].frameDurations,
+  }))];
 
 
 
@@ -351,7 +359,7 @@ export const NPC_ANIMATIONS = ART_SHEETS.filter(sheet => sheet.key.startsWith('n
 
     frameRate:sheet.key === 'npc_guard' ? GUARD_PACK.animations[clip].frameRate
 
-      : sheet.key === 'npc_woman' ? SHRINE_PACK.animations[clip].frameRate : 9,
+      : sheet.key === 'npc_woman' ? SHRINE_PACK.animations[clip].frameRate : 8,
 
     repeat:-1,
 

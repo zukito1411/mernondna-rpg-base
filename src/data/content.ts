@@ -13,6 +13,7 @@ import type { ArtTextureKey } from './art';
 import { ROYAL_FORTIFICATION_PROPS, fortificationBlocksPoint } from './fortifications';
 import {SETTLEMENT_DEFENSE_PROPS,insideDefense} from './settlementDefenses';
 import {WILDERNESS_SITES} from './wildernessSites';
+import {isTreeArt} from './treeArt';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for (const town of TOWNS) {
@@ -151,7 +152,7 @@ for (const [id, frame, x, y, scale] of details) WORLD_CONTENT.push({
 });
 for (const layout of SETTLEMENT_LAYOUTS) for (const tree of layout.plantings) {
   const town = TOWN_BY_ID[layout.townId];
-  WORLD_CONTENT.push({ id:`detail:${layout.townId}:${tree.id}`,kind:'prop',texture:'world_assets',frame:tree.frame,scale:tree.scale,solid:false,
+  WORLD_CONTENT.push({ id:`detail:${layout.townId}:${tree.id}`,kind:'prop',texture:tree.texture??'world_assets',frame:tree.frame,scale:tree.scale,solid:false,
     world:{ x:town.world.x + tree.x,y:town.world.y + tree.y } });
 }
 for (const plot of FARM_PLOTS) {
@@ -173,12 +174,12 @@ for (const plot of FARM_PLOTS) {
 }
 // Place loose objects alongside circulation, never on it. Full visible bounds
 // protect roofs, canopies, named residents, shrine forecourts and other props.
-const placed:Rect[] = WORLD_CONTENT.filter(d=>d.kind==='settlement-prop' || d.kind==='npc' || 'townShrineId' in d || d.id.startsWith('detail:') && 'frame' in d && d.texture==='world_assets' && d.frame<=1)
+const placed:Rect[] = WORLD_CONTENT.filter(d=>d.kind==='settlement-prop' || d.kind==='npc' || 'townShrineId' in d || d.id.startsWith('detail:') && 'frame' in d && isTreeArt(d.texture??'',d.frame))
   .map(d=>d.kind==='npc' ? {left:d.world.x-32,right:d.world.x+32,top:d.world.y-76,bottom:d.world.y+35}
     : 'frame' in d ? spriteBounds(d.texture??'world_objects',d.frame,'scale' in d?d.scale??1:1,d.world.x,d.world.y) : {left:0,right:0,top:0,bottom:0});
 for(const d of WORLD_CONTENT) {
   if(!('frame' in d)||d.kind==='settlement-prop'||'townShrineId' in d||d.id.startsWith('farm:')||d.id.startsWith('bridge:')
-    ||d.id.endsWith('harbor-pier')||d.texture==='world_assets'&&d.frame<=1&&d.id.startsWith('detail:')) continue;
+    ||d.id.endsWith('harbor-pier')||isTreeArt(d.texture??'',d.frame)&&d.id.startsWith('detail:')) continue;
   const texture:ArtTextureKey=d.texture??'world_objects',scale=d.scale??1;
   const layout=SETTLEMENT_LAYOUTS.find(s=>{const t=TOWN_BY_ID[s.townId];return Math.abs(d.world.x-t.world.x)<s.bounds.width/2+600&&Math.abs(d.world.y-t.world.y)<s.bounds.height/2+600;});
   if(!layout) continue;

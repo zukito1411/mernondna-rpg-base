@@ -6,11 +6,16 @@ import { WorldGenerator } from './WorldGenerator';
 import { chunkNeighborhood } from './chunkNeighborhood';
 import { TerrainBaker } from './TerrainBaker';
 import { planWildernessTrees,planWildernessDetails } from './sceneryPlan';
+import {spriteBounds,propFoundation} from '../../data/settlementGeometry';
+import {treeFootprint,isTreeArt} from '../../data/treeArt';
+import type {TreeSwaySystem} from './TreeSwaySystem';
+import type {DayNightSystem} from './DayNightSystem';
+import {planLandmarkScenery} from './LandmarkScenery';
 
 interface ChunkRuntime {
   image: Phaser.GameObjects.Image;
   textureKey: string;
-  scenery: Phaser.GameObjects.Image[];
+  scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite>;
   treeBodies: Phaser.GameObjects.Rectangle[];
 }
 
@@ -21,7 +26,8 @@ export class ChunkManager {
   private lastCenter = '';
   private readonly baker: TerrainBaker;
 
-  constructor(scene: Phaser.Scene, world: WorldGenerator, private readonly treeBodyGroup: Phaser.Physics.Arcade.StaticGroup) {
+  constructor(scene: Phaser.Scene, world: WorldGenerator, private readonly treeBodyGroup: Phaser.Physics.Arcade.StaticGroup,
+    private readonly treeSway:TreeSwaySystem,private readonly lighting:DayNightSystem) {
     this.scene = scene;
     this.world = world;
     this.baker = new TerrainBaker(scene);
@@ -70,30 +76,41 @@ export class ChunkManager {
 
     const ctx = canvasTexture.getContext();
     this.baker.draw(ctx, this.world, chunkX, chunkY);
-    const scenery: Phaser.GameObjects.Image[] = [];
+    const scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite> = [];
     const treeBodies: Phaser.GameObjects.Rectangle[] = [];
     const sites = WORLD_CONTENT.filter(d => Math.abs(d.world.x - (chunkX + .5) * CHUNK_SIZE) < CHUNK_SIZE
       && Math.abs(d.world.y - (chunkY + .5) * CHUNK_SIZE) < CHUNK_SIZE);
-    // At most 36 non-interactive scenery sprites per chunk, owned and released
-    // with it. Authored/interactive trees still use the persistent content ledger.
-    const trees=planWildernessTrees(chunkX,chunkY,this.world,sites.map(d=>d.world));
+    // Up to 36 mature trees, 40 habitat pieces and nearby bounded landmark
+    // groups, all released with the chunk (including their leaf/light layers).
+    // Authored/interactive settlement trees keep the persistent content ledger.
+    const reservations=sites.map(d=>({...d.world,...('frame' in d?{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y)}:{})}));
+    const nearbyLandmarks=planLandmarkScenery(chunkX,chunkY,this.world,true);
+    const landmarkDetails=nearbyLandmarks.filter(d=>Math.floor(d.x/CHUNK_SIZE)===chunkX&&Math.floor(d.y/CHUNK_SIZE)===chunkY);
+    const landmarks=nearbyLandmarks.map(d=>({...d,bounds:spriteBounds(d.texture,d.frame,d.scale,d.x,d.y)}));
+    const trees=planWildernessTrees(chunkX,chunkY,this.world,[...reservations,...landmarks]);
     for (const tree of trees) {
-      const { x:wx,y:wy,frame,scale } = tree;
+      const { x:wx,y:wy,texture,frame,scale } = tree;
       ctx.fillStyle = 'rgba(20,30,15,.18)'; ctx.beginPath();
       ctx.ellipse(wx - chunkX * CHUNK_SIZE, wy - chunkY * CHUNK_SIZE - 6, 34 * scale, 10 * scale, 0, 0, Math.PI * 2); ctx.fill();
-      scenery.push(this.scene.add.image(wx, wy, 'world_assets', frame).setOrigin(.5, 1)
-        .setScale(artScale('world_assets') * scale).setDepth(wy).setName(tree.id));
-      const trunk = this.scene.add.rectangle(wx, wy - 15 * scale, 24 * scale, 26 * scale, 0xffffff, 0)
+      const image=this.scene.add.image(wx,wy,texture,frame).setOrigin(.5,1)
+        .setScale(artScale(texture)*scale).setDepth(wy).setName(tree.id);
+      scenery.push(image);this.treeSway.register(image,texture,frame);
+      const footprint=treeFootprint(texture,frame,scale);
+      const trunk = this.scene.add.rectangle(wx,wy-footprint.height/2-2*scale,footprint.width,footprint.height,0xffffff,0)
         .setVisible(false).setName(`trunk:${tree.id}`);
       this.scene.physics.add.existing(trunk, true);
       this.treeBodyGroup.add(trunk);
       treeBodies.push(trunk);
     }
-    for(const detail of planWildernessDetails(chunkX,chunkY,this.world,[...sites.map(d=>d.world),...trees])){
-      const sprite=this.scene.add.image(detail.x,detail.y,detail.texture,detail.frame).setOrigin(.5,1)
+    const treeReservations=trees.map(t=>({...t,bounds:spriteBounds(t.texture,t.frame,t.scale,t.x,t.y)}));
+    for(const detail of [...landmarkDetails,...planWildernessDetails(chunkX,chunkY,this.world,[...reservations,...landmarks,...treeReservations])]){
+      const sprite=this.scene.add.sprite(detail.x,detail.y,detail.texture,detail.frame).setOrigin(.5,1)
         .setScale(artScale(detail.texture)*detail.scale).setDepth(detail.y).setName(detail.id);
-      if(detail.tint!==undefined)sprite.setTint(detail.tint);scenery.push(sprite);
-      if(detail.solid){const rock=this.scene.add.rectangle(detail.x,detail.y-12,38,24,0xffffff,0).setVisible(false).setName('rock:'+detail.id);
+      scenery.push(sprite);
+      this.lighting.register(sprite,detail.texture,detail.frame,detail.scale);
+      if(detail.solid){const {width,height}=isTreeArt(detail.texture,detail.frame)?treeFootprint(detail.texture,detail.frame,detail.scale):
+        detail.texture==='woodland_props'&&detail.frame===5?propFoundation(detail.texture,detail.frame,detail.scale):detail.footprint;
+        const rock=this.scene.add.rectangle(detail.x,detail.y-height/2-2*detail.scale,width,height,0xffffff,0).setVisible(false).setName('rock:'+detail.id);
         this.scene.physics.add.existing(rock,true);this.treeBodyGroup.add(rock);treeBodies.push(rock);}
     }
     canvasTexture.refresh();

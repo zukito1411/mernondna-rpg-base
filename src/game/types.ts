@@ -9,7 +9,7 @@ export type RegionId =
   | 'darkav'
   | 'dead-sea';
 
-export type TerrainKind = 'grass' | 'forest' | 'dirt' | 'stone' | 'snow' | 'ash' | 'sand' | 'water' | 'farmland' | 'marsh' | 'lava';
+export type TerrainKind = 'grass' | 'forest' | 'dirt' | 'stone' | 'snow' | 'ash' | 'sand' | 'water' | 'farmland' | 'marsh' | 'lava' | 'ice';
 
 export type WeaponKind = 'sword' | 'greatsword' | 'axe' | 'spear' | 'bow' | 'crossbow' | 'staff' | 'dagger';
 
@@ -166,13 +166,14 @@ export interface QuestRuntimeState {
 }
 
 interface ContentBase { id: string; world: Vec2 }
+export type WorldPropTexture = 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export interface CreatureContentDefinition extends ContentBase {
   kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;
 }
 export interface PropContentDefinition extends ContentBase {
   kind: 'prop' | 'settlement-prop'; frame: number; scale: number; solid: boolean;
-  texture?: 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls';
+  texture?: WorldPropTexture;
   footprint?: { width:number; height:number };
   rotation?: number;
   anchor?: 'center' | 'bottom';
@@ -185,7 +186,7 @@ export interface InteractableContentDefinition extends ContentBase {
   kind: 'interactable' | 'harvestable' | 'loot-container' | 'dungeon-entrance';
   name: string; frame: number; description: string; repeatText: string;
   rewardGold?: number; restoreHp?: number;
-  texture?: 'world_assets' | 'world_objects' | 'world_buildings' | 'others'; scale?: number;
+  texture?: WorldPropTexture; scale?: number;
   solid?: boolean;
   townShrineId?: string;
   questTargetId?: string;

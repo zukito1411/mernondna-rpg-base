@@ -1,5 +1,6 @@
 import { artFrameSize, type ArtTextureKey } from './art';
 import type { Vec2 } from '../game/types';
+import {isTreeArt,treeFootprint} from './treeArt';
 
 export interface Rect { left:number; top:number; right:number; bottom:number }
 export function overlaps(a:Rect,b:Rect,gap = 0) {
@@ -27,7 +28,8 @@ export function rectTouchesStreet(r:Rect,s:{ width:number; points:Vec2[] },gap =
 }
 export function propFoundation(texture:ArtTextureKey,frame:number,scale:number) {
   const size = artFrameSize(texture,frame);
-  if (texture === 'world_assets' && frame <= 1) return { width:24 * scale,height:26 * scale };
+  if (isTreeArt(texture,frame)) return treeFootprint(texture,frame,scale);
+  if(texture==='woodland_props'&&frame===5){const height=size.height*scale;return {width:Math.max(14,height*.105),height:Math.max(12,height*.08)};}
   return { width:size.width * scale * .72,height:Math.min(56,size.height * scale * .25) };
 }
 export const retiredBoundaryId = (id:string) => /^settlement:(wall|gate|gate-tower):/.test(id);

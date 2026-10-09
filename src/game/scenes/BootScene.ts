@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIBLE_HEIGHT } from '../../data/art';
-import { ENEMY_ANIMATIONS } from '../../data/animationPacks';
+import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
 import { PLAYER_SKILL_ANIMATIONS } from '../../data/playerSkillArt';
 import { alphaFrameBounds } from '../systems/spriteArt';
 import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
 import { prepareBridgeRail } from '../systems/BridgeArt';
+import { prepareTreeArt } from '../systems/TreeArt';
 
 // Generated sprite sheets contain almost-transparent stray pixels outside the
 // actual character. Use a visibility threshold before calculating render scale.
@@ -90,7 +91,8 @@ export class BootScene extends Phaser.Scene {
       const scaleX = sheet.sourceSize ? source.width / sheet.sourceSize[0] : 1;
       const scaleY = sheet.sourceSize ? source.height / sheet.sourceSize[1] : 1;
       const isHeroWalk = sheet.key === 'leigneron';
-      const isHeroArt = isHeroWalk || sheet.key === 'leigneron_idle';
+      const isHeroArt = isHeroWalk || sheet.key === 'leigneron_idle' ||
+        sheet.key === 'leigneron_idle_sides' || sheet.key === 'leigneron_running';
 
       for (let frame = 0; frame < sheet.columns; frame++) {
         const packed = sheet.sources?.[frame];
@@ -163,7 +165,11 @@ export class BootScene extends Phaser.Scene {
         if(isHeroArt && data && !heroFits.has(packed?.path??sheet.path)) {
           const cells=packed?sheet.sources!.filter(s=>s.path===packed.path).map(s=>s.cell):sheet.regions!;
           const bounds=cells.map(c=>heroVisibleBounds(data.data,data.width,c)).filter((r):r is readonly [number,number,number,number]=>Boolean(r));
-          heroFits.set(packed?.path??sheet.path,Math.min((sheet.frameWidth-4)/Math.max(...bounds.map(r=>r[2])),HERO_VISIBLE_HEIGHT/Math.max(...bounds.map(r=>r[3]))));
+          // Registered clips can share the upright walking scale so a leaning
+          // or airborne running pose does not grow to fill the same height.
+          const registeredScale = packed?.groundAnchor ? packed.renderScale : undefined;
+          heroFits.set(packed?.path??sheet.path,Math.min((sheet.frameWidth-4)/Math.max(...bounds.map(r=>r[2])),
+            registeredScale ?? HERO_VISIBLE_HEIGHT/Math.max(...bounds.map(r=>r[3]))));
         }
         const fit = isHeroArt && region
           ? heroFits.get(packed?.path??sheet.path)!
@@ -190,13 +196,18 @@ export class BootScene extends Phaser.Scene {
         ctx.beginPath();
         ctx.rect(x, y, width, height);
         ctx.clip();
-        // Keep all four hero walk directions centered with feet at one level.
-        const drawX = isHeroArt
+        // Register side strides by their body/ground anchor, rather than the
+        // changing weapon/cape silhouette, so alpha trimming cannot move the head.
+        const drawX = packed?.groundAnchor && region
+          ? x + width / 2 + (region[0] - packed.groundAnchor[0]) * fit * sheet.density
+          : isHeroArt
           ? x + (width - drawWidth) / 2
           : packed?.anchor && region
             ? x + width / 2 + (region[0] - packed.anchor[0]) * fit * sheet.density
             : x + (width - drawWidth) / 2;
-        const drawY = isHeroArt
+        const drawY = packed?.groundAnchor && region
+          ? y + height - 2 * sheet.density + (region[1] - packed.groundAnchor[1]) * fit * sheet.density
+          : isHeroArt
           ? y + height - 2 * sheet.density - drawHeight
           : packed?.anchor && region
             ? y + height / 2 + (region[1] - packed.anchor[1]) * fit * sheet.density
@@ -212,7 +223,8 @@ export class BootScene extends Phaser.Scene {
         );
         ctx.restore();
         const preparedFrame=texture.add(frame,0,x,y,width,height);
-        if(preparedFrame)preparedFrame.customData={visibleBounds:{left:(drawX-x)/sheet.density,top:(drawY-y)/sheet.density,width:drawWidth/sheet.density,height:drawHeight/sheet.density}};
+        if(preparedFrame)preparedFrame.customData={visibleBounds:{left:(drawX-x)/sheet.density,top:(drawY-y)/sheet.density,width:drawWidth/sheet.density,height:drawHeight/sheet.density},
+          sourceRegion:region?[...region]:undefined,sourceFit:regionFit};
       }
 
       if (sheet.blackBackground) {
@@ -232,18 +244,23 @@ export class BootScene extends Phaser.Scene {
     }
 
     prepareBridgeRail(this);
+    prepareTreeArt(this);
     for (const path of loaded) this.textures.remove(`source:${path}`);
-    for (const { key, texture, frames, frameRate, repeat } of [
+    const animations: SpriteAnimation[] = [
       ...PLAYER_ANIMATIONS,
       ...NPC_ANIMATIONS,
       ...ENEMY_ANIMATIONS,
       ...PLAYER_ATTACK_ANIMATIONS,
       ...PLAYER_EFFECT_ANIMATIONS,
       ...PLAYER_SKILL_ANIMATIONS
-    ]) {
+    ];
+    for (const { key, texture, frames, frameRate, repeat, frameDurations } of animations) {
       this.anims.create({
         key,
-        frames: frames.map(frame => ({ key: texture, frame })),
+        // A per-frame duration overrides Phaser's normal frame interval.
+        frames: frames.map((frame,index) => ({ key: texture, frame,
+          duration:frameDurations?.[index] ?? 0,
+        })),
         frameRate,
         repeat
       });
