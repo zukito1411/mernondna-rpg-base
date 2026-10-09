@@ -185,6 +185,24 @@ export function parseSave(raw: string): SaveData | null {
   } catch { return null; }
 }
 
+export function hasSavedGame(): boolean {
+  try {
+    const current = localStorage.getItem(SAVE_KEY);
+    const previous = localStorage.getItem(SAVE_KEY + ':last-good');
+    return Boolean((current && parseSave(current)) || (previous && parseSave(previous)));
+  } catch {
+    return false;
+  }
+}
+
+export function hasStoredSave(): boolean {
+  try {
+    return localStorage.getItem(SAVE_KEY) !== null || localStorage.getItem(SAVE_KEY + ':last-good') !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function saveGame(): boolean {
   if (saving||saveBlocked) return false;
   saving = true;

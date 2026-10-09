@@ -21,6 +21,33 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .game-shell { position: relative; width: 100%; height: 100%; overflow: hidden; background: #172016; }
 .game-canvas { position: absolute; inset: 0; }
 .game-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+.home-menu { position: absolute; inset: 0; display: grid; place-items: end center; overflow: hidden; isolation: isolate; background: #172016 url("/assets/reference/Tales%20of%20Leighneron_%20Sunset%20Valley.png") center center / cover no-repeat; }
+.home-menu-shade { position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg, rgba(9,11,14,.05) 32%, rgba(10,12,13,.08) 54%, rgba(10,12,13,.72) 100%); }
+.home-menu-actions { display: grid; justify-items: center; gap: 9px; width: min(310px, calc(100vw - 36px)); margin-bottom: max(7vh, calc(env(safe-area-inset-bottom) + 18px)); }
+.home-menu-button { width: 100%; min-height: 48px; border: 2px solid #d8b86f; border-radius: 9px; background: linear-gradient(180deg, rgba(74,53,31,.96), rgba(31,24,17,.98)); box-shadow: inset 0 1px 0 rgba(255,237,184,.5), inset 0 -4px 0 rgba(12,9,6,.42), 0 4px 12px rgba(0,0,0,.65), 0 0 0 1px rgba(22,14,8,.9); color: #fff0c7; font: 700 17px Georgia,serif; letter-spacing: .04em; text-shadow: 0 2px 3px #160e08; cursor: pointer; transition: filter 120ms ease, transform 120ms ease; }
+.home-menu-button:hover:not(:disabled) { filter: brightness(1.22); transform: translateY(-1px); }
+.home-menu-button:active:not(:disabled) { transform: translateY(1px); }
+.home-menu-button.primary { border-color: #f0d58f; background: linear-gradient(180deg, rgba(119,82,39,.98), rgba(58,39,23,.99)); }
+.home-menu-button:disabled { opacity: .48; cursor: not-allowed; filter: grayscale(.6); }
+.home-menu-message { width: 100%; margin: 2px 0 0; padding: 8px 10px; border: 1px solid rgba(240,204,135,.55); border-radius: 7px; background: rgba(20,15,10,.88); color: #ffe4b3; text-align: center; font-size: 12px; }
+.home-options-backdrop { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; background: rgba(8,8,8,.62); }
+.home-options { width: min(420px,100%); padding: 20px; border: 2px solid #c8a561; border-radius: 13px; background: linear-gradient(150deg,#382b1d,#17130f 70%); box-shadow: 0 18px 54px #000b,inset 0 1px 0 #fff2c044; color: #f5e5c2; }
+.home-options header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.home-options h2 { margin: 0; color: #f4d891; font: 700 24px Georgia,serif; }
+.home-options header button { width: 34px; height: 34px; border: 1px solid #a98951; border-radius: 7px; background: #271d14; color: #f5e5c2; font-size: 23px; cursor: pointer; }
+.home-option-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid #80643c; border-radius: 7px; background: #211a13; color: #f5e5c2; text-align: left; cursor: pointer; }
+.home-option-toggle strong { color: #f2d184; text-transform: uppercase; }
+.home-options p { margin: 10px 2px 0; color: #c6b798; font-size: 12px; }
+@media (max-width: 560px) {
+  .home-menu { background-position: center 18%; }
+  .home-menu-actions { width: min(280px, calc(100vw - 40px)); gap: 8px; margin-bottom: max(8vh, calc(env(safe-area-inset-bottom) + 18px)); }
+  .home-menu-button { min-height: 46px; font-size: 16px; }
+}
+@media (max-height: 420px) and (orientation: landscape) {
+  .home-menu { background-position: center top; }
+  .home-menu-actions { width: min(36vw, 300px); gap: 5px; margin-bottom: max(3vh, calc(env(safe-area-inset-bottom) + 8px)); }
+  .home-menu-button { min-height: 26px; font-size: clamp(12px, 4vh, 16px); }
+}
 
 .hud-layer { position: absolute; inset: 0; pointer-events: none; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
 .status-card, .quest-card, .hud-actions, .pc-hint { background: rgba(23, 18, 12, 0.78); border: 1px solid var(--line); backdrop-filter: blur(5px); }
