@@ -1,5 +1,7 @@
 # Mernodna RPG Base
 
+[Download the latest Android APK](https://github.com/zukito1411/mernondna-rpg-base/releases/latest/download/Tales-of-Leighneron.apk) · [Android build and installation notes](docs/ANDROID_DOWNLOADS.md)
+
 A playable **React + TypeScript + Phaser** foundation for a large, continuous, top-down open-world RPG that targets both desktop and mobile.
 
 The default playable hero is **Leigneron**. The current build starts him in **Oakmere, Trandum** with keyboard and touch controls, streamed terrain chunks, towns, NPC relationships, dialogue, a quest, enemies, a boss, day/night, local saves, dynamic encounters, a world map, and data-driven content definitions.

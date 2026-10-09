@@ -10,6 +10,7 @@ import { prepareTreeArt } from '../systems/TreeArt';
 import {renderDensity} from '../systems/renderSizing';
 import {prepareScorchedArt} from '../systems/ScorchedArt';
 import {VEHICLE_ART,MOTION_ART,prepareVehicleArt} from '../systems/VehicleArt';
+import {DRAGON_BREATH_ART,prepareDragonBreathArt} from '../systems/DragonBreathArt';
 
 const AUDIO_ASSETS = [
   ['sfx-blade-draw', 'assets/audio/drawKnife1.ogg'],
@@ -84,6 +85,7 @@ export class BootScene extends Phaser.Scene {
     for (const [key, path] of AUDIO_ASSETS) this.load.audio(key, path);
     for(const [kind,art] of Object.entries(VEHICLE_ART))this.load.image('vehicle-source:'+kind,art.path);
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
+    this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
 
     const files = new Set<string>();
     for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
@@ -109,6 +111,7 @@ export class BootScene extends Phaser.Scene {
     }
 
     prepareVehicleArt(this);
+    prepareDragonBreathArt(this);
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
     const loaded = new Set<string>();
     const heroFits=new Map<string,number>();

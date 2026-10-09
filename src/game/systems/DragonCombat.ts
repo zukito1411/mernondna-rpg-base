@@ -5,6 +5,8 @@ import {DRAGON_LAIR,inDragonArena} from '../../data/dragonLair';
 import {artScale,actorArtLayout} from '../../data/art';
 import {enemyAppearanceMultiplier} from '../../data/enemies';
 import {enemyAnimation,animationDuration} from '../../data/animationPacks';
+import {DragonBreathEffect} from './DragonBreathEffect';
+import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth} from './dragonBreath';
 
 type Phase='rest'|'stomp-windup'|'breath-windup'|'breath'|'flight'|'landing'|'recover';
 /** Local, delta-driven boss phases. Pause/dialogue stops gameplay updates;
@@ -13,7 +15,7 @@ export class DragonCombat {
   private phase:Phase='rest';private age=0;private clock=0;private nextAttack=2500;private sequence=0;
   private readonly aim=new Phaser.Math.Vector2(1,0);
   private readonly warning:Phaser.GameObjects.Graphics;
-  private readonly fire:Phaser.GameObjects.Graphics;
+  private readonly fire:DragonBreathEffect;
   private readonly flight:Phaser.GameObjects.Sprite;
   private readonly shadow:Phaser.GameObjects.Ellipse;
   private breathTick=0;
@@ -22,7 +24,7 @@ export class DragonCombat {
   private lastFlightX=0;
   constructor(private readonly enemy:Enemy,private readonly scene:WorldScene){
     this.warning=scene.add.graphics().setName('dragon-warning:'+enemy.instanceId);
-    this.fire=scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setName('dragon-fire:'+enemy.instanceId);
+    this.fire=new DragonBreathEffect(scene,enemy.instanceId);
     this.flight=scene.add.sprite(enemy.x,enemy.y,'enemy_dragon_fly',0)
       .setOrigin(.5,actorArtLayout('enemy_dragon_fly').originY)
       .setScale(artScale('enemy_dragon_fly')*enemyAppearanceMultiplier(enemy.definition))
@@ -32,7 +34,7 @@ export class DragonCombat {
   get airborne(){return this.phase==='flight'||this.phase==='landing';}
   get visual(){return this.airborne?this.flight:this.enemy;}
   pause(paused:boolean){if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
-  private enter(phase:Phase){this.phase=phase;this.age=0;this.warning.clear();this.fire.clear();}
+  private enter(phase:Phase){this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();}
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state!=='attack'&&this.clock<this.hurtUntil)return;
     this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);this.enemy.anims.timeScale=1;
@@ -43,7 +45,7 @@ export class DragonCombat {
   }
   update(delta:number){
     const e=this.enemy,body=e.body as Phaser.Physics.Arcade.Body,player=this.scene.player;
-    if(e.hp<=0)return;
+    if(e.hp<=0){this.warning.clear();this.fire.hide();return;}
     const dt=Math.min(Math.max(0,delta),100);this.age+=dt;this.clock+=dt;
     const distance=Math.hypot(player.x-e.x,player.y-e.y);
     const engaged=inDragonArena(player.x,player.y,80)&&Math.hypot(player.x-DRAGON_LAIR.x,player.y-DRAGON_LAIR.y)<1100;
@@ -51,7 +53,7 @@ export class DragonCombat {
       this.leaveAir();body.reset(DRAGON_LAIR.x,DRAGON_LAIR.y);this.enter('rest');this.nextAttack=this.clock+2500;
     }
     body.setVelocity(0,0);e.setDepth(e.y);
-    this.warning.setDepth(e.y-2);this.fire.setDepth(e.y+180);
+    this.warning.setDepth(e.y-2);
     if(this.phase==='rest'){
       const goal=engaged?{x:player.x,y:player.y}:{x:DRAGON_LAIR.x+Math.cos(this.clock*.00018)*150,y:DRAGON_LAIR.y+Math.sin(this.clock*.00018)*110};
       const dx=goal.x-e.x,dy=goal.y-e.y,length=Math.hypot(dx,dy);
@@ -70,25 +72,24 @@ export class DragonCombat {
         const choice=this.sequence++%4;
         if(choice===2)this.startFlight();
         else if(choice===0){this.enter('stomp-windup');e.anims.stop();e.setFrame(enemyAnimation(5,'attack').frames[1]);this.scene.notify('Varkhul raises his claws — leave the marked stomp circle!');}
-        else {this.enter('breath-windup');this.groundAnimation('attack');e.anims.timeScale=.3;this.scene.notify('Varkhul draws breath — move out of the fire cone!');}
+        else {this.enter('breath-windup');e.anims.stop();this.breathPose(0);this.scene.notify('Varkhul draws breath — move out of the fire cone!');}
       }
     }else if(this.phase==='stomp-windup'){
       this.drawCircle(e.x,e.y,240,this.age/1000);
       if(this.age>=1000){e.setFrame(enemyAnimation(5,'attack').frames[2]);this.slam(e.x,e.y,240,1);this.recover();}
     }else if(this.phase==='breath-windup'){
+      this.breathPose(Math.min(2,Math.floor(this.age/360)));
       this.drawCone(false);
-      if(this.age>=1000){this.enter('breath');this.breathTick=0;e.play({key:enemyAnimation(5,'attack').key,repeat:-1});e.anims.timeScale=1;}
+      if(this.age>=DRAGON_BREATH.windupMs){this.enter('breath');this.breathTick=DRAGON_BREATH.ignitionMs;this.breathPose(2);}
     }else if(this.phase==='breath'){
       this.drawCone(true);
-      if(this.age>=this.breathTick){
+      if(breathPresentation(this.age).damaging&&this.age>=this.breathTick){
         this.breathTick=this.age+350;
-        const offset=new Phaser.Math.Vector2(player.x-e.x,player.y-e.y),forward=offset.dot(this.aim);
-        const sideways=Math.abs(offset.x*this.aim.y-offset.y*this.aim.x);
         // Match the marked triangle, including its far chord and rear edge.
-        if(forward>=0&&forward<=540*Math.cos(.5)&&sideways<=forward*Math.tan(.5)&&this.scene.hasClearPath(e.x,e.y,player.x,player.y))
+        if(insideBreathCone(player.x-e.x,player.y-e.y,this.aim.x,this.aim.y)&&this.scene.hasClearPath(e.x,e.y,player.x,player.y))
           this.scene.damagePlayer(Math.round(e.definition.damage*.38));
       }
-      if(this.age>=1600)this.recover();
+      if(this.age>=DRAGON_BREATH.burningMs+DRAGON_BREATH.fadeMs)this.recover();
     }else if(this.phase==='flight'){
       const p=Math.min(1,this.age/3200),arc=Math.sin(p*Math.PI),angle=p*Math.PI*2;
       body.reset(Phaser.Math.Linear(this.flightStart.x,this.landingPoint.x,p)+Math.cos(angle)*arc*220,
@@ -103,26 +104,28 @@ export class DragonCombat {
     }
   }
   private recover(){this.enter('recover');}
+  private breathPose(pose:number){
+    this.enemy.anims.stop();this.enemy.anims.timeScale=1;
+    this.enemy.setFrame(enemyAnimation(5,'attack').frames[pose]);
+  }
   private drawCircle(x:number,y:number,radius:number,progress:number){
     this.warning.clear().fillStyle(0xb8321e,.13).fillCircle(x,y,radius)
       .lineStyle(3,0xffb25b,.85).strokeCircle(x,y,radius)
       .lineStyle(2,0xff7243,.6).strokeCircle(x,y,radius*Math.min(1,progress));
   }
   private drawCone(burning:boolean){
-    const e=this.enemy,angle=this.aim.angle(),half=.5,r=540;
+    const e=this.enemy,angle=this.aim.angle(),half=DRAGON_BREATH.halfAngle,r=DRAGON_BREATH.range;
     const left={x:e.x+Math.cos(angle-half)*r,y:e.y+Math.sin(angle-half)*r};
     const right={x:e.x+Math.cos(angle+half)*r,y:e.y+Math.sin(angle+half)*r};
-    this.warning.clear().fillStyle(0xd4551c,burning?.2:.12).fillTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
-      .lineStyle(2,0xffa052,.85).strokeTriangle(e.x,e.y,left.x,left.y,right.x,right.y);
-    this.fire.clear();if(!burning)return;
-    const muzzle={x:e.x+(e.flipX?-95:95),y:e.y-130};
-    this.fire.fillStyle(0xff7020,.32).fillTriangle(muzzle.x,muzzle.y,left.x,left.y,right.x,right.y);
-    for(let i=0;i<16;i++){
-      const p=((this.age*.0014+i/16)%1),spread=Math.sin(i*2.7+this.age*.007)*p*100;
-      const x=Phaser.Math.Linear(muzzle.x,e.x+this.aim.x*r,p)-this.aim.y*spread;
-      const y=Phaser.Math.Linear(muzzle.y,e.y+this.aim.y*r,p)+this.aim.x*spread;
-      this.fire.fillStyle(i%3===0?0xffed8b:0xff7426,(1-p)*.8).fillCircle(x,y,8+p*26);
-    }
+    this.warning.clear().fillStyle(0xd4551c,burning?.045:.12).fillTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
+      .lineStyle(2,0xffa052,burning?.25:.85).strokeTriangle(e.x,e.y,left.x,left.y,right.x,right.y);
+    const pose=burning?2:Math.min(2,Math.floor(this.age/360));
+    // Atlas density 2, registered source scale 1.3, actor scale includes boss size.
+    const muzzle=dragonMouth(e.x,e.y,e.flipX,2*1.3*e.scaleX,pose);
+    const reach=r*Math.cos(half),tip={x:e.x+this.aim.x*reach,y:e.y+this.aim.y*reach-35};
+    if(burning)this.fire.show(muzzle,tip,this.age,e.y+180);
+    else if(this.age>780)this.fire.show(muzzle,tip,this.age-780,e.y+180,true);
+    else this.fire.hide();
   }
   private slam(x:number,y:number,radius:number,multiplier:number){
     const player=this.scene.player;
