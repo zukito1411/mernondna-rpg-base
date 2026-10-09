@@ -10,8 +10,11 @@ The APK currently exceeds GitHub's 100 MiB Git-file limit. Releases host the
 complete APK directly, so no split files or manual reassembly are necessary.
 Source code and build configuration remain on `main`.
 
-The Android workflow builds a new APK when game/build files change on `main`,
-and can also be run manually from GitHub Actions. It checks application/test
+The Android workflow builds a new APK for every push to `main`, including
+documentation-only changes, and can also be run manually from GitHub Actions.
+Local commits trigger a build once they are pushed to GitHub. If you push
+several commits together, the build uses the newest commit in that push.
+It checks application/test
 types and the current targeted regression suites, builds the production web
 assets, syncs Capacitor, builds and verifies a signed debug APK, then publishes
 the APK and SHA-256 checksum in a release tied to that exact source commit.

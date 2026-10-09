@@ -4,16 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'android/**'
-      - 'scripts/**'
-      - 'package*.json'
-      - 'vite.config.ts'
-      - 'capacitor.config.ts'
-      - 'tsconfig*.json'
-      - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: write
