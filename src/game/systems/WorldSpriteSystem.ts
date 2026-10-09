@@ -70,10 +70,9 @@ export class WorldSpriteSystem {
     if(Math.hypot(to.x-from.x,to.y-from.y)<.01)return false;
     // Broad-phase lookup uses Phaser's existing static spatial index. Swept
     // feet stop a fast dash skipping a thin contour between physics frames.
-    const nearby=this.scene.physics.world.staticTree.search({
-      minX:Math.min(from.x,to.x)-width/2,minY:Math.min(from.y,to.y)-height,
-      maxX:Math.max(from.x,to.x)+width/2,maxY:Math.max(from.y,to.y),
-    }) as Phaser.Physics.Arcade.StaticBody[];
+    const left=Math.min(from.x,to.x)-width/2,top=Math.min(from.y,to.y)-height;
+    const nearby=this.scene.physics.overlapRect(left,top,
+      Math.max(from.x,to.x)+width/2-left,Math.max(from.y,to.y)-top,false,true) as Phaser.Physics.Arcade.StaticBody[];
     return nearby.some(body=>body.enable&&body.gameObject?.getData(WORLD_SPRITE_OWNER)&&
       segmentTouchesRect(from,to,{left:body.left-width/2+.15,right:body.right+width/2-.15,
         top:body.top+.15,bottom:body.bottom+height-.15}));

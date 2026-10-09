@@ -31,7 +31,7 @@ export class GroundCoverBaker {
   private getArt(piece:CoverPiece){
     const key=piece.texture+':'+piece.frame,existing=this.art.get(key);if(existing)return existing;
     const sheet=ART_BY_KEY[piece.texture],texture=this.scene.textures.get(piece.texture),frame=texture.get(piece.frame);
-    const visible=frame.customData?.visibleBounds as {left:number;top:number;width:number;height:number}|undefined;
+    const visible=(frame.customData as {visibleBounds?:{left:number;top:number;width:number;height:number}}|undefined)?.visibleBounds;
     if(!visible||visible.height<=0)return null;
     const entry={source:texture.getSourceImage() as CanvasImageSource,
       sx:frame.cutX+visible.left*sheet.density,sy:frame.cutY+visible.top*sheet.density,
