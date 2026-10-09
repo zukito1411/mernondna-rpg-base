@@ -42,23 +42,25 @@ export function HUD() {
   if(cinematic)return null;
   return (
     <div className="hud-layer" aria-live="polite">
-      <section className="status-card">
-        <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
-        <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
-        <div className="meter"><div className="meter-fill stamina" style={{ width: barPercent(stamina, maxStamina) }} /></div>
-        <div className="xp-meter" role="progressbar" aria-label="Experience to next level" aria-valuemin={0} aria-valuemax={XP_PER_LEVEL} aria-valuenow={xpInLevel}>
-          <div className="xp-meter-fill" style={{ width: barPercent(xpInLevel, XP_PER_LEVEL) }} />
-          <span>{xpInLevel} / {XP_PER_LEVEL} XP</span>
-        </div>
-        <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{gold}g</span></div>
-      </section>
+      <div className="hud-primary-stack">
+        <section className="status-card">
+          <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
+          <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
+          <div className="meter"><div className="meter-fill stamina" style={{ width: barPercent(stamina, maxStamina) }} /></div>
+          <div className="xp-meter" role="progressbar" aria-label="Experience to next level" aria-valuemin={0} aria-valuemax={XP_PER_LEVEL} aria-valuenow={xpInLevel}>
+            <div className="xp-meter-fill" style={{ width: barPercent(xpInLevel, XP_PER_LEVEL) }} />
+            <span>{xpInLevel} / {XP_PER_LEVEL} XP</span>
+          </div>
+          <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{gold}g</span></div>
+        </section>
 
-      <section className="quest-card">
-        <strong>{active?.quest.name ?? 'No active quest'}</strong>
-        <span className="quest-objective">{active?.objective.text ?? 'Explore Mernodna freely.'}</span>
-        <QuestCompass />
-        <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
-      </section>
+        <section className="quest-card">
+          <strong>{active?.quest.name ?? 'No active quest'}</strong>
+          <span className="quest-objective">{active?.objective.text ?? 'Explore Mernodna freely.'}</span>
+          <QuestCompass />
+          <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
+        </section>
+      </div>
       {bossEncounter && <section className="boss-encounter-card" aria-label={`${bossEncounter.name} boss health`}>
         <strong>{bossEncounter.name}</strong>
         <div className="boss-health-meter" role="progressbar" aria-label={`${bossEncounter.name} health`}
