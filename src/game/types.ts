@@ -201,6 +201,7 @@ export interface InteractableContentDefinition extends ContentBase {
   repeatable?: boolean;
   requiredQuestId?: string;
   discoveryId?:string;
+  portId?:string;
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {

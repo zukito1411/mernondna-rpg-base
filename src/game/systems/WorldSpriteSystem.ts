@@ -3,6 +3,7 @@ import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {worldSpriteProfile,polygonGroundBands,STONE_BRIDGE,type GroundPoint} from '../../data/worldSpriteGeometry';
 import {segmentTouchesRect} from '../../data/settlementGeometry';
 import type {Vec2} from '../types';
+import type {GroundShadowSystem} from './GroundShadowSystem';
 
 type WorldActor=Phaser.GameObjects.Image|Phaser.GameObjects.Sprite;
 interface VisibleArt {left:number;top:number;width:number;height:number}
@@ -13,7 +14,7 @@ export const WORLD_SPRITE_OWNER='worldSpriteOwner';
  * Render bounds, physical contour and draw order are deliberately separate. */
 export class WorldSpriteSystem {
   private readonly owned=new Map<WorldActor,Phaser.GameObjects.Rectangle[]>();
-  constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup){}
+  constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup,private readonly shadows?:GroundShadowSystem){}
   register(actor:WorldActor,texture:ArtTextureKey,frame:number,scale:number,solid:boolean,fallback?:{width:number;height:number},center=false){
     const sheet=ART_BY_KEY[texture],metadata=(actor.frame.customData??{}) as PreparedArt;
     const visible=metadata.visibleBounds??{left:0,top:0,width:sheet.frameWidth,height:sheet.frameHeight};
@@ -28,6 +29,7 @@ export class WorldSpriteSystem {
       return source?point((x-source[0])/source[2],(y-source[1])/source[3]):point(x,y);
     };
     const profile=worldSpriteProfile(texture,frame),owned:Phaser.GameObjects.Rectangle[]=[];
+    if(!profile?.floor&&texture!=='bridges'&&texture!=='darkav_volcano')this.shadows?.register(actor,true);
     const add=(left:number,top:number,right:number,bottom:number)=>{
       if(right-left<.5||bottom-top<.5)return;
       const body=this.scene.add.rectangle((left+right)/2,(top+bottom)/2,right-left,bottom-top,0xffffff,0)

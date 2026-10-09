@@ -32,7 +32,7 @@ export function regionalMainObjectives(original:QuestObjective[]):QuestObjective
     const site=bossId==='moonlit-warden'?'greenward-ruin':bossId==='stonejaw-troll'?'pass-beacon':bossId==='rootfather'?'rootwater-watch':bossId==='salt-king'?'salt-bay-outlook':bossId==='frost-wyrm'?'ice-bay-outlook':bossId==='ashen-seer'?'ash-vent-watch':'clan-road-muster';
     result.push({id:'evidence:'+town,type:'investigate',targetId:site,contentId:'discovery:'+site,amount:1,text:`Search the old stones at ${site.replaceAll('-',' ')} for the strange mark.`});
     const kill=original.find(o=>o.id===oldId);if(kill)result.push(kill);
-    result.push({id:'report:'+town,type:'talk',targetId:npc,amount:1,text:`Return to ${displayTown} after facing the threat.`,dialogue:[after,'The danger has passed for now. Take what you learned back to Edmund in Oakmere; the signs all lead to the same darkness.']});
+    result.push({id:'report:'+town,type:'talk',targetId:npc,amount:1,text:`Bring the recovered evidence back to ${displayTown}.`,dialogue:[after,'Keep this fragment with the others. Renna in Highmere will need the whole pattern before the crown can repair the seals. Our shrine will remember the help you gave us.']});
   }
   result.push({id:'capital-return',type:'deliver',targetId:'renna-vale',amount:1,text:'Return to Highmere and tell Renna what you found.',cinematicId:'regional-charter-return',dialogue:['The mark appears in every land, older than the crown itself.','The blight did not come by chance. Something has broken the old seals, and now we know where to look.']});
   result.push(original.find(o=>o.id==='return-aldren-after-regions')!);return result;

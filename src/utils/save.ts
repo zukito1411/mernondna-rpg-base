@@ -11,11 +11,13 @@ import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
 import type { ContentState, ContentWorldState, CreatureContentDefinition } from '../game/types';
 import { BASE_ATTRIBUTES, SKILLS, levelForExperience, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
+import {CINEMATICS} from '../data/cinematics';
+import {questConsequences} from '../game/systems/storyScenes';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'>;
-export interface SaveData { version: 4; savedAt: string; state: SavedState }
+export interface SaveData { version: 4; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -117,6 +119,7 @@ export function parseSave(raw: string): SaveData | null {
     const data = migrateSave(JSON.parse(raw));
     if (!record(data) || data.version !== 4 || !record(data.state)) return null;
     const s = data.state;
+    if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return null;
     const storyFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
     if(!record(storyFlags)||!Object.values(storyFlags).every(v=>typeof v==='boolean')
       ||!record(storyChoices)||!Object.values(storyChoices).every(v=>typeof v==='string'&&v.length<100)
@@ -180,7 +183,8 @@ export function parseSave(raw: string): SaveData | null {
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     return { version: 4, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state, worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
-      storyFlags:storyFlags as Record<string,boolean>,storyChoices:storyChoices as Record<string,string>,
+      storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
+      cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
       trackedQuestId:typeof s.trackedQuestId==='string'&&Object.hasOwn(quests,s.trackedQuestId)?s.trackedQuestId:null,
       level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * 3,
       skillPoints: state.skillPoints + levelsGained,
@@ -220,6 +224,7 @@ export function saveGame(): boolean {
       worldContent: s.worldContent,
       unlockedTownShrines:s.unlockedTownShrines,
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
+      cinematicQueue:[...(s.cinematic?[s.cinematic.id]:s.pendingCinematic?[s.pendingCinematic]:[]),...s.cinematicQueue],
     } };
     const prior=localStorage.getItem(SAVE_KEY);
     if(prior&&parseSave(prior))try{localStorage.setItem(SAVE_KEY+':last-good',prior);}catch{/* Keep saving available if the optional backup quota is full. */}
@@ -250,8 +255,7 @@ export function loadGame(): boolean {
       townId: s.townId, day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,unlockedTownShrines:s.unlockedTownShrines,
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
-      pendingCinematic:s.storyFlags['legacy:regional-finished']?null:QUESTS.flatMap(q=>q.objectives)
-        .find(o=>o.cinematicId&&!s.storyFlags['scene:'+o.cinematicId]&&QUESTS.some(q=>q.objectives.includes(o)&&(s.quests[q.id]?.objectiveProgress[o.id]??0)>=o.amount))?.cinematicId??null });
+      pendingCinematic:s.cinematicQueue?.[0]??null,cinematicQueue:s.cinematicQueue?.slice(1)??[] });
     return true;
   } catch { return false; }
 }

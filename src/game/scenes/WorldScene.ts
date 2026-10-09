@@ -36,6 +36,9 @@ import { TargetingSystem } from '../systems/TargetingSystem';
 import {WeatherSystem} from '../systems/WeatherSystem';
 import {TreeSwaySystem} from '../systems/TreeSwaySystem';
 import {WaterSurfaceSystem} from '../systems/WaterSurfaceSystem';
+import {GroundShadowSystem} from '../systems/GroundShadowSystem';
+import {WorldTrafficSystem} from '../systems/WorldTrafficSystem';
+import {ShipPassageSystem} from '../systems/ShipPassageSystem';
 import {WorldSpriteSystem,WORLD_SPRITE_OWNER} from '../systems/WorldSpriteSystem';
 import {VolcanicTremor} from '../systems/VolcanicTremor';
 import {renderDensity} from '../systems/renderSizing';
@@ -57,6 +60,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private weather!:WeatherSystem;
   private treeSway!:TreeSwaySystem;
   private waterSurface!:WaterSurfaceSystem;
+  private groundShadows!:GroundShadowSystem;
+  private traffic!:WorldTrafficSystem;
+  private passage!:ShipPassageSystem;
   private worldSprites!:WorldSpriteSystem;
   private readonly volcanicTremor=new VolcanicTremor();
   private eventDirector!: EventDirector;
@@ -97,7 +103,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction);
   }
-  streamCinematicView(x:number,y:number){this.chunkManager.update(x,y);this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
+  streamCinematicView(x:number,y:number){this.chunkManager.update(x,y,Boolean(this.passage?.active));this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
+  storyActorPosition(id:string){const actor=this.contentManager.getActor('npc:'+id)??this.contentManager.getState('npc:'+id);return actor?{x:actor.x,y:actor.y-35}:undefined;}
+  prepareStoryActors(){for(const npc of this.npcs)if(!npc.definition.formation)npc.storyRest();}
   recordTraining(targetId:string) {
     const target=this.contentManager.getActor('training:highmere-target');
     if(target&&Math.hypot(this.player.x-target.x,this.player.y-target.y)<240
@@ -126,12 +134,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.weather=new WeatherSystem(this,this.worldGenerator);
     this.treeSway=new TreeSwaySystem(this);
     this.waterSurface=new WaterSurfaceSystem(this,this.worldGenerator);
+    this.groundShadows=new GroundShadowSystem(this);
     this.cinematicDirector=new CinematicDirector(this);
     this.activePlayMs=0;
     this.eventDirector = new EventDirector(this);
     this.buildings = this.physics.add.staticGroup();
     this.treeBodies = this.physics.add.staticGroup();
-    this.worldSprites=new WorldSpriteSystem(this,this.treeBodies);
+    this.worldSprites=new WorldSpriteSystem(this,this.treeBodies,this.groundShadows);
+    this.traffic=new WorldTrafficSystem(this,this.worldGenerator,this.groundShadows);
+    this.passage=new ShipPassageSystem(this,this.worldGenerator,this.traffic);
     this.npcBodies = this.physics.add.group();
     this.creatureBodies = this.physics.add.group();
     this.chunkManager = new ChunkManager(this,this.worldGenerator,this.treeSway,this.dayNight,this.worldSprites);
@@ -144,6 +155,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const safeSaved=nearSaved.find(p=>this.worldGenerator.isWalkable(p.x,p.y))??LEIGNERON.spawn;
     const spawnX=safeSaved.x,spawnY=safeSaved.y;
     this.player = new Player(this, spawnX, spawnY);
+    this.groundShadows.register(this.player);
     this.targeting=new TargetingSystem(this);
     this.lastSafe = { x: spawnX, y: spawnY };
 
@@ -215,10 +227,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   update(time: number, delta: number) {
     this.handlePanelHotkeys();
+    const travelStore=useGameStore.getState();
+    if(travelStore.passageRequest){const from=travelStore.harborPortId,to=travelStore.passageRequest;travelStore.hydrate({passageRequest:null});if(from)this.passage.begin(from,to);}
+    if(this.passage.active){
+      const paused=!this.focused||Boolean(travelStore.panel);this.physics.world.pause();this.player.discardActions();
+      this.passage.update(paused?0:delta);this.weather.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y,paused);
+      this.dayNight.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y);
+      this.waterSurface.update(paused?0:delta);this.traffic.update(paused?0:delta);this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.windStrength);return;
+    }
     if(this.cinematicDirector.active) {
       this.weather.update(this.focused?delta:0,this.player.x,this.player.y,!this.focused);
       this.treeSway.update(this.focused?delta:0,this.weather.windStrength);
       this.waterSurface.update(this.focused?delta:0);
+      this.traffic.update(0);
+      this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.windStrength);
       this.physics.world.pause();this.player.discardActions();
       if(this.focused){
         this.activePlayMs+=Math.min(delta,250);
@@ -230,7 +252,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const story=useGameStore.getState();
     if(this.focused&&!story.panel&&!story.dialogue) {
       const pending=story.pendingCinematic;
-      if(pending){if(!this.cinematicDirector.start(pending))story.hydrate({pendingCinematic:null});else return;}
+      if(pending){if(!this.cinematicDirector.start(pending))story.hydrate({pendingCinematic:story.cinematicQueue[0]??null,cinematicQueue:story.cinematicQueue.slice(1)});else return;}
       if(this.worldGenerator.getTownAt(this.player.x,this.player.y)?.id==='highmere'
         && !story.storyFlags['scene:highmere-arrival'] && this.cinematicDirector.start('highmere-arrival'))return;
     }
@@ -287,6 +309,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.weather.update(uiBlocked?0:delta,this.player.x,this.player.y,uiBlocked);
     this.treeSway.update(uiBlocked?0:delta,this.weather.windStrength);
     this.waterSurface.update(uiBlocked?0:delta);
+    this.traffic.update(uiBlocked?0:delta);
+    this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.windStrength);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
@@ -500,6 +524,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   notify(message: string) {
     useGameStore.getState().showToast(message);
   }
+  landFromPassage(point:Vec2){
+    this.chunkManager.update(point.x,point.y);this.contentManager.update(point.x,point.y);
+    (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);this.player.setVisible(true);this.player.resetInput();this.lastSafe={...point};
+    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player,true,.12,.12);this.physics.world.resume();this.syncState();this.updateNavigation();saveGame();
+  }
 
   countEnemies() {
     return this.enemies.size;
@@ -507,6 +536,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   isWalkable(x: number, y: number) { return this.worldGenerator.isWalkable(x, y); }
   isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y)
+    &&!(useGameStore.getState().storyFlags['oakmere-road-open']&&Math.hypot(x-TOWN_BY_ID.oakmere.world.x,y-TOWN_BY_ID.oakmere.world.y)<5000&&this.worldGenerator.isRoad(x,y,30))
     &&!WILDERNESS_SITES.some(s=>(s.style==='camp'||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
   canEnemyOccupy(x: number, y: number) { return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y); }
 
@@ -538,9 +568,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   syncState() {
     if (!this.player?.active) return;
     this.reconcileStoryAffinity();
-    const town = this.worldGenerator.getTownAt(this.player.x, this.player.y);
+    const position=this.passage?.safePosition??this.player;
+    const town = this.worldGenerator.getTownAt(position.x, position.y);
     const store = useGameStore.getState();
-    store.setWorldStatus(this.player.x, this.player.y, this.worldGenerator.getRegionAt(this.player.x, this.player.y), town?.id ?? null);
+    store.setWorldStatus(position.x, position.y, this.worldGenerator.getRegionAt(position.x, position.y), town?.id ?? null);
     store.setVitals(this.player.hp, this.player.stamina);
     store.setActiveSkillStatus(this.player.skills.snapshot());
     this.dayNight.syncState();
@@ -633,6 +664,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         :phase&&this.getWorldHour()>=6&&this.getWorldHour()<20?{x:town.world.x+phase.x,y:town.world.y+phase.y}
         : obscuredKeeper || this.isNpcObscured(x,y) || this.isBlockedByBuilding(x,y) ? definition.world : { x,y };
       const npc = new Npc(this, npcDefinition, position.x, position.y, definition.world);
+      this.groundShadows.register(npc);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
         if (Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y) < 72 && this.hasClearPath(this.player.x, this.player.y, npc.x, npc.y)) {
@@ -644,6 +676,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (definition.kind === 'creature') {
       const enemy = new Enemy(this, ENEMY_BY_ID[definition.enemyId], x, y, definition.id, definition.eventSpawn);
+      this.groundShadows.register(enemy);
       enemy.hp = state.hp ?? enemy.hp;
       this.creatureBodies.add(enemy); this.enemies.add(enemy);
       if (definition.bossId && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 1200) {
@@ -683,7 +716,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(definition.tint!==undefined)actor.setTint(definition.tint);
     const footprint = propFoundation(texture,definition.frame,definition.scale??.6);
     this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6, solid, footprint);
-    if (definition.townShrineId) {
+    if (definition.townShrineId||definition.portId) {
       const caption = this.add.text(x,y + 15,definition.name,{
         fontFamily:'Georgia, serif',fontSize:'10px',color:'#e7d7ad',stroke:'#211b12',strokeThickness:3,
       }).setResolution(2).setOrigin(.5,0).setDepth(y + 80);
@@ -706,11 +739,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     actor.setOrigin(origin.x,origin.y).setScale(artScale(texture) * scale).setDepth(actor.y).setRotation(rotation);
     this.worldSprites.register(actor,texture,frame,scale,solid,foundation,anchor==='center');
     this.dayNight.register(actor,texture,frame,scale);
-    const size = artFrameSize(texture, frame), width = size.width * scale, height = size.height * scale;
-    const shadow = this.add.ellipse(actor.x, actor.y - 5, width * .7, Math.min(18, height * .12), 0x182015, .18)
-      .setDepth(actor.y - height - 1).setName(`shadow:${actor.name}`);
-    if(texture==='darkav_volcano')shadow.setVisible(false); // Mountain has its own illustrated ground shading.
-    actor.once('destroy', () => shadow.destroy());
     this.treeSway.register(actor,texture,frame);
   }
 
@@ -724,6 +752,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
+    if(definition.portId){useGameStore.getState().hydrate({panel:'harbor',harborPortId:definition.portId});this.player.resetInput();return;}
     if(definition.id==='clue:varkhul-ward'){
       const returnAt=this.contentManager.getState('boss:'+DRAGON_BOSS_ID)?.respawnAt;
       if(returnAt&&returnAt>Date.now()&&!objectiveIsCurrent(useGameStore.getState().quests,'investigate','varkhul-ward')){
@@ -867,6 +896,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   shutdown() {
+    this.passage?.destroy();
     this.targeting?.clear();
     useGameStore.getState().setBossEncounter(null);
     setSaveSnapshotProvider();
@@ -876,6 +906,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     this.game.events.off(Phaser.Core.Events.FOCUS, this.onFocus, this);
     this.dayNight?.destroy();
+    this.traffic?.destroy();
+    this.groundShadows?.destroy();
     this.weather?.destroy();
     this.cinematicDirector?.destroy();
     this.contentManager?.destroy();

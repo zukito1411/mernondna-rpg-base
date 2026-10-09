@@ -4,6 +4,7 @@ import { NPC_BY_ID } from '../../data/npcs';
 import { ENEMY_BY_ID } from '../../data/enemies';
 import { TOWN_BY_ID } from '../../data/towns';
 import type { ContentDefinition, ContentWorldState, QuestRuntimeState, QuestTarget, Vec2 } from '../types';
+import {PORT_BY_ID} from '../../data/ports';
 
 export function activeObjective(quests: Record<string, QuestRuntimeState>,trackedQuestId?:string|null) {
   const entries=Object.entries(quests).sort(([a],[b])=>Number(b===trackedQuestId)-Number(a===trackedQuestId));
@@ -21,6 +22,15 @@ export function resolveQuestTarget(quests: Record<string, QuestRuntimeState>, wo
   const active = activeObjective(quests,trackedQuestId);
   if (!active) return null;
   const { objective, questId } = active;
+  const npc=NPC_BY_ID[objective.targetId],targetTown=npc?TOWN_BY_ID[npc.townId]:undefined;
+  if(targetTown&&['portquill','frostlands','darkav'].includes(targetTown.regionId)){
+    // An unattuned island quest guides to a reachable embarkation quay rather
+    // than drawing a compass line into impassable open water.
+    const nearIsland=Object.values(PORT_BY_ID).find(p=>p.id!=='highmere'&&Math.hypot(player.x-TOWN_BY_ID[p.townId].world.x,player.y-TOWN_BY_ID[p.townId].world.y)<24000);
+    const destination=Object.values(PORT_BY_ID).find(p=>p.townId===targetTown.id);
+    if(destination&&nearIsland?.id!==destination.id){const port=nearIsland??PORT_BY_ID.highmere;
+      return {...port.landing,contentId:'port:'+port.id,label:port.name+' — passage to '+targetTown.name,questId,objectiveId:objective.id,type:objective.type};}
+  }
   if(objective.type==='quest'){
     if(quests[objective.targetId]?.status==='active')return resolveQuestTarget(quests,world,player,livePosition,objective.targetId);
     const dependency=QUEST_BY_ID[objective.targetId],npc=dependency&&NPC_BY_ID[dependency.giverNpcId];

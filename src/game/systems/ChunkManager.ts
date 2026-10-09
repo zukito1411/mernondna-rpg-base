@@ -15,6 +15,7 @@ import type {WorldSpriteSystem} from './WorldSpriteSystem';
 interface ChunkRuntime {
   image: Phaser.GameObjects.Image;
   textureKey: string;
+  shared?:boolean;
   scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite>;
 }
 
@@ -32,41 +33,55 @@ export class ChunkManager {
     this.baker = new TerrainBaker(scene);
   }
 
-  update(worldX: number, worldY: number) {
+  update(worldX: number, worldY: number,viewportOnly=false) {
     const centerX = Math.floor(worldX / CHUNK_SIZE);
     const centerY = Math.floor(worldY / CHUNK_SIZE);
-    const centerKey = `${centerX}:${centerY}`;
+    const camera=this.scene.cameras.main,halfW=camera.width/camera.zoom/2+128,halfH=camera.height/camera.zoom/2+128;
+    const bounds={left:Math.floor((worldX-halfW)/CHUNK_SIZE),right:Math.floor((worldX+halfW)/CHUNK_SIZE),top:Math.floor((worldY-halfH)/CHUNK_SIZE),bottom:Math.floor((worldY+halfH)/CHUNK_SIZE)};
+    const centerKey = viewportOnly?`view:${bounds.left}:${bounds.right}:${bounds.top}:${bounds.bottom}`:`${centerX}:${centerY}`;
     if (centerKey === this.lastCenter) return;
     this.lastCenter = centerKey;
 
     const wanted = chunkNeighborhood(worldX, worldY);
+    if(viewportOnly)for(const key of wanted){const [x,y]=key.split(':').map(Number);if(x<bounds.left||x>bounds.right||y<bounds.top||y>bounds.bottom)wanted.delete(key);}
     for (const [key, chunk] of this.active) {
       if (wanted.has(key)) continue;
       chunk.image.destroy();
       for (const image of chunk.scenery) image.destroy();
-      this.scene.textures.remove(chunk.textureKey);
+      if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);
       this.active.delete(key);
     }
     // Release distant GPU/canvas allocations before baking replacements.
     for (const key of wanted) {
       if (!this.active.has(key)) { const [x, y] = key.split(':').map(Number); this.load(x, y); }
     }
+    this.scene.registry.set('openSeaView',[...this.active.values()].every(chunk=>chunk.shared));
   }
 
   destroy() {
     for (const chunk of this.active.values()) {
       chunk.image.destroy();
       for (const image of chunk.scenery) image.destroy();
-      this.scene.textures.remove(chunk.textureKey);
+      if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);
     }
     this.active.clear();
     this.lastCenter = '';
     this.baker.destroy();
+    this.scene.textures.remove('shared-ocean-chunk');
   }
 
   getActiveKeys() { return [...this.active.keys()]; }
 
   private load(chunkX: number, chunkY: number) {
+    // Fully open sea shares a single texture. Voyages no longer allocate and
+    // repaint nine identical 1536-square ocean canvases at every chunk change.
+    const ocean=Array.from({length:25},(_,i)=>({x:(chunkX+i%5/4)*CHUNK_SIZE,y:(chunkY+Math.floor(i/5)/4)*CHUNK_SIZE}))
+      .every(p=>this.world.getRegionAt(p.x,p.y)==='dead-sea');
+    if(ocean){
+      const key='shared-ocean-chunk';if(!this.scene.textures.exists(key)){const texture=this.scene.textures.createCanvas(key,CHUNK_SIZE,CHUNK_SIZE)!;this.baker.drawOcean(texture.getContext());texture.refresh();}
+      const image=this.scene.add.image(chunkX*CHUNK_SIZE,chunkY*CHUNK_SIZE,key).setOrigin(0).setDepth(-1000);
+      this.active.set(chunkX+':'+chunkY,{image,textureKey:key,shared:true,scenery:[]});return;
+    }
     const textureKey = `chunk:${chunkX}:${chunkY}`;
     const canvasTexture = this.scene.textures.createCanvas(textureKey, CHUNK_SIZE, CHUNK_SIZE);
     if (!canvasTexture) return;
@@ -86,8 +101,6 @@ export class ChunkManager {
     const trees=planWildernessTrees(chunkX,chunkY,this.world,[...reservations,...landmarks]);
     for (const tree of trees) {
       const { x:wx,y:wy,texture,frame,scale } = tree;
-      ctx.fillStyle = 'rgba(20,30,15,.18)'; ctx.beginPath();
-      ctx.ellipse(wx - chunkX * CHUNK_SIZE, wy - chunkY * CHUNK_SIZE - 6, 34 * scale, 10 * scale, 0, 0, Math.PI * 2); ctx.fill();
       const image=this.scene.add.image(wx,wy,texture,frame).setOrigin(.5,1)
         .setScale(artScale(texture)*scale).setDepth(wy).setName(tree.id);
       scenery.push(image);this.ground.register(image,texture,frame,scale,true);

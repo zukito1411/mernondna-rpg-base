@@ -2,10 +2,11 @@ import { QUESTS } from '../data/quests';
 import { useGameStore } from '../store/gameStore';
 
 export function QuestJournal() {
-  const {panel,quests,trackedQuestId,closePanel,trackQuest,storyChoices}=useGameStore();
+  const panel=useGameStore(s=>s.panel),quests=useGameStore(s=>s.quests),trackedQuestId=useGameStore(s=>s.trackedQuestId),closePanel=useGameStore(s=>s.closePanel),trackQuest=useGameStore(s=>s.trackQuest),storyChoices=useGameStore(s=>s.storyChoices);
   if(panel!=='journal')return null;
   return <div className="overlay-backdrop"><section className="quest-journal" aria-label="Quest journal">
     <header><h2>Leigneron’s journal</h2><button onClick={closePanel}>Close</button></header>
+    <details><summary>Reaching the islands</summary><p>At Highmere, follow the river to the quay east of the Lower Ward. Interact with the pier to board a crewed boat. Tidewatch and Skallheim have return passages. For Darkav, choose Ashen Landing, then follow the ash road north to Blackspire. Helping a region attunes its shrine for later journeys.</p></details>
     {QUESTS.filter(q=>quests[q.id]?.status!=='locked').map(q=>{
       const runtime=quests[q.id];
       const current=q.objectives.find(o=>(runtime.objectiveProgress[o.id]??0)<o.amount);

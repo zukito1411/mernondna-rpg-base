@@ -92,6 +92,7 @@ export class TerrainBaker {
     this.cover.draw(ctx,world,chunkX,chunkY);
   }
 
+  drawOcean(ctx:CanvasRenderingContext2D){this.patterns[7].setTransform(new DOMMatrix());ctx.fillStyle=this.patterns[7];ctx.fillRect(0,0,CHUNK_SIZE,CHUNK_SIZE);}
   destroy() {
     this.patterns.length = 0;
     this.cover.destroy();

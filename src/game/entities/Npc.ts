@@ -75,6 +75,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;}
   get escorting(){return this.escortGoal!==null;}
+  storyRest(){(this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);}
   advanceCinematic(delta:number) {
     const body=this.body as Phaser.Physics.Arcade.Body,step=Math.min(delta,80)/1000;
     const point={x:this.x+body.velocity.x*step,y:this.y+body.velocity.y*step};

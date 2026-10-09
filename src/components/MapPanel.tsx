@@ -69,6 +69,7 @@ export function MapPanel() {
           <h3 id="map-travel-title">Teleport to {selected.name}?</h3>
           <small>{selected.regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[selected.regionId]?.name} · {selected.kind}</small>
           <p>{selected.description}</p>
+          {['darkav','frostlands','portquill'].includes(selected.regionId)&&<p>For a first visit, board at Highmere River Quay. Darkav’s boat lands at Ashen Landing; follow the ash road north to Blackspire.</p>}
           <p id="map-travel-description">{canTeleport
             ? localTravel && !unlockedShrines.includes(selected.id)
               ? 'Available for local exploration. This trip does not unlock the shrine.'

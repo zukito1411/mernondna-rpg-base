@@ -10,8 +10,9 @@ import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/active
 import { BASE_ATTRIBUTES, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
+import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
 
-type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'harbor' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -52,6 +53,9 @@ export interface GameState {
   minuteOfDay: number;
   weatherLabel:string;
   weatherAudio:boolean;
+  harborPortId:string|null;
+  passageRequest:string|null;
+  passage:{from:string;to:string;progress:number}|null;
   panel: Panel;
   dialogue: DialogueState | null;
   toast: string | null;
@@ -70,6 +74,7 @@ export interface GameState {
   trackedQuestId:string|null;
   cinematic:{id:string;title:string;line:string}|null;
   pendingCinematic:string|null;
+  cinematicQueue:string[];
   skipCinematicRequested:boolean;
   chooseDialogue:(id:string)=>void;
   trackQuest:(id:string)=>void;
@@ -128,6 +133,7 @@ const baseState = () => ({
   day: 1,
   minuteOfDay: 8 * 60,
   weatherLabel:'Clear skies',weatherAudio:true,
+  harborPortId:null as string|null,passageRequest:null as string|null,passage:null as GameState['passage'],
   panel: null as Panel,
   dialogue: null as DialogueState | null,
   toast: 'Welcome to Mernodna.',
@@ -142,7 +148,7 @@ const baseState = () => ({
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
   activeSkillStatus:initialActiveSkillStatus(),
   storyFlags:{} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:null as string|null,
-  cinematic:null as GameState['cinematic'],pendingCinematic:null as string|null,skipCinematicRequested:false,
+  cinematic:null as GameState['cinematic'],pendingCinematic:null as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
 });
 
 function experienceProgress(state: GameState, xp: number) {
@@ -188,11 +194,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   startDialogue: (npcId) => {
     const state=get(),npc=NPC_BY_ID[npcId];
     if (!npc || state.panel || state.dialogue || state.cinematic) return;
-    let quests=state.quests,trackedQuestId=state.trackedQuestId;
+    const existingConversation=conversationObjective(npcId,state.quests,state.trackedQuestId);
+    let quests=state.quests,trackedQuestId=existingConversation?.questId??state.trackedQuestId;
     for(const id of npc.questIds) {
       const q=QUEST_BY_ID[id];
       if(q && quests[id]?.status==='locked' && (!q.prerequisiteQuestId || quests[q.prerequisiteQuestId]?.status==='completed') && !['first-road','eight-regions'].includes(id)) {
-        quests={...quests,[id]:{status:'active',objectiveProgress:{}}};trackedQuestId=id;
+        quests={...quests,[id]:{status:'active',objectiveProgress:{}}};if(!existingConversation&&(!trackedQuestId||quests[trackedQuestId]?.status!=='active'))trackedQuestId=id;
       }
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
@@ -228,14 +235,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!Number.isFinite(amount) || amount <= 0) return;
     const state = get();
     const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount },state.storyFlags);
-    const completedObjective=Object.entries(state.quests).flatMap(([id])=>{
-      const before=QUEST_BY_ID[id];return before?.objectives.filter(o=>o.type===type&&o.targetId===targetId&&o.cinematicId
-        && (state.quests[id].objectiveProgress[o.id]??0)<o.amount&&(result.quests[id]?.objectiveProgress[o.id]??0)>=o.amount)??[];
-    })[0];
+    const scenes=sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags);
+    const shrines=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'].filter(id=>(result.quests['eight-regions']?.objectiveProgress['report:'+id]??0)>=1);
     const progression = experienceProgress(state, result.xp);
     const rewardToast = result.xp || result.gold ? `Quest complete — +${result.xp} XP, +${result.gold} gold` : null;
     set({ quests: result.quests, gold: state.gold + result.gold, ...progression,
-      ...(completedObjective?.cinematicId?{pendingCinematic:completedObjective.cinematicId}:{}),
+      trackedQuestId:state.trackedQuestId&&result.quests[state.trackedQuestId]?.status==='completed'?QUEST_BY_ID[state.trackedQuestId]?.nextQuestId??null:state.trackedQuestId,
+      ...scenes,storyFlags:questConsequences(result.quests,state.storyFlags),unlockedTownShrines:[...new Set([...state.unlockedTownShrines,...shrines])],
       ...(rewardToast ? { toast: progression.toast ? `${rewardToast}. ${progression.toast}` : rewardToast } : {}),
     });
   },
@@ -250,6 +256,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 },state.storyFlags);
     const progression = experienceProgress(state, xp + result.xp);
     return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,
+      ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
       ...(worldContent ? { worldContent } : {}) };
   }),
   allocateAttribute: (attribute) => set((state) => {

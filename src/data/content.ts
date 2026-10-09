@@ -17,8 +17,11 @@ import {WILDERNESS_SITES} from './wildernessSites';
 import {isTreeArt} from './treeArt';
 import {DRAGON_LAIR_CONTENT} from './dragonLair';
 import {LAVA_FLOW} from './worldLandscape';
+import {PORTS} from './ports';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
+for(const port of PORTS)WORLD_CONTENT.push({id:'port:'+port.id,kind:'interactable',world:port.landing,
+ texture:'bridges',frame:6,scale:1.65,solid:false,name:port.name,description:port.description,repeatText:port.description,repeatable:true,portId:port.id});
 for (const town of TOWNS) {
   WORLD_CONTENT.push({ id: `town:${town.id}`, kind: 'settlement', townId: town.id, world: { x: town.world.x, y: town.world.y - 80 } });
   const layout = SETTLEMENT_BY_ID[town.id];
@@ -191,12 +194,12 @@ for(const layout of SETTLEMENT_LAYOUTS){
     fittedDetailBounds.push(rect);return true;
   });
 }
-const placed:Rect[] = WORLD_CONTENT.filter(d=>d.kind==='settlement-prop' || d.kind==='npc' || 'townShrineId' in d || d.id.startsWith('detail:') && 'frame' in d && isTreeArt(d.texture??'',d.frame))
+const placed:Rect[] = WORLD_CONTENT.filter(d=>d.kind==='settlement-prop' || d.kind==='npc' || 'townShrineId' in d || 'portId' in d || d.id.startsWith('detail:') && 'frame' in d && isTreeArt(d.texture??'',d.frame))
   .map(d=>d.kind==='npc' ? {left:d.world.x-32,right:d.world.x+32,top:d.world.y-76,bottom:d.world.y+35}
     : 'frame' in d ? spriteBounds(d.texture??'world_objects',d.frame,'scale' in d?d.scale??1:1,d.world.x,d.world.y) : {left:0,right:0,top:0,bottom:0});
 placed.push(...fittedDetailBounds);
 for(const d of WORLD_CONTENT) {
-  if(!('frame' in d)||d.kind==='settlement-prop'||'townShrineId' in d||d.id.startsWith('farm:')||d.id.startsWith('bridge:')
+  if(!('frame' in d)||d.kind==='settlement-prop'||'townShrineId' in d||'portId' in d||d.id.startsWith('farm:')||d.id.startsWith('bridge:')
     ||d.id.endsWith('harbor-pier')||isTreeArt(d.texture??'',d.frame)&&d.id.startsWith('detail:')) continue;
   const texture:ArtTextureKey=d.texture??'world_objects',scale=d.scale??1;
   const layout=SETTLEMENT_LAYOUTS.find(s=>{const t=TOWN_BY_ID[s.townId];return Math.abs(d.world.x-t.world.x)<s.bounds.width/2+600&&Math.abs(d.world.y-t.world.y)<s.bounds.height/2+600;});

@@ -12,6 +12,7 @@ import { ShrineTravelPanel } from './components/ShrineTravelPanel';
 import { QuestJournal } from './components/QuestJournal';
 import { CinematicPanel } from './components/CinematicPanel';
 import { HomeMenu } from './components/HomeMenu';
+import {HarborPanel} from './components/HarborPanel';
 import { mobileInput } from './game/input';
 import { useGameStore } from './store/gameStore';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
@@ -82,6 +83,7 @@ export default function App() {
         <PausePanel />
         <ShrineTravelPanel />
         <QuestJournal />
+        <HarborPanel />
         <CinematicPanel />
         <Toast />
       </> : <HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}

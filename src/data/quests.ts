@@ -5,6 +5,7 @@ import {CROWN_SUMMONS,regionalMainObjectives} from './mainStory';
 import { NPC_NAME_ALIASES } from './npcs';
 import { rewriteNpcMentions } from './npcPresentation';
 import {DRAGON_QUEST} from './dragonLair';
+import {QUEST_SCENE_BINDINGS} from './questScenes';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -13,9 +14,9 @@ export const QUESTS: QuestDefinition[] = [
     giverNpcId: 'aldren-vale',
     summary: 'Bandits have taken over the old watchtower east of Oakmere. Aldren asks Leigneron to reopen the road.',
     objectives: [
-      { id: 'talk-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Speak with Aldren Vale in Oakmere.' },
+      { id: 'talk-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Speak with Aldren Vale in Oakmere.',dialogue:['The bandits are taking the seed grain, not just travelers’ purses. If the next cart never reaches us, Oakmere cannot sow its fields.','Varr holds the ruined tower east of the farms. Break his blockade, then bring me the seal on his stolen supplies. We need to know who is paying him.'] },
       { id: 'kill-varr', type: 'kill', targetId: 'bandit-captain', bossId: 'captain-varr', amount: 1, text: 'Defeat Captain Varr at the ruined watchtower.' },
-      { id: 'return-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Return to Aldren and report what happened.' },
+      { id: 'return-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Return to Aldren with Varr’s stolen royal seal.',dialogue:['The grain road is open. I will put a watch on the eastern approach so the growers can send their carts again.','That seal belongs to Highmere’s grain office. Varr could not have forged it alone. Take my testimony to Renna; the missing flour may lead us to the hand behind him.'] },
     ],
     rewardGold: 60,
     rewardXp: 150,
@@ -48,6 +49,7 @@ regional.prerequisiteQuestId='crown-summons';
 regional.summary='Follow the strange signs from Highmere across the mainland and sea. Face the creatures that haunt the old roads, learn what woke them, and bring the people’s warnings home to Oakmere.';
 QUESTS.push(...HIGHMERE_QUESTS,CIBAR_QUEST,DRAGON_QUEST);
 for (let i = 0; i < QUESTS.length; i += 1) {
+  for(const objective of QUESTS[i].objectives){const scene=QUEST_SCENE_BINDINGS[QUESTS[i].id]?.[objective.id];if(scene&&!objective.cinematicId)objective.cinematicId=scene;}
   QUESTS[i] = rewriteNpcMentions(QUESTS[i], NPC_NAME_ALIASES);
 }
 export const QUEST_BY_ID = Object.fromEntries(QUESTS.map((quest) => [quest.id, quest])) as Record<string, QuestDefinition>;

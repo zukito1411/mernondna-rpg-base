@@ -12,6 +12,7 @@ import { settlementAt, settlementTerrain, onStreet, protectedSettlementAt } from
 import { fortificationBlocksPoint } from '../../data/fortifications';
 import {lakeAt,lakeShoreDistance} from '../../data/landscapeFeatures';
 import {dragonLairTerrain,onDragonTrail} from '../../data/dragonLair';
+import {ASHEN_DOCK_ROAD} from '../../data/ports';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
 
@@ -104,6 +105,7 @@ export class WorldGenerator {
 
     if(onSettlementRiver(worldX,worldY)||onHeadwaterStream(worldX,worldY)) return onWildernessBridge(worldX,worldY)?'stone':'water';
     if(regionId==='darkav'){const lair=dragonLairTerrain(worldX,worldY);if(lair)return lair;}
+    if(regionId==='darkav'&&pathDistance(worldX,worldY,ASHEN_DOCK_ROAD,80)<48)return 'ash';
 
     const road=roadSurfaceAt(worldX,worldY);if(road)return road;
     if (FARM_PLOTS.some(plot => Math.abs(worldX - plot.x) < plot.width / 2 && Math.abs(worldY - plot.y) < plot.height / 2)) return 'farmland';
@@ -141,6 +143,7 @@ export class WorldGenerator {
   }
 
   isRoad(worldX: number, worldY: number, clearance = 0) {
+    if(pathDistance(worldX,worldY,ASHEN_DOCK_ROAD,96+clearance)<48+clearance)return true;
     if(onDragonTrail(worldX,worldY,clearance))return true;
     const layout = settlementAt(worldX,worldY);
     if (layout) {
