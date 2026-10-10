@@ -1,4 +1,4 @@
-import { HERO_PACK, GUARD_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,TROLL_SOURCES,DRAGON_SOURCES,DRAGON_FLY_SOURCES,TROLL_IMPACT_SOURCES,DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
+import { HERO_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,TROLL_SOURCES,DRAGON_SOURCES,DRAGON_FLY_SOURCES,TROLL_IMPACT_SOURCES,DIRECTION_CLIPS, type SpriteSource } from './animationPacks';
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
 
@@ -6,14 +6,15 @@ import { NPC_IDLE_ART, npcIdleSources,npcDirectionalIdleTexture,type NpcDirectio
 import { registerNpcWalkSources } from './npcWalkArt';
 import {DIRECTIONAL_ENEMY_ART} from './directionalEnemyArt';
 import {BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
+import {GUARD_MARCH_ART,type GuardMarchTexture} from './guardMarchArt';
 
 import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 
 import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
-type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
-export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE;
+type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|GuardMarchTexture|'port_dock';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
@@ -64,7 +65,7 @@ const boardFront = (key:string):SpriteSource => boardSources(SPRITE_BOARDS.find(
 
 const castSources:SpriteSource[] = [
 
-  { ...directionalSources(GUARD_PACK)[0],renderScale:76/160 },boardFront('npc_attendant'),
+  { ...npcIdleSources(NPC_IDLE_ART.find(entry=>entry.walk==='npc_guard')!)[0],renderScale:76/454 },boardFront('npc_attendant'),
 
   boardFront('npc_adventurer'),boardFront('npc_huntress'),boardFront('npc_blacksmith'),
 
@@ -118,10 +119,6 @@ export const ART_SHEETS: readonly ArtSheet[] = [
     frameWidth:80,frameHeight:80,blackBackground:false,sources:clipSources(HERO_PACK,'run_side'),
     names:Array.from({ length:6 },(_,i) => `run-side-${i}`) },
 
-  { key:'npc_guard',path:GUARD_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:96,frameHeight:80,blackBackground:false,
-
-    sources:registerNpcWalkSources('npc_guard',directionalSources(GUARD_PACK)),contentSize:[128,160],names:poseNames },
-
   { key:'npc_woman',path:SHRINE_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
 
     sources:registerNpcWalkSources('npc_woman',directionalSources(SHRINE_PACK)),contentSize:[128,160],names:poseNames },
@@ -166,6 +163,8 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
     names:['town-hall','manor','watchtower','gatehouse','chapel','smithy','stable','storehouse','castle','signal-tower'] },
 
+  {key:'port_dock',path:'assets/vehicles/coastal-pier.png',columns:1,density:2,frameWidth:320,frameHeight:416,blackBackground:false,
+    sourceSize:[1024,1536],trimRegions:true,regions:[[71,75,888,1367]],groundPoints:[[512,260]],names:['coastal-pier']},
   { key:'bridges',path:'assets/sprites/bridges.png',columns:9,atlasColumns:3,density:2,frameWidth:224,frameHeight:224,blackBackground:false,
 
     sourceSize:[1448,1086],trimRegions:true,
@@ -265,15 +264,18 @@ const directionalSheets:ArtSheet[]=DIRECTIONAL_ENEMY_ART.map(a=>({
  frameWidth:a.frameWidth,frameHeight:a.frameHeight,density:2,blackBackground:false,
  names:Array.from({length:20},(_,i)=>`${a.id}:directional:${i}`),
 }));
-const npcDirectionalIdleSheets:ArtSheet[]=NPC_IDLE_ART.map(entry=>{
- const walk=ART_SHEETS.find(sheet=>sheet.key===entry.walk)!;
- return {key:npcDirectionalIdleTexture(entry.walk),path:walk.path,columns:12,atlasColumns:4,
+const npcDirectionalIdleSheets:ArtSheet[]=NPC_IDLE_ART.flatMap(entry=>{
+ const walk=ART_SHEETS.find(sheet=>sheet.key===entry.walk);
+ if(!walk)return [];
+ return [{key:npcDirectionalIdleTexture(entry.walk),path:walk.path,columns:12,atlasColumns:4,
   frameWidth:walk.frameWidth,frameHeight:walk.frameHeight,density:walk.density,blackBackground:false,
-  names:['left','right','up'].flatMap(direction=>Array.from({length:4},(_,i)=>direction+':idle:'+i))};
+  names:['left','right','up'].flatMap(direction=>Array.from({length:4},(_,i)=>direction+':idle:'+i))}];
 });
 const banditCombatSheet:ArtSheet={key:BANDIT_COMBAT_TEXTURE,path:'assets/enemies/refined/road-bandit-attack.png',columns:18,atlasColumns:6,
  frameWidth:192,frameHeight:144,density:2,blackBackground:false,names:Array.from({length:18},(_,i)=>'bandit-combat:'+i)};
-export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
+const guardMarchSheets:ArtSheet[]=GUARD_MARCH_ART.map(art=>({key:art.texture,path:art.path,columns:24,atlasColumns:6,
+ density:2,frameWidth:128,frameHeight:144,blackBackground:false,names:poseNames}));
+export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet,...guardMarchSheets].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
 
 export function artScale(key: ArtTextureKey) { return 1 / ART_BY_KEY[key].density; }
 
@@ -299,6 +301,7 @@ export function actorArtLayout(key: ArtTextureKey) {
 }
 
 export function artFrameSize(key: ArtTextureKey, frame: number) {
+  if(GUARD_MARCH_ART.some(art=>art.texture===key))return {width:80,height:76*1.27};
   // Gameplay calculations must agree with the standardized render height.
   if (key === 'leigneron') return { width: frame >= 6 && frame < 18 ? 69 : 59, height: HERO_VISIBLE_HEIGHT };
   if (key === 'leigneron_idle') return { width: 59, height: HERO_VISIBLE_HEIGHT };
@@ -391,9 +394,7 @@ export const NPC_ANIMATIONS = ART_SHEETS.filter(sheet => sheet.key.startsWith('n
 
     frames:Array.from({ length:6 },(_,i) => direction * 6 + i),
 
-    frameRate:sheet.key === 'npc_guard' ? GUARD_PACK.animations[clip].frameRate
-
-      : sheet.key === 'npc_woman' ? SHRINE_PACK.animations[clip].frameRate : 8,
+    frameRate:sheet.key === 'npc_woman' ? SHRINE_PACK.animations[clip].frameRate : 8,
 
     repeat:-1,
 

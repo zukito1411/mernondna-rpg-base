@@ -94,9 +94,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   getWorldHour(){return this.dayNight.getHour();}
   getCombatEnemies(){return [...this.enemies];}
   playEnemyVocal(definition:EnemyDefinition,instanceId:string,cue:EnemySoundCue,x:number,y:number){
+    if(!useGameStore.getState().weatherAudio||this.sound.locked)return;
     this.enemySounds.play(definition,instanceId,cue,x,y);
   }
   forgetEnemySound(instanceId:string){this.enemySounds.forget(instanceId);}
+  playDragonSound(instanceId:string,cue:'roar'|'breath'|'flight',x:number,y:number,duration:number){this.enemySounds.playEffect(instanceId,cue,x,y,duration);}
+  stopDragonSound(instanceId:string){this.enemySounds.stopEffect(instanceId);}
   canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
   safeSkillPosition(point:Vec2){return this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
   skillLanding(target:Vec2,range:number):Vec2 {
@@ -239,13 +242,14 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   update(time: number, delta: number) {
     this.handlePanelHotkeys();
     const travelStore=useGameStore.getState();
+    this.enemySounds.pause(!this.focused||Boolean(travelStore.panel||travelStore.dialogue||travelStore.cinematic||this.passage.active));
     if(travelStore.passageRequest){const from=travelStore.harborPortId,to=travelStore.passageRequest;travelStore.hydrate({passageRequest:null});if(from)this.passage.begin(from,to);}
     if(this.passage.active){
       const paused=!this.focused||Boolean(travelStore.panel);this.physics.world.pause();this.player.discardActions();
       this.dayNight.setFirefliesEnabled(false);
       this.passage.update(paused?0:delta);this.weather.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y,paused);
       this.dayNight.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y);
-      this.waterSurface.update(paused?0:delta);this.traffic.update(paused?0:delta);this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.cloudCover);return;
+      this.waterSurface.update(paused?0:delta);this.traffic.update(paused?0:delta);this.groundShadows.update(paused?0:delta,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);return;
     }
     if(this.cinematicDirector.active) {
       const paused=!this.focused;
@@ -253,7 +257,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.treeSway.update(this.focused?delta:0,this.weather.windStrength);
       this.waterSurface.update(this.focused?delta:0);
       this.traffic.update(0);
-      this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.cloudCover);
+      this.groundShadows.update(paused?0:delta,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);
       this.physics.world.pause();this.player.discardActions();
       if(this.focused){
         this.activePlayMs+=Math.min(delta,250);
@@ -325,7 +329,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.treeSway.update(uiBlocked?0:delta,this.weather.windStrength);
     this.waterSurface.update(uiBlocked?0:delta);
     this.traffic.update(uiBlocked?0:delta);
-    this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.cloudCover);
+    this.groundShadows.update(uiBlocked?0:delta,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
@@ -414,6 +418,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.sound.play(key,{volume,rate});
   }
 
+  playEnemyAudio(key:string,volume:number,rate:number,pan:number){
+    if(!useGameStore.getState().weatherAudio||this.sound.locked||!this.cache.audio.exists(key))return;
+    this.sound.play(key,{volume,rate,pan});
+  }
+
+  playEnemySoundAt(key:string,x:number,y:number,volume:number,rate=1){
+    const distance=Math.hypot(this.player.x-x,this.player.y-y),audibleRadius=1500;
+    if(distance>=audibleRadius)return;
+    const camera=this.cameras.main,halfWidth=camera.width/(camera.zoom*2);
+    const attenuation=Math.pow(1-distance/audibleRadius,1.35);
+    const pan=Phaser.Math.Clamp((x-camera.midPoint.x)/Math.max(1,halfWidth),-1,1);
+    this.playEnemyAudio(key,volume*attenuation,rate,pan);
+  }
+
   playEnemyAttackFoley(definition:EnemyDefinition,x:number,y:number,phase:'windup'|'impact'){
     if(phase==='windup'&&(definition.id==='road-bandit'||definition.id==='bandit-captain'||definition.id==='salt-king'))
       this.playAudio('sfx-sword-whoosh',.2,Phaser.Math.FloatBetween(.9,1.08));
@@ -474,8 +492,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     let target: { definition: InteractableContentDefinition; actor: ContentActor } | undefined;
     for (const entry of this.interactables.values()) {
-      const distance = Phaser.Math.Distance.Between(x, y, entry.actor.x, entry.actor.y);
-      if (distance < nearestDistance && this.hasClearPath(x, y, entry.actor.x, entry.actor.y, entry.actor)) {
+      const point=entry.definition.portId?PORT_BY_ID[entry.definition.portId].landing:entry.actor;
+      const distance = Phaser.Math.Distance.Between(x, y, point.x, point.y);
+      if (distance < nearestDistance && this.hasClearPath(x, y, point.x, point.y, entry.actor)) {
         nearestDistance = distance; target = entry;
       }
     }
@@ -641,8 +660,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if (d < distance && this.hasClearPath(this.player.x,this.player.y,npc.x,npc.y)) { distance = d; interaction = `Talk to ${npc.definition.name}`; }
     }
     if (!interaction) for (const { definition,actor } of this.interactables.values()) {
-      const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,actor.x,actor.y);
-      if (d < distance && this.hasClearPath(this.player.x,this.player.y,actor.x,actor.y,actor)) { distance = d; interaction = definition.name; }
+      const point=definition.portId?PORT_BY_ID[definition.portId].landing:actor;
+      const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,point.x,point.y);
+      if (d < distance && this.hasClearPath(this.player.x,this.player.y,point.x,point.y,actor)) { distance = d; interaction = definition.name; }
     }
     store.setNavigation({ heading: Math.atan2(this.player.lastDirection.x,-this.player.lastDirection.y), target: this.questTarget, markers, interaction });
   }
@@ -749,9 +769,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (state.used) actor.setTint(definition.id==='clue:cibar-pump'&&useGameStore.getState().storyFlags['cibar-irrigation-repaired']?0xc9f2ed:definition.townShrineId ? 0xc9e7eb : 0x99907b);
     actor.on('pointerdown', () => {
+      const point=definition.portId?PORT_BY_ID[definition.portId].landing:actor;
       if (!useGameStore.getState().panel && !useGameStore.getState().dialogue
-        && Phaser.Math.Distance.Between(this.player.x, this.player.y, actor.x, actor.y) < 72
-        && this.hasClearPath(this.player.x, this.player.y, actor.x, actor.y, actor)) this.useInteractable(definition, actor);
+        && Phaser.Math.Distance.Between(this.player.x, this.player.y, point.x, point.y) < 72
+        && this.hasClearPath(this.player.x, this.player.y, point.x, point.y, actor)) this.useInteractable(definition, actor);
     });
     this.interactables.set(definition.id, { definition, actor });
     return actor;

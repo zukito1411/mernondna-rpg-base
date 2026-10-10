@@ -21,7 +21,7 @@ import {PORTS} from './ports';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for(const port of PORTS)WORLD_CONTENT.push({id:'port:'+port.id,kind:'interactable',world:port.quay,
- texture:'bridges',frame:6,scale:1.65,anchor:'bottom',solid:false,name:port.name,description:port.description,repeatText:port.description,repeatable:true,portId:port.id});
+ texture:port.river?'bridges':'port_dock',frame:port.river?5:0,scale:port.river?1.65:.93,anchor:port.river?'bottom':'center',solid:false,name:port.name,description:port.description,repeatText:port.description,repeatable:true,portId:port.id});
 for (const town of TOWNS) {
   WORLD_CONTENT.push({ id: `town:${town.id}`, kind: 'settlement', townId: town.id, world: { x: town.world.x, y: town.world.y - 80 } });
   const layout = SETTLEMENT_BY_ID[town.id];

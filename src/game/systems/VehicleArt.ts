@@ -16,10 +16,14 @@ export const MOTION_ART={
 export const BOAT_SCALE=1.25;
 export const BOAT_HULL_CLEARANCE=190;
 const boatHelms=[[260,460],[1150,482],[125,1100],[955,1100]];
-export function boatHelm(frame:number){
+// Independent footpoints measured on each deck, ahead of the stern helmsman.
+const boatPassengers=[[337,400],[1030,460],[253,1080],[1030,1005]];
+function boatDeckPoint(frame:number,points:number[][]){
   const [x,y,w,h]=VEHICLE_ART.boat.regions[frame],fit=280/617;
-  return {x:(boatHelms[frame][0]-x-w/2)*fit*BOAT_SCALE,y:(boatHelms[frame][1]-y-h)*fit*BOAT_SCALE};
+  return {x:(points[frame][0]-x-w/2)*fit*BOAT_SCALE,y:(points[frame][1]-y-h)*fit*BOAT_SCALE};
 }
+export function boatHelm(frame:number){return boatDeckPoint(frame,boatHelms);}
+export function boatPassenger(frame:number){return boatDeckPoint(frame,boatPassengers);}
 export interface CartArtPose {originX:number;originY:number;wheels:Array<{x:number;y:number}>;horse:{x:number;y:number}}
 export const CART_ART_POSES:CartArtPose[]=[];
 

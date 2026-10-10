@@ -33,7 +33,7 @@ export class WorldSpriteSystem {
     if(!profile?.floor||texture==='bridges'){
       const building=texture==='world_buildings'||texture==='capital_buildings'
         ||texture==='world_objects'&&frame<4;
-      this.shadows?.register(actor,true,texture==='bridges'
+      this.shadows?.register(actor,true,texture==='bridges'||texture==='port_dock'
         ?{projection:.3,contactScale:.7}
         :building||isTreeArt(texture,frame)
           ?{contactScale:building?1.45:1.2,contactHeight:.8,contactOffset:-.150,groundOffsetY:building?-28:-58}:{});

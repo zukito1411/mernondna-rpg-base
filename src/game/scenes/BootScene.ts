@@ -14,6 +14,8 @@ import {DRAGON_BREATH_ART,prepareDragonBreathArt} from '../systems/DragonBreathA
 import {DIRECTIONAL_ENEMY_ART} from '../../data/directionalEnemyArt';
 import {prepareDirectionalEnemyArt} from '../systems/DirectionalEnemyArt';
 import {prepareNpcDirectionalIdleArt} from '../systems/NpcDirectionalIdleArt';
+import {GUARD_MARCH_ART} from '../../data/guardMarchArt';
+import {prepareGuardMarchArt} from '../systems/GuardMarchArt';
 import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
 import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
@@ -43,6 +45,37 @@ const AUDIO_ASSETS = [
   ['sfx-impact-heavy-2', 'assets/audio/impactPunch_heavy_003.ogg'],
   ['sfx-heal-bell', 'assets/audio/impactBell_heavy_002.ogg'],
   ['sfx-dash', 'assets/audio/drawKnife3.ogg'],
+  ['sfx-enemy-wolf-attack', 'assets/audio/enemies/wolf-attack.ogg'],
+  ['sfx-enemy-wolf-growl', 'assets/audio/enemies/wolf-growl.ogg'],
+  ['sfx-enemy-wolf-hurt', 'assets/audio/enemies/wolf-hurt.ogg'],
+  ['sfx-enemy-wolf-death', 'assets/audio/enemies/wolf-death.ogg'],
+  ['sfx-enemy-human-attack', 'assets/audio/enemies/human-attack.ogg'],
+  ['sfx-enemy-human-growl', 'assets/audio/enemies/human-growl.ogg'],
+  ['sfx-enemy-human-hurt', 'assets/audio/enemies/human-hurt.ogg'],
+  ['sfx-enemy-human-death', 'assets/audio/enemies/human-death.ogg'],
+  ['sfx-enemy-boar-attack', 'assets/audio/enemies/boar-attack.ogg'],
+  ['sfx-enemy-boar-growl', 'assets/audio/enemies/boar-growl.ogg'],
+  ['sfx-enemy-boar-hurt', 'assets/audio/enemies/boar-hurt.ogg'],
+  ['sfx-enemy-boar-death', 'assets/audio/enemies/boar-death.ogg'],
+  ['sfx-enemy-wraith-attack', 'assets/audio/enemies/wraith-attack.ogg'],
+  ['sfx-enemy-wraith-growl', 'assets/audio/enemies/wraith-growl.ogg'],
+  ['sfx-enemy-wraith-hurt', 'assets/audio/enemies/wraith-hurt.ogg'],
+  ['sfx-enemy-wraith-death', 'assets/audio/enemies/wraith-death.ogg'],
+  ['sfx-enemy-troll-attack', 'assets/audio/enemies/troll-attack.ogg'],
+  ['sfx-enemy-troll-growl', 'assets/audio/enemies/troll-growl.ogg'],
+  ['sfx-enemy-troll-hurt', 'assets/audio/enemies/troll-hurt.ogg'],
+  ['sfx-enemy-troll-death', 'assets/audio/enemies/troll-death.ogg'],
+  ['sfx-enemy-wyrm-attack', 'assets/audio/enemies/wyrm-attack.ogg'],
+  ['sfx-enemy-wyrm-growl', 'assets/audio/enemies/wyrm-growl.ogg'],
+  ['sfx-enemy-wyrm-hurt', 'assets/audio/enemies/wyrm-hurt.ogg'],
+  ['sfx-enemy-wyrm-death', 'assets/audio/enemies/wyrm-death.ogg'],
+  ['sfx-enemy-dragon-attack', 'assets/audio/enemies/dragon-attack.ogg'],
+  ['sfx-enemy-dragon-growl', 'assets/audio/enemies/dragon-growl.ogg'],
+  ['sfx-enemy-dragon-hurt', 'assets/audio/enemies/dragon-hurt.ogg'],
+  ['sfx-enemy-dragon-death', 'assets/audio/enemies/dragon-death.ogg'],
+  ['sfx-enemy-dragon-deep-roar', 'assets/audio/enemies/dragon-deep-roar.wav'],
+  ['sfx-enemy-dragon-fire-breath', 'assets/audio/enemies/dragon-fire-breath.ogg'],
+  ['sfx-enemy-dragon-fly', 'assets/audio/enemies/dragon-fly.ogg'],
 ] as const;
 
 // Generated sprite sheets contain almost-transparent stray pixels outside the
@@ -94,6 +127,7 @@ export class BootScene extends Phaser.Scene {
     for(const [kind,art] of Object.entries(VEHICLE_ART))this.load.image('vehicle-source:'+kind,art.path);
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
+    for(const art of GUARD_MARCH_ART)this.load.image('guard-march-source:'+art.walk,art.path);
     for(const art of DIRECTIONAL_ENEMY_ART)this.load.image('directional-source:'+art.id,'assets/enemies/directional/'+art.id+'.png');
     for(const art of BANDIT_COMBAT_ART)this.load.image('bandit-combat-source:'+art.state,banditCombatPath(art.state));
     for(const art of REFINED_ENEMY_ART)for(const state of REFINED_ENEMY_STATES)
@@ -199,7 +233,6 @@ export class BootScene extends Phaser.Scene {
         const data = packed
           ? pixels.get(packed.path)
           : sheet.trimRegions ? pixels.get(sheet.path) : undefined;
-
         // Hero artwork: 6 horizontal frames, regardless of PNG dimensions.
         // Floor boundaries prevent fractional-pixel gaps for 2048px strips.
         const heroStart = Math.floor((frame % 6) * frameSource.width / 6);
@@ -311,13 +344,15 @@ export class BootScene extends Phaser.Scene {
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
     prepareBanditCombatArt(this);
     const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
+    const guardMarchAnimations=prepareGuardMarchArt(this);
     prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
     for (const path of loaded) this.textures.remove(`source:${path}`);
     const animations: SpriteAnimation[] = [
       ...PLAYER_ANIMATIONS,
-      ...NPC_ANIMATIONS,
+      ...NPC_ANIMATIONS.filter(a=>!GUARD_MARCH_ART.some(g=>a.key.startsWith(g.walk+'-')&&!a.key.endsWith('-idle'))),
+      ...guardMarchAnimations,
       ...directionalNpcIdles,
       ...ENEMY_ANIMATIONS,
       ...directionalEnemyAnimations,

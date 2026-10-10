@@ -1,6 +1,6 @@
 import manifests from 'virtual:mernondna-art-packs';
 import {BANDIT_COMBAT_ART,BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
-const hero = manifests['characters/leigneron'], guard = manifests['npcs/trandum_guard'], priestess = manifests['npcs/shrine_priestess'];
+const hero = manifests['characters/leigneron'], priestess = manifests['npcs/shrine_priestess'];
 const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_bandit'], boar = manifests['enemies/boarfiend'], wraith = manifests['enemies/marsh_wraith'];
 const troll=manifests['enemies/troll'],dragon=manifests['enemies/dragon'];
 
@@ -25,14 +25,13 @@ export interface SpriteAnimation {
   key:string; texture:string; frames:number[]; frameRate:number; repeat:number;
   frameDurations?:readonly number[];
 }
-export const SPRITE_PACKS:readonly PackManifest[] = [hero,guard,priestess,wolf,bandit,boar,wraith,troll,dragon];
+export const SPRITE_PACKS:readonly PackManifest[] = [hero,priestess,wolf,bandit,boar,wraith,troll,dragon];
 export const DIRECTION_CLIPS = ['walk_down','walk_left','walk_right','walk_up'] as const;
 export const ENEMY_STATES = ['idle','walk','attack','hurt','death'] as const;
 export type EnemyAnimationState = typeof ENEMY_STATES[number];
 export const ENEMY_PACKS:readonly PackManifest[] = [wolf,bandit,boar,wraith,troll,dragon];
 const LEGACY_ENEMY_PACKS=ENEMY_PACKS.slice(0,4);
 export const HERO_PACK:PackManifest = hero;
-export const GUARD_PACK:PackManifest = guard;
 export const SHRINE_PACK:PackManifest = priestess;
 
 export function clipSources(pack:PackManifest, state:string):SpriteSource[] {

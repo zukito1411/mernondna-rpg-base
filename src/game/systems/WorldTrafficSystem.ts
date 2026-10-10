@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {chunkNeighborhood,contentChunkKey} from './chunkNeighborhood';
 import {cartRoutes,seaRoute,routePosition,type TrafficRoute} from './travelRoutes';
 import {trafficDirection,trafficDistance,horseWalkFrame,wheelTurnFrame} from './trafficMotion';
-import {BOAT_SCALE,boatHelm,CART_ART_POSES} from './VehicleArt';
+import {BOAT_SCALE,boatHelm,boatPassenger,CART_ART_POSES} from './VehicleArt';
 import {ART_BY_KEY,actorScaleForHeight,type ArtTextureKey} from '../../data/art';
 import type {WorldGenerator} from './WorldGenerator';
 import type {GroundShadowSystem} from './GroundShadowSystem';
@@ -110,13 +110,13 @@ export class WorldTrafficSystem {
     const frame=direction===0?Math.floor(this.elapsed/400)%6:direction===1?6:direction===2?12:18;
     crew.setTexture(texture,frame).setScale(actorScaleForHeight(texture,frame,80))
       .setOrigin(.5,1-2/ART_BY_KEY[texture].frameHeight).setPosition(x+helm.x*ratio,y+bob+helm.y*ratio).setDepth(y+.02);
-    const passengerInboardX=direction===1?helm.x-70:direction===2?helm.x+70:helm.x;
+    const seat=boatPassenger(direction);
     vehicle.passenger?.setScale(actorScaleForHeight('leigneron_idle',0,80)).setOrigin(.5,1-2/ART_BY_KEY.leigneron_idle.frameHeight)
-      .setPosition(x+passengerInboardX*ratio,y+bob+(helm.y+10)*ratio).setDepth(y+.021);
+      .setPosition(x+seat.x*ratio,y+bob+seat.y*ratio).setDepth(y+.021);
     vehicle.deckShadows!.forEach((shadow,i)=>{
       const actor=i===0?crew:vehicle.passenger!;shadow.setPosition(actor.x,actor.y).setDepth(y+.01+i*.001).setVisible(actor.visible);
     });
-    vehicle.rail!.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y+.015);
+    vehicle.rail!.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y+.03);
     const length=Math.hypot(dx,dy),vx=dx/length,vy=dy/length;
     vehicle.wake!.forEach((wake,i)=>{
       const trail=130+i*60;

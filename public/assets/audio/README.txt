@@ -32,6 +32,37 @@ The environmental weather ambience is synthesized by the game at runtime.
 The background score is a licensed recording, not a synthesized score, and
 does not reproduce an existing film or game soundtrack.
 
+Enemy vocal effects
+-------------------
+
+Enemy attack, growl, hurt, and death recordings are selected from the
+"80 CC0 creature SFX" and "80 CC0 creature SFX #2" packs by rubberduck,
+downloaded from OpenGameArt.org. Both packs are CC0 1.0 Universal:
+https://opengameart.org/content/80-cc0-creature-sfx
+https://opengameart.org/content/80-cc0-creture-sfx-2
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The game uses the pack's original OGG recordings; no enemy vocals are generated
+by the game. The copied clips are in `enemies/`, with species-specific filenames.
+Original clip mapping (attack, growl, hurt, death):
+
+* Wolf: `barking_02`, `howl`, `hurt_01`, `die_01`
+* Human: `human_01`, `grunt_01`, `human_05`, `die_02`
+* Boar: `monster_08`, `monster_01`, `hurt_02`, `die_03`
+* Wraith: `weird_01`, `weird_04`, `scream_01`, `die_04`
+* Troll: `troll_01`, `troll_02`, `hurt_04`, `troll_03`
+* Wyrm: `attack_04`, `roar_04`, `hurt_05`, `die_04`
+* Dragon: `attack_05`, `roar_06`, `hurt_05`, `die_04`
+
+Varkhul's growl additionally uses "CC0 Deep Monster Roar" by trazzz123,
+downloaded from OpenGameArt.org. The creator describes it as a sound for a
+giant sandworm or another monster; it is used for the dragon's low roar.
+https://opengameart.org/content/cc0-deep-monster-roar
+
+Dragon vocal recordings are played at a lower playback rate and with two
+quieter delayed repeats for a deep, echoing tail. These are playback effects on
+the sourced recordings; no audio is synthesized.
+
 Regional background music
 -------------------------
 

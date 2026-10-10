@@ -12,7 +12,7 @@ import { settlementAt, settlementTerrain, onStreet, protectedSettlementAt } from
 import { fortificationBlocksPoint } from '../../data/fortifications';
 import {lakeAt,lakeShoreDistance} from '../../data/landscapeFeatures';
 import {dragonLairTerrain,onDragonTrail} from '../../data/dragonLair';
-import {ASHEN_DOCK_ROAD} from '../../data/ports';
+import {ASHEN_DOCK_ROAD,onPortDeck} from '../../data/ports';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
 
@@ -38,6 +38,7 @@ function ellipseContains(chunkX: number, chunkY: number, cx: number, cy: number,
 
 export class WorldGenerator {
   getFootstepSurface(x:number,y:number):'grass'|'stone'|'snow'|'wood'{
+    if(onPortDeck(x,y))return 'wood';
     if(onHighmereBridge(x,y))return 'wood';
     const terrain=this.getTerrainAt(x,y);
     if(terrain==='snow'||terrain==='ice')return 'snow';
@@ -134,7 +135,7 @@ export class WorldGenerator {
 
   isWalkable(worldX: number, worldY: number) {
     return Number.isFinite(worldX) && Number.isFinite(worldY) && worldX >= 0 && worldY >= 0
-      && worldX < WORLD_WIDTH && worldY < WORLD_HEIGHT && !['water','lava'].includes(this.getTerrainAt(worldX, worldY))
+      && worldX < WORLD_WIDTH && worldY < WORLD_HEIGHT && (onPortDeck(worldX,worldY)||!['water','lava'].includes(this.getTerrainAt(worldX, worldY)))
       && !fortificationBlocksPoint(worldX,worldY);
   }
 

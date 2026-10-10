@@ -17,6 +17,10 @@ export class ShipPassageSystem {
   const points=this.planner.route(fromId,toId);if(points.length<2){this.scene.notify('This crew cannot find a safe passage today.');return false;}
   const vessel=this.fleet.createVessel('passage-vessel',from.boat.x,from.boat.y,from.river?.8:1.25);
   this.fleet.showPassenger(vessel);this.voyage={from,to,points,elapsed:0,duration:passageDuration(points),vessel};
+  const first=passagePoint(points,0);
+  this.fleet.positionVessel(vessel,first.x,first.y,first.dx,first.dy,false);
+  this.scene.streamCinematicView(first.x,first.y);
+  this.scene.cameras.main.centerOn(first.x,first.y-90);
   this.scene.player.resetInput();this.scene.player.setVisible(false);this.scene.physics.world.pause();this.scene.cameras.main.stopFollow();
   useGameStore.getState().hydrate({passage:{from:fromId,to:toId,progress:0},panel:null,harborPortId:null,passageRequest:null});return true;
  }

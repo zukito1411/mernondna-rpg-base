@@ -171,7 +171,7 @@ export interface QuestRuntimeState {
 }
 
 interface ContentBase { id: string; world: Vec2 }
-export type WorldPropTexture = 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
+export type WorldPropTexture = 'port_dock' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export interface CreatureContentDefinition extends ContentBase {
   kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;

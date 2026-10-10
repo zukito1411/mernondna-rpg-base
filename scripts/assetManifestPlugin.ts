@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
 const virtualId = 'virtual:mernondna-art-packs', resolvedId = `\0${virtualId}`;
-const packIds = ['characters/leigneron','npcs/trandum_guard','npcs/shrine_priestess',
+const packIds = ['characters/leigneron','npcs/shrine_priestess',
   'enemies/gray_wolf','enemies/road_bandit','enemies/boarfiend','enemies/marsh_wraith','enemies/troll','enemies/dragon'];
 
 // Public manifests remain the single source of truth. Vite cannot treat public

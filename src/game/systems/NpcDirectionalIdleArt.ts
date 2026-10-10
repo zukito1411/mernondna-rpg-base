@@ -10,6 +10,7 @@ import {spriteSubjectCanvas} from './spriteArt';
 export function prepareNpcDirectionalIdleArt(scene:Phaser.Scene):SpriteAnimation[]{
  const animations:SpriteAnimation[]=[];
  for(const entry of NPC_IDLE_ART){
+  if(entry.walk==='npc_guard')continue;
   const key=npcDirectionalIdleTexture(entry.walk),sheet=ART_BY_KEY[key];
   const fw=sheet.frameWidth*sheet.density,fh=sheet.frameHeight*sheet.density,ground=fh-2*sheet.density;
   const texture=scene.textures.createCanvas(key,fw*4,fh*3)!,ctx=texture.getContext();

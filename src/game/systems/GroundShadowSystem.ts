@@ -1,6 +1,7 @@
 ﻿import Phaser from 'phaser';
 import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {overlayViewport} from './renderSizing';
+import {cloudShadowStamps} from './CloudShadowArt';
 
 type Actor=Phaser.GameObjects.Sprite|Phaser.GameObjects.Image;
 export interface ShadowOptions {projection?:number;contactScale?:number;contactHeight?:number;contactOffset?:number;groundOffsetY?:number}
@@ -19,6 +20,9 @@ export class GroundShadowSystem {
  private readonly actorLayer:Layer;
  private readonly cloudLayer:Layer;
  private readonly contact=document.createElement('canvas');
+ private readonly clouds=cloudShadowStamps();
+ private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+ private cloudLightKey='';
  private base={x:Infinity,y:Infinity,zoom:0};
  private drawMs=100;private staticScanMs=250;private cloudDrawMs=125;private cloudElapsed=0;private staticDirty=true;
  private lightingKey='';private sceneryStamp:string|null=null;private actorStamp:string|null=null;
@@ -46,9 +50,10 @@ export class GroundShadowSystem {
    this.casters.delete(actor);this.scenery.delete(caster);this.moving.delete(caster);this.staticDirty=true;
   });
  }
- update(delta:number,hour:number,cloudCover=0){
+ update(delta:number,hour:number,cloudCover=0,windStrength=.18){
   this.drawMs+=delta;this.staticScanMs+=delta;
-  this.cloudDrawMs+=delta;this.cloudElapsed+=Math.max(0,delta)*.04;
+  this.cloudDrawMs+=delta;
+  if(!this.reducedMotion.matches)this.cloudElapsed+=Math.min(100,Math.max(0,delta))*(.016+Math.max(0,Math.min(1,windStrength))*.032);
   const viewport=overlayViewport(this.scene),view=this.scene.cameras.main.worldView,zoom=viewport.zoom;
   const width=viewport.width+OVERSCAN*2,height=viewport.height+OVERSCAN*2;
   const shifted=this.base.zoom!==zoom||this.staticLayer.texture.width!==width||this.staticLayer.texture.height!==height
@@ -68,8 +73,9 @@ export class GroundShadowSystem {
   if(lightKey!==this.lightingKey){this.lightingKey=lightKey;this.staticDirty=true;this.actorStamp=null;}
   const daylight=sunHour>=6&&sunHour<=18?Math.max(0,Math.sin((sunHour-6)/12*Math.PI)):0;
   const castX=Math.cos((sunHour-6)/12*Math.PI)*(.22+(1-daylight)*.4),castY=.16+(1-daylight)*.24;
-  if(this.cloudDrawMs>=125||shifted){
-   this.cloudDrawMs=0;this.paintClouds(daylight,cloud);
+  const cloudKey=Math.round(daylight*20)+':'+cloud;
+  if(shifted||cloudKey!==this.cloudLightKey||daylight>.02&&!this.reducedMotion.matches&&this.cloudDrawMs>=125){
+   this.cloudDrawMs=0;this.cloudLightKey=cloudKey;this.paintClouds(daylight,cloud);
   }
   if(this.staticDirty||this.staticScanMs>=250){
    this.staticScanMs=0;const visible=this.visible(this.scenery,width,height,castX,castY),stamp=this.stamp(visible);
@@ -123,32 +129,24 @@ export class GroundShadowSystem {
  private paintClouds(daylight:number,cloudCover:number){
   const layer=this.cloudLayer,ctx=layer.texture.getContext(),zoom=this.base.zoom;
   ctx.clearRect(0,0,layer.texture.width,layer.texture.height);
-  if(daylight<=.02){layer.texture.refresh();return;}
-  const cover=Math.min(1,Math.max(0,cloudCover)),strength=daylight*(.24+cover*.24);
+  layer.image.setVisible(daylight>.02);
+  if(daylight<=.02)return;
+  const cover=Math.min(1,Math.max(0,cloudCover)),strength=daylight*(.16+cover*.25);
   const driftX=this.cloudElapsed,driftY=-this.cloudElapsed*.24;
   const left=this.base.x,right=left+layer.texture.width/zoom,top=this.base.y,bottom=top+layer.texture.height/zoom;
-  const firstX=Math.floor((left-driftX-360)/780),lastX=Math.ceil((right-driftX+360)/780);
-  const firstY=Math.floor((top-driftY-280)/560),lastY=Math.ceil((bottom-driftY+280)/560);
+  const firstX=Math.floor((left-driftX-1100)/1050),lastX=Math.ceil((right-driftX+1100)/1050);
+  const firstY=Math.floor((top-driftY-1000)/760),lastY=Math.ceil((bottom-driftY+1000)/760);
   const random=(x:number,y:number,salt:number)=>{
    const value=Math.sin(x*127.1+y*311.7+salt*74.7)*43758.5453;
    return value-Math.floor(value);
   };
   for(let gy=firstY;gy<=lastY;gy++)for(let gx=firstX;gx<=lastX;gx++){
-   const seed=random(gx,gy,1),x=(gx+.5+random(gx,gy,2)*.5)*780+driftX;
-   const y=(gy+.5+random(gx,gy,3)*.5)*560+driftY;
+   const seed=random(gx,gy,1),x=(gx+.3+random(gx,gy,2)*.5)*1050+driftX;
+   const y=(gy+.3+random(gx,gy,3)*.5)*760+driftY;
    const px=(x-left)*zoom,py=(y-top)*zoom,rotation=(seed-.5)*.7;
-   const lobes=[
-    {x:0,y:0,rx:250+seed*100,ry:125+seed*55,weight:.48},
-    {x:(random(gx,gy,4)-.5)*210,y:(random(gx,gy,5)-.5)*75,rx:185,ry:105,weight:.3},
-    {x:(random(gx,gy,6)-.5)*240,y:(random(gx,gy,7)-.5)*85,rx:155,ry:90,weight:.25},
-   ];
-   for(const lobe of lobes){
-    ctx.save();ctx.translate(px+lobe.x*zoom,py+lobe.y*zoom);ctx.rotate(rotation);ctx.scale(lobe.rx*zoom,lobe.ry*zoom);
-    const alpha=strength*lobe.weight*(.82+random(gx,gy,8)*.3);
-    const gradient=ctx.createRadialGradient(0,0,0,0,0,1);
-    gradient.addColorStop(0,`rgba(31,42,49,${alpha})`);gradient.addColorStop(.52,`rgba(31,42,49,${alpha*.72})`);
-    gradient.addColorStop(1,'rgba(31,42,49,0)');ctx.fillStyle=gradient;ctx.fillRect(-1,-1,2,2);ctx.restore();
-   }
+   const stamp=this.clouds[Math.floor(random(gx,gy,4)*this.clouds.length)],w=(1000+seed*650)*zoom,h=(560+random(gx,gy,5)*420)*zoom;
+   ctx.save();ctx.translate(px,py);ctx.rotate(rotation);ctx.globalAlpha=strength*(.75+random(gx,gy,8)*.25);
+   ctx.drawImage(stamp,-w/2,-h/2,w,h);ctx.restore();
   }
   layer.texture.refresh();
  }

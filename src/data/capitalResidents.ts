@@ -1117,7 +1117,7 @@ export const REGIONAL_WORKERS:NpcDefinition[]=[
     "name": "Kesh Flintmane",
     "title": "Young Rider",
     "townId": "redmesa",
-    "spriteTexture": "npc_royal_guard",
+    "spriteTexture": "npc_adventurer",
     "spriteFrame": 0,
     "worldOffset": {
       "x": 730,

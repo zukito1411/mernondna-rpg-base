@@ -19,6 +19,7 @@ export class DragonCombat {
   private readonly flight:Phaser.GameObjects.Sprite;
   private readonly shadow:Phaser.GameObjects.Ellipse;
   private breathTick=0;
+  private breathSoundPlayed=false;
   private hurtUntil=0;
   private flightStart={x:0,y:0};private landingPoint={...DRAGON_LAIR};
   private lastFlightX=0;
@@ -34,7 +35,7 @@ export class DragonCombat {
   get airborne(){return this.phase==='flight'||this.phase==='landing';}
   get visual(){return this.airborne?this.flight:this.enemy;}
   pause(paused:boolean){if(!this.flight.active)return;if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
-  private enter(phase:Phase){this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();}
+  private enter(phase:Phase){this.scene.stopDragonSound(this.enemy.instanceId);this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();if(phase==='breath')this.breathSoundPlayed=false;}
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state!=='attack'&&this.clock<this.hurtUntil)return;
     if(state==='attack'){this.enemy.useVisualTexture('enemy_dragon');this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);}
@@ -76,7 +77,7 @@ export class DragonCombat {
         e.playMonsterAttackFoley('windup');
         const choice=this.sequence++%4;
         if(choice===2)this.startFlight();
-        else if(choice===0){this.enter('stomp-windup');e.anims.stop();e.setFrame(enemyAnimation(5,'attack').frames[1]);this.scene.notify('Varkhul raises his claws — leave the marked stomp circle!');}
+        else if(choice===0){this.enter('stomp-windup');this.scene.playDragonSound(e.instanceId,'roar',e.x,e.y,1000);e.anims.stop();e.setFrame(enemyAnimation(5,'attack').frames[1]);this.scene.notify('Varkhul raises his claws — leave the marked stomp circle!');}
         else {this.enter('breath-windup');e.anims.stop();this.breathPose(0);this.scene.notify('Varkhul draws breath — move out of the fire cone!');}
       }
     }else if(this.phase==='stomp-windup'){
@@ -88,6 +89,10 @@ export class DragonCombat {
       if(this.age>=DRAGON_BREATH.windupMs){this.enter('breath');this.breathTick=DRAGON_BREATH.ignitionMs;this.breathPose(2);e.playMonsterVocal('growl');}
     }else if(this.phase==='breath'){
       this.drawCone(true);
+      if(!this.breathSoundPlayed&&this.age>=DRAGON_BREATH.ignitionMs){
+        this.breathSoundPlayed=true;
+        this.scene.playDragonSound(e.instanceId,'breath',e.x,e.y,DRAGON_BREATH.burningMs+DRAGON_BREATH.fadeMs-DRAGON_BREATH.ignitionMs);
+      }
       if(breathPresentation(this.age).damaging&&this.age>=this.breathTick){
         this.breathTick=this.age+350;
         // Match the marked triangle, including its far chord and rear edge.
@@ -153,6 +158,7 @@ export class DragonCombat {
     const proposed={x:DRAGON_LAIR.x+dx,y:DRAGON_LAIR.y+dy};
     this.landingPoint=this.scene.canEnemyOccupy(proposed.x,proposed.y)?proposed:{...DRAGON_LAIR};
     this.enter('flight');this.enemy.setAlpha(0);
+    this.scene.playDragonSound(this.enemy.instanceId,'flight',this.enemy.x,this.enemy.y,2400);
     (this.enemy.body as Phaser.Physics.Arcade.Body).checkCollision.none=true;
     this.flight.setVisible(true).play('dragon-fly');this.shadow.setVisible(true);
     this.drawFlight(0);
