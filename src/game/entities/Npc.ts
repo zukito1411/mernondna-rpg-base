@@ -36,6 +36,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private readonly walkArtTexture:ArtTextureKey;
   private readonly walkScale:number;
   private readonly idleArt:typeof NPC_IDLE_ART[number]|undefined;
+  private readonly idleScale:number;
   private readonly schedule:NpcDefinition['schedule'];
   private routeCheckMs=120;
   private route:Vec2[]=[];
@@ -47,24 +48,27 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: WorldScene, definition: NpcDefinition, x: number, y: number, home: Vec2) {
     const sourceFamily=definition.spriteTexture??'npcs';
-    const family=sourceFamily==='npc_royal_guard'?'npc_guard':sourceFamily;
-    const texture = guardMarchTexture(family)??family;
+    const declaredIdleArt=NPC_IDLE_ART.find(entry=>entry.walk===sourceFamily||entry.key===sourceFamily);
+    const family=sourceFamily==='npc_royal_guard'?'npc_guard':declaredIdleArt?.walk??sourceFamily;
+    const idleArt=declaredIdleArt??NPC_IDLE_ART.find(entry=>entry.walk===family);
+    const texture = guardMarchTexture(family)??(idleArt&&!ART_BY_KEY[family]?idleArt.key:family);
     const apparentHeight = npcApparentHeight(family);
-    const idleArt=NPC_IDLE_ART.find(entry=>entry.walk===family);
-    if(family==='npc_guard'&&!idleArt)throw new Error(`Missing Trandum guard idle art for ${definition.id}`);
+    if((family==='npc_guard'||family==='npc_elven_guard')&&!idleArt)throw new Error(`Missing guard idle art for ${definition.id}`);
     super(scene, x, y, texture, definition.spriteFrame);
     this.definition = definition;
     this.walkTexture = family;
     this.walkArtTexture=texture;
-    this.walkScale=family==='npc_guard'?guardMarchScale(scene,texture,idleArt!):
+    const sizeMultiplier=family==='npc_elven_guard'?1.12:1;
+    this.walkScale=family==='npc_guard'||family==='npc_elven_guard'?guardMarchScale(scene,texture,idleArt!)*sizeMultiplier:
       actorScaleForHeight(texture,definition.spriteFrame,apparentHeight);
     this.idleArt=idleArt;
+    this.idleScale=idleArt?artScale(idleArt.key)*sizeMultiplier:artScale(texture);
     this.schedule=[...definition.schedule].sort((a,b)=>a.startHour-b.startHour);
     this.home = { ...home };
     this.routineAnchor={...home};this.previousPosition={x,y};
     this.rng = seededRandom(`npc-patrol:${definition.id}`);
     this.nextPatrolAt = scene.time.now + 1200 + this.rng() * 1800;
-    this.labelY = -(apparentHeight + 12);
+    this.labelY = -(apparentHeight * sizeMultiplier + 12);
     scene.add.existing(this);
     const sheet = ART_BY_KEY[texture], modelScale = this.walkScale;
     this.setScale(modelScale).setOrigin(.5,1 - 2 / sheet.frameHeight);
@@ -201,8 +205,9 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private get mayPatrol(){
-    return this.definition.spriteTexture==='npc_royal_guard'
-      ||this.walkTexture==='npc_guard'&&TOWN_BY_ID[this.definition.townId].regionId==='trandum';
+    return !this.definition.stationary&&(this.definition.spriteTexture==='npc_royal_guard'
+      ||this.walkTexture==='npc_elven_guard'
+      ||this.walkTexture==='npc_guard'&&TOWN_BY_ID[this.definition.townId].regionId==='trandum');
   }
 
   updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false) {
@@ -231,7 +236,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     const direction: WalkDirection = this.walkDirection;
     const idle = this.idleArt;
     if (!walking && idle) {
-      this.presentTexture(idle.key,artScale(idle.key));
+      this.presentTexture(idle.key,this.idleScale);
       this.anims.play(`${this.walkTexture}-idle`,true);
       this.anims.timeScale=1;
       return;

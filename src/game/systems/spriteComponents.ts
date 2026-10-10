@@ -1,7 +1,61 @@
 import type {SpriteRegion} from '../../data/art';
+import {alphaFrameBounds} from './spriteArt';
 /** Generated sheets have approximate spacing. Segment whole subjects before
  * assigning rows, so a toe crossing a grid seam cannot enter the next pose. */
 export interface ActorSpriteSubject {region:SpriteRegion;pixels:Uint8ClampedArray;foreignProbes:Array<readonly [number,number]>}
+export function actorSpriteGridSubjects(pixels:Uint8ClampedArray,width:number,height:number,columns:number,rows:number):ActorSpriteSubject[]{
+ if(width%columns||height%rows)throw new Error('Actor sprite sheet does not match its declared frame grid.');
+ const cellWidth=width/columns,cellHeight=height/rows,subjects:ActorSpriteSubject[]=[];
+ for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
+  const cellX=column*cellWidth,cellY=row*cellHeight,labels=new Uint32Array(cellWidth*cellHeight);
+  const queue=new Int32Array(cellWidth*cellHeight),components:Array<{label:number;count:number;left:number;right:number;top:number;bottom:number}>=[];
+  for(let start=0;start<labels.length;start++){
+   const source=(cellY+Math.floor(start/cellWidth))*width+cellX+start%cellWidth;
+   if(labels[start]||pixels[source*4+3]<=64)continue;
+   const label=components.length+1;let head=0,tail=1,left=cellWidth,right=0,top=cellHeight,bottom=0;
+   queue[0]=start;labels[start]=label;
+   while(head<tail){
+    const index=queue[head++],x=index%cellWidth,y=Math.floor(index/cellWidth);
+    left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+     const nx=x+dx,ny=y+dy;if(nx<0||nx>=cellWidth||ny<0||ny>=cellHeight)continue;
+     const next=ny*cellWidth+nx,nextSource=(cellY+ny)*width+cellX+nx;
+     if(!labels[next]&&pixels[nextSource*4+3]>64){labels[next]=label;queue[tail++]=next;}
+    }
+   }
+   components.push({label,count:tail,left,right,top,bottom});
+  }
+  if(!components.length)throw new Error(`Empty actor sprite frame ${row*columns+column}.`);
+  const main=components.reduce((largest,part)=>part.count>largest.count?part:largest);
+  const kept=components.filter(part=>{
+   const dx=Math.max(main.left-part.right-1,part.left-main.right-1,0);
+   const dy=Math.max(main.top-part.bottom-1,part.top-main.bottom-1,0);
+   return part===main||Math.hypot(dx,dy)<=8;
+  });
+  const left=Math.max(0,Math.min(...kept.map(part=>part.left))-2);
+  const top=Math.max(0,Math.min(...kept.map(part=>part.top))-2);
+  const right=Math.min(cellWidth,Math.max(...kept.map(part=>part.right))+3);
+  const bottom=Math.min(cellHeight,Math.max(...kept.map(part=>part.bottom))+3);
+  const cropWidth=right-left,cropHeight=bottom-top,region:SpriteRegion=[cellX+left,cellY+top,cropWidth,cropHeight];
+  const crop=new Uint8ClampedArray(cropWidth*cropHeight*4),keptLabels=new Set(kept.map(part=>part.label));
+  for(let y=top;y<bottom;y++)for(let x=left;x<right;x++){
+   const label=labels[y*cellWidth+x];
+   let belongs=keptLabels.has(label);
+   if(!belongs&&pixels[((cellY+y)*width+cellX+x)*4+3]){
+    for(let dy=-2;dy<=2&&!belongs;dy++)for(let dx=-2;dx<=2;dx++){
+     const nx=x+dx,ny=y+dy;
+     if(nx>=0&&nx<cellWidth&&ny>=0&&ny<cellHeight&&keptLabels.has(labels[ny*cellWidth+nx])){belongs=true;break;}
+    }
+   }
+   if(belongs){
+    const source=((cellY+y)*width+cellX+x)*4,target=((y-top)*cropWidth+x-left)*4;
+    crop.set(pixels.subarray(source,source+4),target);
+   }
+  }
+  subjects.push({region,pixels:crop,foreignProbes:[]});
+ }
+ return subjects;
+}
 export function actorSpriteSubjects(pixels:Uint8ClampedArray,width:number,height:number,columns:number,rows:number):ActorSpriteSubject[]{
  const labels=new Uint32Array(width*height),queue=new Int32Array(width*height);
  const components:Array<{region:SpriteRegion;count:number;label:number}>=[];

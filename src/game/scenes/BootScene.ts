@@ -337,9 +337,10 @@ export class BootScene extends Phaser.Scene {
       }
       texture.refresh();
       texture.setFilter(sheet.key==='enemies'||sheet.key.startsWith('enemy_')?Phaser.Textures.FilterMode.NEAREST:Phaser.Textures.FilterMode.LINEAR);
-      prepareEnvironmentLightArt(this, sheet.key);
+      if(sheet.key!=='elarion_tree')prepareEnvironmentLightArt(this, sheet.key);
     }
 
+    pixels.clear();
     prepareRefinedEnemyArt(this);
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
     prepareBanditCombatArt(this);

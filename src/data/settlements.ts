@@ -15,8 +15,8 @@ import {coreSettlementDressing} from './settlementDressing';
 
 export interface LandParcel { id: string; purpose: string; x: number; y: number; width: number; height: number; terrain: TerrainKind }
 export interface Street { id: string; width: number; points: Vec2[]; surface?:'stone'|'dirt' }
-export interface BuildingLot extends Vec2 { frame: number; scale: number; growth?:number; label: string; purpose: string; appearance?:{ texture:'world_buildings' | 'capital_buildings'; frame:number }; wardId?:string; plot?:Rect; omitted?:boolean }
-export interface Planting extends Vec2 { id: string; frame: 0 | 1; scale: number; texture?:TreeTexture; purpose: string; wardId?:string }
+export interface BuildingLot extends Vec2 { frame: number; scale: number; growth?:number; label: string; purpose: string; appearance?:{ texture:'world_buildings' | 'capital_buildings' | 'elven_villas'; frame:number }; wardId?:string; plot?:Rect; omitted?:boolean }
+export interface Planting extends Vec2 { id: string; frame: number; scale: number; texture?:TreeTexture; purpose: string; wardId?:string }
 export interface SettlementLayout {
   townId: string; authored: boolean; profile: SettlementProfile; bounds: LandParcel; baseTerrain: TerrainKind;
   parcels: LandParcel[]; streets: Street[]; buildings: BuildingLot[]; plantings: Planting[];
@@ -210,7 +210,7 @@ const districtPlans:Record<string,DistrictPlan> = {
   elarion: {
     avenues:[['whitebough-way',100,[[-1450,0],[0,0],[1450,0]]],['lore-processional',82,[[0,-1300],[0,-600],[0,0],[0,700],[0,1300]]],['bough-court',76,[[-1200,-600],[0,-600],[1200,-600]]],['bowyer-walk',64,[[-1200,700],[0,700],[1200,700]]]],
     districts:[['lore-ward','Lore halls around the ceremonial avenue','stone',-650,-780,1100,650],['bowyard','Craft gardens and ranger homes','grass',650,420,1100,850],['ancient-grove','Retained woodland behind the lore halls','forest',-500,1100,900,420]],
-    lots:[['Whitebough Hall',1,-700,-760],['Ward Chapel',4,620,-780],['Lore Archive',0,-1100,-170],['Council House',1,-480,-170],['Bowyer Hall',5,550,-160],['Ranger Stable',6,1120,-160],['Herbalist House',0,-1050,490],['Livingwood Lodge',0,-450,490],['Moon Survey House',2,600,480],['Trade Hall',7,1130,490]],
+    lots:[['Whitebough Hall',9,-700,-760],['Ward Chapel',4,620,-780],['Lore Archive',7,-1100,-170],['Council House',1,-480,-170],['Bowyer Hall',5,550,-160],['Ranger Stable',6,1120,-160],['Herbalist House',0,-1050,490],['Livingwood Lodge',0,-450,490],['Moon Survey House',2,600,480],['Trade Hall',8,1130,490]],
   },
   moonfall: {
     avenues:[['grove-trail',60,[[-900,0],[0,0],[900,0]]],['herbalist-walk',52,[[0,-820],[0,0],[0,650],[-650,650]]]],
@@ -260,12 +260,15 @@ function authoredLayout(town:TownDefinition):SettlementLayout {
   return { townId:town.id,authored:true,profile,pavedStreets:town.kind !== 'village',baseTerrain,
     bounds:parcel('settlement-edge',profile.architecture,baseTerrain,0,0,profile.bounds.width,profile.bounds.height),
     parcels:plan.districts.map(args => parcel(...args)),streets,
-    buildings:plan.lots.map(([label,frame,x,y]) => ({ x,y,frame,scale:1,label,purpose:label+' — '+profile.architecture,appearance:{ texture:'capital_buildings' as const,frame } })),
+    buildings:plan.lots.map(([label,frame,x,y]) => ({ x,y,frame,scale:1,label,purpose:label+' — '+profile.architecture,
+      appearance:{texture:town.id==='elarion'?'elven_villas' as const:'capital_buildings' as const,frame} })),
     plantings:[],...(plan.waterway ? { waterway:{ ...plan.waterway,crossings:[] } } : {}) };
 }
 
 export function buildingRenderScale(lot:BuildingLot) {
-  return lot.scale * (lot.appearance?.texture === 'capital_buildings' ? lot.frame === 8 ? 1.12 : 1.45 : 1) * (lot.growth??1);
+  return lot.scale * (lot.appearance?.texture === 'capital_buildings' ? lot.frame === 8 ? 1.12 : 1.45
+    : lot.appearance?.texture === 'elven_villas' ? lot.frame===2 ? 1.6
+      : lot.frame===9 ? 1.75 : lot.frame===4 ? 1.5 : [7,8].includes(lot.frame) ? 1.3 : 1.08 : 1) * (lot.growth??1);
 }
 export function buildingBounds(lot:BuildingLot) {
   return spriteBounds(lot.appearance?.texture ?? 'world_buildings',lot.appearance?.frame ?? lot.frame,buildingRenderScale(lot),lot.x,lot.y);
@@ -299,7 +302,9 @@ function prepareLayout(layout:SettlementLayout,requestedGrowth=BUILDING_PRESENTA
     const anchors=n.districtId?[n.worldOffset,n.homeLocation,...n.schedule.map(s=>s.location)].filter((p):p is Vec2=>Boolean(p)):[n.worldOffset];
     return anchors.map(p=>({left:p.x-32,right:p.x+32,top:p.y-70,bottom:p.y+35}));
   });
-  reserved.push(spriteBounds('world_buildings',3,shrine.scale,shrine.world.x-town.world.x,shrine.world.y-town.world.y));
+  const elvenShrine=shrine.townId==='elarion';
+  reserved.push(spriteBounds(elvenShrine?'elven_villas':'world_buildings',elvenShrine?4:3,
+    shrine.scale,shrine.world.x-town.world.x,shrine.world.y-town.world.y));
   for(const p of layout.parcels.filter(p=>p.terrain==='farmland' || p.terrain==='water')) reserved.push({left:p.x-p.width/2,right:p.x+p.width/2,top:p.y-p.height/2,bottom:p.y+p.height/2});
   const occupied:Rect[]=[];
   const within=(r:Rect)=>r.left>=-layout.bounds.width/2+32 && r.right<=layout.bounds.width/2-32
@@ -323,7 +328,8 @@ function prepareLayout(layout:SettlementLayout,requestedGrowth=BUILDING_PRESENTA
     let placed=false;
     for(const growth of [...new Set([requestedGrowth,Math.min(requestedGrowth,1.08),Math.min(requestedGrowth,1.04),1])]){
       lot.growth=growth;
-      for(const point of nearbySlots(lot,lot.wardId?96:480)) {
+      const searchRadius=lot.wardId?96:town.id==='elarion'&&lot.appearance?.texture==='elven_villas'&&lot.frame===2?800:480;
+      for(const point of nearbySlots(lot,searchRadius)) {
         const candidate={ ...lot,...point },rect=buildingBounds(candidate);
         const plot=lot.plot;
         const validSite=lot.wardId?enclosed(rect)&&Boolean(plot&&rect.left>=plot.left&&rect.right<=plot.right&&rect.top>=plot.top&&rect.bottom<=plot.bottom):within(rect);
@@ -353,6 +359,11 @@ function prepareLayout(layout:SettlementLayout,requestedGrowth=BUILDING_PRESENTA
     .find(p=>!occupied.some(r=>rectTouchesStreet(r,{width:40,points:[p,shrineDoor]},2)));
   if(access) layout.streets.push({id:'shrine-forecourt',width:40,points:[access,shrineDoor]});
   const authoredTrees=[...layout.plantings];
+  if(town.id==='elarion')for(const [index,[x,y]] of [
+    [-1300,-1200],[1320,-1200],[-1420,-470],[1430,-420],[-1370,520],[1420,620],
+    [-1220,1120],[-850,1270],[-380,1360],[420,1320],[970,1220],[1370,1150],
+  ].entries())authoredTrees.push({id:'whitebough-young-tree:'+index,x,y,frame:5,texture:'woodland_props',
+    scale:1,purpose:'Young flowering shade tree in a protected garden'});
   // Deliberate edge groves / winter windbreaks, not trees scattered into streets.
   if(town.id!=='oakmere') for(const side of [-1,1]) for(const y of [-1000,-350,350,1000]) authoredTrees.push({
     id:'shelter:'+side+':'+y,x:side*(layout.bounds.width/2-160),y,frame:town.regionId==='nardorous'||town.regionId==='frostlands'?1:0,
@@ -362,9 +373,9 @@ function prepareLayout(layout:SettlementLayout,requestedGrowth=BUILDING_PRESENTA
   for(const original of authoredTrees) {
     // Orchard trees are pruned; courtyard trees and woodland giants are not.
     const cold=town.regionId==='frostlands'||town.regionId==='nardorous';
-    const texture:TreeTexture=cold?'climate_props':'world_assets';
-    const frame:0|1=cold?0:original.frame;
-    const height=original.id.includes('orchard')?190:original.wardId?245:Math.min(335,REGION_SCENERY[town.regionId].treeHeight);
+    const texture:TreeTexture=original.texture??(cold?'climate_props':'world_assets');
+    const frame=cold?0:original.frame;
+    const height=texture==='woodland_props'?205:original.id.includes('orchard')?190:original.wardId?245:Math.min(335,REGION_SCENERY[town.regionId].treeHeight);
     const tree={...original,texture,frame,scale:treeScale(texture,frame,height)};
     if(town.regionId==='darkav'||town.regionId==='rindass'&&original.id.startsWith('shelter:'))continue;
     const p=nearbySlots(tree,tree.wardId?128:tree.id.startsWith('shelter:')?448:1024).find(point=>{

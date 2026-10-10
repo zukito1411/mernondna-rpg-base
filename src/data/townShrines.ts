@@ -12,13 +12,15 @@ export const TOWN_SHRINES:TownShrine[] = TOWNS.map(town => {
   return { townId:town.id,contentId:town.id === 'oakmere' ? 'shrine:oakmere-road'
     : town.id === 'highmere' ? 'town:highmere:building:12' : `shrine:${town.id}:wayfarer`,
     name:`${town.name} ${town.id === 'highmere' ? 'Crown' : 'Wayfarer'} Shrine`,world,
-    arrival:{ x:world.x,y:world.y + 64 },scale:(town.id === 'highmere' ? .9 : .8)*BUILDING_PRESENTATION_GROWTH };
+    arrival:{ x:world.x,y:world.y + 64 },
+    scale:(town.id === 'highmere' ? .9 : .8)*(town.id==='elarion'?1.35:1)*BUILDING_PRESENTATION_GROWTH };
 });
 export const TOWN_SHRINE_BY_ID = Object.fromEntries(TOWN_SHRINES.map(shrine => [shrine.townId,shrine])) as Record<string,TownShrine>;
 
 export function townShrineContent(shrine:TownShrine):InteractableContentDefinition {
-  return { id:shrine.contentId,kind:'interactable',world:shrine.world,texture:'world_buildings',frame:3,
-    scale:shrine.scale,name:shrine.name,townShrineId:shrine.townId,
+  const elvenShrine=shrine.townId==='elarion';
+  return { id:shrine.contentId,kind:'interactable',world:shrine.world,texture:elvenShrine?'elven_villas':'world_buildings',
+    frame:elvenShrine?4:3,scale:shrine.scale,name:shrine.name,townShrineId:shrine.townId,
     description:'Attune to this shrine to unlock its settlement for shrine travel.',
     repeatText:'Choose an attuned settlement shrine to travel to.' };
 }

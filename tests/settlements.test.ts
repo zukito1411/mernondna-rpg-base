@@ -1,15 +1,98 @@
 import { describe, it, expect } from 'vitest';
-import { SETTLEMENT_LAYOUTS, SETTLEMENT_BY_ID, onStreet, inParcel } from '../src/data/settlements';
+import { SETTLEMENT_LAYOUTS, SETTLEMENT_BY_ID, buildingRenderScale, onStreet, inParcel } from '../src/data/settlements';
 import { WORLD_CONTENT, CONTENT_BY_ID } from '../src/data/content';
 import { TOWN_BY_ID } from '../src/data/towns';
 import { NPCS } from '../src/data/npcs';
-import { artFrameSize, worldPropFootprint } from '../src/data/art';
+import { ART_BY_KEY,artFrameSize,worldPropFootprint,worldPropOrigin } from '../src/data/art';
 import { WorldGenerator } from '../src/game/systems/WorldGenerator';
 import { planWildernessTrees } from '../src/game/systems/sceneryPlan';
 import { FARM_PLOTS } from '../src/data/landmarks';
+import { TOWN_SHRINE_BY_ID } from '../src/data/townShrines';
+import { BUILDING_PRESENTATION_GROWTH } from '../src/data/environmentPresentation';
 
 describe('settlement land-use and circulation', () => {
   const world = new WorldGenerator(), oak = SETTLEMENT_BY_ID.oakmere, home = TOWN_BY_ID.oakmere.world;
+  it('enlarges all Elarion villas, including civic landmarks and the shrine',()=>{
+    const elarion=SETTLEMENT_BY_ID.elarion;
+    for(const lot of elarion.buildings.filter(candidate=>candidate.appearance?.texture==='elven_villas'))
+      expect(buildingRenderScale(lot)/lot.scale).toBeGreaterThanOrEqual(1.08);
+    const hall=elarion.buildings.find(lot=>lot.label==='Whitebough Hall')!;
+    expect(buildingRenderScale(hall)/hall.scale).toBeGreaterThanOrEqual(1.75);
+    for(const label of ['Ward Chapel','Lore Archive','Trade Hall']){
+      const landmark=elarion.buildings.find(lot=>lot.label===label)!;
+      expect(buildingRenderScale(landmark)/landmark.scale).toBeGreaterThanOrEqual(label==='Ward Chapel'?1.5:1.3);
+    }
+    for(const label of ['Livingwood Lodge','Trade Hall']){
+      const lodge=elarion.buildings.find(lot=>lot.label===label)!;
+      expect(buildingRenderScale(lodge)/lodge.scale).toBeGreaterThanOrEqual(1.3);
+    }
+    const tower=elarion.buildings.find(lot=>lot.label==='Moon Survey House')!;
+    expect(buildingRenderScale(tower)/tower.scale).toBeGreaterThanOrEqual(1.6);
+    const shrine=TOWN_SHRINE_BY_ID.elarion;
+    expect(shrine.scale/(.8*BUILDING_PRESENTATION_GROWTH)).toBe(1.35);
+    for(const lot of elarion.buildings.filter(candidate=>candidate.wardId))
+      expect(lot.plot&&buildingRenderScale(lot)).toBeTruthy();
+  });
+  it('places continuous flower fencing along the full Whitebough Hall stone court perimeter',()=>{
+    const fence=WORLD_CONTENT.filter(item=>item.id.startsWith('elarion:whitebough-fence:'));
+    expect(ART_BY_KEY.flower_fence.sources).toHaveLength(4);
+    expect(fence).toHaveLength(9);
+    expect(fence.every(item=>item.kind==='prop'&&item.texture==='flower_fence'&&item.solid===true
+      &&item.scale===1&&item.anchor==='center'&&item.rotation===undefined)).toBe(true);
+    const town=TOWN_BY_ID.elarion;
+    const horizontalSource=ART_BY_KEY.flower_fence.sources[0];
+    const verticalSource=ART_BY_KEY.flower_fence.sources[1];
+    const horizontalCount=2,horizontalLength=artFrameSize('flower_fence',0).width;
+    const segment=230,horizontalRowInset=32,centerX=-660,centerY=-790,left=centerX-2.5*segment,right=centerX+2.5*segment,
+      top=centerY-1.5*segment,bottom=centerY+1.5*segment;
+    const horizontalEndInset=(segment*5-horizontalCount*horizontalLength)/2;
+    expect(horizontalSource.renderScale!*horizontalSource.cell[2]).toBeCloseTo(horizontalLength);
+    expect(horizontalLength*horizontalCount).toBeLessThan(segment*5);
+    expect(ART_BY_KEY.flower_fence.frameWidth).toBeGreaterThan(horizontalLength);
+    expect(ART_BY_KEY.flower_fence.frameHeight).toBeGreaterThan(verticalSource.renderScale!*verticalSource.cell[3]);
+    expect(horizontalLength).toBeGreaterThan(segment);
+    expect(verticalSource.renderScale!*463).toBeCloseTo(270);
+    expect(horizontalSource.anchor).toEqual([455,150.5]);
+    expect(verticalSource.anchor).toEqual([1027,254.5]);
+    expect(worldPropOrigin('flower_fence',0,'center')).toEqual({x:.5,y:.5});
+    const horizontal=fence.filter(item=>item.id.includes(':north:'));
+    const south=fence.filter(item=>item.id.includes(':south:'));
+    expect(horizontal).toHaveLength(horizontalCount);
+    expect(south).toHaveLength(horizontalCount);
+    expect(horizontal.every(item=>item.frame===0&&item.rotation===undefined
+      &&item.footprint?.width===horizontalLength&&item.footprint.height===32)).toBe(true);
+    expect(south.every(item=>item.frame===0&&item.footprint?.width===horizontalLength&&item.footprint.height===32)).toBe(true);
+    for(const [side,items,y] of [['north',horizontal,top+horizontalRowInset],['south',south,bottom-horizontalRowInset]] as const){
+      items.forEach((item,index)=>{
+        expect(item.world.x-town.world.x).toBeCloseTo(left+horizontalEndInset+horizontalLength*(index+.5));
+        expect(item.world.y-town.world.y).toBeCloseTo(y);
+      });
+      expect(items[0].world.x-town.world.x-horizontalLength/2).toBeCloseTo(left+horizontalEndInset);
+      expect(items[0].world.x-town.world.x+horizontalLength/2)
+        .toBeCloseTo(items[1].world.x-town.world.x-horizontalLength/2);
+      expect(items[items.length-1].world.x-town.world.x+horizontalLength/2).toBeCloseTo(right-horizontalEndInset);
+    }
+    const vertical=fence.filter(item=>item.id.includes(':west:')||item.id.includes(':east:'));
+    expect(vertical).toHaveLength(5);
+    expect(vertical.every(item=>item.frame===1&&item.rotation===undefined
+      &&item.footprint?.width===32&&item.footprint.height===segment)).toBe(true);
+    vertical.forEach((item,index)=>{
+      expect(item.world.y-town.world.y).toBeCloseTo(top+segment*(index%3+.5));
+      expect(item.world.x-town.world.x).toBeCloseTo(index<3?left:right);
+    });
+    for(const side of ['west','east']){
+      const items=vertical.filter(item=>item.id.includes(':'+side+':')).sort((a,b)=>a.world.y-b.world.y);
+      expect(items[0].world.y-town.world.y-segment/2).toBeCloseTo(top);
+      if(side==='west'){
+        expect(items).toHaveLength(3);
+        expect(items[items.length-1].world.y-town.world.y+segment/2).toBeCloseTo(bottom);
+      }else{
+        expect(items).toHaveLength(2);
+        expect(items[items.length-1].world.y-town.world.y+segment/2).toBeCloseTo(bottom-segment);
+        expect(bottom-(items[items.length-1].world.y-town.world.y+segment/2)).toBeCloseTo(segment);
+      }
+    }
+  });
   it('keeps the original building IDs and connects every frontage to a street network', () => {
     for (const layout of SETTLEMENT_LAYOUTS) {
       const town = TOWN_BY_ID[layout.townId], count = layout.townId === 'highmere' ? 34 : town.kind === 'capital' ? 10 : town.kind === 'village' ? 5 : 7;

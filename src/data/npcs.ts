@@ -170,6 +170,33 @@ NPCS.push(...regionalResidents.map(({ work,social,trust,history,dialogueLines,..
 })));
 
 NPCS.push(...CAPITAL_RESIDENTS,...REGIONAL_WORKERS,...CIBAR_RESIDENTS,...WARD_RESIDENTS,...ROAD_RESIDENTS);
+for(const [id,name,x,y] of [
+  ['elarion-north-sentinel','Thalanor Vael',0,-1140],
+  ['elarion-west-sentinel','Eryndor Silverbough',-1220,-40],
+  ['elarion-east-sentinel','Caladwen Starleaf',1220,-40],
+  ['elarion-south-sentinel','Aelion Greenmantle',0,1080],
+] as const)NPCS.push({id,name,title:'Whitebough Sentinel',townId:'elarion',
+  role:'Patrols the living city and keeps the forest approaches safe',spriteTexture:'npc_elven_guard_idle',spriteFrame:0,
+  worldOffset:{x,y},homeLocation:{x,y},patrolRadius:96,combatant:true,weaponId:'narenthil-longbow',faction:'Whitebough Watch',
+  relationshipToLeigneron:{kind:'acquaintance',trust:48,summary:'A vigilant sentinel of Elarion’s living wards'},
+  schedule:[{startHour:6,activity:'Patrols the city approach',location:{x,y}},{startHour:18,activity:'Keeps the evening watch',location:{x,y}}],
+  dialogue:['The boughs shelter those who respect them. Keep to the marked paths.','The ward is quiet for now, but the forest paths are never unwatched.'],questIds:[]});
+for(const [id,name,x] of [
+  ['elarion-hall-guard-west','Lethariel Dawnwatch',-840],
+  ['elarion-hall-guard-east','Caelith Moonward',-560],
+] as const)NPCS.push({id,name,title:'Whitebough Hall Guard',townId:'elarion',
+  role:'Stands watch outside Whitebough Hall',spriteTexture:'npc_elven_guard_idle',spriteFrame:0,
+  worldOffset:{x,y:-650},homeLocation:{x,y:-650},patrolRadius:0,stationary:true,combatant:true,
+  weaponId:'narenthil-longbow',faction:'Whitebough Watch',
+  relationshipToLeigneron:{kind:'acquaintance',trust:48,summary:'A steadfast guard of Whitebough Hall'},
+  schedule:[{startHour:0,activity:'Stands watch outside Whitebough Hall',location:{x,y:-650}}],
+  dialogue:['Whitebough Hall is under the watch of the sentinels.','The hall stands for every bough and home in Elarion.'],questIds:[]});
+NPCS.push({id:'elarion-king',name:'Elarion King',title:'King of the Elves',townId:'elarion',
+  role:'Rules Elarion and receives visitors at Whitebough Hall',spriteTexture:'npc_elven_king_idle',spriteFrame:0,
+  worldOffset:{x:-700,y:-650},homeLocation:{x:-700,y:-650},stationary:true,
+  relationshipToLeigneron:{kind:'acquaintance',trust:60,summary:'The reigning king of Elarion'},
+  schedule:[{startHour:0,activity:'Receives visitors at Whitebough Hall',location:{x:-700,y:-650}}],
+  dialogue:['Welcome to Whitebough Hall. The boughs of Elarion remember every guest.','Speak freely; the safety of our people is the first duty of the crown.'],questIds:[]});
 for(const [id,name,x,history] of [
   ['ser-elin-ward','Elin Ward',-1110,'Yselle’s younger sister; remembers Aldren bringing Leigneron to the royal oath ceremony'],
   ['ser-tomas-rowe','Tomas Rowe',-890,'Caldus’s son; exchanged practice swords with Leigneron as a child'],
@@ -211,6 +238,19 @@ for(const npc of NPCS)if(['blackspire-forgemaster','blackspire-warder'].includes
   npc.questIds.push('returning-ember');
   npc.dialogue.push(npc.id==='blackspire-forgemaster'?'The old ward chains buy shelter, not the death of a dragon. Varkhul always returns to the molten shelf.'
     :'The dragon’s western ash trail runs outside our defenses. Keep challengers there, away from the furnace households.');
+}
+for(const npc of NPCS.filter(resident=>resident.townId==='elarion')){
+  if(npc.spriteTexture==='npc_elven_king_idle'){
+    npc.stationary=true;
+  }else if(npc.spriteTexture==='npc_elven_guard_idle'){
+    npc.patrolRadius??=96;
+  }else if(npc.spriteTexture==='npc_guard'||npc.spriteTexture==='npc_royal_guard'){
+    npc.spriteTexture='npc_elven_guard_idle';npc.patrolRadius??=96;
+  }else if(npc.spriteTexture!=='npc_huntress'||npc.id==='elarion-bowyer'){
+    const maleHouseholdResident=['aerin-virdan','talan-virdan'].includes(npc.id);
+    npc.spriteTexture=maleHouseholdResident||npc.spriteTexture==='npc_blacksmith'||npc.spriteTexture==='npc_adventurer'
+      ||npc.spriteTexture==='npc_general'||npc.id==='elarion-bowyer'?'npc_elven_man_idle':'npc_elven_woman_idle';
+  }
 }
 export const NPC_NAME_ALIASES = prepareNpcPresentation(NPCS);
 export const NPC_BY_ID = Object.fromEntries(NPCS.map((npc) => [npc.id, npc])) as Record<string, NpcDefinition>;

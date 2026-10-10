@@ -1,8 +1,10 @@
 import {artFrameSize, type ArtTextureKey} from './art';
 
-export type TreeTexture = 'world_assets' | 'climate_props';
+export type TreeTexture = 'world_assets' | 'climate_props' | 'elarion_tree' | 'woodland_props';
 export function isTreeArt(texture: string, frame: number): texture is TreeTexture {
-  return (texture === 'world_assets' || texture === 'climate_props') && (frame === 0 || frame === 1);
+  return texture === 'elarion_tree' && frame === 0
+    || texture==='woodland_props'&&frame===5
+    || (texture === 'world_assets' || texture === 'climate_props') && (frame === 0 || frame === 1);
 }
 /** Height is measured from visible pixels, not atlas padding or source size. */
 export function treeScale(texture: TreeTexture, frame: number, visibleHeight: number) {

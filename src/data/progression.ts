@@ -1,8 +1,9 @@
 export const XP_PER_LEVEL = 250;
 export const PLAYER_ACTOR_HEIGHT = 76;
 export function npcApparentHeight(texture: string) {
-  if (texture === 'npc_woman') return PLAYER_ACTOR_HEIGHT * 1.12;
-  return texture === 'npc_guard' || texture === 'npc_royal_guard'
+  if(texture==='npc_elven_king'||texture==='npc_elven_king_idle')return 128;
+  if (texture === 'npc_woman' || texture === 'npc_elven_woman_idle') return PLAYER_ACTOR_HEIGHT * 1.12;
+  return texture === 'npc_guard' || texture === 'npc_elven_guard' || texture === 'npc_elven_guard_idle' || texture === 'npc_royal_guard'
     ? PLAYER_ACTOR_HEIGHT * 1.27 : PLAYER_ACTOR_HEIGHT;
 }
 

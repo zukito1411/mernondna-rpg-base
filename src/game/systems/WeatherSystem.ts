@@ -36,6 +36,7 @@ export class WeatherSystem {
   private audioBus:GainNode|null=null;private audioFilter:BiquadFilterNode|null=null;
   private music: HTMLAudioElement | null = null;private nextMusic:HTMLAudioElement|null=null;
   private currentRegion:RegionId='trandum';private musicFadeElapsed=0;private audioUnlocked=false;
+  private weatherRegion:RegionId|null=null;private weatherBiome:string|null=null;private weatherDay=-1;private weatherPeriod=-1;private weatherBefore600:boolean|null=null;
   private destroyed=false;
   get windStrength(){return this.kind==='wind'||this.kind==='storm'||this.kind==='dust'||this.kind==='ash'?this.strength:.18+this.strength*.25;}
   get cloudCover(){return this.strength*({clear:0,cloudy:.8,rain:.65,storm:1,snow:.6,fog:.65,wind:.15,dust:.35,ash:.5}[this.kind]);}
@@ -115,7 +116,13 @@ export class WeatherSystem {
   update(delta:number,x:number,y:number,paused=false){
     const state=useGameStore.getState(),biome=this.world.getBiomeAt(x,y),region=this.world.getRegionAt(x,y);
     this.currentRegion=region;
-    this.target=weatherFor(region,biome,state.day,state.minuteOfDay);
+    const period=Math.floor(state.minuteOfDay/480),before600=state.minuteOfDay<600;
+    if(region!==this.weatherRegion||biome!==this.weatherBiome||state.day!==this.weatherDay
+      ||period!==this.weatherPeriod||before600!==this.weatherBefore600){
+      this.target=weatherFor(region,biome,state.day,state.minuteOfDay);
+      this.weatherRegion=region;this.weatherBiome=biome;this.weatherDay=state.day;
+      this.weatherPeriod=period;this.weatherBefore600=before600;
+    }
     const step=Math.min(delta,100)/6000;
     if(this.target!==this.kind){this.strength=Math.max(0,this.strength-step);if(this.strength===0)this.kind=this.target;}
     else {const goal=this.kind==='clear'?0:this.kind==='snow'&&(state.day+Math.floor(state.minuteOfDay/480))%2?.55:1;

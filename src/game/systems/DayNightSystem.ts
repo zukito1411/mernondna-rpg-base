@@ -45,32 +45,43 @@ export class DayNightSystem {
   }
   register(actor:Phaser.GameObjects.Sprite,key:ArtTextureKey,frame:number,scale:number) {
     const points=environmentLightPoints(key,frame);
-    if(!points.length) return;
     const owned:LocalLight[]=[];
     for(const [index,p] of points.entries()) {
       const glow=this.scene.add.image(actor.x,actor.y,'warm-light').setDepth(1_000_001).setBlendMode(Phaser.BlendModes.ADD)
-        .setDisplaySize(p.radius*2*Math.sqrt(scale),p.radius*2*Math.sqrt(scale)).setAlpha(0).setName('environment-light:'+actor.name+':'+index);
+        .setDisplaySize(p.radius*2*Math.sqrt(scale),p.radius*2*Math.sqrt(scale))
+        .setTint(key==='elarion_tree'?0x52dfff:0xffffff).setAlpha(0).setName('environment-light:'+actor.name+':'+index);
       const node:LocalLight={actor,x:p.x*scale,y:p.y*scale+(1-actor.originY)*ART_BY_KEY[key].frameHeight*scale,
         radius:p.radius*Math.sqrt(scale),fire:p.fire,phase:index*.8+actor.x*.013+actor.y*.019,glow};
       this.lights.add(node);owned.push(node);
     }
-    let emission:Phaser.GameObjects.Sprite|undefined;
+    const ownedEmissions:Phaser.GameObjects.Sprite[]=[];
     if(this.scene.textures.exists(key+':emission')) {
-      emission=this.scene.add.sprite(actor.x,actor.y,key+':emission',frame).setOrigin(actor.originX,actor.originY)
-        .setScale(actor.scaleX,actor.scaleY).setRotation(actor.rotation).setDepth(actor.depth+.005).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0)
+      if(this.scene.textures.exists(key+':rune-glow')){
+        const runeGlow=this.scene.add.sprite(actor.x,actor.y,key+':rune-glow',frame).setOrigin(actor.originX,actor.originY)
+          .setScale(actor.scaleX,actor.scaleY).setRotation(actor.rotation).setDepth(actor.depth+.004)
+          .setBlendMode(Phaser.BlendModes.ADD).setData('emissionOwner',actor).setData('emissionType','tree-rune-glow')
+          .setName('tree-rune-glow:'+actor.name);
+        this.emissions.add(runeGlow);ownedEmissions.push(runeGlow);
+      }
+      const emission=this.scene.add.sprite(actor.x,actor.y,key+':emission',frame).setOrigin(actor.originX,actor.originY)
+        .setScale(actor.scaleX,actor.scaleY).setRotation(actor.rotation).setDepth(actor.depth+.006).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0)
         .setData('emissionOwner',actor).setName('window-emission:'+actor.name);
-      this.emissions.add(emission);
+      if(this.scene.textures.exists(key+':rune-glow'))emission.setData('emissionType','tree-runes').setName('tree-rune-emission:'+actor.name);
+      this.emissions.add(emission);ownedEmissions.push(emission);
     }
     actor.once('destroy',()=>{
       for(const node of owned){this.lights.delete(node);node.glow.destroy();}
-      if(emission){this.emissions.delete(emission);emission.destroy();}
+      for(const emission of ownedEmissions){this.emissions.delete(emission);emission.destroy();}
       this.renderAccumulator=100;
     });
     this.renderAccumulator=100;
   }
   isIlluminated(x:number,y:number) {
     if(nightStrength(this.minuteOfDay)<.7)return true;
-    return [...this.lights].some(light=>Math.hypot(x-light.actor.x-light.x,y-light.actor.y-light.y)<light.radius*.8);
+    for(const light of this.lights){
+      if(Math.hypot(x-light.actor.x-light.x,y-light.actor.y-light.y)<light.radius*.8)return true;
+    }
+    return false;
   }
   update(deltaMs:number,playerX:number,playerY:number) {
     this.elapsed+=deltaMs;this.minuteOfDay+=deltaMs/1000*2.5;
@@ -80,13 +91,21 @@ export class DayNightSystem {
     const night=nightStrength(this.minuteOfDay);
     for(const node of this.lights) {
       const flicker=node.fire ? .92+Math.sin(this.elapsed*.013+node.phase)*.055+Math.sin(this.elapsed*.021+node.phase)*.025 : 1;
-      node.glow.setPosition(node.actor.x+node.x,node.actor.y+node.y).setAlpha(night*.15*flicker).setVisible(night>0);
+      const intensity=node.actor.texture.key==='elven_villas'?.28:.15;
+      node.glow.setPosition(node.actor.x+node.x,node.actor.y+node.y).setAlpha(night*intensity*flicker).setVisible(night>0);
     }
     for(const emission of this.emissions){
       const owner=emission.getData('emissionOwner') as Phaser.GameObjects.Sprite;
       // Lit windows belong to the structure's draw order. Painting their
       // pixels above every actor makes a foreground character merge into it.
-      emission.setDepth(owner.depth+.005).setAlpha(night*.8).setVisible(night>0&&owner.visible);
+      const type=emission.getData('emissionType');
+      if(type==='tree-runes'||type==='tree-rune-glow'){
+        const pulse=(Math.sin(this.elapsed*.002+owner.x*.013+owner.y*.019)+1)/2;
+        const runeGlow=type==='tree-rune-glow';
+        emission.setDepth(runeGlow?1_000_002:1_000_003)
+          .setPosition(owner.x,owner.y).setAlpha(runeGlow?.48+.42*pulse:.88+.12*pulse)
+          .setVisible(owner.visible);
+      }else emission.setDepth(owner.depth+.005).setAlpha(night*.8).setVisible(night>0&&owner.visible);
     }
     // Stable world-space pockets. Camera zoom never gets applied twice.
     const cx=Math.floor(playerX/1024)*1024+512,cy=Math.floor(playerY/1024)*1024+512;

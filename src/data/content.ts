@@ -3,7 +3,7 @@ import { BOSSES, ENEMY_BY_ID } from './enemies';
 import { NPCS, NPC_BY_ID, NPC_NAME_ALIASES } from './npcs';
 import { rewriteNpcMentions } from './npcPresentation';
 import { TOWNS, TOWN_BY_ID } from './towns';
-import { WORLD_ASSET_FRAMES as PROPS } from './art';
+import { WORLD_ASSET_FRAMES as PROPS,artFrameSize } from './art';
 import { FARM_PLOTS } from './landmarks';
 import { SETTLEMENT_BY_ID, SETTLEMENT_LAYOUTS, buildingRenderScale } from './settlements';
 import { TOWN_SHRINES, townShrineContent } from './townShrines';
@@ -37,6 +37,25 @@ for (const town of TOWNS) {
       frame:lot.appearance?.frame ?? lot.frame,texture,footprint,tint:layout.profile.buildingTint,
       scale,solid:true,...(layout.authored ? { label:lot.label } : {}) });
   }
+}
+{
+  const town=TOWN_BY_ID.elarion,world=(x:number,y:number)=>({x:town.world.x+x,y:town.world.y+y});
+  const segment=230,horizontalCount=2,horizontalLength=artFrameSize('flower_fence',0).width,
+    horizontalInset=(segment*5-horizontalCount*horizontalLength)/2,horizontalRowInset=32,
+    centerX=-660,centerY=-790;
+  const left=centerX-2.5*segment,right=centerX+2.5*segment,top=centerY-1.5*segment,bottom=centerY+1.5*segment;
+  const addFence=(id:string,x:number,y:number,frame=0)=>{
+    WORLD_CONTENT.push({id:'elarion:whitebough-fence:'+id,kind:'prop',world:world(x,y),
+      texture:'flower_fence',frame,scale:1,solid:true,anchor:'center',
+    footprint:frame===0?{width:horizontalLength,height:32}:{width:32,height:segment}});
+  };
+  for(let index=0;index<horizontalCount;index++){
+    const x=left+horizontalInset+horizontalLength*(index+.5);
+    addFence('north:'+index,x,top+horizontalRowInset);
+    addFence('south:'+index,x,bottom-horizontalRowInset);
+  }
+  for(let index=0;index<3;index++)addFence('west:'+index,left,top+segment*(index+.5),1);
+  for(let index=0;index<2;index++)addFence('east:'+index,right,top+segment*(index+.5),1);
 }
 for (const layout of SETTLEMENT_LAYOUTS) {
   const town = TOWN_BY_ID[layout.townId];
@@ -198,7 +217,8 @@ const placed:Rect[] = WORLD_CONTENT.filter(d=>d.kind==='settlement-prop' || d.ki
 placed.push(...fittedDetailBounds);
 for(const d of WORLD_CONTENT) {
   if(!('frame' in d)||d.kind==='settlement-prop'||'townShrineId' in d||'portId' in d||d.id.startsWith('farm:')||d.id.startsWith('bridge:')
-    ||d.id.endsWith('harbor-pier')||isTreeArt(d.texture??'',d.frame)&&d.id.startsWith('detail:')) continue;
+    ||d.id.endsWith('harbor-pier')||d.id.startsWith('elarion:whitebough-fence:')
+    ||isTreeArt(d.texture??'',d.frame)&&d.id.startsWith('detail:')) continue;
   const texture:ArtTextureKey=d.texture??'world_objects',scale=d.scale??1;
   const layout=SETTLEMENT_LAYOUTS.find(s=>{const t=TOWN_BY_ID[s.townId];return Math.abs(d.world.x-t.world.x)<s.bounds.width/2+600&&Math.abs(d.world.y-t.world.y)<s.bounds.height/2+600;});
   if(!layout) continue;
@@ -234,6 +254,10 @@ for(const site of WILDERNESS_SITES){
     scale:site.style==='ruin'?.8:.65,solid:site.style==='ruin'});
 }
 WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS,...DRAGON_LAIR_CONTENT);
+const elarion=TOWN_BY_ID.elarion;
+WORLD_CONTENT.push({id:'landmark:elarion-tree-of-life',kind:'prop',
+  world:{x:elarion.world.x+540,y:elarion.world.y-1050},texture:'elarion_tree',frame:0,scale:.8,solid:true,
+  footprint:{width:78,height:62},streamRadiusChunks:2});
 WORLD_CONTENT.push({id:'landmark:darkav-cinderpeak',kind:'prop',world:{...LAVA_FLOW[0]},texture:'darkav_volcano',frame:0,
   scale:3.2,solid:true,streamRadiusChunks:2,label:'Cinderpeak Volcano'});
 const blackspireTint=SETTLEMENT_BY_ID.blackspire.profile.buildingTint;

@@ -35,7 +35,11 @@ export class DragonCombat {
   get airborne(){return this.phase==='flight'||this.phase==='landing';}
   get visual(){return this.airborne?this.flight:this.enemy;}
   pause(paused:boolean){if(!this.flight.active)return;if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
-  private enter(phase:Phase){this.scene.stopDragonSound(this.enemy.instanceId);this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();if(phase==='breath')this.breathSoundPlayed=false;}
+  private enter(phase:Phase){
+    if(this.phase==='flight'||this.phase==='landing')this.scene.stopDragonSound(this.enemy.instanceId,'flight');
+    if(this.phase==='breath')this.scene.stopDragonSound(this.enemy.instanceId,'breath');
+    this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();if(phase==='breath')this.breathSoundPlayed=false;
+  }
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state!=='attack'&&this.clock<this.hurtUntil)return;
     if(state==='attack'){this.enemy.useVisualTexture('enemy_dragon');this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);}
@@ -120,16 +124,34 @@ export class DragonCombat {
     this.enemy.setFrame(enemyAnimation(5,'attack').frames[pose]);
   }
   private drawCircle(x:number,y:number,radius:number,progress:number){
-    this.warning.clear().fillStyle(0xb8321e,.13).fillCircle(x,y,radius)
-      .lineStyle(3,0xffb25b,.85).strokeCircle(x,y,radius)
-      .lineStyle(2,0xff7243,.6).strokeCircle(x,y,radius*Math.min(1,progress));
+    const fraction=Phaser.Math.Clamp(progress,0,1),pulse=fraction>.72?(1+Math.sin(this.age*.025))*.5:0;
+    const color=pulse>.65?0xfff2a2:0xffb25b;
+    this.warning.clear().fillStyle(0xb8321e,.18+pulse*.08).fillCircle(x,y,radius)
+      .lineStyle(4,color,.98).strokeCircle(x,y,radius)
+      .lineStyle(2,0xff7243,.85).strokeCircle(x,y,radius*fraction);
+    for(let i=0;i<12;i++){
+      const angle=i*Math.PI/6,inner=radius-8,outer=radius+3;
+      this.warning.lineBetween(x+Math.cos(angle)*inner,y+Math.sin(angle)*inner,
+        x+Math.cos(angle)*outer,y+Math.sin(angle)*outer);
+    }
+    const steps=Math.max(1,Math.ceil(24*fraction));
+    const sweep=Array.from({length:steps+1},(_,i)=>{
+      const angle=-Math.PI/2+Math.PI*2*fraction*i/steps;
+      return {x:x+Math.cos(angle)*(radius+5),y:y+Math.sin(angle)*(radius+5)};
+    });
+    this.warning.lineStyle(4,color,.98).strokePoints(sweep,false);
   }
   private drawCone(burning:boolean){
     const e=this.enemy,angle=this.aim.angle(),half=DRAGON_BREATH.halfAngle,r=DRAGON_BREATH.range;
     const left={x:e.x+Math.cos(angle-half)*r,y:e.y+Math.sin(angle-half)*r};
     const right={x:e.x+Math.cos(angle+half)*r,y:e.y+Math.sin(angle+half)*r};
-    this.warning.clear().fillStyle(0xd4551c,burning?.045:.12).fillTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
-      .lineStyle(2,0xffa052,burning?.25:.85).strokeTriangle(e.x,e.y,left.x,left.y,right.x,right.y);
+    const pulse=!burning&&this.age>DRAGON_BREATH.windupMs*.72?(1+Math.sin(this.age*.025))*.5:0;
+    const fillAlpha=burning?.09:.17+pulse*.08,edgeAlpha=burning?.78:.98;
+    this.warning.clear().fillStyle(0xd4551c,fillAlpha).fillTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
+      .lineStyle(4,burning?0xffb347:pulse>.65?0xfff2a2:0xffa052,edgeAlpha)
+      .strokeTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
+      .lineStyle(2,0xffe3a0,burning?.72:.62)
+      .lineBetween(e.x,e.y,e.x+this.aim.x*r*Math.cos(half),e.y+this.aim.y*r*Math.cos(half));
     const pose=burning?2:Math.min(2,Math.floor(this.age/360));
     // Atlas density 2, registered source scale 1.3, actor scale includes boss size.
     const registered=(e.frame.customData as {mouth?:{x:number;y:number}}).mouth;
@@ -173,6 +195,9 @@ export class DragonCombat {
     const e=this.enemy,visual=this.scene.add.sprite(e.x,e.y-40,'enemy_dragon_fly',0)
       .setOrigin(.5,actorArtLayout('enemy_dragon_fly').originY).setScale(this.flight.scaleX,this.flight.scaleY)
       .setDepth(e.y+600).setName('dragon-retreat').play('dragon-fly');
+    const soundId=`${e.instanceId}:retreat`;
+    this.scene.playDragonSound(soundId,'flight',e.x,e.y,2800);
+    visual.once(Phaser.GameObjects.Events.DESTROY,()=>this.scene.stopDragonSound(soundId,'flight'));
     this.scene.tweens.add({targets:visual,x:e.x+1100,y:e.y-1300,alpha:0,duration:2800,ease:'Sine.easeIn',onComplete:()=>visual.destroy()});
   }
   reactToHit(){

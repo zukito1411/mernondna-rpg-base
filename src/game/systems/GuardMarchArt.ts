@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import {ART_BY_KEY} from '../../data/art';
-import {GUARD_MARCH_ART} from '../../data/guardMarchArt';
+import {GUARD_MARCH_ART,guardMarchFrameOrigin} from '../../data/guardMarchArt';
 import {NPC_IDLE_ART,npcIdleSources} from '../../data/npcIdleArt';
-import {actorSpriteSubjects} from './spriteComponents';
+import {actorSpriteGridSubjects,actorSpriteSubjects} from './spriteComponents';
 import {spriteSubjectCanvas} from './spriteArt';
 import type {SpriteAnimation} from '../../data/animationPacks';
 
@@ -14,10 +14,14 @@ export function prepareGuardMarchArt(scene:Phaser.Scene):SpriteAnimation[]{
   const source=scene.textures.get('guard-march-source:'+art.walk).getSourceImage() as HTMLImageElement;
   const native=document.createElement('canvas');native.width=source.width;native.height=source.height;
   const sourceCtx=native.getContext('2d')!;sourceCtx.drawImage(source,0,0);
-  const subjects=actorSpriteSubjects(sourceCtx.getImageData(0,0,source.width,source.height).data,source.width,source.height,6,4);
+  const pixels=sourceCtx.getImageData(0,0,source.width,source.height).data;
+  const grid='grid' in art?art.grid:undefined;
+  const subjects=grid?actorSpriteGridSubjects(pixels,source.width,source.height,grid.columns,grid.rows)
+   :actorSpriteSubjects(pixels,source.width,source.height,6,4);
   const idle=NPC_IDLE_ART.find(a=>a.walk===art.walk)!,bodyHeight=npcIdleSources(idle)[0].renderScale!*idle.bodyHeight;
   const sheet=ART_BY_KEY[art.texture],fw=sheet.frameWidth*2,fh=sheet.frameHeight*2,ground=fh-4;
-  const texture=scene.textures.createCanvas(art.texture,fw*6,fh*4)!,ctx=texture.getContext();
+  const gutter='frameGutter' in art?art.frameGutter:0;
+  const texture=scene.textures.createCanvas(art.texture,(fw+gutter*2)*6,(fh+gutter*2)*4)!,ctx=texture.getContext();
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   const fit=subjects.reduce((scale,subject,frame)=>{
    const [left,,width,height]=subject.region,rootX=(frame%6+.5)*source.width/6;
@@ -31,14 +35,17 @@ export function prepareGuardMarchArt(scene:Phaser.Scene):SpriteAnimation[]{
   },bodyHeight/art.bodyHeight);
   subjects.forEach((subject,frame)=>{
    const [left,top,width,height]=subject.region,rootX=(frame%6+.5)*source.width/6,rootY=top+height;
-   const x=frame%6*fw+fw/2+(left-rootX)*fit*2,y=Math.floor(frame/6)*fh+ground-height*fit*2;
-   if(x<frame%6*fw+4||x+width*fit*2>(frame%6+1)*fw-4||y<Math.floor(frame/6)*fh+4)
+   const {x:cellX,y:cellY}=gutter?guardMarchFrameOrigin(frame,fw,fh):{x:frame%6*fw,y:Math.floor(frame/6)*fh};
+   const x=cellX+fw/2+(left-rootX)*fit*2,y=cellY+ground-height*fit*2;
+   if(x<cellX+4||x+width*fit*2>cellX+fw-4||y<cellY+4)
     throw new Error('Guard march pose exceeds its padded frame: '+art.walk+'/'+frame);
+   ctx.save();ctx.beginPath();ctx.rect(cellX,cellY,fw,fh);ctx.clip();
    ctx.drawImage(spriteSubjectCanvas(subject),x,y,width*fit*2,height*fit*2);
-   const prepared=texture.add(frame,0,frame%6*fw,Math.floor(frame/6)*fh,fw,fh)!;
+   ctx.restore();
+   const prepared=texture.add(frame,0,cellX,cellY,fw,fh)!;
    prepared.customData={fullSprite:true,isolatedSubject:true,sourceRegion:[...subject.region],sourceFit:fit,
     sourceRoot:{x:rootX,y:rootY},sourcePath:art.path,foreignProbes:subject.foreignProbes,
-    visibleBounds:{left:(x-frame%6*fw)/2,top:(y-Math.floor(frame/6)*fh)/2,width:width*fit,height:height*fit}};
+    visibleBounds:{left:(x-cellX)/2,top:(y-cellY)/2,width:width*fit,height:height*fit}};
   });
   texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
   ['down','left','right','up'].forEach((direction,row)=>animations.push({key:art.walk+'-'+direction,texture:art.texture,

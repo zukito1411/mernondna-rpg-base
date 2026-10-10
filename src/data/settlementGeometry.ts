@@ -29,7 +29,6 @@ export function rectTouchesStreet(r:Rect,s:{ width:number; points:Vec2[] },gap =
 export function propFoundation(texture:ArtTextureKey,frame:number,scale:number) {
   const size = artFrameSize(texture,frame);
   if (isTreeArt(texture,frame)) return treeFootprint(texture,frame,scale);
-  if(texture==='woodland_props'&&frame===5){const height=size.height*scale;return {width:Math.max(14,height*.105),height:Math.max(12,height*.08)};}
   return { width:size.width * scale * .72,height:Math.min(56,size.height * scale * .25) };
 }
 export const retiredBoundaryId = (id:string) => /^settlement:(wall|gate|gate-tower):/.test(id);

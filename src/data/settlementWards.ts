@@ -81,7 +81,7 @@ export function settlementWardPlan(town:TownDefinition):WardPlan {
         result.buildings.push({...toPoint(x,y),frame,scale,wardId:id,plot,
           label:special?`${ward} ${theme.use==='forge'?'Workshop':theme.use==='quay'?'Stores':theme.use==='military'?'Stable':theme.use==='grove'?'Chapel':theme.use==='trade'?'Guild Store':'Farm Stable'}`:`${ward} ${row===0?'Upper':'Lower'} House ${col+1}`,
           purpose:special?theme.livelihoods[index]:'Burgage household; workshop front, dwelling and shared rear garden',
-          appearance:{texture:special||stoneHouse?'capital_buildings':'world_buildings',frame},
+          appearance:{texture:town.id==='elarion'?'elven_villas':special||stoneHouse?'capital_buildings':'world_buildings',frame},
         });
       }
     }

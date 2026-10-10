@@ -31,7 +31,7 @@ export class WorldSpriteSystem {
     };
     const profile=worldSpriteProfile(texture,frame),owned:Phaser.GameObjects.Rectangle[]=[];
     if(!profile?.floor||texture==='bridges'){
-      const building=texture==='world_buildings'||texture==='capital_buildings'
+      const building=texture==='world_buildings'||texture==='capital_buildings'||texture==='elven_villas'
         ||texture==='world_objects'&&frame<4;
       this.shadows?.register(actor,true,texture==='bridges'||texture==='port_dock'
         ?{projection:.3,contactScale:.7}
@@ -62,8 +62,10 @@ export class WorldSpriteSystem {
           for(const rect of polygonGroundBands(worldPolygon))add(rect.left,rect.top,rect.right,rect.bottom);
         }}else if(solid&&!profile?.floor){
           const width=fallback?.width??visible.width*scale*.72,height=fallback?.height??Math.min(56,visible.height*scale*.25);
-          const bottom=center?actor.y+height/2:point(.5,1).y;
-          add(actor.x-width/2,bottom-height,actor.x+width/2,bottom);
+          const cos=Math.abs(Math.cos(actor.rotation)),sin=Math.abs(Math.sin(actor.rotation));
+          const boundsWidth=width*cos+height*sin,boundsHeight=width*sin+height*cos;
+          const bottom=center?actor.y+boundsHeight/2:point(.5,1).y;
+          add(actor.x-boundsWidth/2,bottom-boundsHeight,actor.x+boundsWidth/2,bottom);
         }
       }
     }

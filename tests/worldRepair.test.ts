@@ -55,6 +55,14 @@ describe('world visual repair',()=>{
     expect(environmentLightPoints('leigneron',0)).toEqual([]);
     expect(nightStrength(12*60)).toBe(0);expect(nightStrength(22*60)).toBe(1);expect(nightStrength(19*60)).toBe(.5);
   });
+  it('registers windows and lamps across all ten elven villa landmarks',()=>{
+    const expected=[4,5,3,2,5,3,2,4,7,7];
+    for(let frame=0;frame<expected.length;frame++){
+      const lights=environmentLightPoints('elven_villas',frame);
+      expect(lights,`villa frame ${frame}`).toHaveLength(expected[frame]);
+      expect(lights.every(light=>light.radius>0&&light.mask>0)).toBe(true);
+    }
+  });
   it('aligns the painted bridge deck to the crossing rather than atlas padding',()=>{
     const sheet=ART_BY_KEY.bridges,region=sheet.regions![2],origin=worldPropOrigin('bridges',2,'center');
     const fit=artFrameSize('bridges',2).width/region[2];

@@ -13,6 +13,10 @@ interface CoverArt {source:CanvasImageSource;sx:number;sy:number;width:number;he
 interface CoverPiece {texture:ArtTextureKey;frame:number;height:number}
 const meadow:CoverPiece[]=[{texture:'flora',frame:0,height:17},{texture:'flora',frame:1,height:15},
   {texture:'flora',frame:2,height:15},{texture:'woodland_props',frame:1,height:22},{texture:'woodland_props',frame:2,height:20}];
+const elvenGarden:CoverPiece[]=[{texture:'flora',frame:0,height:18},{texture:'flora',frame:1,height:17},
+  {texture:'flora',frame:2,height:16},{texture:'flora',frame:3,height:15},{texture:'flora',frame:11,height:20},
+  {texture:'woodland_props',frame:1,height:23},{texture:'woodland_props',frame:2,height:21},
+  {texture:'woodland_props',frame:3,height:23},{texture:'woodland_props',frame:4,height:27}];
 const woodland:CoverPiece[]=[{texture:'woodland_props',frame:2,height:23},{texture:'flora',frame:11,height:20},
   {texture:'woodland_props',frame:10,height:15},{texture:'flora',frame:0,height:16}];
 const dry:CoverPiece[]=[{texture:'flora',frame:7,height:17},{texture:'desert_props',frame:3,height:22},
@@ -57,11 +61,12 @@ export class GroundCoverBaker {
         if(terrain==='stone'&&!masonryEdge)continue;
         if(layout&&terrain==='dirt'&&!softEdge)continue; // busy working courts stay worn/clear
         if(!greenEdge&&!['snow','sand','ash','dirt'].includes(terrain)&&!masonryEdge)continue;
-        const density=layout?(streetEdge<110 ? .94 : .70):terrain==='forest' ? .84 : .58;
+        const elarionGarden=layout?.townId==='elarion';
+        const density=elarionGarden?(streetEdge<110?.96:.86):layout?(streetEdge<110 ? .94 : .70):terrain==='forest' ? .84 : .58;
         if(rng()>density)continue;
-        const palette=region==='darkav'?volcanic:region==='frostlands'||region==='nardorous'?winter:
+        const palette=elarionGarden?elvenGarden:region==='darkav'?volcanic:region==='frostlands'||region==='nardorous'?winter:
           region==='rindass'||terrain==='sand'?dry:terrain==='forest'?woodland:meadow;
-        const count=greenEdge?3+Math.floor(rng()*2):1+Math.floor(rng()*2);
+        const count=elarionGarden?5+Math.floor(rng()*3):greenEdge?3+Math.floor(rng()*2):1+Math.floor(rng()*2);
         for(let i=0;i<count;i++){
           const px=x+(rng()-.5)*70,py=y+(rng()-.5)*54,piece=palette[Math.floor(rng()*palette.length)];
           const height=(masonryEdge?piece.height*.4:piece.height)*(.82+rng()*.35),art=this.getArt(piece);if(!art)continue;

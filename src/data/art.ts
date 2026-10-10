@@ -13,7 +13,7 @@ import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
-type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | typeof NPC_IDLE_ART[number]['walk'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
 export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|GuardMarchTexture|'port_dock';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
@@ -122,7 +122,6 @@ export const ART_SHEETS: readonly ArtSheet[] = [
   { key:'npc_woman',path:SHRINE_PACK.animations.walk_down.png,columns:24,atlasColumns:6,density:4,frameWidth:64,frameHeight:80,blackBackground:false,
 
     sources:registerNpcWalkSources('npc_woman',directionalSources(SHRINE_PACK)),contentSize:[128,160],names:poseNames },
-
   { key:'npcs',path:castSources[0].path,columns:8,density:4,frameWidth:96,frameHeight:80,blackBackground:false,sources:castSources,
 
     names:['guard','attendant','traveler','huntress','smith','roadwarden','hunter-provisional','shrine-keeper'] },
@@ -144,6 +143,24 @@ export const ART_SHEETS: readonly ArtSheet[] = [
     sourceSize: [2172, 724], regions: [[40,242,432,333],[518,119,610,456],[1155,221,536,359],[1722,210,410,381]],
 
     names: ['cottage','inn-townhouse','ruined-arch','road-shrine'] },
+
+  {key:'elarion_tree',path:'assets/sprites/elarion-tree.png',columns:1,density:2,frameWidth:640,frameHeight:640,
+    blackBackground:false,sourceSize:[1280,1280],regions:[[0,0,1280,1280]],names:['elarion-tree-of-life']},
+
+  {key:'elven_villas',path:'assets/sprites/elven-villa.png',columns:10,atlasColumns:4,density:2,frameWidth:384,frameHeight:384,blackBackground:false,
+    sourceSize:[1448,1086],regions:[[23,145,328,281],[363,45,393,388],[769,11,200,423],[993,47,440,374],
+      [14,427,321,313],[343,468,378,271],[732,452,362,284],[1105,420,324,320],
+      [34,749,617,323],[669,738,743,334]],
+    names:['elven-cottage','elven-manor','elven-watchtower','elven-gate','elven-chapel','elven-smithy',
+      'elven-stable','elven-guildhall','elven-estate','elven-palace']},
+  {key:'flower_fence',path:'assets/sprites/flower-fence.png',columns:4,atlasColumns:4,density:2,frameWidth:600,frameHeight:320,blackBackground:false,
+    sources:[
+      {path:'assets/sprites/flower-fence.png',cell:[0,0,910,265],imageSize:[1536,1024],renderScale:290/490,anchor:[455,150.5],name:'flower-fence-horizontal'},
+      {path:'assets/sprites/flower-fence.png',cell:[958,12,155,474],imageSize:[1536,1024],renderScale:270/463,anchor:[1027,254.5],name:'flower-fence-vertical-a'},
+      {path:'assets/sprites/flower-fence.png',cell:[1138,12,160,474],imageSize:[1536,1024],renderScale:230/474,name:'flower-fence-vertical-b'},
+      {path:'assets/sprites/flower-fence.png',cell:[1330,12,206,474],imageSize:[1536,1024],renderScale:230/474,name:'flower-fence-vertical-c'},
+    ],
+    names:['flower-fence-horizontal','flower-fence-vertical-a','flower-fence-vertical-b','flower-fence-vertical-c']},
 
   { key:'world_buildings',path:'assets/sprites/buildings.png',columns:6,atlasColumns:3,density:2,frameWidth:224,frameHeight:224,blackBackground:false,
 
@@ -237,7 +254,7 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
   ...NPC_IDLE_ART.map(entry => ({ key:entry.key,path:entry.path,columns:6,atlasColumns:6,density:2,
 
-    frameWidth:96,frameHeight:entry.height,blackBackground:false,sources:npcIdleSources(entry),
+    frameWidth:96,frameHeight:entry.walk==='npc_elven_king'?168:entry.height,blackBackground:false,sources:npcIdleSources(entry),
 
     names:Array.from({ length:6 },(_,i) => `idle-${i}`) })),
 
@@ -344,6 +361,7 @@ export function worldPropFootprint(frame: number, scale: number) {
 export function worldPropOrigin(key:ArtTextureKey,frame:number,anchor:'center'|'bottom') {
 
   if(anchor==='bottom') return {x:.5,y:1};
+  if(key==='flower_fence')return {x:.5,y:.5};
 
   const sheet=ART_BY_KEY[key],point=sheet.groundPoints?.[frame],region=sheet.regions?.[frame];
 

@@ -91,6 +91,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private cinematicDirector!:CinematicDirector;
   private reliefWatchMs=0;
   private nextImpactSoundAt=0;
+  private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
   getCombatEnemies(){return [...this.enemies];}
   playEnemyVocal(definition:EnemyDefinition,instanceId:string,cue:EnemySoundCue,x:number,y:number){
@@ -99,7 +100,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   forgetEnemySound(instanceId:string){this.enemySounds.forget(instanceId);}
   playDragonSound(instanceId:string,cue:'roar'|'breath'|'flight',x:number,y:number,duration:number){this.enemySounds.playEffect(instanceId,cue,x,y,duration);}
-  stopDragonSound(instanceId:string){this.enemySounds.stopEffect(instanceId);}
+  stopDragonSound(instanceId:string,cue?:'roar'|'breath'|'flight'){this.enemySounds.stopEffect(instanceId,cue);}
   canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
   safeSkillPosition(point:Vec2){return this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
   skillLanding(target:Vec2,range:number):Vec2 {
@@ -299,10 +300,17 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         if (enemy.active) enemy.updateEnemy(time,delta);
       }
       const body=this.player.body as Phaser.Physics.Arcade.Body;
+      let threatened=false;
+      for(const enemy of this.enemies){
+        if(enemy.active&&enemy.hp>0&&Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<400){
+          threatened=true;
+          break;
+        }
+      }
       this.player.hp=this.player.recovery.update(delta,{
         hp:this.player.hp,maxHp:this.player.maxHp,inSettlement:Boolean(this.worldGenerator.getTownAt(this.player.x,this.player.y)),
         moving:body.velocity.lengthSq()>1,busy:this.player.skills.isCasting,
-        threatened:[...this.enemies].some(e=>e.active&&e.hp>0&&Phaser.Math.Distance.Between(e.x,e.y,this.player.x,this.player.y)<400),
+        threatened,
       });
       const standard=this.contentManager.getActor('watch:relief-yard');
       if(objectiveIsCurrent(store.quests,'train','relief-watch')&&standard
@@ -585,10 +593,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private isBlockedByBuilding(x: number, y: number) {
     if(fortificationBlocksPoint(x,y,20))return true;
     const feet={left:x-11,right:x+11,top:y-24,bottom:y+2};
-    return [...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
-      const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      return body?.enable&&overlaps(feet,{left:body.left,right:body.right,top:body.top,bottom:body.bottom});
-    });
+    for(const object of this.buildings.getChildren()){
+      const body=(object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
+      if(body?.enable&&overlaps(feet,body))return true;
+    }
+    for(const object of this.treeBodies.getChildren()){
+      const body=(object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
+      if(body?.enable&&overlaps(feet,body))return true;
+    }
+    return false;
   }
 
   private isNpcObscured(x:number,y:number) {
@@ -600,11 +613,22 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   hasClearPath(ax: number, ay: number, bx: number, by: number, exclude?: Phaser.GameObjects.GameObject) {
     if(fortificationBlocksPath({x:ax,y:ay},{x:bx,y:by}))return false;
     const line = new Phaser.Geom.Line(ax, ay, bx, by);
-    return ![...this.buildings.getChildren(), ...this.treeBodies.getChildren()].some(object => {
-      if (object === exclude || (exclude&&object.getData(WORLD_SPRITE_OWNER)===exclude)) return false;
+    for(const object of this.buildings.getChildren()){
+      if(object===exclude||(exclude&&object.getData(WORLD_SPRITE_OWNER)===exclude))continue;
       const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      return body?.enable&&Phaser.Geom.Intersects.LineToRectangle(line,new Phaser.Geom.Rectangle(body.x,body.y,body.width,body.height));
-    });
+      if(body?.enable&&this.lineIntersectsBody(line,body))return false;
+    }
+    for(const object of this.treeBodies.getChildren()){
+      if(object===exclude||(exclude&&object.getData(WORLD_SPRITE_OWNER)===exclude))continue;
+      const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
+      if(body?.enable&&this.lineIntersectsBody(line,body))return false;
+    }
+    return true;
+  }
+
+  private lineIntersectsBody(line:Phaser.Geom.Line,body:Phaser.Physics.Arcade.StaticBody) {
+    this.pathObstacleBounds.setTo(body.x,body.y,body.width,body.height);
+    return Phaser.Geom.Intersects.LineToRectangle(line,this.pathObstacleBounds);
   }
 
   syncState() {
@@ -704,7 +728,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const phase=npcDefinition.formation?formationPosition(this.activePlayMs,npcDefinition.formation.rank):null;
       const town=TOWN_BY_ID[npcDefinition.townId];
       const returned=definition.npcId==='tovin-reed'&&(useGameStore.getState().quests['shadows-highmere']?.objectiveProgress.escort??0)>=1;
-      const position = returned?{x:town.world.x-1280,y:town.world.y+1609}
+      const position = npcDefinition.stationary?definition.world
+        :returned?{x:town.world.x-1280,y:town.world.y+1609}
         :phase&&this.getWorldHour()>=6&&this.getWorldHour()<20?{x:town.world.x+phase.x,y:town.world.y+phase.y}
         : obscuredKeeper || this.isNpcObscured(x,y) || this.isBlockedByBuilding(x,y) ? definition.world : { x,y };
       const npc = new Npc(this, npcDefinition, position.x, position.y, definition.world);

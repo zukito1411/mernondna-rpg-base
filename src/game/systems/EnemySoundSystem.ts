@@ -3,6 +3,7 @@ import type {EnemyDefinition} from '../types';
 import type {WorldScene} from '../scenes/WorldScene';
 import {enemyAudioCue,enemyVoice,type EnemySoundCue} from '../../data/enemyAudio';
 import {useGameStore} from '../../store/gameStore';
+import {dragonEffectPlayback} from './dragonAudio';
 export type {EnemySoundCue} from '../../data/enemyAudio';
 const volumes:Record<EnemySoundCue,number>={attack:.24,growl:.13,hurt:.23,death:.27};
 type Playing={sound:Phaser.Sound.BaseSound;cue:string};
@@ -27,13 +28,17 @@ export class EnemySoundSystem {
  }
  playEffect(instanceId:string,cue:'roar'|'breath'|'flight',x:number,y:number,duration:number){
   const key=cue==='roar'?'sfx-enemy-dragon-deep-roar':cue==='breath'?'sfx-enemy-dragon-fire-breath':'sfx-enemy-dragon-fly';
-  this.start(this.effects,instanceId,cue,key,x,y,cue==='roar'?.32:cue==='breath'?.42:.22,1,duration/1000,1500);
+  if(!this.scene.cache.audio.exists(key))return;
+  const buffer=this.scene.cache.audio.get(key) as AudioBuffer;
+  const playback=dragonEffectPlayback(cue,duration,buffer.duration);
+  this.start(this.effects,instanceId,cue,key,x,y,cue==='roar'?.32:cue==='breath'?.42:.5,1,
+   playback.duration,cue==='flight'?2200:1500,playback.loop,`${instanceId}:${cue}`);
  }
- private start(collection:Map<string,Playing>,instanceId:string,cue:string,key:string,x:number,y:number,volume:number,rate:number,duration:number,radius:number){
+ private start(collection:Map<string,Playing>,instanceId:string,cue:string,key:string,x:number,y:number,volume:number,rate:number,duration:number,radius:number,loop=false,storageKey=instanceId){
   const scene=this.scene,player=scene.player;
   if(this.paused||!useGameStore.getState().weatherAudio||scene.sound.locked||!player?.active||!scene.cache.audio.exists(key))return;
   const distance=Math.hypot(player.x-x,player.y-y);if(distance>=radius)return;
-  const old=collection.get(instanceId);if(old){collection.delete(instanceId);old.sound.destroy();}
+  const old=collection.get(storageKey);if(old){collection.delete(storageKey);old.sound.destroy();}
   // Limit overlapping pack voices and audio nodes.
   if(this.voices.size+this.effects.size>=10&&cue==='growl')return;
   if(this.voices.size+this.effects.size>=14){const first=this.voices.entries().next().value;if(first){this.voices.delete(first[0]);first[1].sound.destroy();}}
@@ -41,17 +46,21 @@ export class EnemySoundSystem {
   const pan=Phaser.Math.Clamp((x-camera.midPoint.x)/Math.max(1,halfWidth),-1,1);
   const buffer=scene.cache.audio.get(key) as AudioBuffer;
   const length=Math.min(duration,buffer.duration??duration);
-  const sound=scene.sound.add(key),playing={sound,cue};collection.set(instanceId,playing);
-  sound.addMarker({name:'cue',start:0,duration:length,config:{volume:Math.min(.55,volume*Math.pow(1-distance/radius,1.35)),rate,pan,loop:false}});
-  sound.once('complete',()=>{if(collection.get(instanceId)===playing)collection.delete(instanceId);sound.destroy();});
-  if(!sound.play('cue')){collection.delete(instanceId);sound.destroy();}
+  const sound=scene.sound.add(key),playing={sound,cue};collection.set(storageKey,playing);
+  const config={volume:Math.min(.55,volume*Math.pow(1-distance/radius,1.35)),rate,pan,loop};
+  if(!loop)sound.addMarker({name:'cue',start:0,duration:length,config});
+  sound.once('complete',()=>{if(collection.get(storageKey)===playing)collection.delete(storageKey);sound.destroy();});
+  if(!(loop?sound.play(config):sound.play('cue'))){collection.delete(storageKey);sound.destroy();}
  }
  pause(paused:boolean){
   if(!useGameStore.getState().weatherAudio){this.clear();this.paused=paused;return;}
   if(this.paused===paused)return;this.paused=paused;
   for(const {sound} of [...this.voices.values(),...this.effects.values()])if(paused)sound.pause();else sound.resume();
  }
- stopEffect(instanceId:string){const p=this.effects.get(instanceId);this.effects.delete(instanceId);p?.sound.destroy();}
+ stopEffect(instanceId:string,cue?:'roar'|'breath'|'flight'){
+  const keys=cue?[`${instanceId}:${cue}`]:(['roar','breath','flight'] as const).map(effect=>`${instanceId}:${effect}`);
+  for(const key of keys){const playing=this.effects.get(key);if(playing){this.effects.delete(key);playing.sound.destroy();}}
+ }
  forget(instanceId:string){
   const p=this.voices.get(instanceId);
   // Defeat immediately removes the gameplay actor; let its one-shot death

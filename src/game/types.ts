@@ -59,7 +59,7 @@ export interface NpcDefinition {
   role: string;
   spriteFrame: number;
   worldOffset: Vec2;
-  spriteTexture?: 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general';
+  spriteTexture?: 'npcs' | 'npc_guard' | 'npc_elven_guard_idle' | 'npc_elven_man_idle' | 'npc_elven_woman_idle' | 'npc_elven_king_idle' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general';
   weaponId?: string;
   schedule: Array<{ startHour: number; activity: string; location?: Vec2 }>;
   faction?: string;
@@ -74,6 +74,7 @@ export interface NpcDefinition {
   questIds: string[];
   combatant?: boolean;
   patrolRadius?: number;
+  stationary?: boolean;
 }
 
 export interface WeaponDefinition {
@@ -171,7 +172,7 @@ export interface QuestRuntimeState {
 }
 
 interface ContentBase { id: string; world: Vec2 }
-export type WorldPropTexture = 'port_dock' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
+export type WorldPropTexture = 'port_dock' | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export interface CreatureContentDefinition extends ContentBase {
   kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;
