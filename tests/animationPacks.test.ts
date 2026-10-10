@@ -77,15 +77,22 @@ describe('supplied animation packs', () => {
   it('grounds new architecture to its visible dimensions while preserving identities', () => {
     expect(NPCS.find(n => n.id === 'joren-pike')!.spriteTexture).toBe('npc_blacksmith');
     const smith = CONTENT_BY_ID['town:oakmere:building:3'];
+    if(smith?.kind!=='prop')throw new Error('Missing Oakmere smith building prop');
     expect(smith).toMatchObject({ texture:'world_buildings',frame:2,footprint:propFoundation('world_buildings',2,1) });
-    expect(CONTENT_BY_ID['prop:east-watchtower']).toMatchObject({ texture:'world_buildings',frame:4,footprint:propFoundation('world_buildings',4,1.2) });
-    expect(CONTENT_BY_ID['shrine:oakmere-road']).toMatchObject({ texture:'world_buildings',frame:3 });
-    expect(CONTENT_BY_ID['entrance:oakmere-old-cellar']).toMatchObject({ texture:'world_buildings',frame:4 });
+    const watchtower=CONTENT_BY_ID['prop:east-watchtower'];
+    if(watchtower?.kind!=='prop')throw new Error('Missing east watchtower prop');
+    expect(watchtower).toMatchObject({ texture:'world_buildings',frame:4,footprint:propFoundation('world_buildings',4,1.2) });
+    const shrine=CONTENT_BY_ID['shrine:oakmere-road'];
+    if(!shrine||!('frame' in shrine))throw new Error('Missing Oakmere road shrine');
+    expect(shrine).toMatchObject({ texture:'world_buildings',frame:3 });
+    const cellar=CONTENT_BY_ID['entrance:oakmere-old-cellar'];
+    if(!cellar||!('frame' in cellar))throw new Error('Missing Oakmere cellar entrance');
+    expect(cellar).toMatchObject({ texture:'world_buildings',frame:4 });
   });
   it('renders every named NPC at the same 76-world-unit height', () => {
     for (const npc of NPCS) {
-      const texture = npc.spriteTexture ?? 'npcs';
-      const height = npcApparentHeight(texture);
+      const texture = npc.spriteTexture==='npc_royal_guard'?'npc_guard':npc.spriteTexture ?? 'npcs';
+      const height = npcApparentHeight(npc.spriteTexture??'npcs');
       const displayedHeight = artFrameSize(texture, npc.spriteFrame).height
         * actorScaleForHeight(texture, npc.spriteFrame, height) * ART_BY_KEY[texture].density;
       expect(displayedHeight, npc.id).toBeCloseTo(height);

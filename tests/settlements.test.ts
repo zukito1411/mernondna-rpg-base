@@ -34,14 +34,16 @@ describe('settlement land-use and circulation', () => {
       expect(lot.plot&&buildingRenderScale(lot)).toBeTruthy();
   });
   it('places continuous flower fencing along the full Whitebough Hall stone court perimeter',()=>{
-    const fence=WORLD_CONTENT.filter(item=>item.id.startsWith('elarion:whitebough-fence:'));
-    expect(ART_BY_KEY.flower_fence.sources).toHaveLength(4);
+    const fence=WORLD_CONTENT.filter(item=>item.id.startsWith('elarion:whitebough-fence:')&&item.kind==='prop');
+    const fenceSources=ART_BY_KEY.flower_fence.sources;
+    expect(fenceSources).toHaveLength(4);
+    if(!fenceSources)throw new Error('Missing flower-fence source metadata');
     expect(fence).toHaveLength(9);
     expect(fence.every(item=>item.kind==='prop'&&item.texture==='flower_fence'&&item.solid===true
       &&item.scale===1&&item.anchor==='center'&&item.rotation===undefined)).toBe(true);
     const town=TOWN_BY_ID.elarion;
-    const horizontalSource=ART_BY_KEY.flower_fence.sources[0];
-    const verticalSource=ART_BY_KEY.flower_fence.sources[1];
+    const horizontalSource=fenceSources[0];
+    const verticalSource=fenceSources[1];
     const horizontalCount=2,horizontalLength=artFrameSize('flower_fence',0).width;
     const segment=230,horizontalRowInset=32,centerX=-660,centerY=-790,left=centerX-2.5*segment,right=centerX+2.5*segment,
       top=centerY-1.5*segment,bottom=centerY+1.5*segment;
@@ -157,7 +159,8 @@ describe('settlement land-use and circulation', () => {
       const size = artFrameSize('world_assets',tree.frame);
       for (const npc of NPCS.filter(npc => npc.townId === 'oakmere')) {
         if (tree.y <= npc.worldOffset.y) continue; // NPC renders in front of this tree.
-        const actor = artFrameSize(npc.spriteTexture ?? 'npcs',npc.spriteFrame);
+        const texture=npc.spriteTexture==='npc_royal_guard'?'npc_guard':npc.spriteTexture ?? 'npcs';
+        const actor = artFrameSize(texture,npc.spriteFrame);
         const overlapX = Math.abs(tree.x - npc.worldOffset.x) < (size.width * tree.scale + actor.width) / 2;
         const overlapY = tree.y - size.height * tree.scale < npc.worldOffset.y + 20 && tree.y > npc.worldOffset.y + 20 - actor.height;
         expect(overlapX && overlapY,`${tree.id} covers ${npc.id}`).toBe(false);

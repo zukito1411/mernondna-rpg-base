@@ -13,13 +13,13 @@ test('Trandum guard art renders complete, consistently sized poses without frame
   s.children.list.forEach(o=>(o as Phaser.GameObjects.Sprite).setVisible?.(false));const x=s.player.x,y=s.player.y;
   s.cameras.main.stopFollow().setZoom(1).centerOn(x,y);s.add.rectangle(x,y,1500,1300,0x78917b).setDepth(-2000);
   const texture='npc_guard_march',atlas=s.textures.get(texture),image=atlas.getSourceImage() as HTMLCanvasElement,ctx=image.getContext('2d')!;
-  const idle=NPC_IDLE_ART.find(entry=>entry.walk==='npc_guard')!,marchScale=guardMarchScale(s,texture,idle);
+  const idle=NPC_IDLE_ART.find((entry:{walk:string;regions:number[][]})=>entry.walk==='npc_guard')!,marchScale=guardMarchScale(s,texture,idle);
   const poses=Array.from({length:24},(_,frame)=>{
    const f=atlas.get(frame),meta=f.customData as {visibleBounds:{left:number;top:number;width:number;height:number};sourceRegion:number[]};
    const b=meta.visibleBounds,rgba=ctx.getImageData(f.cutX,f.cutY,f.cutWidth,f.cutHeight).data;let border=0,feet=0;
    for(let py=0;py<f.cutHeight;py++)for(let px=0;px<f.cutWidth;px++){const a=rgba[(py*f.cutWidth+px)*4+3];if(a>64&&(px<2||py<2||px>=f.cutWidth-2||py>=f.cutHeight-2))border++;if(a>64&&py>f.cutHeight-24)feet++;}
    s.add.sprite(x-450+frame%6*180,y-290+Math.floor(frame/6)*175,texture,frame).setScale(marchScale).setOrigin(.5,1-2/ART_BY_KEY[texture].frameHeight).setDepth(y+1000);
-   return{frame,border,boots,b,gpu:Math.abs(f.v0-f.cutY/f.source.height)<1e-7};
+   return{frame,border,feet,b,gpu:Math.abs(f.v0-f.cutY/f.source.height)<1e-7};
   });
   const def=NPCS.find((d:{spriteTexture:string;formation?:unknown})=>d.spriteTexture==='npc_royal_guard'&&!d.formation);
   if(!def)throw new Error('Missing royal guard NPC for Trandum artwork coverage');
@@ -27,7 +27,7 @@ test('Trandum guard art renders complete, consistently sized poses without frame
   const p=actor as unknown as {playDirection(x:number,y:number,moving:boolean):void},body=actor.body as Phaser.Physics.Arcade.Body,animations:string[]=[];
   for(const [dx,dy] of [[0,1],[-1,0],[1,0],[0,-1]]){body.setVelocity(dx*44,dy*44);p.playDirection(dx,dy,true);animations.push(actor.anims.currentAnim?.key??'');}
   body.setVelocity(0,0);p.playDirection(0,0,false);const idleTexture=actor.texture.key,idleAnimation=actor.anims.currentAnim?.key;
-  const idleHeight=Math.max(...idle.regions.map(([, , ,height])=>height))*npcIdleSources(idle)[0].renderScale!;
+  const idleHeight=Math.max(...idle.regions.map(([, , ,height]:number[])=>height))*npcIdleSources(idle)[0].renderScale!;
   const marchHeight=Math.max(...poses.map(({b})=>b.height*2))*marchScale;
   actor.nameLabel.setVisible(false);(actor as unknown as {titleLabel:Phaser.GameObjects.Text}).titleLabel.setVisible(false);
   for(let i=0;i<6;i++)s.add.sprite(x-160+i*100,y+460,'npc_guard_idle',i).setScale(.5).setOrigin(.5,1-2/112).setDepth(y+1000);
