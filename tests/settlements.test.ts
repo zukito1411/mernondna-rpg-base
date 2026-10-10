@@ -34,7 +34,7 @@ describe('settlement land-use and circulation', () => {
       expect(lot.plot&&buildingRenderScale(lot)).toBeTruthy();
   });
   it('places continuous flower fencing along the full Whitebough Hall stone court perimeter',()=>{
-    const fence=WORLD_CONTENT.filter(item=>item.id.startsWith('elarion:whitebough-fence:')&&item.kind==='prop');
+    const fence=WORLD_CONTENT.filter(item=>item.kind==='prop').filter(item=>item.id.startsWith('elarion:whitebough-fence:'));
     const fenceSources=ART_BY_KEY.flower_fence.sources;
     expect(fenceSources).toHaveLength(4);
     if(!fenceSources)throw new Error('Missing flower-fence source metadata');
