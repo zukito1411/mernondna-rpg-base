@@ -19,6 +19,7 @@ import {prepareGuardMarchArt} from '../systems/GuardMarchArt';
 import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
 import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
+import {ATTACK_WARNING_TEXTURE,registerAttackWarningFrames} from '../systems/attackWarning';
 
 const AUDIO_ASSETS = [
   ['sfx-blade-draw', 'assets/audio/drawKnife1.ogg'],
@@ -124,6 +125,7 @@ export class BootScene extends Phaser.Scene {
       this.failures.push(String(file.url));
     });
     for (const [key, path] of AUDIO_ASSETS) this.load.audio(key, path);
+    this.load.image(ATTACK_WARNING_TEXTURE,'assets/ui/actions/attack_warning.png');
     for(const [kind,art] of Object.entries(VEHICLE_ART))this.load.image('vehicle-source:'+kind,art.path);
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
@@ -156,6 +158,7 @@ export class BootScene extends Phaser.Scene {
       });
       return;
     }
+    registerAttackWarningFrames(this);
 
     prepareVehicleArt(this);
     prepareDragonBreathArt(this);

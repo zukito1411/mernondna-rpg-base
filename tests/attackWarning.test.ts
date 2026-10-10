@@ -1,22 +1,25 @@
 import {describe,expect,it} from 'vitest';
-import {enemyAttackWarningPoints} from '../src/game/systems/attackWarning';
+import {ATTACK_WARNING_FRAMES,enemyAttackWarningLayout} from '../src/game/systems/attackWarning';
 
 describe('enemy attack warning footprints',()=>{
-  it('shows the full radius for slams and a forward-facing sector for melee',()=>{
-    const slam=enemyAttackWarningPoints('slam',10,20,0,100);
-    const melee=enemyAttackWarningPoints('melee',10,20,0,100);
-    expect(slam).toHaveLength(21);
-    expect(slam.every(point=>Math.abs(Math.hypot(point.x-10,point.y-20)-100)<1e-8)).toBe(true);
-    expect(melee[0]).toEqual({x:10,y:20});
-    expect(melee[1].x).toBeGreaterThan(10);
-    expect(melee[1].y).toBeLessThan(20);
-    expect(melee.at(-1)!.y).toBeGreaterThan(20);
+  it('uses the supplied circular rune art for full-radius slams',()=>{
+    const warning=enemyAttackWarningLayout('slam',100,0);
+    expect(warning).toMatchObject({frame:ATTACK_WARNING_FRAMES.circle.name,width:200,height:200,originX:.5,rotation:0});
   });
 
-  it('keeps pounce warnings wider than a normal melee strike',()=>{
-    const melee=enemyAttackWarningPoints('melee',0,0,0,50);
-    const pounce=enemyAttackWarningPoints('pounce',0,0,0,50);
-    expect(pounce[1].y).toBeLessThan(melee[1].y);
-    expect(pounce.at(-1)!.y).toBeGreaterThan(melee.at(-1)!.y);
+  it('fits the illustrated cone to the real strike range and facing angle',()=>{
+    const melee=enemyAttackWarningLayout('melee',100,0);
+    const pounce=enemyAttackWarningLayout('pounce',100,Math.PI/2);
+    expect(melee.frame).toBe(ATTACK_WARNING_FRAMES.cone.name);
+    expect(melee.width).toBe(100);
+    expect(melee.height).toBeCloseTo(2*100*Math.tan(Math.acos(.6)));
+    expect(melee.rotation).toBe(0);
+    expect(pounce.height).toBeGreaterThan(melee.height);
+    expect(pounce.rotation).toBeCloseTo(Math.PI/2);
+  });
+
+  it('uses tightly cropped frames from the supplied transparent atlas',()=>{
+    expect(ATTACK_WARNING_FRAMES.cone).toMatchObject({x:23,y:425,width:342,height:342});
+    expect(ATTACK_WARNING_FRAMES.circle).toMatchObject({x:321,y:716,width:339,height:333});
   });
 });

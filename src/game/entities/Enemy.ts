@@ -10,7 +10,7 @@ import { approachVelocity, strideRate } from '../systems/locomotion';
 import {groundMarkerPosition} from '../systems/groundMarkers';
 import {DragonCombat} from '../systems/DragonCombat';
 import {actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../../data/directionalEnemyArt';
-import {enemyAttackWarningPoints,type EnemyAttackWarningStyle} from '../systems/attackWarning';
+import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
@@ -32,7 +32,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private leapVisual: Phaser.GameObjects.Sprite | null = null;
   private leapShadow: Phaser.GameObjects.Ellipse | null = null;
   private leapTween: Phaser.Tweens.Tween | null = null;
-  private attackTelegraph: Phaser.GameObjects.Graphics | null = null;
+  private attackTelegraph: Phaser.GameObjects.Image | null = null;
   private attackTelegraphStyle:EnemyAttackWarningStyle='melee';
   private attackTelegraphRadius=0;
   private attackTelegraphAngle=0;
@@ -119,7 +119,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     if (time < this.lockedUntil) {
       body.setVelocity(0, 0);
-      if(this.attackTelegraph)this.drawAttackTelegraph(time);
+      if(this.attackTelegraph)this.updateAttackTelegraph(time);
       this.setDepth(this.y);
       this.updateVisual(time);
       return;
@@ -179,9 +179,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackTelegraphAngle=this.facing.angle();
     this.attackTelegraphStartedAt=time;
     this.attackTelegraphWindup=windup;
-    this.attackTelegraph = scene.add.graphics().setDepth(Math.min(this.y,player.y)-2)
+    const layout=enemyAttackWarningLayout(attackStyle,radius,this.attackTelegraphAngle);
+    this.attackTelegraph = scene.add.image(this.x,this.y,ATTACK_WARNING_TEXTURE,layout.frame)
+      .setOrigin(layout.originX,.5).setDisplaySize(layout.width,layout.height).setRotation(layout.rotation).setAlpha(.24)
+      .setDepth(Math.min(this.y,player.y)-2)
       .setName(`attack-telegraph:${this.instanceId}`);
-    this.drawAttackTelegraph(time);
     const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack');
     const epoch=++this.attackEpoch;
     this.playMonsterVocal('attack');
@@ -213,29 +215,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  private drawAttackTelegraph(time:number){
-    const graphic=this.attackTelegraph;
-    if(!graphic)return;
+  private updateAttackTelegraph(time:number){
+    const image=this.attackTelegraph;
+    if(!image)return;
     const progress=Phaser.Math.Clamp((time-this.attackTelegraphStartedAt)/Math.max(1,this.attackTelegraphWindup),0,1);
-    const pulse=progress>.72?(1+Math.sin(time*.025))*0.5:0;
-    const points=enemyAttackWarningPoints(this.attackTelegraphStyle,this.x,this.y+2,
-      this.attackTelegraphAngle,this.attackTelegraphRadius);
-    const color=pulse>.65?0xffe06b:0xff754f;
-    graphic.clear().fillStyle(0xa5231d,.2+pulse*.08).fillPoints(points,true)
-      .lineStyle(this.definition.boss?4:3,color,.95).strokePoints(points,true);
-    if(this.attackTelegraphStyle!=='slam'){
-      const edge=points.slice(1);
-      graphic.lineStyle(2,0xffc16b,.9).lineBetween(this.x,this.y+2,edge[0].x,edge[0].y)
-        .lineBetween(this.x,this.y+2,edge[edge.length-1].x,edge[edge.length-1].y);
-    }
-    const extent=this.attackTelegraphStyle==='slam'?Math.PI*2:2*Math.acos(this.attackTelegraphStyle==='pounce'?.35:.6);
-    const start=this.attackTelegraphStyle==='slam'?-Math.PI/2:this.attackTelegraphAngle-extent/2;
-    const sweepSteps=Math.max(1,Math.ceil(24*progress));
-    const sweepPoints=Array.from({length:sweepSteps+1},(_,i)=>{
-      const angle=start+extent*progress*i/sweepSteps;
-      return {x:this.x+Math.cos(angle)*(this.attackTelegraphRadius+5),y:this.y+2+Math.sin(angle)*(this.attackTelegraphRadius+5)};
-    });
-    graphic.lineStyle(4,0xfff0a2,.95).strokePoints(sweepPoints,false);
+    const layout=enemyAttackWarningLayout(this.attackTelegraphStyle,this.attackTelegraphRadius,this.attackTelegraphAngle);
+    image.setPosition(this.x,this.y+2).setDisplaySize(layout.width,layout.height).setRotation(layout.rotation)
+      .setAlpha(.2+progress*.08+(progress>.78?Math.sin(time*.02)*.025:0))
+      .setDepth(Math.min(this.y,(this.scene as WorldScene).player.y)-2);
   }
 
   private updateBossSkill(scene: WorldScene, time: number) {

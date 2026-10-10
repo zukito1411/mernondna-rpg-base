@@ -7,6 +7,7 @@ import {enemyAppearanceMultiplier} from '../../data/enemies';
 import {enemyAnimation,animationDuration} from '../../data/animationPacks';
 import {DragonBreathEffect} from './DragonBreathEffect';
 import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth} from './dragonBreath';
+import {ATTACK_WARNING_FRAMES,ATTACK_WARNING_TEXTURE} from './attackWarning';
 
 type Phase='rest'|'stomp-windup'|'breath-windup'|'breath'|'flight'|'landing'|'recover';
 /** Local, delta-driven boss phases. Pause/dialogue stops gameplay updates;
@@ -14,7 +15,7 @@ type Phase='rest'|'stomp-windup'|'breath-windup'|'breath'|'flight'|'landing'|'re
 export class DragonCombat {
   private phase:Phase='rest';private age=0;private clock=0;private nextAttack=2500;private sequence=0;
   private readonly aim=new Phaser.Math.Vector2(1,0);
-  private readonly warning:Phaser.GameObjects.Graphics;
+  private readonly warningArt:Phaser.GameObjects.Image;
   private readonly fire:DragonBreathEffect;
   private readonly flight:Phaser.GameObjects.Sprite;
   private readonly shadow:Phaser.GameObjects.Ellipse;
@@ -24,7 +25,8 @@ export class DragonCombat {
   private flightStart={x:0,y:0};private landingPoint={...DRAGON_LAIR};
   private lastFlightX=0;
   constructor(private readonly enemy:Enemy,private readonly scene:WorldScene){
-    this.warning=scene.add.graphics().setName('dragon-warning:'+enemy.instanceId);
+    this.warningArt=scene.add.image(enemy.x,enemy.y,ATTACK_WARNING_TEXTURE,ATTACK_WARNING_FRAMES.circle.name)
+      .setOrigin(.5).setAlpha(0).setVisible(false).setName('dragon-warning:'+enemy.instanceId);
     this.fire=new DragonBreathEffect(scene,enemy.instanceId);
     this.flight=scene.add.sprite(enemy.x,enemy.y,'enemy_dragon_fly',0)
       .setOrigin(.5,actorArtLayout('enemy_dragon_fly').originY)
@@ -38,7 +40,7 @@ export class DragonCombat {
   private enter(phase:Phase){
     if(this.phase==='flight'||this.phase==='landing')this.scene.stopDragonSound(this.enemy.instanceId,'flight');
     if(this.phase==='breath')this.scene.stopDragonSound(this.enemy.instanceId,'breath');
-    this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();if(phase==='breath')this.breathSoundPlayed=false;
+    this.phase=phase;this.age=0;this.warningArt.setVisible(false);this.fire.hide();if(phase==='breath')this.breathSoundPlayed=false;
   }
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state!=='attack'&&this.clock<this.hurtUntil)return;
@@ -52,7 +54,7 @@ export class DragonCombat {
   }
   update(delta:number){
     const e=this.enemy,body=e.body as Phaser.Physics.Arcade.Body,player=this.scene.player;
-    if(e.hp<=0){this.warning.clear();this.fire.hide();return;}
+    if(e.hp<=0){this.warningArt.setVisible(false);this.fire.hide();return;}
     const dt=Math.min(Math.max(0,delta),100);this.age+=dt;this.clock+=dt;
     const distance=Math.hypot(player.x-e.x,player.y-e.y);
     const engaged=inDragonArena(player.x,player.y,80)&&Math.hypot(player.x-DRAGON_LAIR.x,player.y-DRAGON_LAIR.y)<1100;
@@ -60,7 +62,6 @@ export class DragonCombat {
       this.leaveAir();body.reset(DRAGON_LAIR.x,DRAGON_LAIR.y);this.enter('rest');this.nextAttack=this.clock+2500;
     }
     body.setVelocity(0,0);e.setDepth(e.y);
-    this.warning.setDepth(e.y-2);
     if(this.phase==='rest'){
       const goal=engaged?{x:player.x,y:player.y}:{x:DRAGON_LAIR.x+Math.cos(this.clock*.00018)*150,y:DRAGON_LAIR.y+Math.sin(this.clock*.00018)*110};
       const dx=goal.x-e.x,dy=goal.y-e.y,length=Math.hypot(dx,dy);
@@ -125,33 +126,17 @@ export class DragonCombat {
   }
   private drawCircle(x:number,y:number,radius:number,progress:number){
     const fraction=Phaser.Math.Clamp(progress,0,1),pulse=fraction>.72?(1+Math.sin(this.age*.025))*.5:0;
-    const color=pulse>.65?0xfff2a2:0xffb25b;
-    this.warning.clear().fillStyle(0xb8321e,.18+pulse*.08).fillCircle(x,y,radius)
-      .lineStyle(4,color,.98).strokeCircle(x,y,radius)
-      .lineStyle(2,0xff7243,.85).strokeCircle(x,y,radius*fraction);
-    for(let i=0;i<12;i++){
-      const angle=i*Math.PI/6,inner=radius-8,outer=radius+3;
-      this.warning.lineBetween(x+Math.cos(angle)*inner,y+Math.sin(angle)*inner,
-        x+Math.cos(angle)*outer,y+Math.sin(angle)*outer);
-    }
-    const steps=Math.max(1,Math.ceil(24*fraction));
-    const sweep=Array.from({length:steps+1},(_,i)=>{
-      const angle=-Math.PI/2+Math.PI*2*fraction*i/steps;
-      return {x:x+Math.cos(angle)*(radius+5),y:y+Math.sin(angle)*(radius+5)};
-    });
-    this.warning.lineStyle(4,color,.98).strokePoints(sweep,false);
+    this.warningArt.setTexture(ATTACK_WARNING_TEXTURE,ATTACK_WARNING_FRAMES.circle.name).setOrigin(.5)
+      .setPosition(x,y).setDisplaySize(radius*2,radius*2).setAlpha(.19+pulse*.06).setVisible(true)
+      .setDepth(y-2);
   }
   private drawCone(burning:boolean){
     const e=this.enemy,angle=this.aim.angle(),half=DRAGON_BREATH.halfAngle,r=DRAGON_BREATH.range;
-    const left={x:e.x+Math.cos(angle-half)*r,y:e.y+Math.sin(angle-half)*r};
-    const right={x:e.x+Math.cos(angle+half)*r,y:e.y+Math.sin(angle+half)*r};
     const pulse=!burning&&this.age>DRAGON_BREATH.windupMs*.72?(1+Math.sin(this.age*.025))*.5:0;
-    const fillAlpha=burning?.09:.17+pulse*.08,edgeAlpha=burning?.78:.98;
-    this.warning.clear().fillStyle(0xd4551c,fillAlpha).fillTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
-      .lineStyle(4,burning?0xffb347:pulse>.65?0xfff2a2:0xffa052,edgeAlpha)
-      .strokeTriangle(e.x,e.y,left.x,left.y,right.x,right.y)
-      .lineStyle(2,0xffe3a0,burning?.72:.62)
-      .lineBetween(e.x,e.y,e.x+this.aim.x*r*Math.cos(half),e.y+this.aim.y*r*Math.cos(half));
+    const warningWidth=r,warningHeight=2*r*Math.tan(half);
+    this.warningArt.setTexture(ATTACK_WARNING_TEXTURE,ATTACK_WARNING_FRAMES.cone.name).setOrigin(0,.5)
+      .setPosition(e.x,e.y).setDisplaySize(warningWidth,warningHeight).setRotation(angle)
+      .setAlpha(burning?.13:.2+pulse*.05).setVisible(true).setDepth(e.y-2);
     const pose=burning?2:Math.min(2,Math.floor(this.age/360));
     // Atlas density 2, registered source scale 1.3, actor scale includes boss size.
     const registered=(e.frame.customData as {mouth?:{x:number;y:number}}).mouth;
@@ -206,5 +191,5 @@ export class DragonCombat {
     this.enemy.useVisualTexture('enemy_dragon');this.enemy.setFlipX(this.enemy.facingLeft);
     this.hurtUntil=this.clock+animationDuration(animation);this.enemy.play(animation.key);this.enemy.anims.timeScale=1;
   }
-  destroy(){this.warning.destroy();this.fire.destroy();this.flight.destroy();this.shadow.destroy();}
+  destroy(){this.warningArt.destroy();this.fire.destroy();this.flight.destroy();this.shadow.destroy();}
 }
