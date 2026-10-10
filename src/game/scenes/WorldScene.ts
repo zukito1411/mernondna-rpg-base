@@ -15,7 +15,7 @@ import { mobileInput } from '../input';
 import { Enemy } from '../entities/Enemy';
 import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
-import type { ContentDefinition, ContentState, InteractableContentDefinition, NavigationMarker, QuestTarget, RegionId, WeaponDefinition, WorldPropTexture } from '../types';
+import type { ContentDefinition, ContentState, EnemyDefinition, InteractableContentDefinition, NavigationMarker, QuestTarget, RegionId, WeaponDefinition, WorldPropTexture } from '../types';
 import { ChunkManager } from '../systems/ChunkManager';
 import { DayNightSystem } from '../systems/DayNightSystem';
 import { EventDirector, type EventDirectorHost } from '../systems/EventDirector';
@@ -40,6 +40,7 @@ import {WaterSurfaceSystem} from '../systems/WaterSurfaceSystem';
 import {GroundShadowSystem} from '../systems/GroundShadowSystem';
 import {WorldTrafficSystem} from '../systems/WorldTrafficSystem';
 import {ShipPassageSystem} from '../systems/ShipPassageSystem';
+import {EnemySoundSystem,type EnemySoundCue} from '../systems/EnemySoundSystem';
 import {WorldSpriteSystem,WORLD_SPRITE_OWNER} from '../systems/WorldSpriteSystem';
 import {VolcanicTremor} from '../systems/VolcanicTremor';
 import {renderDensity} from '../systems/renderSizing';
@@ -64,6 +65,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private groundShadows!:GroundShadowSystem;
   private traffic!:WorldTrafficSystem;
   private passage!:ShipPassageSystem;
+  private enemySounds!:EnemySoundSystem;
   private worldSprites!:WorldSpriteSystem;
   private readonly volcanicTremor=new VolcanicTremor();
   private eventDirector!: EventDirector;
@@ -91,6 +93,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private nextImpactSoundAt=0;
   getWorldHour(){return this.dayNight.getHour();}
   getCombatEnemies(){return [...this.enemies];}
+  playEnemyVocal(definition:EnemyDefinition,instanceId:string,cue:EnemySoundCue,x:number,y:number){
+    this.enemySounds.play(definition,instanceId,cue,x,y);
+  }
+  forgetEnemySound(instanceId:string){this.enemySounds.forget(instanceId);}
   canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
   safeSkillPosition(point:Vec2){return this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
   skillLanding(target:Vec2,range:number):Vec2 {
@@ -144,6 +150,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.worldSprites=new WorldSpriteSystem(this,this.treeBodies,this.groundShadows);
     this.traffic=new WorldTrafficSystem(this,this.worldGenerator,this.groundShadows);
     this.passage=new ShipPassageSystem(this,this.worldGenerator,this.traffic);
+    this.enemySounds=new EnemySoundSystem(this);
     this.npcBodies = this.physics.add.group();
     this.creatureBodies = this.physics.add.group();
     this.chunkManager = new ChunkManager(this,this.worldGenerator,this.treeSway,this.dayNight,this.worldSprites);
@@ -405,6 +412,14 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   playAudio(key:string,volume=.3,rate=1) {
     if(!useGameStore.getState().weatherAudio||this.sound.locked||!this.cache.audio.exists(key))return;
     this.sound.play(key,{volume,rate});
+  }
+
+  playEnemyAttackFoley(definition:EnemyDefinition,x:number,y:number,phase:'windup'|'impact'){
+    if(phase==='windup'&&(definition.id==='road-bandit'||definition.id==='bandit-captain'||definition.id==='salt-king'))
+      this.playAudio('sfx-sword-whoosh',.2,Phaser.Math.FloatBetween(.9,1.08));
+    if(phase==='impact'&&Math.hypot(this.player.x-x,this.player.y-y)<360)
+      this.playAudio(definition.combatStyle==='troll'||definition.combatStyle==='dragon'
+        ?'sfx-impact-heavy-1':'sfx-impact-2',.24,Phaser.Math.FloatBetween(.94,1.06));
   }
 
   playSwordSwing() {
@@ -916,6 +931,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     this.game.events.off(Phaser.Core.Events.FOCUS, this.onFocus, this);
     this.dayNight?.destroy();
+    this.enemySounds?.destroy();
     this.traffic?.destroy();
     this.groundShadows?.destroy();
     this.weather?.destroy();

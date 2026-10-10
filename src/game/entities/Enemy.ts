@@ -27,6 +27,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly healthBar: Phaser.GameObjects.Graphics;
   private readonly nameLabel: Phaser.GameObjects.Text;
   private visualUntil = 0;
+  private nextGrowlAt=0;
   private leapVisual: Phaser.GameObjects.Sprite | null = null;
   private leapShadow: Phaser.GameObjects.Ellipse | null = null;
   private leapTween: Phaser.Tweens.Tween | null = null;
@@ -39,6 +40,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private visualDirection:ActorDirection='right';
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
   get facingLeft(){return this.visualDirection==='left';}
+  playMonsterVocal(cue:'attack'|'growl'|'hurt'|'death'){
+    (this.scene as WorldScene).playEnemyVocal(this.definition,this.instanceId,cue,this.x,this.y);
+  }
+  playMonsterAttackFoley(phase:'windup'|'impact'){
+    (this.scene as WorldScene).playEnemyAttackFoley(this.definition,this.x,this.y,phase);
+  }
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string, eventSpawn = false) {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
@@ -77,6 +84,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     });
     this.once('destroy', () => {
       this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
+      (this.scene as WorldScene).forgetEnemySound(this.instanceId);
       this.dragonCombat?.destroy();
     });
   }
@@ -112,6 +120,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(time<this.hitStunUntil){body.velocity.scale(.85);this.updateVisual(time);return;}
 
     if (distance <= this.definition.aggroRange && scene.isEnemyTerritory(player.x,player.y)) {
+      if(time>=this.nextGrowlAt&&distance>Math.max(100,this.definition.attackRange)){
+        scene.playEnemyVocal(this.definition,this.instanceId,'growl',this.x,this.y);
+        this.nextGrowlAt=time+3600+this.rng()*2800;
+      }
       const approachRange = Math.max(30, this.definition.attackRange - 16);
       this.facing.set(player.x - this.x, player.y - this.y).normalize();
       if (distance > approachRange) {
@@ -163,6 +175,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       .strokeEllipse(center.x, center.y + 2, radius * 2, radius * 2);
     const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack');
     const epoch=++this.attackEpoch;
+    this.playMonsterVocal('attack');
+    this.playMonsterAttackFoley('windup');
+    this.nextGrowlAt=time+2800;
     this.playAction('attack');
     this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery);
     if(this.definition.combatStyle==='troll')this.anims.timeScale=(attackAnimation.frames.length-1)*1000/(attackAnimation.frameRate*windup);
@@ -183,6 +198,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       const facingThreshold = attackStyle === 'slam' ? -1 : attackStyle === 'pounce' ? .35 : .6;
       if (strikeDistance > radius || this.facing.dot(toPlayer) < facingThreshold
         || !scene.hasClearPath(this.x, this.y, player.x, player.y)) return;
+      this.playMonsterAttackFoley('impact');
       scene.playEffect('hit', player.x, player.y, toPlayer);
       scene.damagePlayer(this.definition.damage);
     });
@@ -292,9 +308,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   takeDamage(amount: number, knockback: Phaser.Math.Vector2) {
     if (!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     this.hp -= amount;
+    const scene=this.scene as WorldScene;
+    scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
     this.attackEpoch++;this.attackTelegraph?.destroy();this.attackTelegraph=null;this.clearWolfLeap();
     this.hitStunUntil=this.scene.time.now+120;
-    (this.scene as WorldScene).playEffect('hit', this.x, this.y);
+    scene.playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(this.dragonCombat?0:knockback.x * 150,this.dragonCombat?0:knockback.y * 150);
     this.setTintFill(0xffffff);

@@ -72,6 +72,8 @@ export class DragonCombat {
         if(this.aim.lengthSq()===0)this.aim.set(e.flipX?-1:1,0);
         e.useVisualTexture('enemy_dragon');
         e.setFlipX(this.aim.x<0);
+        e.playMonsterVocal('attack');
+        e.playMonsterAttackFoley('windup');
         const choice=this.sequence++%4;
         if(choice===2)this.startFlight();
         else if(choice===0){this.enter('stomp-windup');e.anims.stop();e.setFrame(enemyAnimation(5,'attack').frames[1]);this.scene.notify('Varkhul raises his claws — leave the marked stomp circle!');}
@@ -83,7 +85,7 @@ export class DragonCombat {
     }else if(this.phase==='breath-windup'){
       this.breathPose(Math.min(2,Math.floor(this.age/360)));
       this.drawCone(false);
-      if(this.age>=DRAGON_BREATH.windupMs){this.enter('breath');this.breathTick=DRAGON_BREATH.ignitionMs;this.breathPose(2);}
+      if(this.age>=DRAGON_BREATH.windupMs){this.enter('breath');this.breathTick=DRAGON_BREATH.ignitionMs;this.breathPose(2);e.playMonsterVocal('growl');}
     }else if(this.phase==='breath'){
       this.drawCone(true);
       if(breathPresentation(this.age).damaging&&this.age>=this.breathTick){
