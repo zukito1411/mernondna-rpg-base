@@ -359,7 +359,7 @@ function makeAliases(npcs: readonly NpcDefinition[], namesById: ReadonlyMap<stri
 const STABLE_ID_KEYS = new Set([
   'id', 'giverNpcId', 'targetId', 'contentId', 'questTargetId', 'questEventType', 'discoveryId',
   'npcId', 'questIds', 'townId', 'regionId', 'bossId', 'prerequisiteQuestId', 'nextQuestId',
-  'flag', 'kind', 'type',
+  'flag', 'kind', 'type', 'cinematicId',
 ]);
 
 function replaceNames(value: unknown, aliases: ReadonlyMap<string, string>): unknown {
