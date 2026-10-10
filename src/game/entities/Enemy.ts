@@ -3,7 +3,7 @@ import type { BossDefinition, EnemyDefinition } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier } from '../../data/enemies';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
-import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize } from '../../data/art';
+import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize,type ArtTextureKey } from '../../data/art';
 import { enemyAnimation, animationDuration, type EnemyAnimationState } from '../../data/animationPacks';
 import { useGameStore } from '../../store/gameStore';
 import { approachVelocity, strideRate } from '../systems/locomotion';
@@ -38,10 +38,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly dragonCombat:DragonCombat|undefined;
   private visualDirection:ActorDirection='right';
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
+  get facingLeft(){return this.visualDirection==='left';}
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string, eventSpawn = false) {
-    const idle=enemyAnimation(definition.spriteFrame,'idle');
-    super(scene, x, y, idle.texture, idle.frames[0]);
+    const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
+    const initial=idle.frames[0];
+    super(scene, x, y, initial.textureKey, initial.textureFrame);
     this.definition = definition;
     this.boss = instanceId.startsWith('boss:') ? BOSS_BY_ID[instanceId.slice(5)] : undefined;
     this.hp = definition.hp;
@@ -50,7 +52,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.rng = seededRandom(instanceId);
     this.lastSafe = { x, y };
     scene.add.existing(this);
-    const texture=definition.spriteTexture??'enemies',sheet=ART_BY_KEY[texture];
+    const texture=initial.textureKey as ArtTextureKey,sheet=ART_BY_KEY[texture];
     this.setScale(artScale(texture) * enemyAppearanceMultiplier(definition)).setOrigin(.5, actorArtLayout(texture).originY);
     scene.physics.add.existing(this);
 
@@ -59,9 +61,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const density = sheet.density;
     body.setCircle(radius / this.scaleX, sheet.frameWidth * density / 2 - radius / this.scaleX,
       this.originY * sheet.frameHeight * density - 2 * radius / this.scaleY);
+    body.updateFromGameObject();
     body.setCollideWorldBounds(true);
     this.setDepth(y);
-    this.anims.play(enemyAnimation(definition.spriteFrame,'idle').key);
+    this.anims.play(idle.key);
     this.healthBar = scene.add.graphics().setName(`enemy-health:${instanceId}`);
     this.nameLabel = scene.add.text(x, y - 40, this.boss?.name ?? definition.name, {
       fontFamily: 'Georgia, serif', fontSize: definition.boss ? '12px' : '9px',
@@ -218,13 +221,27 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const key=enemyLocomotionKey(this.definition.spriteFrame,state,this.visualDirection);
     const progress=this.anims.currentAnim?.key.includes(':walk:')?this.anims.getProgress():0;
     const changed=this.anims.currentAnim?.key!==key;
-    this.setFlipX(false).anims.play(key,true);
+    this.useVisualTexture(this.scene.anims.get(key).frames[0].textureKey as ArtTextureKey);
+    this.setFlipX(this.texture.key===(this.definition.spriteTexture??'enemies')&&this.visualDirection==='left').anims.play(key,true);
     if(changed&&state==='walk'&&progress>0)this.anims.setProgress(progress);
   }
 
+  /** Different canvas padding must not move the collision feet or hit circle. */
+  useVisualTexture(texture:ArtTextureKey){
+    if(this.texture.key===texture)return;
+    this.anims.stop();const sheet=ART_BY_KEY[texture];
+    this.setTexture(texture,0).setOrigin(.5,actorArtLayout(texture).originY);
+    const body=this.body as Phaser.Physics.Arcade.Body;
+    const radius=this.definition.bodyRadius??(this.definition.boss?24:11);
+    body.setCircle(radius/this.scaleX,sheet.frameWidth*sheet.density/2-radius/this.scaleX,
+      this.originY*sheet.frameHeight*sheet.density-2*radius/this.scaleY);
+    body.updateFromGameObject();
+  }
+
   private playAction(state:EnemyAnimationState) {
-    this.setFlipX(this.facing.x<0);
     const animation = enemyAnimation(this.definition.spriteFrame,state);
+    this.useVisualTexture(animation.texture as ArtTextureKey);
+    this.setFlipX(state==='attack'?this.facing.x<0:this.facingLeft);
     this.visualUntil = this.scene.time.now + animationDuration(animation);
     this.anims.play(animation.key);
     this.anims.timeScale=1;
@@ -266,7 +283,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   createDeathVisual() {
     const animation = enemyAnimation(this.definition.spriteFrame,'death');
     const effect = this.scene.add.sprite(this.x,this.y,animation.texture,animation.frames[0]).setScale(this.scaleX,this.scaleY)
-      .setOrigin(this.originX,this.originY).setFlipX(this.visualDirection==='left'||this.flipX).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
+      .setOrigin(.5,actorArtLayout(animation.texture as ArtTextureKey).originY).setFlipX(this.visualDirection==='left'||this.flipX).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
     effect.play(animation.key);
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE,() => effect.destroy());
     this.scene.time.delayedCall(animationDuration(animation) + 200,() => { if (effect.active) effect.destroy(); });
@@ -288,6 +305,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
 
   updatePresentation(playerX: number, playerY: number, paused = false) {
+    if(!this.active)return;
     this.dragonCombat?.pause(paused);
     if(paused)this.leapTween?.pause();else if(this.leapTween?.isPaused())this.leapTween.resume();
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
@@ -299,7 +317,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const selected=eligible&&scene.targeting.selected===this;
     const model=this.dragonCombat?.visual??(this.leapVisual?.active?this.leapVisual:this);
     const bounds=(model.frame.customData as {visibleBounds?:{top:number;height:number}}).visibleBounds;
-    const texture=this.definition.spriteTexture??'enemies',sheet=ART_BY_KEY[texture];
+    const texture=this.texture.key as ArtTextureKey,sheet=ART_BY_KEY[texture];
     const visualHeight=artFrameSize(texture,Number(this.frame.name)).height*this.scaleY*sheet.density;
     const modelSheet=ART_BY_KEY[model.texture.key as keyof typeof ART_BY_KEY];
     const top=bounds?model.y+(bounds.top-model.originY*modelSheet.frameHeight)*model.scaleY*modelSheet.density-16

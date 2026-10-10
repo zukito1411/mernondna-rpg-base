@@ -22,7 +22,7 @@ describe('passages and grounded quest scenes',()=>{
   expect(enlarged).toBeGreaterThan(30);
  });
  it('has land embarkation points and moored boats in water',()=>{
-  for(const port of PORTS){expect(CONTENT_BY_ID['port:'+port.id].world).toEqual(port.landing);expect(world.isWalkable(port.landing.x,port.landing.y),port.id).toBe(true);expect(world.getTerrainAt(port.boat.x,port.boat.y),port.id).toBe('water');}
+  for(const port of PORTS){expect(CONTENT_BY_ID['port:'+port.id].world).toEqual(port.quay);expect(world.isWalkable(port.landing.x,port.landing.y),port.id).toBe(true);expect(world.isWalkable(port.quay.x,port.quay.y),port.id+' quay').toBe(true);expect(world.getTerrainAt(port.boat.x,port.boat.y),port.id).toBe('water');}
  });
  it('connects Ashen Landing to Blackspire through its actual south gate',()=>{
   for(let i=1;i<ASHEN_DOCK_ROAD.length;i++){const a=ASHEN_DOCK_ROAD[i-1],b=ASHEN_DOCK_ROAD[i],n=Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/24);

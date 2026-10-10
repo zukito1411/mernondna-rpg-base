@@ -4,6 +4,7 @@ import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import { TOWN_BY_ID } from '../../data/towns';
 import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
+import { PORT_BY_ID } from '../../data/ports';
 import { WORLD_CONTENT, initialContentState } from '../../data/content';
 import { WEAPON_BY_ID } from '../../data/weapons';
 import { WORLD_HEIGHT, WORLD_WIDTH } from '../../data/world';
@@ -166,6 +167,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.physics.add.collider(this.creatureBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.buildings);
     this.physics.add.collider(this.npcBodies, this.treeBodies);
+    this.physics.add.collider(this.npcBodies, this.npcBodies);
     let logical = { ...state.worldContent, states: { ...state.worldContent.states } };
     for (const bossId of state.defeatedBosses) {
       if(BOSS_BY_ID[bossId]?.respawns)continue; // Victory history is not permanent dragon removal.
@@ -222,7 +224,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     });
 
     this.notify('Oakmere is open to explore. Follow the eastern road and speak with Edmund beyond the farms.');
-    this.registry.set('worldReady',true);
+    this.game.events.once(Phaser.Core.Events.POST_RENDER,()=>{
+      if(this.sys.isActive())this.registry.set('worldReady',true);
+    });
   }
 
   update(time: number, delta: number) {
@@ -231,22 +235,26 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(travelStore.passageRequest){const from=travelStore.harborPortId,to=travelStore.passageRequest;travelStore.hydrate({passageRequest:null});if(from)this.passage.begin(from,to);}
     if(this.passage.active){
       const paused=!this.focused||Boolean(travelStore.panel);this.physics.world.pause();this.player.discardActions();
+      this.dayNight.setFirefliesEnabled(false);
       this.passage.update(paused?0:delta);this.weather.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y,paused);
       this.dayNight.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y);
-      this.waterSurface.update(paused?0:delta);this.traffic.update(paused?0:delta);this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.windStrength);return;
+      this.waterSurface.update(paused?0:delta);this.traffic.update(paused?0:delta);this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.cloudCover);return;
     }
     if(this.cinematicDirector.active) {
-      this.weather.update(this.focused?delta:0,this.player.x,this.player.y,!this.focused);
+      const paused=!this.focused;
+      this.weather.update(paused?0:delta,this.player.x,this.player.y,paused);
       this.treeSway.update(this.focused?delta:0,this.weather.windStrength);
       this.waterSurface.update(this.focused?delta:0);
       this.traffic.update(0);
-      this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.windStrength);
+      this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.cloudCover);
       this.physics.world.pause();this.player.discardActions();
       if(this.focused){
         this.activePlayMs+=Math.min(delta,250);
         for(const npc of this.npcs)if(npc.definition.formation){npc.updatePatrol(time,delta);npc.advanceCinematic(delta);npc.updatePresentation(this.player.x,this.player.y,false);}
         this.cinematicDirector.update(delta);
       }
+      const camera=this.cameras.main;
+      this.dayNight.update(paused?0:delta,camera.midPoint.x,camera.midPoint.y);
       return;
     }
     const story=useGameStore.getState();
@@ -310,7 +318,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.treeSway.update(uiBlocked?0:delta,this.weather.windStrength);
     this.waterSurface.update(uiBlocked?0:delta);
     this.traffic.update(uiBlocked?0:delta);
-    this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.windStrength);
+    this.groundShadows.update(delta,this.dayNight.getHour(),this.weather.cloudCover);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
@@ -650,7 +658,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private onFocus() { this.focused = true; this.player?.resetInput(); }
 
   private createContentActor(definition: ContentDefinition, state: ContentState): ContentActor {
-    const { x, y } = state;
+    const { x, y } = definition.kind==='interactable'&&definition.portId
+      ?PORT_BY_ID[definition.portId].quay:state;
     if (definition.kind === 'npc') {
       const npcDefinition = NPC_BY_ID[definition.npcId];
       // Repair older keeper positions behind the shrine roof. Keep trust and
@@ -715,7 +724,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const actor=this.add.sprite(x,y,texture,definition.frame).setName(definition.id).setInteractive({useHandCursor:true});
     if(definition.tint!==undefined)actor.setTint(definition.tint);
     const footprint = propFoundation(texture,definition.frame,definition.scale??.6);
-    this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6, solid, footprint);
+    this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6, solid, footprint,
+      definition.rotation??0,definition.anchor??'bottom');
     if (definition.townShrineId||definition.portId) {
       const caption = this.add.text(x,y + 15,definition.name,{
         fontFamily:'Georgia, serif',fontSize:'10px',color:'#e7d7ad',stroke:'#211b12',strokeThickness:3,

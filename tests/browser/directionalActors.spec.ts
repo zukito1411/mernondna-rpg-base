@@ -29,14 +29,14 @@ for(const viewport of [{width:1280,height:720},{width:844,height:390}])test.desc
     for(const direction of ACTOR_DIRECTIONS as Array<keyof typeof velocities>){
      const velocity=velocities[direction];body.setVelocity(velocity.x,velocity.y);e.playLocomotion('walk');
      const animation=e.anims.currentAnim!,frames=animation.frames.map(f=>s.textures.get(f.textureKey).get(f.textureFrame));
-     const sheet=ART_BY_KEY[family.texture];
+     const sheet=ART_BY_KEY[e.texture.key];
      const clipSafe=frames.every(f=>{const b=(f.customData as {visibleBounds:{left:number;top:number;width:number;height:number}}).visibleBounds;return b.left>=1&&b.top>=1&&b.left+b.width<=sheet.frameWidth-1&&b.top+b.height<=sheet.frameHeight;});
      const walk=animation.key;body.setVelocity(0,0);e.playLocomotion('idle');
      enemies.push({id:def.id,direction,walk,idle:e.anims.currentAnim!.key,frames:new Set(frames.map(f=>hashFrame(e.texture,f))).size,clipSafe,scaleStable:e.scaleX===scale,flip:e.flipX});
     }
     e.destroy();
    }
-   const npcs:Array<{texture:string;direction:string;key:string;frames:number;stoppedFrame:number;playing:boolean;scaleStable:boolean}>=[];
+   const npcs:Array<{texture:string;direction:string;key:string;frames:number;stoppedFrame:number;idleKey:string;sourcePose:number;idleFrames:number;playing:boolean;scaleStable:boolean;bodyStable:boolean}>=[];
    const textures=[...new Set(NPCS.map((n:{spriteTexture?:string})=>n.spriteTexture))] as string[];
    for(const texture of textures){
     const def=NPCS.find((n:{spriteTexture:string})=>n.spriteTexture===texture)!;
@@ -47,9 +47,14 @@ for(const viewport of [{width:1280,height:720},{width:844,height:390}])test.desc
      body.setVelocity(velocity.x,velocity.y);presentation.playDirection(velocity.x,velocity.y,true);
      const animation=npc.anims.currentAnim!,scale=npc.scaleX;
      const frames=animation.frames.map(f=>s.textures.get(f.textureKey).get(f.textureFrame));
+     const before={x:body.center.x,y:body.center.y,width:body.width,height:body.height};
      body.setVelocity(0,0);presentation.playDirection(velocity.x,velocity.y,false);
+     const idle=npc.anims.currentAnim!,idleFrames=idle.frames.map(f=>s.textures.get(f.textureKey).get(f.textureFrame));
      npcs.push({texture,direction,key:animation.key,frames:new Set(frames.map(f=>hashFrame(s.textures.get(f.texture.key),f))).size,
-       stoppedFrame:Number(npc.frame.name),playing:npc.anims.isPlaying,scaleStable:npc.scaleX===scale});
+       stoppedFrame:Number(npc.frame.name),idleKey:idle.key,sourcePose:(npc.frame.customData as {sourcePose:number}).sourcePose,
+       idleFrames:new Set(idleFrames.map(f=>hashFrame(s.textures.get(f.texture.key),f))).size,
+       playing:npc.anims.isPlaying,scaleStable:npc.scaleX===scale,
+       bodyStable:Math.abs(before.x-body.center.x)<1e-6&&Math.abs(before.y-body.center.y)<1e-6&&Math.abs(before.width-body.width)<1e-6&&Math.abs(before.height-body.height)<1e-6});
     }
     npc.destroy();
    }
@@ -59,17 +64,19 @@ for(const viewport of [{width:1280,height:720},{width:844,height:390}])test.desc
   expect(results.enemies).toHaveLength(24);expect(results.npcs).toHaveLength(36);
   for(const r of results.enemies){
    expect(r.walk,r.id+'/'+r.direction).toContain(':walk:'+r.direction);
-   expect(r.idle).toContain(':idle:'+r.direction);expect(r.frames).toBe(4);
+   expect(r.idle).toContain(':idle:'+r.direction);expect(r.frames).toBeGreaterThanOrEqual(4);
    expect(r.clipSafe,r.id+'/'+r.direction).toBe(true);expect(r.scaleStable).toBe(true);expect(r.flip).toBe(false);
   }
   for(const r of results.npcs){
    expect(r.key).toBe(r.texture+'-'+r.direction);expect(r.frames,r.texture+'/'+r.direction).toBeGreaterThanOrEqual(3);
-   // Front rest uses a separately prepared breathing atlas with a different
-   // pixel density; side/back rest must retain the walking atlas and scale.
+   // All directions breathe at rest. Side/back reuse complete authored poses
+   // with the same canvas density, registration and physics scale as walking.
    if(r.direction!=='down')expect(r.scaleStable,r.texture+'/'+r.direction).toBe(true);
-   if(r.direction==='left'){expect(r.stoppedFrame).toBe(6);expect(r.playing).toBe(false);}
-   if(r.direction==='right'){expect(r.stoppedFrame).toBe(12);expect(r.playing).toBe(false);}
-   if(r.direction==='up'){expect(r.stoppedFrame).toBe(18);expect(r.playing).toBe(false);}
+   expect(r.idleKey).toBe(r.texture+'-idle'+(r.direction==='down'?'':'-'+r.direction));
+   expect(r.playing).toBe(true);expect(r.idleFrames).toBeGreaterThanOrEqual(3);expect(r.bodyStable).toBe(true);
+   if(r.direction==='left')expect(r.sourcePose).toBe(6);
+   if(r.direction==='right')expect(r.sourcePose).toBe(12);
+   if(r.direction==='up')expect(r.sourcePose).toBe(18);
   }
   expect(errors).toEqual([]);
  });

@@ -26,6 +26,11 @@ export const NPC_IDLE_ART = [
     regions:[[30,166,316,425],[390,163,316,430],[741,164,315,429],[1096,165,312,429],[1454,164,315,429],[1818,164,314,429]] },
 ] as const;
 
+export type NpcDirectionalIdleTexture=`${typeof NPC_IDLE_ART[number]['walk']}_directional_idle`;
+export function npcDirectionalIdleTexture(walk:typeof NPC_IDLE_ART[number]['walk']):NpcDirectionalIdleTexture {
+  return `${walk}_directional_idle`;
+}
+
 export function npcIdleSources(entry:typeof NPC_IDLE_ART[number]):SpriteSource[] {
   const bodyHeight = 'walkBodyRatio' in entry ? npcApparentHeight(entry.walk) * entry.walkBodyRatio : PLAYER_ACTOR_HEIGHT;
   return entry.regions.map((cell,i):SpriteSource => ({ path:entry.path,cell,

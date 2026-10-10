@@ -33,11 +33,11 @@ export class DragonCombat {
   }
   get airborne(){return this.phase==='flight'||this.phase==='landing';}
   get visual(){return this.airborne?this.flight:this.enemy;}
-  pause(paused:boolean){if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
+  pause(paused:boolean){if(!this.flight.active)return;if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
   private enter(phase:Phase){this.phase=phase;this.age=0;this.warning.clear();this.fire.hide();}
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state!=='attack'&&this.clock<this.hurtUntil)return;
-    if(state==='attack')this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);
+    if(state==='attack'){this.enemy.useVisualTexture('enemy_dragon');this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);}
     else this.enemy.playLocomotion(state);
     this.enemy.anims.timeScale=1;
   }
@@ -70,6 +70,7 @@ export class DragonCombat {
         body.setVelocity(0,0);this.aim.set(player.x-e.x,player.y-e.y).normalize();
         this.hurtUntil=0;
         if(this.aim.lengthSq()===0)this.aim.set(e.flipX?-1:1,0);
+        e.useVisualTexture('enemy_dragon');
         e.setFlipX(this.aim.x<0);
         const choice=this.sequence++%4;
         if(choice===2)this.startFlight();
@@ -107,6 +108,7 @@ export class DragonCombat {
   }
   private recover(){this.enter('recover');}
   private breathPose(pose:number){
+    this.enemy.useVisualTexture('enemy_dragon');
     this.enemy.anims.stop();this.enemy.anims.timeScale=1;
     this.enemy.setFrame(enemyAnimation(5,'attack').frames[pose]);
   }
@@ -123,7 +125,11 @@ export class DragonCombat {
       .lineStyle(2,0xffa052,burning?.25:.85).strokeTriangle(e.x,e.y,left.x,left.y,right.x,right.y);
     const pose=burning?2:Math.min(2,Math.floor(this.age/360));
     // Atlas density 2, registered source scale 1.3, actor scale includes boss size.
-    const muzzle=dragonMouth(e.x,e.y,e.flipX,2*1.3*e.scaleX,pose);
+    const registered=(e.frame.customData as {mouth?:{x:number;y:number}}).mouth;
+    const muzzle=registered?{
+      x:e.x+(e.flipX?-1:1)*(registered.x-e.frame.cutWidth/4)*2*e.scaleX,
+      y:e.y+(registered.y-e.originY*e.frame.cutHeight/2)*2*e.scaleY,
+    }:dragonMouth(e.x,e.y,e.flipX,2*1.3*e.scaleX,pose);
     const reach=r*Math.cos(half),tip={x:e.x+this.aim.x*reach,y:e.y+this.aim.y*reach-35};
     if(burning)this.fire.show(muzzle,tip,this.age,e.y+180);
     else if(this.age>780)this.fire.show(muzzle,tip,this.age-780,e.y+180,true);
@@ -164,6 +170,7 @@ export class DragonCombat {
   reactToHit(){
     if(this.phase!=='rest'&&this.phase!=='recover')return;
     const animation=enemyAnimation(5,'hurt');
+    this.enemy.useVisualTexture('enemy_dragon');this.enemy.setFlipX(this.enemy.facingLeft);
     this.hurtUntil=this.clock+animationDuration(animation);this.enemy.play(animation.key);this.enemy.anims.timeScale=1;
   }
   destroy(){this.warning.destroy();this.fire.destroy();this.flight.destroy();this.shadow.destroy();}

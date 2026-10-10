@@ -58,6 +58,10 @@ export class ContentChunkManager<Actor> {
     if (changed) { this.centerKey = center; this.wanted = chunkNeighborhood(x, y); }
     // Only near actors are inspected. Bucket migration lets moving creatures cross chunks.
     for (const [id, actor] of this.active) {
+      const kind=this.definitions.get(id)!.kind;
+      // Authored scenery does not migrate between chunks every physics frame.
+      // Oversized landmarks still depend on distance inside the same chunk.
+      if(!changed&&kind!=='npc'&&kind!=='creature'&&!this.oversized.has(id))continue;
       const position = this.host.position(actor);
       const key = contentChunkKey(position.x, position.y);
       this.index(id, key);

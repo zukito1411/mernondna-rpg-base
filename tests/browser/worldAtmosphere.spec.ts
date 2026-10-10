@@ -11,12 +11,49 @@ test('shadows, moving water and streamed road/sea traffic',async({page})=>{
   await page.goto('/?e2e');
   await page.getByRole('button',{name:'Start New Game',exact:true}).click();
   await page.waitForFunction(()=>window.__mernondnaGame?.registry.get('worldReady'));
-  expect(await page.evaluate(()=>{
+  const buildingShadow=await page.evaluate(async()=>{
+    const artPath='/src/data/art.ts';
+    const {artScale}=await import(artPath);
     const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
+    const runtime=s as unknown as {
+      groundShadows:{update(delta:number,hour:number,cloud:number):void};
+      worldSprites:{register(actor:Phaser.GameObjects.Sprite,texture:'world_buildings',frame:number,scale:number,solid:boolean):void};
+    };
+    s.scene.pause();
+    const x=s.player.x+120,y=s.player.y+80;
+    const building=s.add.sprite(x,y,'world_buildings',1).setOrigin(.5,1)
+      .setScale(artScale('world_buildings')).setDepth(y).setName('shadow-fixture-building');
+    runtime.worldSprites.register(building,'world_buildings',1,1,false);
+    runtime.groundShadows.update(100,12,0);
     const image=s.children.getByName('world-ground-shadows') as Phaser.GameObjects.Image;
     const canvas=image.texture.getSourceImage() as HTMLCanvasElement;
-    return canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data.some((v,i)=>i%4===3&&v>0);
-  })).toBe(true);
+    const system=s as unknown as {groundShadows:{base:{x:number;y:number;zoom:number}}};
+    const px=Math.round((x-system.groundShadows.base.x)*system.groundShadows.base.zoom);
+    const py=Math.round((y-system.groundShadows.base.y)*system.groundShadows.base.zoom);
+    const context=canvas.getContext('2d')!;
+    const foundation=context.getImageData(px-2,py-20,5,40).data;
+    const alphaBelowAnchor=Math.max(...Array.from({length:foundation.length/4},(_,i)=>foundation[i*4+3]));
+    const cloudCanvas=(s.children.getByName('world-cloud-shadows') as Phaser.GameObjects.Image)
+      .texture.getSourceImage() as HTMLCanvasElement;
+    const cloudContext=cloudCanvas.getContext('2d')!;
+    const firstClouds=new Uint8ClampedArray(cloudContext.getImageData(0,0,cloudCanvas.width,cloudCanvas.height).data);
+    runtime.groundShadows.update(1800,12,0);
+    const secondClouds=cloudContext.getImageData(0,0,cloudCanvas.width,cloudCanvas.height).data;
+    let cloudPixels=0,cloudChanges=0;
+    for(let i=3;i<secondClouds.length;i+=4){
+      if(firstClouds[i]>5)cloudPixels++;
+      if(firstClouds[i]!==secondClouds[i])cloudChanges++;
+    }
+    return {alphaBelowAnchor,cloudPixels,cloudChanges};
+  });
+  expect(buildingShadow.alphaBelowAnchor).toBeGreaterThan(60);
+  expect(buildingShadow.cloudPixels).toBeGreaterThan(0);
+  expect(buildingShadow.cloudChanges).toBeGreaterThan(0);
+  await page.evaluate(()=>{
+    const s=window.__mernondnaGame!.scene.getScene('world');
+    s.children.getByName('shadow-fixture-building')?.destroy();
+    s.scene.resume();
+  });
   // Use a real existing trade route; avoid relying on stale town coordinates.
   const cartId=await page.evaluate(()=>{
     const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
@@ -92,21 +129,32 @@ test('shadows, moving water and streamed road/sea traffic',async({page})=>{
   });
   const firstWater=await waterSample();expect(firstWater).toBeGreaterThan(0);
   await expect.poll(waterSample).not.toBe(firstWater);
-  const before=await page.evaluate(()=>{
+  const before=await page.evaluate(async()=>{
+    const path='/src/game/systems/travelRoutes.ts',{routePosition}=await import(path);
     const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
     const boat=s.children.list.find(o=>o.name.startsWith('boat:')) as Phaser.GameObjects.Sprite;
-    return {id:boat.name,x:boat.x,y:boat.y};
+    const traffic=(s as unknown as {traffic:{active:Map<string,{route:TrafficRoute}>;elapsed:number;update(delta:number):void}}).traffic;
+    const route=traffic.active.get(boat.name)!.route;
+    // The endpoint loading stop lasts four seconds of active play. Start this
+    // movement check mid-route, independent of renderer/test execution speed.
+    route.phase=route.length/route.speed*500-traffic.elapsed;
+    const p=routePosition(route,traffic.elapsed);s.cameras.main.centerOn(p.x,p.y);traffic.update(0);
+    return {id:boat.name,x:p.x,y:p.y};
   });
   const crewDetails=await page.evaluate(id=>{
     const scene=window.__mernondnaGame!.scene.getScene('world');
     const boat=scene.children.getByName(id) as Phaser.GameObjects.Sprite;
     const crew=scene.children.getByName('helmsman:'+id) as Phaser.GameObjects.Sprite;
     const rail=scene.children.getByName('boat-rail:'+id) as Phaser.GameObjects.Sprite;
+    const shadow=scene.children.getByName('crew-shadow:'+id) as Phaser.GameObjects.Image;
+    const ground=(scene as unknown as {groundShadows:{casters:Map<Phaser.GameObjects.Sprite,unknown>}}).groundShadows;
     return {boatWidth:boat.displayWidth,crewVisible:crew.visible,crewScale:crew.scaleY,crewDepth:crew.depth,boatDepth:boat.depth,railDepth:rail.depth,
+      hullShadow:ground.casters.has(boat),deckShadow:shadow.visible&&shadow.depth>boat.depth&&shadow.depth<crew.depth&&shadow.x===crew.x&&shadow.y===crew.y,
       wakeTextures:scene.children.list.filter(o=>o.name.startsWith('wake:'+id)).map(o=>(o as Phaser.GameObjects.Sprite).texture.key)};
   },before.id);
   expect(crewDetails.boatWidth).toBeGreaterThan(350);
   expect(crewDetails.crewVisible).toBe(true);expect(crewDetails.crewScale).toBeGreaterThan(0);
+  expect(crewDetails.hullShadow).toBe(true);expect(crewDetails.deckShadow).toBe(true);
   expect(crewDetails.crewDepth).toBeGreaterThan(crewDetails.boatDepth);expect(crewDetails.railDepth).toBeGreaterThan(crewDetails.crewDepth);
   expect(crewDetails.wakeTextures).toEqual(['water-foam','water-foam']);
   await expect.poll(()=>page.evaluate(before=>{const boat=window.__mernondnaGame!.scene.getScene('world').children.getByName(before.id) as Phaser.GameObjects.Sprite;return boat?Math.hypot(boat.x-before.x,boat.y-before.y):0;},before)).toBeGreaterThan(6);

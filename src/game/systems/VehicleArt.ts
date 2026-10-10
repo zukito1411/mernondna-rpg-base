@@ -96,7 +96,7 @@ export function prepareVehicleArt(scene:Phaser.Scene){
     });
     texture.refresh();scene.textures.remove('vehicle-source:'+kind);
     const rail=scene.textures.createCanvas('traffic-boat-rail',768,768)!,railCtx=rail.getContext();
-    // Lower hull/rail pixels hide the helmsman's boots at the deck edge.
+    // Preserve the lower hull pass separately; rider sprites render above it.
     definition.regions.forEach(([, , ,h],i)=>{
       const row=Math.floor(i/2)*384,column=i%2*384,band=h*fit*.22;
       railCtx.drawImage(texture.getSourceImage() as HTMLCanvasElement,column,row+364-band,384,band,column,row+364-band,384,band);

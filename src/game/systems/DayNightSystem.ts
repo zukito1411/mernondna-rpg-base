@@ -21,6 +21,7 @@ export class DayNightSystem {
   private accumulator=0;
   private renderAccumulator=100;
   private previousNight=0;
+  private maskCameraStamp='';
   private firefliesEnabled=true;
   setFirefliesEnabled(enabled:boolean){this.firefliesEnabled=enabled;}
   constructor(private readonly scene:Phaser.Scene) {
@@ -99,12 +100,14 @@ export class DayNightSystem {
     fitViewportOverlay(this.scene,this.overlay);this.overlay.setVisible(night>0);
     if(night===0) {
       if(this.previousNight>0){this.texture.getContext().clearRect(0,0,w,h);this.texture.refresh();}
-      this.previousNight=0;return; // No full-screen texture uploads in daylight.
+      this.previousNight=0;this.maskCameraStamp='';return; // No full-screen texture uploads in daylight.
     }
     this.previousNight=night;
+    const cameraStamp=[Math.round(camera.zoom*100),Math.round(camera.worldView.x*z/8),Math.round(camera.worldView.y*z/8)].join(':');
+    const cameraChanged=cameraStamp!==this.maskCameraStamp;
     this.renderAccumulator+=deltaMs;
-    if(this.renderAccumulator<75) return;
-    this.renderAccumulator=0;
+    if(this.renderAccumulator<75&&!cameraChanged)return;
+    this.renderAccumulator=0;this.maskCameraStamp=cameraStamp;
     const ctx=this.texture.getContext();
     ctx.globalCompositeOperation='copy';ctx.fillStyle='rgba(2,6,17,'+night*.84+')';ctx.fillRect(0,0,w,h);
     ctx.globalCompositeOperation='destination-out';
@@ -128,5 +131,5 @@ export class DayNightSystem {
     this.scene.textures.remove('night-overlay');
   }
   private onResize(){const viewport=overlayViewport(this.scene);
-    this.texture.setSize(viewport.width,viewport.height);this.renderAccumulator=100;}
+    this.texture.setSize(viewport.width,viewport.height);this.renderAccumulator=100;this.maskCameraStamp='';}
 }

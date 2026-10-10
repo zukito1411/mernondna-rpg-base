@@ -2,15 +2,18 @@ import { HERO_PACK, GUARD_PACK, SHRINE_PACK, clipSources, directionalSources, EN
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
 
-import { NPC_IDLE_ART, npcIdleSources } from './npcIdleArt';
+import { NPC_IDLE_ART, npcIdleSources,npcDirectionalIdleTexture,type NpcDirectionalIdleTexture } from './npcIdleArt';
 import { registerNpcWalkSources } from './npcWalkArt';
+import {DIRECTIONAL_ENEMY_ART} from './directionalEnemyArt';
+import {BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
 
 import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 
 import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
-export type ArtTextureKey = 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_royal_guard' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE;
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
@@ -130,9 +133,9 @@ export const ART_SHEETS: readonly ArtSheet[] = [
   { key:'enemies',path:ENEMY_SOURCES[0].path,columns:ENEMY_SOURCES.length,atlasColumns:10,density:2,frameWidth:96,frameHeight:80,blackBackground:false,
 
     sources:ENEMY_SOURCES,contentSize:[176,158],names:ENEMY_SOURCES.map(source => source.name) },
-  {key:'enemy_troll',path:TROLL_SOURCES[0].path,columns:TROLL_SOURCES.length,atlasColumns:8,density:2,frameWidth:160,frameHeight:128,groundPadding:8,blackBackground:false,
+  {key:'enemy_troll',path:TROLL_SOURCES[0].path,columns:TROLL_SOURCES.length,atlasColumns:8,density:2,frameWidth:192,frameHeight:160,groundPadding:8,blackBackground:false,
     sources:TROLL_SOURCES,names:TROLL_SOURCES.map(s=>s.name)},
-  {key:'enemy_dragon',path:DRAGON_SOURCES[0].path,columns:DRAGON_SOURCES.length,atlasColumns:6,density:2,frameWidth:256,frameHeight:224,blackBackground:false,
+  {key:'enemy_dragon',path:DRAGON_SOURCES[0].path,columns:DRAGON_SOURCES.length,atlasColumns:6,density:2,frameWidth:320,frameHeight:256,blackBackground:false,
     sources:DRAGON_SOURCES,names:DRAGON_SOURCES.map(s=>s.name)},
   {key:'enemy_dragon_fly',path:DRAGON_FLY_SOURCES[0].path,columns:6,atlasColumns:3,density:2,frameWidth:416,frameHeight:416,groundPadding:64,blackBackground:false,
     sources:DRAGON_FLY_SOURCES,names:DRAGON_FLY_SOURCES.map(s=>s.name)},
@@ -257,7 +260,20 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
 
 
-export const ART_BY_KEY = Object.fromEntries(ART_SHEETS.map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
+const directionalSheets:ArtSheet[]=DIRECTIONAL_ENEMY_ART.map(a=>({
+ key:a.walkTexture,path:`assets/enemies/directional/${a.id}.png`,columns:20,atlasColumns:5,
+ frameWidth:a.frameWidth,frameHeight:a.frameHeight,density:2,blackBackground:false,
+ names:Array.from({length:20},(_,i)=>`${a.id}:directional:${i}`),
+}));
+const npcDirectionalIdleSheets:ArtSheet[]=NPC_IDLE_ART.map(entry=>{
+ const walk=ART_SHEETS.find(sheet=>sheet.key===entry.walk)!;
+ return {key:npcDirectionalIdleTexture(entry.walk),path:walk.path,columns:12,atlasColumns:4,
+  frameWidth:walk.frameWidth,frameHeight:walk.frameHeight,density:walk.density,blackBackground:false,
+  names:['left','right','up'].flatMap(direction=>Array.from({length:4},(_,i)=>direction+':idle:'+i))};
+});
+const banditCombatSheet:ArtSheet={key:BANDIT_COMBAT_TEXTURE,path:'assets/enemies/refined/road-bandit-attack.png',columns:18,atlasColumns:6,
+ frameWidth:192,frameHeight:144,density:2,blackBackground:false,names:Array.from({length:18},(_,i)=>'bandit-combat:'+i)};
+export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
 
 export function artScale(key: ArtTextureKey) { return 1 / ART_BY_KEY[key].density; }
 

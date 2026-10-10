@@ -3,7 +3,7 @@ import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIB
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
 import { PLAYER_SKILL_ANIMATIONS } from '../../data/playerSkillArt';
-import { alphaFrameBounds } from '../systems/spriteArt';
+import { alphaFrameBounds,createSpriteCropper } from '../systems/spriteArt';
 import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
 import { prepareBridgeRail } from '../systems/BridgeArt';
 import { prepareTreeArt } from '../systems/TreeArt';
@@ -13,6 +13,10 @@ import {VEHICLE_ART,MOTION_ART,prepareVehicleArt} from '../systems/VehicleArt';
 import {DRAGON_BREATH_ART,prepareDragonBreathArt} from '../systems/DragonBreathArt';
 import {DIRECTIONAL_ENEMY_ART} from '../../data/directionalEnemyArt';
 import {prepareDirectionalEnemyArt} from '../systems/DirectionalEnemyArt';
+import {prepareNpcDirectionalIdleArt} from '../systems/NpcDirectionalIdleArt';
+import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
+import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
+import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
 
 const AUDIO_ASSETS = [
   ['sfx-blade-draw', 'assets/audio/drawKnife1.ogg'],
@@ -77,6 +81,8 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.failures.length = 0;
+    this.registry.set('loadingProgress',0);
+    this.load.on('progress',(progress:number)=>this.registry.set('loadingProgress',progress));
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       if (file.type === 'audio') {
         console.warn(`[audio] Could not load ${file.url}`);
@@ -89,6 +95,10 @@ export class BootScene extends Phaser.Scene {
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
     for(const art of DIRECTIONAL_ENEMY_ART)this.load.image('directional-source:'+art.id,'assets/enemies/directional/'+art.id+'.png');
+    for(const art of BANDIT_COMBAT_ART)this.load.image('bandit-combat-source:'+art.state,banditCombatPath(art.state));
+    for(const art of REFINED_ENEMY_ART)for(const state of REFINED_ENEMY_STATES)
+      this.load.image(`refined-source:${art.id}:${state}`,refinedEnemyPath(art.id,state));
+    this.load.image('refined-source:ash-dragon:fly',REFINED_DRAGON_FLIGHT);
 
     const files = new Set<string>();
     for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
@@ -118,6 +128,7 @@ export class BootScene extends Phaser.Scene {
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
     const loaded = new Set<string>();
     const heroFits=new Map<string,number>();
+    const drawEnemyPose=createSpriteCropper();
 
     for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
       const source = this.textures.get(`source:${sheet.path}`).getSourceImage() as HTMLImageElement;
@@ -260,7 +271,12 @@ export class BootScene extends Phaser.Scene {
             ? y + height / 2 + (region[1] - packed.anchor[1]) * fit * sheet.density
             : y + (region ? height - 2 * sheet.density - drawHeight : 0);
 
-        ctx.drawImage(
+        // Tiny original pixel sprites must not be blurred by an interpolated
+        // upscale before the renderer samples them a second time.
+        const enemySheet=sheet.key==='enemies'||sheet.key.startsWith('enemy_');
+        ctx.imageSmoothingEnabled=!enemySheet||drawHeight<=(region?.[3]??frameSource.height);
+        if(enemySheet&&region&&packed)drawEnemyPose(ctx,frameSource,region,drawX,drawY,drawWidth,drawHeight);
+        else ctx.drawImage(
           frameSource,
           region ? region[0] * (packed ? 1 : scaleX) : frame * sourceWidth + inset,
           region ? region[1] * (packed ? 1 : scaleY) : inset,
@@ -271,7 +287,8 @@ export class BootScene extends Phaser.Scene {
         ctx.restore();
         const preparedFrame=texture.add(frame,0,x,y,width,height);
         if(preparedFrame)preparedFrame.customData={visibleBounds:{left:(drawX-x)/sheet.density,top:(drawY-y)/sheet.density,width:drawWidth/sheet.density,height:drawHeight/sheet.density},
-          sourceRegion:region?[...region]:undefined,sourceFit:regionFit};
+          sourceRegion:region?[...region]:undefined,sourceFit:regionFit,
+          sourcePath:packed?.path??sheet.path,sourceImageSize:[frameSource.width,frameSource.height],fullSprite:true};
       }
 
       if (sheet.blackBackground) {
@@ -286,11 +303,14 @@ export class BootScene extends Phaser.Scene {
         ctx.putImageData(imageData, 0, 0);
       }
       texture.refresh();
-      texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      texture.setFilter(sheet.key==='enemies'||sheet.key.startsWith('enemy_')?Phaser.Textures.FilterMode.NEAREST:Phaser.Textures.FilterMode.LINEAR);
       prepareEnvironmentLightArt(this, sheet.key);
     }
 
+    prepareRefinedEnemyArt(this);
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
+    prepareBanditCombatArt(this);
+    const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
     prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
@@ -298,6 +318,7 @@ export class BootScene extends Phaser.Scene {
     const animations: SpriteAnimation[] = [
       ...PLAYER_ANIMATIONS,
       ...NPC_ANIMATIONS,
+      ...directionalNpcIdles,
       ...ENEMY_ANIMATIONS,
       ...directionalEnemyAnimations,
       ...PLAYER_ATTACK_ANIMATIONS,

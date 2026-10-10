@@ -198,7 +198,9 @@ export interface InteractableContentDefinition extends ContentBase {
   townShrineId?: string;
   questTargetId?: string;
   questEventType?: QuestObjective['type'];
-  repeatable?: boolean;
+  rotation?:number;
+  anchor?:'center'|'bottom';
+  repeatable?:boolean;
   requiredQuestId?: string;
   discoveryId?:string;
   portId?:string;

@@ -3,12 +3,12 @@ export type ActorDirection=typeof ACTOR_DIRECTIONS[number];
 /** One neutral pose plus four real steps per direction. Boss variants retain
  * their existing species art and appearance multiplier. */
 export const DIRECTIONAL_ENEMY_ART=[
- {species:0,id:'gray-wolf',texture:'enemies'},
- {species:1,id:'road-bandit',texture:'enemies'},
- {species:2,id:'boarfiend',texture:'enemies'},
- {species:3,id:'marsh-wraith',texture:'enemies'},
- {species:4,id:'cave-troll',texture:'enemy_troll'},
- {species:5,id:'ash-dragon',texture:'enemy_dragon'},
+ {species:0,id:'gray-wolf',texture:'enemies',walkTexture:'enemy_walk_wolf',frameWidth:128,frameHeight:112},
+ {species:1,id:'road-bandit',texture:'enemies',walkTexture:'enemy_walk_bandit',frameWidth:128,frameHeight:112},
+ {species:2,id:'boarfiend',texture:'enemies',walkTexture:'enemy_walk_boar',frameWidth:144,frameHeight:112},
+ {species:3,id:'marsh-wraith',texture:'enemies',walkTexture:'enemy_walk_wraith',frameWidth:144,frameHeight:128},
+ {species:4,id:'cave-troll',texture:'enemy_troll',walkTexture:'enemy_walk_troll',frameWidth:240,frameHeight:160},
+ {species:5,id:'ash-dragon',texture:'enemy_dragon',walkTexture:'enemy_walk_dragon',frameWidth:384,frameHeight:288},
 ] as const;
 export function enemyLocomotionKey(species:number,state:'idle'|'walk',direction:ActorDirection){
  return `enemy:${species}:${state}:${direction}`;

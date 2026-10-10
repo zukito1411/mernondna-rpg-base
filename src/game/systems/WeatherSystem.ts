@@ -38,6 +38,7 @@ export class WeatherSystem {
   private currentRegion:RegionId='trandum';private musicFadeElapsed=0;private audioUnlocked=false;
   private destroyed=false;
   get windStrength(){return this.kind==='wind'||this.kind==='storm'||this.kind==='dust'||this.kind==='ash'?this.strength:.18+this.strength*.25;}
+  get cloudCover(){return this.strength*({clear:0,cloudy:.8,rain:.65,storm:1,snow:.6,fog:.65,wind:.15,dust:.35,ash:.5}[this.kind]);}
   constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator){
     const viewport=overlayViewport(scene);
     this.texture=scene.textures.createCanvas('weather-overlay',viewport.width,viewport.height)!;

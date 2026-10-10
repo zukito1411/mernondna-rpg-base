@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {worldSpriteProfile,polygonGroundBands,STONE_BRIDGE,type GroundPoint} from '../../data/worldSpriteGeometry';
 import {segmentTouchesRect} from '../../data/settlementGeometry';
+import {isTreeArt} from '../../data/treeArt';
 import type {Vec2} from '../types';
 import type {GroundShadowSystem} from './GroundShadowSystem';
 
@@ -29,7 +30,14 @@ export class WorldSpriteSystem {
       return source?point((x-source[0])/source[2],(y-source[1])/source[3]):point(x,y);
     };
     const profile=worldSpriteProfile(texture,frame),owned:Phaser.GameObjects.Rectangle[]=[];
-    if(!profile?.floor&&texture!=='bridges'&&texture!=='darkav_volcano')this.shadows?.register(actor,true);
+    if(!profile?.floor||texture==='bridges'){
+      const building=texture==='world_buildings'||texture==='capital_buildings'
+        ||texture==='world_objects'&&frame<4;
+      this.shadows?.register(actor,true,texture==='bridges'
+        ?{projection:.3,contactScale:.7}
+        :building||isTreeArt(texture,frame)
+          ?{contactScale:building?1.45:1.2,contactHeight:.8,contactOffset:-.150,groundOffsetY:building?-28:-58}:{});
+    }
     const add=(left:number,top:number,right:number,bottom:number)=>{
       if(right-left<.5||bottom-top<.5)return;
       const body=this.scene.add.rectangle((left+right)/2,(top+bottom)/2,right-left,bottom-top,0xffffff,0)
@@ -42,6 +50,7 @@ export class WorldSpriteSystem {
         const layer=this.scene.add.image(actor.x,actor.y,`bridge-${part}-rail`).setOrigin(actor.originX,actor.originY)
           .setScale(actor.scaleX,actor.scaleY).setDepth(sourcePoint([284,y]).y).setName('bridge-'+part+':'+actor.name);
         layer.setTint(actor.tintTopLeft,actor.tintTopRight,actor.tintBottomLeft,actor.tintBottomRight);
+        this.shadows?.register(layer,true,{projection:.3,contactScale:.2});
         actor.once('destroy',()=>layer.destroy());
       }
       // Bridge rail art is decorative; terrain bounds already constrain the crossing.

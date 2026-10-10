@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {chunkNeighborhood} from './chunkNeighborhood';
+import {chunkNeighborhood,contentChunkKey} from './chunkNeighborhood';
 import {cartRoutes,seaRoute,routePosition,type TrafficRoute} from './travelRoutes';
 import {trafficDirection,trafficDistance,horseWalkFrame,wheelTurnFrame} from './trafficMotion';
 import {BOAT_SCALE,boatHelm,CART_ART_POSES} from './VehicleArt';
@@ -14,6 +14,7 @@ export interface Vehicle {
   horse?:Phaser.GameObjects.Sprite;wheels?:Phaser.GameObjects.Sprite[];
   helmsman?:Phaser.GameObjects.Sprite;rail?:Phaser.GameObjects.Sprite;wake?:Phaser.GameObjects.Sprite[];
   scale?:number;passenger?:Phaser.GameObjects.Sprite;
+  deckShadows?:Phaser.GameObjects.Image[];
 }
 /** Real artwork layers follow traveled distance. All attached actors unload together. */
 export class WorldTrafficSystem {
@@ -21,22 +22,35 @@ export class WorldTrafficSystem {
   private readonly sea=new Map<string,TrafficRoute|null>();
   private readonly active=new Map<string,Vehicle>();
   private elapsed=0;
+  private seaCenter='';private routes:TrafficRoute[];
   private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-  constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator,private readonly shadows:GroundShadowSystem){this.roads=cartRoutes(world);}
+  constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator,private readonly shadows:GroundShadowSystem){
+    this.roads=cartRoutes(world);this.routes=this.roads;
+    if(!scene.textures.exists('vehicle-deck-shadow')){
+      const texture=scene.textures.createCanvas('vehicle-deck-shadow',64,32)!,ctx=texture.getContext();
+      ctx.translate(32,16);ctx.scale(1,.45);const gradient=ctx.createRadialGradient(0,0,0,0,0,30);
+      gradient.addColorStop(0,'rgba(14,19,18,.6)');gradient.addColorStop(.4,'rgba(14,19,18,.3)');gradient.addColorStop(1,'rgba(14,19,18,0)');
+      ctx.fillStyle=gradient;ctx.fillRect(-32,-32,64,64);texture.refresh();
+    }
+  }
   update(delta:number){
     this.elapsed+=Math.min(delta,100);
-    const view=this.scene.cameras.main.worldView,nearby=chunkNeighborhood(view.centerX,view.centerY);
-    for(const [key] of this.sea)if(!nearby.has(key))this.sea.delete(key);
-    for(const key of nearby)if(!this.sea.has(key)){const [x,y]=key.split(':').map(Number);this.sea.set(key,seaRoute(this.world,x,y));}
-    const routes=[...this.roads,...[...this.sea.values()].filter((r):r is TrafficRoute=>Boolean(r))],wanted=new Set<string>();
+    const view=this.scene.cameras.main.worldView,center=contentChunkKey(view.centerX,view.centerY);
+    if(center!==this.seaCenter){
+      this.seaCenter=center;const nearby=chunkNeighborhood(view.centerX,view.centerY);
+      for(const [key] of this.sea)if(!nearby.has(key))this.sea.delete(key);
+      for(const key of nearby)if(!this.sea.has(key)){const [x,y]=key.split(':').map(Number);this.sea.set(key,seaRoute(this.world,x,y));}
+      this.routes=[...this.roads,...[...this.sea.values()].filter((r):r is TrafficRoute=>Boolean(r))];
+    }
+    const wanted=new Set<string>(),passageFrom=useGameStore.getState().passage?.from;
     for(const port of PORTS){
-      if(useGameStore.getState().passage?.from===port.id)continue;
+      if(passageFrom===port.id)continue;
       if(Math.abs(port.boat.x-view.centerX)>view.width/2+400||Math.abs(port.boat.y-view.centerY)>view.height/2+500)continue;
       const id='docked:'+port.id;wanted.add(id);let boat=this.active.get(id);
       if(!boat){boat=this.createVessel(id,port.boat.x,port.boat.y,port.river?.8:BOAT_SCALE);this.active.set(id,boat);}
       this.presentBoat(boat,port.boat.x,port.boat.y,0,-1,3,false);
     }
-    for(const route of routes){
+    for(const route of this.routes){
       const point=routePosition(route,this.elapsed);
       if(point.x<view.x-320||point.x>view.right+320||point.y<view.y-240||point.y>view.bottom+420)continue;
       wanted.add(route.id);
@@ -55,9 +69,12 @@ export class WorldTrafficSystem {
       vehicle.horse=this.scene.add.sprite(x,y,'horse-east',0).setScale(.5).setOrigin(.5,252/256).setName('horse:'+route.id);
       this.shadows.register(vehicle.horse);
       vehicle.wheels=[0,1].map(i=>this.scene.add.sprite(x,y,'cart-wheel-turns',0).setName('wheel:'+route.id+':'+i));
+      vehicle.wheels.forEach(wheel=>this.shadows.register(wheel,false,{projection:.3,contactScale:.65,groundOffsetY:15}));
     }else{
       sprite.setScale(BOAT_SCALE).setOrigin(.5,364/384);
+      this.shadows.register(sprite,false,{projection:.35,contactScale:.8});
       vehicle.helmsman=this.scene.add.sprite(x,y,'npc_adventurer_idle',0).setName('helmsman:'+route.id);
+      vehicle.deckShadows=[this.scene.add.image(x,y,'vehicle-deck-shadow').setDisplaySize(30,12).setName('crew-shadow:'+route.id)];
       vehicle.rail=this.scene.add.sprite(x,y,'traffic-boat-rail',0).setScale(BOAT_SCALE).setOrigin(.5,364/384).setName('boat-rail:'+route.id);
       vehicle.wake=[0,1].map(i=>this.scene.add.sprite(x,y,'water-foam',0).setDepth(-970).setAlpha(.28-i*.08).setName('wake:'+route.id+':'+i));
     }
@@ -67,7 +84,10 @@ export class WorldTrafficSystem {
     const vehicle=this.create({id,kind:'boat',points:[{x,y},{x,y:y+1}],length:1,speed:1,phase:0},x,y);
     vehicle.scale=scale;return vehicle;
   }
-  showPassenger(vehicle:Vehicle){vehicle.passenger=this.scene.add.sprite(0,0,'leigneron_idle',0).setName('passenger:'+vehicle.route.id);}
+  showPassenger(vehicle:Vehicle){
+    vehicle.passenger=this.scene.add.sprite(0,0,'leigneron_idle',0).setName('passenger:'+vehicle.route.id);
+    vehicle.deckShadows!.push(this.scene.add.image(0,0,'vehicle-deck-shadow').setDisplaySize(30,12).setName('passenger-shadow:'+vehicle.route.id));
+  }
   positionVessel(vehicle:Vehicle,x:number,y:number,dx:number,dy:number,moving=true){this.presentBoat(vehicle,x,y,dx,dy,trafficDirection(dx,dy),moving);}
   releaseVessel(vehicle:Vehicle){this.release(vehicle);}
   private presentCart(vehicle:Vehicle,x:number,y:number,direction:number,distance:number,moving:boolean){
@@ -90,9 +110,13 @@ export class WorldTrafficSystem {
     const frame=direction===0?Math.floor(this.elapsed/400)%6:direction===1?6:direction===2?12:18;
     crew.setTexture(texture,frame).setScale(actorScaleForHeight(texture,frame,80))
       .setOrigin(.5,1-2/ART_BY_KEY[texture].frameHeight).setPosition(x+helm.x*ratio,y+bob+helm.y*ratio).setDepth(y+.02);
+    const passengerInboardX=direction===1?helm.x-70:direction===2?helm.x+70:helm.x;
     vehicle.passenger?.setScale(actorScaleForHeight('leigneron_idle',0,80)).setOrigin(.5,1-2/ART_BY_KEY.leigneron_idle.frameHeight)
-      .setPosition(x+helm.x*ratio+(direction===1?45:direction===2?-45:35),y+bob+helm.y*ratio+12).setDepth(y+.021);
-    vehicle.rail!.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y+.03);
+      .setPosition(x+passengerInboardX*ratio,y+bob+(helm.y+10)*ratio).setDepth(y+.021);
+    vehicle.deckShadows!.forEach((shadow,i)=>{
+      const actor=i===0?crew:vehicle.passenger!;shadow.setPosition(actor.x,actor.y).setDepth(y+.01+i*.001).setVisible(actor.visible);
+    });
+    vehicle.rail!.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y+.015);
     const length=Math.hypot(dx,dy),vx=dx/length,vy=dy/length;
     vehicle.wake!.forEach((wake,i)=>{
       const trail=130+i*60;
@@ -104,6 +128,7 @@ export class WorldTrafficSystem {
     vehicle.sprite.destroy();vehicle.horse?.destroy();vehicle.helmsman?.destroy();vehicle.rail?.destroy();
     vehicle.wheels?.forEach(wheel=>wheel.destroy());vehicle.wake?.forEach(wake=>wake.destroy());
     vehicle.passenger?.destroy();
+    vehicle.deckShadows?.forEach(shadow=>shadow.destroy());
   }
   destroy(){for(const vehicle of this.active.values())this.release(vehicle);this.active.clear();this.sea.clear();}
 }

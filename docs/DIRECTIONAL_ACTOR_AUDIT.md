@@ -22,10 +22,15 @@ format remain unchanged.
 These existing sheets already contain usable left/right and front/back walking
 art. The defect was the presentation code selecting only front or back at rest.
 NPCs now retain their last actual travel direction, including sideways stops;
-side and back rest use a held existing pose rather than walking in place.
+side and back rest breathe using complete existing poses.
 Front-facing rest retains the dedicated breathing art. Direction selection uses
 actual velocity with the same diagonal hysteresis as enemies. Existing stride
 rate and collision-stall checks remain in use.
+
+Side/back rest now also animates a gentle ground-anchored breath using each
+complete existing pose. Four cached poses play six phases, reusing exhale frames
+to avoid duplicate atlas storage. Idle preserves the last travel direction
+through proximity and story stops; physics size, feet and body scale stay fixed.
 
 ## New enemy artwork
 
@@ -43,16 +48,32 @@ The built-in imagegen tool generated transparent bitmap sheets under
 
 Each sheet has five columns and four rows: south/front, west/left, east/right,
 north/back. Each row contains one neutral pose and four distinct walk frames.
-The wraith has floating robe phases rather than invented walking legs. Left and
-right are independently drawn views, not a flipped frontal sprite. A targeted
+The wraith has floating robe phases rather than invented walking legs. The sheet
+includes independent left and right views. A targeted
 troll correction kept the club in the correct hand in its final front step.
 
-Boot appends the 120 new frames to the existing atlases. A single fit per family,
-registered foot anchors and clipping-safe bounds keep body size and ground
-position stable. Preparation happens once; combat uses cached atlas frames.
-Direction-specific neutral poses stop foot motion at rest. Turning preserves
-stride progress. Attack/hurt/death and the new dragon breath keep their original
-combat frames; grounded dragon walking/standing uses the new directional art.
+The first integration enlarged the existing atlases without refreshing all GPU
+texture coordinates. Canvas-only checks missed this defect, which could make
+bandits disappear and make attacks sample the wrong sprite rectangles. Fixed-grid
+crops also picked up neighboring feet where generated art crossed a row seam.
+
+The current source prepares dedicated locomotion atlases using complete poses
+in all four directions. Connected components identify subjects and isolate each
+subject's own pixels before assigning rows. This prevents neighboring figures
+from entering a crop even when bounding rectangles overlap. Each direction's
+neutral pose calibrates its fixed species height. The bandit returns through its
+complete neutral side pose between left/right steps; its approved four-step
+up/down cycle, timing and sizing are preserved. The earlier body-half compositing repair
+has been removed. See ENEMY_FOOTWORK_REPAIR.md for the current quality repair.
+
+Texture transitions restore each sheet's origin and collision offset without
+moving the actor's hit circle. Preparation happens once; gameplay uses cached
+frames. Turning preserves stride progress. Restored complete troll/dragon
+attack, hurt and death sprites now match their directional artwork's detail.
+Dragon flight uses matching restored art at .65 source scale with authored body
+anchors. The wing silhouette is larger while the head/body retain their scale.
+The original .68 flight source remains as legacy preparation metadata; the
+restored whole flight poses replace it before the world is shown.
 This task adds directional locomotion, not new four-direction combat clips.
 
 ## Validation
@@ -65,6 +86,13 @@ desktop and touch layouts. Dragon breath regressions verify its jaw poses,
 animated fire, pause, fade and cleanup after the atlas extension.
 
 The APK workflow includes the new audit in its targeted regression checks.
+
+The repair is verified in development mode with GPU-coordinate checks, body and
+collision transitions for all 14 definitions in all four directions, 321-frame
+source/gutter/ownership audits, and actual
+WebGL captures of standing/walking/attack and dragon ground/breath/flight poses.
+The repair has not been built into an APK or committed: those actions now require
+the user's explicit request.
 
 ## Generation prompts
 

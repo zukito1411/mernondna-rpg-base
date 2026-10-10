@@ -1,4 +1,5 @@
 import manifests from 'virtual:mernondna-art-packs';
+import {BANDIT_COMBAT_ART,BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
 const hero = manifests['characters/leigneron'], guard = manifests['npcs/trandum_guard'], priestess = manifests['npcs/shrine_priestess'];
 const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_bandit'], boar = manifests['enemies/boarfiend'], wraith = manifests['enemies/marsh_wraith'];
 const troll=manifests['enemies/troll'],dragon=manifests['enemies/dragon'];
@@ -70,7 +71,9 @@ for (const [species,pack] of LEGACY_ENEMY_PACKS.entries()) for (const state of E
     ENEMY_SOURCES.push(enemySource(pack,state,i)); return ENEMY_SOURCES.length - 1;
   });
   const clip = pack.animations[state];
-  ENEMY_ANIMATIONS.push({ key:`enemy:${species}:${state}`,texture:'enemies',frames,frameRate:clip.frameRate,repeat:clip.repeat });
+  const banditState=species===1?BANDIT_COMBAT_ART.findIndex(art=>art.state===state):-1;
+  ENEMY_ANIMATIONS.push({ key:`enemy:${species}:${state}`,texture:banditState>=0?BANDIT_COMBAT_TEXTURE:'enemies',
+    frames:banditState>=0?frames.map((_,i)=>banditState*6+i):frames,frameRate:clip.frameRate,repeat:clip.repeat });
 }
 // Large silhouettes have their own atlases, not enlarged/clipped 96x80 cells.
 // Register the torso/feet consistently instead of centering a reaching club
