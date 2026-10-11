@@ -1,8 +1,8 @@
-/** Shared PNG combat-art portraits for desktop and touch controls. */
+/** Shared custom skill portraits used by desktop and mobile controls. */
 import type { ActiveSkillId } from './activeSkills';
 export const SKILL_ICON_PATHS: Record<ActiveSkillId,string> = {
-  'azure-cleave':'/assets/ui/skills/azure-cleave.png',
-  'skyfall-slam':'/assets/ui/skills/skyfall-slam.png',
-  'crown-rally':'/assets/ui/skills/crown-rally.png',
-  'crescent-flurry':'/assets/ui/skills/crescent-flurry.png',
+  'azure-cleave':'/icons/azure_cleave.png',
+  'skyfall-slam':'/icons/skyfall_slam.png',
+  'crown-rally':'/icons/crown_rally.png',
+  'crescent-flurry':'/icons/crescent_flury.png',
 };
