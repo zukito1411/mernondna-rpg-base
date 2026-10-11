@@ -801,3 +801,73 @@
     white-space: nowrap;
   }
 }
+
+/* LEIGHNERON_MOBILE_PARCHMENT_CENTERING_V1
+   Phone/tablet menus only. Leave the world/regional map layout unchanged.
+   Keep the entire nine-slice scroll inside the safe-area and scroll long
+   menu contents within its parchment center, never below the rollers. */
+@media (hover: none), (pointer: coarse) {
+  .overlay-backdrop:has(> :is(.quest-journal, .inventory-panel, .character-panel, .pause-panel)) {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top))
+             max(12px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom))
+             max(12px, env(safe-area-inset-left));
+    overflow: hidden;
+  }
+
+  .overlay-backdrop > :is(.quest-journal, .inventory-panel, .character-panel, .pause-panel) {
+    box-sizing: border-box !important;
+    flex: 0 1 auto !important;
+    align-self: center;
+    width: min(1180px, 94%) !important;
+    max-width: 100% !important;
+    height: min(700px, calc(100dvh - 36px)) !important;
+    max-height: calc(100dvh - 36px) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
+  }
+
+  .overlay-backdrop > .pause-panel {
+    width: min(670px, 94%) !important;
+    height: min(440px, calc(100dvh - 36px)) !important;
+  }
+
+  .overlay-backdrop > :is(.quest-journal, .inventory-panel, .character-panel, .pause-panel) > header {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .overlay-backdrop > .quest-journal > .journal-content,
+  .overlay-backdrop > .inventory-panel > .gear-grid,
+  .overlay-backdrop > .character-panel > .character-grid,
+  .overlay-backdrop > .pause-panel > .menu-actions {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Short Android landscape screens: protect the rolled border artwork and
+   leave a useful amount of parchment visible between the two rollers. */
+@media (orientation: landscape) and (max-height: 560px) and (hover: none),
+       (orientation: landscape) and (max-height: 560px) and (pointer: coarse) {
+  .overlay-backdrop > :is(.quest-journal, .inventory-panel, .character-panel, .pause-panel) {
+    border-width: clamp(32px, 9.5dvh, 45px)
+                  clamp(16px, 2.2vw, 24px)
+                  clamp(36px, 10.5dvh, 49px) !important;
+  }
+
+  .overlay-backdrop > :is(.quest-journal, .inventory-panel, .character-panel, .pause-panel) > header {
+    padding: 0 4px 5px !important;
+  }
+}
+
