@@ -1,15 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { ACTIVE_SKILLS } from '../data/activeSkills';
-import type { ActiveSkillId } from '../data/activeSkills';
+import { SKILL_ICON_PATHS } from '../data/skillIcons';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
-
-const SKILL_ICONS: Record<ActiveSkillId, string> = {
-  'azure-cleave': '/assets/ui/actions/azure-cleave.svg',
-  'skyfall-slam': '/assets/ui/actions/skyfall-slam.svg',
-  'crown-rally': '/assets/ui/actions/crown-rally.svg',
-  'crescent-flurry': '/assets/ui/actions/crescent-flurry.svg',
-};
 
 export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
@@ -107,7 +100,7 @@ export function MobileControls() {
               {cooldown && <span className="touch-cooldown-ring" style={{
                 background: `conic-gradient(rgba(12, 19, 23, .78) ${progress * 360}deg, transparent 0)`,
               }} />}
-              <span className="touch-skill-glyph"><img src={SKILL_ICONS[skill.id]} alt="" /></span>
+              <span className="touch-skill-glyph"><img src={SKILL_ICON_PATHS[skill.id]} alt="" /></span>
               <span className="touch-skill-slot">{skill.slot}</span>
             </button>
           );

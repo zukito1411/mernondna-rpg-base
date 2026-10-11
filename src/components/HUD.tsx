@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { GameIcon } from './GameIcon';
+import { DesktopSkillBar } from './DesktopSkillBar';
 import { REGION_BY_ID } from '../data/regions';
 import { TOWN_BY_ID } from '../data/towns';
 import { useGameStore } from '../store/gameStore';
@@ -87,6 +88,7 @@ export function HUD() {
         </button>
       </div>
 
+      <DesktopSkillBar />
       <div className="pc-hint">WASD move · Shift sprint · Q dash · Space attack · 1–4 combat arts · E interact · C status</div>
     </div>
   );

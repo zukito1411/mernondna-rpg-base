@@ -61,7 +61,8 @@ export function createMernondnaGame(parent: HTMLElement) {
     },
     scene: [BootScene, WorldScene],
     render: {
-      roundPixels: false,
+      // Snap render positions in backing pixels; keep smooth LINEAR art filtering.
+      roundPixels: true,
       antialiasGL: true,
     },
   });

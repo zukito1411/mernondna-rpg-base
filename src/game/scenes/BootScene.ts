@@ -294,6 +294,10 @@ export class BootScene extends Phaser.Scene {
         // changing weapon/cape silhouette, so alpha trimming cannot move the head.
         const drawX = packed?.groundAnchor && region
           ? x + width / 2 + (region[0] - packed.groundAnchor[0]) * fit * sheet.density
+          // Preserve authored frame center across hero walk/run silhouettes.
+          // Recentring each trimmed alpha silhouette makes the torso jitter.
+          : isHeroArt && region && cell
+          ? x + width / 2 + (region[0] - (cell[0] + cell[2] / 2)) * fit * sheet.density
           : isHeroArt
           ? x + (width - drawWidth) / 2
           : packed?.anchor && region
@@ -301,6 +305,10 @@ export class BootScene extends Phaser.Scene {
             : x + (width - drawWidth) / 2;
         const drawY = packed?.groundAnchor && region
           ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - packed.groundAnchor[1]) * fit * sheet.density
+          // Don't reset the hero's vertical foot position from each cropped
+          // silhouette. Use the source frame's fixed ground baseline instead.
+          : isHeroArt && region && cell
+          ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - (cell[1] + cell[3])) * fit * sheet.density
           : isHeroArt
           ? y + height - 2 * sheet.density - drawHeight
           : packed?.anchor && region

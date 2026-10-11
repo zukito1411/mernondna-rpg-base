@@ -3,7 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { seededRandom } from '../../utils/seededRandom';
 import { ART_BY_KEY, type ArtTextureKey } from '../../data/art';
 import { environmentLightPoints, nightStrength } from '../../data/environmentLights';
-import {overlayViewport,fitViewportOverlay} from './renderSizing';
+import {overlayViewport} from './renderSizing';
 import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
 
 interface LocalLight {
@@ -27,13 +27,22 @@ export class DayNightSystem {
   private accumulator=0;
   private renderAccumulator=100;
   private previousNight=0;
-  private maskCameraStamp='';
+  // This low-cost mask is painted less often than the camera moves.
+  // Keep its painted world origin and shift the buffered texture every frame,
+  // so light pockets stay attached to lamps instead of vibrating on movement.
+  private maskWorldOrigin: {x:number;y:number} | null = null;
+  private readonly maskPaddingCss = 96;
   private firefliesEnabled=true;
   setFirefliesEnabled(enabled:boolean){this.firefliesEnabled=enabled;}
   constructor(private readonly scene:Phaser.Scene) {
     const state=useGameStore.getState();this.day=state.day;this.minuteOfDay=state.minuteOfDay;
     const viewport=overlayViewport(scene);
-    this.texture=scene.textures.createCanvas('night-overlay',Math.max(1,Math.round(viewport.width*(this.lightweight ? 0.65 : 1))),Math.max(1,Math.round(viewport.height*(this.lightweight ? 0.65 : 1))))!;
+    const resolution=this.lightweight ? .65 : 1;
+    const padding=Math.round(this.maskPaddingCss*resolution);
+    this.texture=scene.textures.createCanvas('night-overlay',
+      Math.max(1,Math.round(viewport.width*resolution))+padding*2,
+      Math.max(1,Math.round(viewport.height*resolution))+padding*2)!;
+    this.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.overlay=scene.add.image(0,0,'night-overlay').setOrigin(0).setScrollFactor(0).setDepth(1_000_000).setName('night-darkness');
     if(!scene.textures.exists('warm-light')) {
       const t=scene.textures.createCanvas('warm-light',128,128)!,ctx=t.getContext();
@@ -123,34 +132,50 @@ export class DayNightSystem {
       fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(this.firefliesEnabled&&(!this.lightweight||this.fireflies.indexOf(fly)<6)&&night>.02);
     }
     const camera=this.scene.cameras.main,full=overlayViewport(this.scene);
-    const resolution=this.lightweight ? 0.65 : 1;
-    const z=full.zoom*resolution,w=this.texture.width,h=this.texture.height;
-    fitViewportOverlay(this.scene,this.overlay);this.overlay.setVisible(night>0);
+    const resolution=this.lightweight ? .65 : 1;
+    const z=full.zoom*resolution,pad=Math.round(this.maskPaddingCss*resolution);
+    const w=this.texture.width,h=this.texture.height;
+    this.overlay.setVisible(night>0);
     if(night===0) {
-      if(this.previousNight>0){this.texture.getContext().clearRect(0,0,w,h);this.texture.refresh();}
-      this.previousNight=0;this.maskCameraStamp='';return; // No full-screen texture uploads in daylight.
+      this.previousNight=0;
+      this.maskWorldOrigin=null;
+      return; // Avoid full-screen texture uploads in daylight.
     }
+    const changedLight=Math.abs(night-this.previousNight)>.018;
     this.previousNight=night;
-    const cameraStamp=[Math.round(camera.zoom*100),Math.round(camera.worldView.x*z/8),Math.round(camera.worldView.y*z/8)].join(':');
-    const cameraChanged=cameraStamp!==this.maskCameraStamp;
-    this.renderAccumulator+=deltaMs;
-    if(this.renderAccumulator<(this.lightweight?150:75)&&(this.lightweight||!cameraChanged))return;
-    this.renderAccumulator=0;this.maskCameraStamp=cameraStamp;
-    const ctx=this.texture.getContext();
-    ctx.globalCompositeOperation='copy';ctx.fillStyle='rgba(2,6,17,'+night*.84+')';ctx.fillRect(0,0,w,h);
-    ctx.globalCompositeOperation='destination-out';
-    let visibleLightCount=0;
-    for(const node of this.lights) {
-      const x=(node.actor.x+node.x-camera.worldView.x)*z,y=(node.actor.y+node.y-camera.worldView.y)*z,r=node.radius*z;
-      if(x+r<0||y+r<0||x-r>w||y-r>h) continue;
-      if(this.lightweight&&visibleLightCount>=18)continue;
-      visibleLightCount++;
-      const flicker=node.fire ? .92+Math.sin(this.elapsed*.013+node.phase)*.06 : 1;
-      const gradient=ctx.createRadialGradient(x,y,0,x,y,r);
-      gradient.addColorStop(0,'rgba(0,0,0,'+.88*flicker+')');gradient.addColorStop(.3,'rgba(0,0,0,.65)');gradient.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=gradient;ctx.fillRect(x-r,y-r,r*2,r*2);
+    this.renderAccumulator+=Math.max(0,deltaMs);
+    const movement=this.maskWorldOrigin
+      ? Math.max(Math.abs(camera.worldView.x-this.maskWorldOrigin.x),Math.abs(camera.worldView.y-this.maskWorldOrigin.y))*z
+      : Infinity;
+    // Keep masks reasonably fresh; the buffered image tracks camera motion
+    // in the interim, without an expensive canvas redraw on every frame.
+    if(this.renderAccumulator>=(this.lightweight?115:70)||movement>pad*.7||changedLight) {
+      this.renderAccumulator=0;
+      this.maskWorldOrigin={x:camera.worldView.x,y:camera.worldView.y};
+      const ctx=this.texture.getContext();
+      ctx.globalCompositeOperation='copy';
+      ctx.fillStyle='rgba(2,6,17,'+night*.84+')';
+      ctx.fillRect(0,0,w,h);
+      ctx.globalCompositeOperation='destination-out';
+      let visibleLightCount=0;
+      for(const node of this.lights) {
+        const x=(node.actor.x+node.x-camera.worldView.x)*z+pad;
+        const y=(node.actor.y+node.y-camera.worldView.y)*z+pad;
+        const r=node.radius*z;
+        if(x+r<0||y+r<0||x-r>w||y-r>h) continue;
+        if(this.lightweight&&visibleLightCount>=18)continue;
+        visibleLightCount++;
+        const flicker=node.fire ? .92+Math.sin(this.elapsed*.013+node.phase)*.06 : 1;
+        const gradient=ctx.createRadialGradient(x,y,0,x,y,r);
+        gradient.addColorStop(0,'rgba(0,0,0,'+.88*flicker+')');
+        gradient.addColorStop(.3,'rgba(0,0,0,.65)');
+        gradient.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=gradient;ctx.fillRect(x-r,y-r,r*2,r*2);
+      }
+      ctx.globalCompositeOperation='source-over';
+      this.texture.refresh();
     }
-    ctx.globalCompositeOperation='source-over';this.texture.refresh();
+    this.alignMaskToCamera(camera,full,resolution,pad);
   }
   getHour(){return this.minuteOfDay/60;}
   syncState(){useGameStore.getState().setClock(this.day,this.minuteOfDay);}
@@ -162,7 +187,28 @@ export class DayNightSystem {
     for(const fly of this.fireflies){fly.glow.destroy();fly.light.destroy();}
     this.scene.textures.remove('night-overlay');
   }
-  private onResize(){const viewport=overlayViewport(this.scene);
-    const resolution=this.lightweight ? 0.65 : 1;
-    this.texture.setSize(Math.max(1,Math.round(viewport.width*resolution)),Math.max(1,Math.round(viewport.height*resolution)));this.renderAccumulator=200;this.maskCameraStamp='';}
+  private alignMaskToCamera(camera:Phaser.Cameras.Scene2D.Camera,
+    full:ReturnType<typeof overlayViewport>,resolution:number,pad:number) {
+    const z=full.zoom*resolution;
+    const innerWidth=Math.max(1,Math.round(full.width*resolution));
+    const innerHeight=Math.max(1,Math.round(full.height*resolution));
+    const scale=this.scene.scale;
+    this.overlay.setDisplaySize(
+      scale.width/camera.zoom*(this.texture.width/innerWidth),
+      scale.height/camera.zoom*(this.texture.height/innerHeight));
+    const origin=this.maskWorldOrigin??camera.worldView;
+    this.overlay.setPosition(
+      scale.width/2*(1-1/camera.zoom)-pad/z+origin.x-camera.worldView.x,
+      scale.height/2*(1-1/camera.zoom)-pad/z+origin.y-camera.worldView.y);
+  }
+  private onResize(){
+    const viewport=overlayViewport(this.scene);
+    const resolution=this.lightweight ? .65 : 1;
+    const pad=Math.round(this.maskPaddingCss*resolution);
+    this.texture.setSize(
+      Math.max(1,Math.round(viewport.width*resolution))+pad*2,
+      Math.max(1,Math.round(viewport.height*resolution))+pad*2);
+    this.maskWorldOrigin=null;
+    this.renderAccumulator=200;
+  }
 }

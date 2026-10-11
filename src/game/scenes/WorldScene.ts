@@ -199,8 +199,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     });
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
-    this.cameras.main.setRoundPixels(false);
+    this.cameras.main.startFollow(this.player, true, 0.18, 0.18);
+    this.cameras.main.setRoundPixels(true);
     this.updateCameraZoom();
     this.scale.on('resize', this.updateCameraZoom, this);
     this.game.events.on(Phaser.Core.Events.BLUR, this.onBlur, this);
@@ -577,7 +577,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   landFromPassage(point:Vec2){
     this.chunkManager.update(point.x,point.y);this.contentManager.update(point.x,point.y);
     (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);this.player.setVisible(true);this.player.resetInput();this.lastSafe={...point};
-    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player,true,.12,.12);this.physics.world.resume();this.syncState();this.updateNavigation();saveGame();
+    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player,true,.18,.18);this.physics.world.resume();this.syncState();this.updateNavigation();saveGame();
   }
 
   countEnemies() {

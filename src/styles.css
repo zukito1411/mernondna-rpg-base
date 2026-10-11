@@ -410,3 +410,58 @@ kbd { font-size: 10px; opacity: .65; }
        (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
   .hud-layer .hud-primary-stack { width: min(168px, max(148px, 27vw)); }
 }
+
+
+/* Desktop-only four-art hotbar. Touch controls stay in their original layout. */
+.desktop-skillbar {display:none;}
+@media (hover:hover) and (pointer:fine) {
+  .hud-layer .desktop-skillbar {
+    pointer-events:auto;position:absolute;z-index:9;
+    left:50%;bottom:max(13px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    display:flex;align-items:stretch;gap:7px;
+    padding:8px 11px 7px;
+    background:linear-gradient(175deg,#292016f5,#110f0cea);
+    border:2px solid #96734b;border-radius:13px;
+    box-shadow:0 5px 20px #000b,inset 0 1px #eed7ab33;
+  }
+  .hud-layer .desktop-skill-slot {
+    position:relative;display:flex;flex-direction:column;align-items:center;
+    gap:3px;flex:0 0 66px;width:66px;
+    padding:3px 2px 4px;background:transparent;border:0;border-radius:5px;
+    color:#efdaad;cursor:pointer;user-select:none;
+  }
+  .hud-layer .desktop-skill-slot:hover:not(:disabled) {background:#8c6b352a;}
+  .hud-layer .desktop-skill-slot:focus-visible {outline:2px solid #ebc781;outline-offset:2px;}
+  .hud-layer .desktop-skill-slot:disabled {cursor:default;opacity:1;}
+  .hud-layer .desktop-skill-art {
+    display:block;position:relative;box-sizing:border-box;
+    width:56px;height:56px;border:2px solid #ae874e;border-radius:9px;
+    overflow:hidden;background:#1c1b21;box-shadow:inset 0 0 6px #000,0 0 0 1px #21170c;
+  }
+  .hud-layer .desktop-skill-art img {width:100%;height:100%;display:block;object-fit:cover;}
+  .hud-layer .desktop-skill-slot kbd {
+    position:absolute;z-index:4;top:0;left:0;
+    font:700 11px Georgia,serif;color:#f5e2bf;
+    padding:1px 5px;border:1px solid #98794b;border-radius:4px;background:#241b16;
+  }
+  .hud-layer .desktop-skill-shade {
+    position:absolute;left:0;right:0;bottom:0;z-index:2;background:#070b12c7;
+    transition:height 120ms linear;
+  }
+  .hud-layer .desktop-skill-remaining {
+    position:absolute;inset:0;z-index:3;display:grid;place-items:center;
+    color:#fff4cf;font:700 15px Georgia,serif;text-shadow:0 2px 3px #000;
+  }
+  .hud-layer .desktop-skill-casting {
+    position:absolute;inset:auto 0 0;z-index:4;text-align:center;
+    font-size:9px;color:#fff0cb;background:#503c26cd;
+  }
+  .hud-layer .desktop-skill-name {
+    white-space:nowrap;font:600 10px Georgia,serif;line-height:1.1;
+    color:#dfc596;
+  }
+  .hud-layer .desktop-skill-state {font:9px system-ui,sans-serif;color:#96c9a6;}
+  .hud-layer .desktop-skill-slot:disabled .desktop-skill-state {color:#e0ac8b;}
+  .hud-layer .pc-hint {bottom:max(122px,calc(env(safe-area-inset-bottom) + 116px));}
+}
