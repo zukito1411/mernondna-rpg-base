@@ -176,6 +176,8 @@ export type WorldPropTexture = 'port_dock' | 'elarion_tree' | 'elven_villas' | '
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export interface CreatureContentDefinition extends ContentBase {
   kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;
+  /** Persistent identity of a coordinated wolf pack. */
+  wolfPackId?: string; wolfAlpha?: boolean;
 }
 export interface PropContentDefinition extends ContentBase {
   kind: 'prop' | 'settlement-prop'; frame: number; scale: number; solid: boolean;
@@ -226,3 +228,5 @@ export interface NavigationMarker extends Vec2 {
 export interface NavigationState {
   heading: number; target: QuestTarget | null; markers: NavigationMarker[]; interaction: string | null;
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1

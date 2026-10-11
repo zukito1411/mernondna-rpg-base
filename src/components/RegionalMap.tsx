@@ -27,35 +27,71 @@ export function RegionalMap({select,center,coarse=false}:{
     y:(py-origin.y+REGIONAL_SPAN_Y/2)/REGIONAL_SPAN_Y*100,
   });
   useEffect(()=>{
-    const ctx=ref.current?.getContext('2d');if(!ctx)return;
+    // REGIONAL_CANVAS_DETAIL_V2: render detailed terrain in short slices.
+    // Do not calculate 100,000+ terrain samples in a single blocking React effect.
+    const canvas=ref.current;
+    if(!canvas)return;
+    let stopped=false,animationFrame=0;
+    const density=Math.min(2,Math.max(1,window.devicePixelRatio||1));
+    const physicalWidth=Math.round(WIDTH*density);
+    const physicalHeight=Math.round(HEIGHT*density);
+    // During dragging prioritize responsiveness. After pointer release, draw
+    // four times as many terrain samples as the old 225x135 survey.
+    const columns=coarse?135:450,rows=coarse?81:270;
+    const cellWidth=WIDTH/columns,cellHeight=HEIGHT/rows;
+    const buffer=document.createElement('canvas');
+    buffer.width=physicalWidth;buffer.height=physicalHeight;
+    const ctx=buffer.getContext('2d',{alpha:false});
+    if(!ctx)return;
+    ctx.setTransform(density,0,0,density,0,0);
+    ctx.fillStyle=colors.grass;ctx.fillRect(0,0,WIDTH,HEIGHT);
     const point=(px:number,py:number)=>({
       x:(px-origin.x+REGIONAL_SPAN_X/2)/REGIONAL_SPAN_X*WIDTH,
       y:(py-origin.y+REGIONAL_SPAN_Y/2)/REGIONAL_SPAN_Y*HEIGHT,
     });
-    // Fewer samples while panning keep mobile touch movement responsive.
-    const columns=coarse?120:225,rows=coarse?72:135;
-    const cellWidth=WIDTH/columns,cellHeight=HEIGHT/rows;
-    ctx.clearRect(0,0,WIDTH,HEIGHT);
-    for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
-      const terrain=world.getTerrainAt(
-        origin.x-REGIONAL_SPAN_X/2+(col+.5)*REGIONAL_SPAN_X/columns,
-        origin.y-REGIONAL_SPAN_Y/2+(row+.5)*REGIONAL_SPAN_Y/rows,
-      );
-      ctx.fillStyle=colors[terrain];
-      ctx.fillRect(col*cellWidth,row*cellHeight,Math.ceil(cellWidth),Math.ceil(cellHeight));
-    }
+    let row=0;
     const line=(points:Array<{x:number;y:number}>,color:string,width:number)=>{
-      ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();
+      ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
       points.forEach((p,i)=>{const q=point(p.x,p.y);if(i)ctx.lineTo(q.x,q.y);else ctx.moveTo(q.x,q.y);});ctx.stroke();
     };
-    for(const route of ROAD_ROUTES)line(route.points,'#dfbd81',3);
-    for(const layout of SETTLEMENT_LAYOUTS){
-      const town=TOWNS.find(t=>t.id===layout.townId);
-      if(!town)continue;
-      for(const street of layout.streets)line(street.points.map(p=>({x:p.x+town.world.x,y:p.y+town.world.y})),street.surface==='dirt'?'#b49a70':'#d7cdb5',street.width>=80?1.8:1.2);
-    }
-    for(const wall of ROYAL_WALL_LINES)line([wall.a,wall.b],'#302b26',2);
-    for(const defense of SETTLEMENT_DEFENSES)for(const wall of defense.lines)line([wall.a,wall.b],'#302b26',2);
+    const publish=()=>{
+      if(stopped)return;
+      if(canvas.width!==physicalWidth||canvas.height!==physicalHeight){
+        canvas.width=physicalWidth;canvas.height=physicalHeight;
+      }
+      const displayed=canvas.getContext('2d');
+      if(!displayed)return;
+      displayed.clearRect(0,0,physicalWidth,physicalHeight);
+      displayed.drawImage(buffer,0,0);
+    };
+    const drawSlice=()=>{
+      if(stopped)return;
+      const start=performance.now();
+      // Yield regularly instead of freezing the main game/render thread.
+      while(row<rows&&performance.now()-start<5){
+        for(let col=0;col<columns;col++){
+          const terrain=world.getTerrainAt(
+            origin.x-REGIONAL_SPAN_X/2+(col+.5)*REGIONAL_SPAN_X/columns,
+            origin.y-REGIONAL_SPAN_Y/2+(row+.5)*REGIONAL_SPAN_Y/rows,
+          );
+          ctx.fillStyle=colors[terrain];
+          ctx.fillRect(col*cellWidth,row*cellHeight,Math.ceil(cellWidth+.15),Math.ceil(cellHeight+.15));
+        }
+        row++;
+      }
+      if(row<rows){animationFrame=window.requestAnimationFrame(drawSlice);return;}
+      for(const route of ROAD_ROUTES)line(route.points,'#dfbd81',3);
+      for(const layout of SETTLEMENT_LAYOUTS){
+        const town=TOWNS.find(t=>t.id===layout.townId);
+        if(!town)continue;
+        for(const street of layout.streets)line(street.points.map(p=>({x:p.x+town.world.x,y:p.y+town.world.y})),street.surface==='dirt'?'#b49a70':'#d7cdb5',street.width>=80?1.8:1.2);
+      }
+      for(const wall of ROYAL_WALL_LINES)line([wall.a,wall.b],'#302b26',2);
+      for(const defense of SETTLEMENT_DEFENSES)for(const wall of defense.lines)line([wall.a,wall.b],'#302b26',2);
+      publish();
+    };
+    animationFrame=window.requestAnimationFrame(drawSlice);
+    return ()=>{stopped=true;window.cancelAnimationFrame(animationFrame);};
   },[origin.x,origin.y,coarse]);
   const player=project(x,y);
   return <div className="regional-map-wrap">

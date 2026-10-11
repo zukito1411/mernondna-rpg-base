@@ -480,3 +480,17 @@ kbd { font-size: 10px; opacity: .65; }
 .desktop-skill-slot.is-locked .desktop-skill-art img{filter:grayscale(.65);}
 .touch-skill.locked .touch-skill-glyph{filter:grayscale(1) brightness(.45);}
 @media(max-width:1000px){.character-panel .skill-branch{grid-template-columns:1fr;}}
+
+/* Keep the PC interaction prompt above the skill bar. */
+@media (hover: hover) and (pointer: fine) {
+  .hud-layer .interaction-hint {
+    bottom: max(125px, calc(env(safe-area-inset-bottom) + 118px));
+    z-index: 15;
+    justify-content: center;
+    max-width: min(420px, calc(100vw - 24px));
+  }
+
+  .hud-layer .interaction-hint small {
+    display: none;
+  }
+}

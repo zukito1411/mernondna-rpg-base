@@ -4,6 +4,7 @@ import { areaMonsterLevel, BOSS_RESPAWN_MS } from '../../data/enemyTiers';
 import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import { TOWN_BY_ID } from '../../data/towns';
+import { ROAD_ROUTES } from '../../data/roadRoutes';
 import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
 import { PORT_BY_ID } from '../../data/ports';
 import { WORLD_CONTENT, initialContentState } from '../../data/content';
@@ -81,7 +82,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private lastSafe = { x: LEIGNERON.spawn.x, y: LEIGNERON.spawn.y };
   private hudAccumulator = 0;
   private spawnAccumulator = 0;
+  private nextAmbientIntervalMs = 11000;
   private spawnAttempts = 0;
+  private nextRoadBanditsAt=0;
+  private readonly wolfAlerts=new Map<string,number>();
   private focused = true;
   private wasBlocked = false;
   private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue' | 'journal'>();
@@ -141,6 +145,30 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     return this.hasClearPath(from.x, from.y, to.x, to.y);
   }
 
+  /** Nearest person in an NPC's intended segment; used for local crowd avoidance. */
+  npcPathBlocker(from:Vec2,to:Vec2,exclude?:Npc):Vec2|null {
+    const dx=to.x-from.x,dy=to.y-from.y,len2=dx*dx+dy*dy;
+    if(len2<1)return null;
+    let best=Infinity,point:Vec2|null=null;
+    const candidates=[...this.npcs.filter(n=>n.active&&n!==exclude),this.player].filter(Boolean);
+    for(const other of candidates){
+      const vx=other.x-from.x,vy=other.y-from.y;
+      const fraction=Math.max(0,Math.min(1,(vx*dx+vy*dy)/len2));
+      const projected={x:from.x+dx*fraction,y:from.y+dy*fraction};
+      const sideGap=Math.hypot(other.x-projected.x,other.y-projected.y);
+      const ahead=Math.hypot(other.x-from.x,other.y-from.y);
+      if(ahead<8||sideGap>=43||fraction<=0)continue;
+      if(ahead<best){best=ahead;point={x:other.x,y:other.y};}
+    }
+    return point;
+  }
+  npcCanStandAt(x:number,y:number,exclude?:Npc):boolean {
+    return this.worldGenerator.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y)
+      &&!this.isNpcObscured(x,y)
+      &&this.npcs.every(n=>!n.active||n===exclude||Math.hypot(n.x-x,n.y-y)>=64)
+      &&(!this.player?.active||Math.hypot(this.player.x-x,this.player.y-y)>=52);
+  }
+
   create() {
     useGameStore.getState().setBossEncounter(null);
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -163,6 +191,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.chunkManager = new ChunkManager(this,this.worldGenerator,this.treeSway,this.dayNight,this.worldSprites);
     this.enemies.clear(); this.npcs.length = 0; this.interactables.clear();
     this.spawnAttempts = 0; this.spawnAccumulator = 0; this.hudAccumulator = 0;
+    this.nextAmbientIntervalMs = 11000; this.nextRoadBanditsAt=0; this.wolfAlerts.clear();
     this.focused = true; this.wasBlocked = false;
 
     const state = useGameStore.getState();
@@ -195,7 +224,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.contentManager = new ContentChunkManager(WORLD_CONTENT, logical, {
       initialState: initialContentState,
       canActivate: (definition, runtime) => definition.kind !== 'creature' || this.isEnemyTerritory(runtime.x,runtime.y)
-        && (Boolean(definition.bossId) || this.enemies.size < 11),
+        && (Boolean(definition.bossId) || this.enemies.size < 16),
       create: (definition, runtime) => this.createContentActor(definition, runtime),
       position: actor => actor,
       capture: (definition, actor) => ({ x: actor.x, y: actor.y,
@@ -205,7 +234,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     });
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.cameras.main.startFollow(this.player, true, 0.18, 0.18);
+    this.cameras.main.startFollow(this.player, true, 1, 1);
     this.cameras.main.setRoundPixels(true);
     this.updateCameraZoom();
     this.scale.on('resize', this.updateCameraZoom, this);
@@ -350,10 +379,16 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const regionId = this.worldGenerator.getRegionAt(this.player.x, this.player.y);
     if (!uiBlocked) this.eventDirector.update(delta, regionId, this.dayNight.getHour(), this.player.x, this.player.y);
 
-    if (!uiBlocked) this.spawnAccumulator += delta;
-    if (this.spawnAccumulator > 11000 && !uiBlocked) {
+    if (!uiBlocked) this.spawnAccumulator += Math.min(delta,250);
+    if (!uiBlocked && this.spawnAccumulator >= this.nextAmbientIntervalMs) {
       this.spawnAccumulator = 0;
-      this.trySpawnAmbientEnemy(regionId);
+      const biome=this.worldGenerator.getBiomeAt(this.player.x,this.player.y);
+      const hour=this.dayNight.getHour();
+      const night=hour>=18||hour<6;
+      const wilderness=['forest','wetland','highland','snowfield','volcanic'].includes(biome);
+      // Higher wilderness activity after sunset, without per-frame terrain scans.
+      this.nextAmbientIntervalMs=wilderness?(night?5900:8500):(night?7600:11000);
+      if(!this.trySpawnRoadBandits())this.trySpawnAmbientEnemy(regionId);
     }
 
     this.hudAccumulator += delta;
@@ -520,13 +555,85 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   spawnEnemy(enemyId: string, x: number, y: number, eventSpawn = false) {
     const definition = ENEMY_BY_ID[enemyId];
-    if (!definition || definition.boss || this.enemies.size >= 12 || this.contentManager.getSpawnCount() >= 512
-      ||inDragonArena(x,y,240)
-      || !this.canEnemyOccupy(x, y)) return false;
-    this.contentManager.addSpawn(enemyId, { x, y }, eventSpawn);
-    this.contentManager.update(this.player.x, this.player.y);
+    if (!definition || definition.boss || this.enemies.size >= 16 || this.contentManager.getSpawnCount() >= 512
+      ||inDragonArena(x,y,240)||!this.canEnemyOccupy(x,y))return false;
+    if(enemyId==='gray-wolf') {
+      // A wolf encounter is always an entire 4–6-member hunting pack.
+      const capacity=Math.min(16-this.enemies.size,512-this.contentManager.getSpawnCount());
+      if(capacity<4)return false;
+      const seed=this.contentManager.getSpawnCount();
+      const rng=seededRandom(`wolf-pack:${seed}:${Math.floor(x)}:${Math.floor(y)}`);
+      const goal=Math.min(capacity,4+Math.floor(rng()*3));
+      const points:Vec2[]=[{x,y}];
+      for(let tries=0;tries<72&&points.length<goal;tries++){
+        const angle=rng()*Math.PI*2,dist=44+rng()*116;
+        const candidate={x:x+Math.cos(angle)*dist,y:y+Math.sin(angle)*dist};
+        if(!this.canEnemyOccupy(candidate.x,candidate.y)||inDragonArena(candidate.x,candidate.y,240)
+          ||points.some(p=>Math.hypot(p.x-candidate.x,p.y-candidate.y)<35))continue;
+        points.push(candidate);
+      }
+      if(points.length<4)return false; // No partial packs in narrow/blocked terrain.
+      const packId=`wolf-pack:${seed}`;
+      for(const [i,point] of points.entries())
+        this.contentManager.addSpawn(enemyId,point,eventSpawn,{wolfPackId:packId,wolfAlpha:i===0});
+    }else this.contentManager.addSpawn(enemyId,{x,y},eventSpawn);
+    this.contentManager.update(this.player.x,this.player.y);
     useGameStore.getState().setContentWorld(this.contentManager.snapshot());
     return true;
+  }
+
+  /** One wolf noticing the player calls its packmates into a coordinated chase. */
+  alertWolfPack(id:string,time:number){this.wolfAlerts.set(id,time+5500);}
+  isWolfPackAlerted(id:string,time:number){const until=this.wolfAlerts.get(id)??0;
+    if(until<=time){this.wolfAlerts.delete(id);return false;}return true;}
+  wolfPackLeader(id:string){return [...this.enemies].find(enemy=>enemy.active&&enemy.hp>0&&enemy.wolfAlpha&&enemy.wolfPackId===id)??null;}
+
+  /** Local live members in a deterministic formation order; dead/unloaded
+   * wolves are excluded, so recovery saves and streamed actors remain safe. */
+  wolfPackMembers(packId:string):Enemy[]{
+    return [...this.enemies]
+      .filter(enemy=>enemy.active&&enemy.hp>0&&enemy.wolfPackId===packId)
+      .sort((a,b)=>Number(b.wolfAlpha)-Number(a.wolfAlpha)||a.instanceId.localeCompare(b.instanceId));
+  }
+
+  /** Only the surveyed inter-town roads, outside protected settlements, host ambushes. */
+  private trySpawnRoadBandits():boolean{
+    if(this.activePlayMs<this.nextRoadBanditsAt||this.enemies.size>=10
+      ||!this.worldGenerator.isRoad(this.player.x,this.player.y,16)
+      ||!this.isEnemyTerritory(this.player.x,this.player.y))return false;
+    const rng=seededRandom(`road-bandits:${this.spawnAttempts++}:${Math.floor(this.player.x/400)}:${Math.floor(this.player.y/400)}`);
+    if(rng()>.22)return false;
+    const distance=340+rng()*165,targets:Vec2[]=[];
+    // Circle/segment intersections produce actual road-centerline locations.
+    // Random x/y offsets would mostly miss the long, narrow roads.
+    for(const route of ROAD_ROUTES)for(let i=1;i<route.points.length;i++){
+      const a=route.points[i-1],b=route.points[i],dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+      if(len2<1)continue;
+      const t=((this.player.x-a.x)*dx+(this.player.y-a.y)*dy)/len2;
+      const px=a.x+t*dx,py=a.y+t*dy,perp2=(px-this.player.x)**2+(py-this.player.y)**2;
+      if(perp2>distance*distance)continue;
+      const offset=Math.sqrt((distance*distance-perp2)/len2);
+      for(const sign of [-1,1]){
+        const u=t+sign*offset;
+        if(u<0||u>1)continue;
+        const x=a.x+u*dx,y=a.y+u*dy;
+        if(this.canEnemyOccupy(x,y)&&!inDragonArena(x,y,240))targets.push({x,y});
+      }
+    }
+    if(!targets.length)return false;
+    for(let attempt=0;attempt<Math.min(targets.length,8);attempt++){
+      const idx=Math.floor(rng()*targets.length),target=targets.splice(idx,1)[0];
+      if(!this.spawnEnemy('road-bandit',target.x,target.y,true))continue;
+      // Sometimes a second highwayman follows, but never a wall of bandits.
+      if(rng()<.46&&this.enemies.size<11){
+        const angle=rng()*Math.PI*2,off={x:target.x+Math.cos(angle)*45,y:target.y+Math.sin(angle)*45};
+        if(this.worldGenerator.isRoad(off.x,off.y)&&this.canEnemyOccupy(off.x,off.y))
+          this.spawnEnemy('road-bandit',off.x,off.y,true);
+      }
+      this.nextRoadBanditsAt=this.activePlayMs+100_000+rng()*75_000;
+      return true;
+    }
+    return false;
   }
 
   damagePlayer(amount: number) {
@@ -586,7 +693,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   landFromPassage(point:Vec2){
     this.chunkManager.update(point.x,point.y);this.contentManager.update(point.x,point.y);
     (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);this.player.setVisible(true);this.player.resetInput();this.lastSafe={...point};
-    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player,true,.18,.18);this.physics.world.resume();this.syncState();this.updateNavigation();saveGame();
+    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player, true, 1, 1);this.physics.world.resume();this.syncState();this.updateNavigation();saveGame();
   }
 
   countEnemies() {
@@ -741,7 +848,21 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         :returned?{x:town.world.x-1280,y:town.world.y+1609}
         :phase&&this.getWorldHour()>=6&&this.getWorldHour()<20?{x:town.world.x+phase.x,y:town.world.y+phase.y}
         : obscuredKeeper || this.isNpcObscured(x,y) || this.isBlockedByBuilding(x,y) ? definition.world : { x,y };
-      const npc = new Npc(this, npcDefinition, position.x, position.y, definition.world);
+      // Old saves can retain civilian positions from previous village layouts.
+      // Alice works by the herb garden; Hawise stays outside the inn entrance.
+      // Keep their narrative identity, trust and quests; repair position only.
+      let npcPosition=position;
+      if(npcDefinition.townId==='oakmere' && (definition.npcId==='mira-fen'||definition.npcId==='sena-marrow')) {
+        const preferred=definition.npcId==='mira-fen'
+          ? {x:town.world.x+195,y:town.world.y+140}
+          : {x:town.world.x+440,y:town.world.y+340};
+        const offsets=[[0,0],[60,0],[-60,0],[0,65],[0,-65],[80,65],[-80,65],[90,-65],[-90,-65]];
+        const safe=offsets.map(([dx,dy])=>({x:preferred.x+dx,y:preferred.y+dy}))
+          .find(candidate=>this.npcCanStandAt(candidate.x,candidate.y));
+        if(safe)npcPosition=safe;
+        else if(this.npcCanStandAt(definition.world.x,definition.world.y))npcPosition=definition.world;
+      }
+      const npc = new Npc(this, npcDefinition, npcPosition.x, npcPosition.y, definition.world);
       this.groundShadows.register(npc);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
@@ -753,7 +874,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       return npc;
     }
     if (definition.kind === 'creature') {
-      const enemy = new Enemy(this, ENEMY_BY_ID[definition.enemyId], x, y, definition.id, definition.eventSpawn);
+      const enemy = new Enemy(this,ENEMY_BY_ID[definition.enemyId],x,y,definition.id,definition.eventSpawn,
+        definition.wolfPackId??null,definition.wolfAlpha??false);
       this.groundShadows.register(enemy);
       const baseMax=ENEMY_BY_ID[definition.enemyId].hp;
       enemy.hp=state.hp===undefined||state.hp===baseMax ? enemy.definition.hp :
@@ -919,21 +1041,48 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private trySpawnAmbientEnemy(regionId: RegionId) {
-    if (regionId === 'dead-sea' || this.enemies.size >= 8 || !this.isEnemyTerritory(this.player.x,this.player.y)) return;
+    if(regionId==='dead-sea'||!this.isEnemyTerritory(this.player.x,this.player.y)||this.player.hp<=0)return;
     const biome=this.worldGenerator.getBiomeAt(this.player.x,this.player.y);
-    const choices = ENEMIES.filter(e => !e.boss&&(e.id!=='marsh-wraith'||biome==='wetland'||regionId==='darkav')).flatMap(e => Array.from({ length: e.regionWeights[regionId] ?? 0 }, () => e.id));
-    if (!choices.length) return;
-    const rng = seededRandom(`ambient:${this.spawnAttempts++}:${Math.floor(this.player.x / 256)}:${Math.floor(this.player.y / 256)}`);
-    if (rng() > 0.42) return;
+    const hour=this.dayNight.getHour(),night=hour>=18||hour<6;
+    const forest=biome==='forest',swamp=biome==='wetland';
+    const wild=forest||swamp||biome==='highland'||biome==='snowfield'||biome==='volcanic';
+    // Leave room for complete 4-6 wolf packs, bosses, and roadside events.
+    const cap=wild?(night?12:9):(night?10:7);
+    if(this.enemies.size>=cap)return;
+    // Do not materialize fresh enemies in the middle of an ongoing melee.
+    if([...this.enemies].some(e=>e.active&&e.hp>0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<250))return;
+    const rng=seededRandom('ambient:'+(this.spawnAttempts++)+':'+Math.floor(this.player.x/256)+':'+Math.floor(this.player.y/256));
+    const chance=wild?(night?.86:.62):(night?.66:.42);
+    if(rng()>chance)return;
 
-    for (let attempts = 0; attempts < 6; attempts += 1) {
-      const angle = rng() * Math.PI * 2;
-      const distance = 380 + rng() * 380;
-      const x = this.player.x + Math.cos(angle) * distance;
-      const y = this.player.y + Math.sin(angle) * distance;
-      if (!this.canEnemyOccupy(x, y)) continue;
-      const enemyId = choices[Math.floor(rng() * choices.length)];
-      if (this.spawnEnemy(enemyId, x, y)) return;
+    // Native wildlife dominates forests; wetland creatures dominate swamps.
+    // Region weights still control which species can actually appear.
+    const weights: string[]=[];
+    const roomForPack=this.enemies.size<=cap-4;
+    for(const e of ENEMIES){
+      if(e.boss||(e.id==='marsh-wraith'&&!swamp&&regionId!=='darkav'))continue;
+      if(e.id==='gray-wolf'&&!roomForPack)continue;
+      const count=e.regionWeights[regionId]??0;
+      if(count<=0)continue;
+      let extra=0;
+      if(forest&&e.id==='gray-wolf')extra=night?5:3;
+      if(swamp&&e.id==='marsh-wraith')extra=night?5:3;
+      if(biome==='highland'&&e.id==='cave-troll')extra=night?2:1;
+      if(biome==='snowfield'&&e.id==='gray-wolf')extra=night?3:1;
+      for(let i=0;i<count+extra;i++)weights.push(e.id);
+    }
+    if(!weights.length)return;
+    // New encounters appear beyond immediate melee range, never inside
+    // protected towns or blocked geometry; the current spawn API handles
+    // complete wolf packs and their alpha/flanking data.
+    for(let attempt=0;attempt<9;attempt++){
+      const angle=rng()*Math.PI*2;
+      const distance=430+rng()*390;
+      const px=this.player.x+Math.cos(angle)*distance;
+      const py=this.player.y+Math.sin(angle)*distance;
+      if(!this.canEnemyOccupy(px,py))continue;
+      const id=weights[Math.floor(rng()*weights.length)];
+      if(this.spawnEnemy(id,px,py))return;
     }
   }
 
@@ -1001,3 +1150,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.worldSprites?.destroy();
   }
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1
+
+// LEIGHNERON_WOLF_FLANKING_AI_V1
+
+  // LEIGHNERON_NIGHT_WILDERNESS_ENCOUNTERS_V1

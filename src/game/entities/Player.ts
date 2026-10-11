@@ -272,10 +272,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (preserveStride) this.anims.setProgress(progress);
   }
 
+  // Stick to the current facing axis near diagonal inputs. Avoid
+  // alternating front and side animation sheets each frame.
+  private movementAxis: 'horizontal' | 'vertical' = 'vertical';
+
   private updateAnimation(x: number, y: number, running: boolean, directionX: number, directionY: number) {
     if (Math.hypot(x,y) < 3) {
       this.anims.timeScale=1;
       const standingFrame=directionFrame(this.lastDirection.x,this.lastDirection.y);
+      this.movementAxis = standingFrame === 6 || standingFrame === 12 ? 'horizontal' : 'vertical';
       if (standingFrame === 6 || standingFrame === 12) {
         if (this.texture.key !== 'leigneron_idle_sides') {
           this.setPresentationTexture('leigneron_idle_sides', artScale('leigneron_idle_sides'));
@@ -301,7 +306,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const hasDirection = Math.hypot(directionX,directionY) > .1;
     const facingX = hasDirection ? directionX : this.lastDirection.x;
     const facingY = hasDirection ? directionY : this.lastDirection.y;
-    const sideways = Math.abs(facingX) > Math.abs(facingY);
+    const sideways = this.movementAxis === 'horizontal'
+      ? Math.abs(facingX) >= Math.abs(facingY) * 0.78
+      : Math.abs(facingX) > Math.abs(facingY) * 1.28;
+    this.movementAxis = sideways ? 'horizontal' : 'vertical';
     // These strips depict the right side only. Mirror horizontal travel to
     // the left; retain real front/back art for north/south movement rather
     // than depicting upward/downward travel as a right-facing sprint.

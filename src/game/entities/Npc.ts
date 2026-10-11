@@ -45,6 +45,10 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private stalledMs=0;
   private previousPosition:Vec2;
   private escortGoal:Vec2|null=null;
+  // A temporary side step never consumes the original scheduled waypoint.
+  private npcDetour:Vec2|null=null;
+  private lastAvoidAttempt=0;
+  private avoidSide=1;
 
   constructor(scene: WorldScene, definition: NpcDefinition, x: number, y: number, home: Vec2) {
     const sourceFamily=definition.spriteTexture??'npcs';
@@ -93,7 +97,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.once('destroy', () => { this.nameLabel.destroy(); this.titleLabel.destroy(); });
   }
 
-  beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;}
+  beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;this.npcDetour=null;}
   get escorting(){return this.escortGoal!==null;}
   storyRest(){(this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);}
   advanceCinematic(delta:number) {
@@ -107,6 +111,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
     if(!this.mayPatrol&&!this.escortGoal){
+      this.npcDetour=null;
       body.setVelocity(0,0);this.target=null;this.route=[];this.previousPosition={x:this.x,y:this.y};
       this.playDirection(0,0,false);this.setDepth(this.y);return;
     }
@@ -142,18 +147,40 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       const period=(routine?.startHour??0)+':'+returned+':'+Boolean(council);
       if(period!==this.routineKey) {
         this.routineKey=period;const location=returned?{x:-1280,y:1609}:council?{x:this.definition.id==='maela-quill'?160:-180,y:140}:routine?.location??this.definition.worldOffset;
-        this.routineAnchor=toWorld(location);this.target=null;this.returningHome=false;
+        this.routineAnchor=toWorld(location);this.target=null;this.npcDetour=null;this.returningHome=false;
         this.route=npcStreetRoute(this.definition.townId,toLocal(this),location,(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
       }
     }
     if(!this.target&&this.route.length)this.target=this.route.shift()!;
     if(this.target) {
       const moved=Math.hypot(this.x-this.previousPosition.x,this.y-this.previousPosition.y);
-      this.stalledMs=moved<.1?this.stalledMs+Math.min(delta,250):0;
-      const length=Math.hypot(this.target.x-this.x,this.target.y-this.y),step=Math.min(1,24/Math.max(1,length));
-      const ahead={x:this.x+(this.target.x-this.x)*step,y:this.y+(this.target.y-this.y)*step};
-      const checkRoute=this.routeCheckMs>=120;if(checkRoute)this.routeCheckMs=0;
-      if(this.stalledMs>2000 || checkRoute&&!scene.canNpcVisit(this,ahead)){this.target=null;this.route=[];this.nextPatrolAt=time+1500;this.stalledMs=0;}
+      this.stalledMs=moved<.12?this.stalledMs+Math.min(delta,250):0;
+      if(this.npcDetour && Math.hypot(this.x-this.npcDetour.x,this.y-this.npcDetour.y)<12) {
+        this.npcDetour=null;this.stalledMs=0;
+      }
+      const activeGoal=this.npcDetour??this.target;
+      const length=Math.hypot(activeGoal.x-this.x,activeGoal.y-this.y);
+      const step=Math.min(1,36/Math.max(1,length));
+      const ahead={x:this.x+(activeGoal.x-this.x)*step,y:this.y+(activeGoal.y-this.y)*step};
+      const checkRoute=this.routeCheckMs>=120;
+      if(checkRoute)this.routeCheckMs=0;
+      if(checkRoute || this.stalledMs>1050) {
+        const blocker=scene.npcPathBlocker(this,ahead,this);
+        const obstructed=!scene.canNpcVisit(this,ahead)||Boolean(blocker)||this.stalledMs>1050;
+        if(obstructed && (time-this.lastAvoidAttempt>420||this.lastAvoidAttempt===0)) {
+          this.lastAvoidAttempt=time;
+          this.npcDetour=this.npcDetourWaypoint(scene,blocker);
+          this.stalledMs=0;
+        }
+        if(obstructed && !this.npcDetour) {
+          // Wait if both bypass lanes are obstructed. Never delete the route:
+          // when the pedestrian moves, this NPC resumes the same destination.
+          body.setVelocity(0,0);
+          this.playDirection(this.facing.x,this.facing.y,false);
+          this.previousPosition={x:this.x,y:this.y};
+          return;
+        }
+      }
     }
     this.previousPosition.x=this.x;this.previousPosition.y=this.y;
     if (!this.target && time >= this.nextPatrolAt) {
@@ -188,10 +215,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     while (this.route.length && Math.hypot(this.target.x-this.x,this.target.y-this.y) <= 6) {
       this.target = this.route.shift()!;
     }
-    const dx = this.target.x - this.x, dy = this.target.y - this.y;
+    const navigationGoal=this.npcDetour??this.target;
+    const dx = navigationGoal.x - this.x, dy = navigationGoal.y - this.y;
     if (Math.hypot(dx, dy) <= 3) {
       body.setVelocity(0, 0);
-      this.target = null;
+      this.target = null;this.npcDetour=null;
       if (!this.returningHome && !this.route.length) this.returningHome = true;
       this.nextPatrolAt = this.route.length ? time : time + 1000 + this.rng() * 1800;
       this.playDirection(this.facing.x, this.facing.y, false);
@@ -202,6 +230,30 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*speed,delta,90),approachVelocity(body.velocity.y,this.facing.y*speed,delta,90));
     this.playDirection(this.facing.x, this.facing.y, true);
     this.setDepth(this.y);
+  }
+
+  /** Try a short sidestep to either side of the blockage. The real target
+   * and remaining schedule never change, so movement rejoins the old path. */
+  private npcDetourWaypoint(scene:WorldScene, blocker:Vec2|null):Vec2|null {
+    if(!this.target)return null;
+    const dx=this.target.x-this.x,dy=this.target.y-this.y;
+    const length=Math.hypot(dx,dy);
+    if(length<1)return null;
+    const forwardX=dx/length,forwardY=dy/length;
+    const obstacleDistance=blocker ? Math.hypot(blocker.x-this.x,blocker.y-this.y) : 38;
+    const forward=Math.max(40,Math.min(92,obstacleDistance+36));
+    const sides=[this.avoidSide,-this.avoidSide];
+    for(const side of sides)for(const lateral of [54,78,104]) {
+      const candidate={x:this.x+forwardX*forward-forwardY*side*lateral,
+        y:this.y+forwardY*forward+forwardX*side*lateral};
+      if(!scene.npcCanStandAt(candidate.x,candidate.y,this))continue;
+      if(!scene.canNpcVisit(this,candidate)||scene.npcPathBlocker(this,candidate,this))continue;
+      this.avoidSide=side;
+      return candidate;
+    }
+    // Reverse preference next time if the object or another pedestrian moves.
+    this.avoidSide=-this.avoidSide;
+    return null;
   }
 
   private get mayPatrol(){

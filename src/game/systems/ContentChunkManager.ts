@@ -90,9 +90,13 @@ export class ContentChunkManager<Actor> {
     return changed;
   }
 
-  addSpawn(enemyId: string, world: Vec2, eventSpawn: boolean) {
+  addSpawn(enemyId: string, world: Vec2, eventSpawn: boolean,
+    pack?: Pick<CreatureContentDefinition, 'wolfPackId' | 'wolfAlpha'>) {
+    // Old defeated encounter records need not fill the persistent 512-spawn cap.
+    if(this.spawns.size >= 380)this.pruneDefeatedSpawns();
     const definition: CreatureContentDefinition = {
       id: `spawn:${this.nextSpawnSequence++}`, kind: 'creature', enemyId, world: { ...world }, eventSpawn,
+      ...(pack ?? {}),
     };
     this.spawns.set(definition.id, definition);
     this.register(definition);
@@ -107,7 +111,18 @@ export class ContentChunkManager<Actor> {
   getActiveIds() { return [...this.active.keys()]; }
   getActiveKeys() { return [...this.wanted]; }
   getActor(id: string) { return this.active.get(id); }
-  getSpawnCount() { return this.spawns.size; }
+  getSpawnCount() { if(this.spawns.size >= 380)this.pruneDefeatedSpawns(); return this.spawns.size; }
+  /** Clear only defeated ambient/event spawns; bosses and authored creatures are never removed. */
+  private pruneDefeatedSpawns(){
+    for(const id of [...this.spawns.keys()]){
+      if(!this.states.get(id)?.defeated || this.active.has(id))continue;
+      const bucketKey=this.locations.get(id);
+      if(bucketKey){const bucket=this.buckets.get(bucketKey);bucket?.delete(id);if(bucket?.size===0)this.buckets.delete(bucketKey);}
+      this.locations.delete(id);this.spawns.delete(id);this.states.delete(id);
+      this.definitions.delete(id);this.returns.delete(id);
+    }
+  }
+
 
   patchState(id: string, patch: Partial<ContentState>) {
     if (!this.definitions.has(id)) return;
@@ -170,3 +185,5 @@ export class ContentChunkManager<Actor> {
     this.active.delete(id); this.host.destroy(actor);
   }
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1

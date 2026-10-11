@@ -25,6 +25,9 @@ export class ChunkManager {
   private readonly active = new Map<string, ChunkRuntime>();
   private lastCenter = '';
   private readonly baker: TerrainBaker;
+  // LEIGHNERON_STAGGER_CHUNKS_V1: don't bake three huge neighbor chunks in one frame.
+  private readonly pendingChunks = new Map<string,{x:number;y:number}>();
+  private lastChunkBakedAt=-Infinity;
 
   constructor(scene: Phaser.Scene, world: WorldGenerator,
     private readonly treeSway:TreeSwaySystem,private readonly lighting:DayNightSystem,private readonly ground:WorldSpriteSystem) {
@@ -39,7 +42,7 @@ export class ChunkManager {
     const camera=this.scene.cameras.main,halfW=camera.width/camera.zoom/2+128,halfH=camera.height/camera.zoom/2+128;
     const bounds={left:Math.floor((worldX-halfW)/CHUNK_SIZE),right:Math.floor((worldX+halfW)/CHUNK_SIZE),top:Math.floor((worldY-halfH)/CHUNK_SIZE),bottom:Math.floor((worldY+halfH)/CHUNK_SIZE)};
     const centerKey = viewportOnly?`view:${bounds.left}:${bounds.right}:${bounds.top}:${bounds.bottom}`:`${centerX}:${centerY}`;
-    if (centerKey === this.lastCenter) return;
+    if (centerKey === this.lastCenter) { this.loadPendingChunk(); return; }
     this.lastCenter = centerKey;
 
     const wanted = chunkNeighborhood(worldX, worldY);
@@ -51,11 +54,41 @@ export class ChunkManager {
       if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);
       this.active.delete(key);
     }
-    // Release distant GPU/canvas allocations before baking replacements.
-    for (const key of wanted) {
-      if (!this.active.has(key)) { const [x, y] = key.split(':').map(Number); this.load(x, y); }
+    for (const key of [...this.pendingChunks.keys()]) if(!wanted.has(key))this.pendingChunks.delete(key);
+    // On initial entry and cinematic cuts, the complete visible area is needed
+    // immediately. Normal movement only queues new, offscreen neighbor chunks.
+    if(viewportOnly||this.active.size===0){
+      this.pendingChunks.clear();
+      for (const key of wanted) {
+        if (!this.active.has(key)) {const [x,y]=key.split(':').map(Number);this.load(x,y);}
+      }
+    }else{
+      for(const key of wanted)if(!this.active.has(key)&&!this.pendingChunks.has(key)){
+        const [x,y]=key.split(':').map(Number);this.pendingChunks.set(key,{x,y});
+      }
+      this.loadPendingChunk();
     }
-    this.scene.registry.set('openSeaView',[...this.active.values()].every(chunk=>chunk.shared));
+    this.updateOpenSeaStatus();
+  }
+
+  /** Each expensive canvas bake stays on the main thread, but never multiple
+   * fresh 1536px terrain textures in a single frame during normal travel. */
+  private loadPendingChunk(){
+    if(!this.pendingChunks.size)return;
+    const now=this.scene.time.now;
+    if(now-this.lastChunkBakedAt<95)return;
+    const next=this.pendingChunks.entries().next().value as [string,{x:number;y:number}]|undefined;
+    if(!next)return;
+    const [key,point]=next;
+    this.pendingChunks.delete(key);
+    if(!this.active.has(key))this.load(point.x,point.y);
+    this.lastChunkBakedAt=now;
+    this.updateOpenSeaStatus();
+  }
+
+  private updateOpenSeaStatus(){
+    this.scene.registry.set('openSeaView',this.pendingChunks.size===0&&
+      [...this.active.values()].every(chunk=>chunk.shared));
   }
 
   destroy() {
@@ -65,6 +98,7 @@ export class ChunkManager {
       if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);
     }
     this.active.clear();
+    this.pendingChunks.clear();
     this.lastCenter = '';
     this.baker.destroy();
     this.scene.textures.remove('shared-ocean-chunk');

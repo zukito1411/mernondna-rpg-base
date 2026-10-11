@@ -54,8 +54,12 @@ function validateContent(value: unknown): ContentWorldState | null {
       || Number(id.slice(6)) >= value.nextSpawnSequence || typeof d.enemyId !== 'string'
       || !Object.hasOwn(ENEMY_BY_ID, d.enemyId) || ENEMY_BY_ID[d.enemyId].boss
       || !record(d.world) || !numberIn(d.world.x, 0, WORLD_WIDTH - 1) || !numberIn(d.world.y, 0, WORLD_HEIGHT - 1)
-      || typeof d.eventSpawn !== 'boolean') return null;
-    spawns[id] = { id, kind: 'creature', enemyId: d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn };
+      || typeof d.eventSpawn !== 'boolean'
+      || (d.wolfPackId !== undefined && (d.enemyId !== 'gray-wolf' || typeof d.wolfPackId !== 'string' || d.wolfPackId.length > 100))
+      || (d.wolfAlpha !== undefined && (d.enemyId !== 'gray-wolf' || typeof d.wolfAlpha !== 'boolean'))) return null;
+    spawns[id] = { id, kind: 'creature', enemyId: d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn,
+      ...(typeof d.wolfPackId === 'string'?{wolfPackId:d.wolfPackId}:{}),
+      ...(typeof d.wolfAlpha === 'boolean'?{wolfAlpha:d.wolfAlpha}:{}) };
   }
   const states: Record<string, ContentState> = {};
   for (const [id, s] of Object.entries(value.states)) {
@@ -299,3 +303,5 @@ export function watchProgressSaves() {
 export function clearSave(): boolean {
   try { localStorage.removeItem(SAVE_KEY);saveBlocked=false; return true; } catch { return false; }
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1

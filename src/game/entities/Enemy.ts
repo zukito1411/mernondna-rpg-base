@@ -17,6 +17,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
   hp: number;
   readonly eventSpawn: boolean;
+  readonly wolfPackId: string | null;
+  readonly wolfAlpha: boolean;
   readonly level:number;
   readonly instanceId: string;
   private nextAttackAt = 0;
@@ -43,9 +45,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly boss: BossDefinition | undefined;
   private attackEpoch=0;
   private hitStunUntil=0;
+  // Hit pressure builds toward a brief stagger instead of cancelling every attack.
+  private poise=0;
+  private lastPoiseHitAt=0;
+  private staggerImmuneUntil=0;
+  private lastDamagedAt=0;
+  private lastEngagedAt=0;
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
   private readonly dragonCombat:DragonCombat|undefined;
   private visualDirection:ActorDirection='right';
+  // Each pack member claims a stable hunting lane until it is unloaded.
+  private wolfFlankSlot: number | null = null;
+  private wolfHuntBearing = 0;
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
   get facingLeft(){return this.visualDirection==='left';}
   playMonsterVocal(cue:'attack'|'growl'|'hurt'|'death'){
@@ -55,26 +66,34 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     (this.scene as WorldScene).playEnemyAttackFoley(this.definition,this.x,this.y,phase);
   }
 
-  constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string, eventSpawn = false) {
+  constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string,
+    eventSpawn = false, wolfPackId: string | null = null, wolfAlpha = false) {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
     this.boss = instanceId.startsWith('boss:') ? BOSS_BY_ID[instanceId.slice(5)] : undefined;
     const zone=(scene as WorldScene).getRegionAtPosition(x,y);
     this.level=areaMonsterLevel(x,y,zone)+(this.boss?10:0);
-    this.definition=scaledEnemy(definition,this.level);
+    const base=scaledEnemy(definition,this.level);
+    this.wolfAlpha=definition.id==='gray-wolf' && wolfAlpha;
+    this.wolfPackId=definition.id==='gray-wolf' ? wolfPackId : null;
+    this.definition=this.wolfAlpha ? {...base,name:'Alpha Wolf',
+      hp:Math.round(base.hp*1.35),damage:Math.round(base.damage*1.12),
+      xp:Math.round(base.xp*1.5),goldMax:Math.ceil(base.goldMax*1.25)} : base;
     this.hp=this.definition.hp;
     this.eventSpawn = eventSpawn;
     this.instanceId = instanceId;
+    this.lastDamagedAt = scene.time.now;
+    this.lastEngagedAt = scene.time.now;
     this.rng = seededRandom(instanceId);
     this.lastSafe = { x, y };
     scene.add.existing(this);
     const texture=initial.textureKey as ArtTextureKey,sheet=ART_BY_KEY[texture];
-    this.setScale(artScale(texture) * enemyAppearanceMultiplier(definition)).setOrigin(.5, actorArtLayout(texture).originY);
+    this.setScale(artScale(texture) * enemyAppearanceMultiplier(definition) * (this.wolfAlpha?1.36:1)).setOrigin(.5, actorArtLayout(texture).originY);
     scene.physics.add.existing(this);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    const radius = definition.bodyRadius??(definition.boss ? 24 : 11);
+    const radius = (definition.bodyRadius??(definition.boss ? 24 : 11)) * (this.wolfAlpha ? 1.18 : 1);
     const density = sheet.density;
     body.setCircle(radius / this.scaleX, sheet.frameWidth * density / 2 - radius / this.scaleX,
       this.originY * sheet.frameHeight * density - 2 * radius / this.scaleY);
@@ -83,7 +102,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(y);
     this.anims.play(idle.key);
     this.healthBar = scene.add.graphics().setName(`enemy-health:${instanceId}`);
-    this.nameLabel = scene.add.text(x, y - 40, `Lv.${this.level} ${this.boss?.name ?? definition.name}`, {
+    this.nameLabel = scene.add.text(x, y - 40, `Lv.${this.level} ${this.boss?.name ?? this.definition.name}`, {
       fontFamily: 'Georgia, serif', fontSize: definition.boss ? '12px' : '9px',
       color: definition.boss ? '#f3c69c' : '#edddcb', stroke: '#17120e', strokeThickness: 3,
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
@@ -103,6 +122,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
+    // Recover only after leaving combat, never during a chase or attack.
+    // Paused scenes do not tick updateEnemy, so this is active-play time only.
+    const playerDistance = Phaser.Math.Distance.Between(this.x,this.y,player.x,player.y);
+    const pursuing = playerDistance <= this.definition.aggroRange && scene.isEnemyTerritory(player.x,player.y);
+    if (pursuing) this.lastEngagedAt = time;
+    if (this.hp>0 && this.hp<this.definition.hp && !pursuing
+      && playerDistance>this.definition.aggroRange*1.2
+      && time-Math.max(this.lastDamagedAt,this.lastEngagedAt)>=12000
+      && !this.attackTelegraph && !this.dragonCombat?.airborne) {
+      const healingRate=this.boss ? .008 : .02; // Bosses recover more slowly.
+      this.hp=Math.min(this.definition.hp,
+        this.hp+this.definition.hp*healingRate*Math.max(0,Math.min(delta,100))/1000);
+    }
     if(this.dragonCombat){this.dragonCombat.update(delta);return;}
 
     const distance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
@@ -130,14 +162,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     if(time<this.hitStunUntil){body.velocity.scale(.85);this.updateVisual(time);return;}
 
-    if (distance <= this.definition.aggroRange && scene.isEnemyTerritory(player.x,player.y)) {
+    const territory=scene.isEnemyTerritory(player.x,player.y);
+    const spotted=distance<=this.definition.aggroRange&&territory;
+    if(spotted&&this.wolfPackId)scene.alertWolfPack(this.wolfPackId,time);
+    const packAlerted=Boolean(this.wolfPackId&&scene.isWolfPackAlerted(this.wolfPackId,time)&&distance<510);
+    if((spotted||packAlerted)&&territory) {
       if(time>=this.nextGrowlAt&&distance>Math.max(100,this.definition.attackRange)){
         scene.playEnemyVocal(this.definition,this.instanceId,'growl',this.x,this.y);
         this.nextGrowlAt=time+3600+this.rng()*2800;
       }
       const approachRange = Math.max(30, this.definition.attackRange - 16);
       this.facing.set(player.x - this.x, player.y - this.y).normalize();
-      if (distance > approachRange) {
+      if(this.wolfPackId) {
+        // Pack wolves spread around the player instead of all charging at one point.
+        this.chaseAsPack(scene,player,time,delta,distance,body);
+      } else if (distance > approachRange) {
         const ahead={x:this.x+this.facing.x*24,y:this.y+this.facing.y*24};
         if(scene.canEnemyOccupy(ahead.x,ahead.y)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
           body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*this.definition.moveSpeed,delta,90),approachVelocity(body.velocity.y,this.facing.y*this.definition.moveSpeed,delta,90));
@@ -151,7 +190,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.beginAttack(scene, player, time);
       }
     } else {
-      if (time >= this.nextWanderAt) {
+      // Idle pack members keep roughly with the alpha, rather than scattering.
+      const alpha=this.wolfPackId&&!this.wolfAlpha?scene.wolfPackLeader(this.wolfPackId):null;
+      const alphaDistance=alpha?Math.hypot(alpha.x-this.x,alpha.y-this.y):0;
+      if(alpha&&alphaDistance>108&&alphaDistance<540){
+        this.wander.set((alpha.x-this.x)/alphaDistance*this.definition.moveSpeed*.68,
+          (alpha.y-this.y)/alphaDistance*this.definition.moveSpeed*.68);
+        this.nextWanderAt=time+850;
+      }else if (time >= this.nextWanderAt) {
         this.nextWanderAt = time + 1600 + this.rng() * 2400;
         const angle = this.rng() * Math.PI * 2;
         // Rest between some roaming legs so idle art is an actual behavior,
@@ -168,6 +214,68 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(this.y);
     this.lastSafe = { x:this.x,y:this.y };
     this.updateVisual(time);
+  }
+
+  /** Flank using persistent angular slots and short-range ally repulsion.
+   * Wolves approach from different sides and lunge in overlapping, staggered
+   * windows. Path checks still prevent movement through scenery/buildings. */
+  private chaseAsPack(scene:WorldScene,player:WorldScene['player'],time:number,
+    delta:number,distance:number,body:Phaser.Physics.Arcade.Body) {
+    const members=scene.wolfPackMembers(this.wolfPackId!);
+    if(this.wolfFlankSlot===null){
+      // Alpha presses from the front; siblings occupy alternating flanks/rear.
+      const ordinal=members.findIndex(member=>member.instanceId===this.instanceId);
+      this.wolfFlankSlot=this.wolfAlpha?0:Math.max(1,ordinal);
+      const leader=members.find(member=>member.wolfAlpha)??this;
+      this.wolfHuntBearing=Math.atan2(leader.y-player.y,leader.x-player.x);
+    }
+    const slot=this.wolfFlankSlot;
+    const offsets=[0,-1.05,1.05,-2.1,2.1,Math.PI];
+    const desiredBearing=this.wolfHuntBearing+offsets[slot%offsets.length];
+    // Close in to strike only during each wolf's offset attack window;
+    // withdrawing briefly creates space for packmates to circle and attack.
+    const lunge=(time+slot*470)%2750<1460;
+    const preferredRadius=lunge?(this.wolfAlpha?40:46):(this.wolfAlpha?64:74);
+    let goalX=player.x+Math.cos(desiredBearing)*preferredRadius;
+    let goalY=player.y+Math.sin(desiredBearing)*preferredRadius;
+    let vx=goalX-this.x,vy=goalY-this.y;
+    if(distance<185&&distance>1){
+      const angle=Math.atan2(this.y-player.y,this.x-player.x);
+      const diff=Math.atan2(Math.sin(desiredBearing-angle),Math.cos(desiredBearing-angle));
+      // Travel around the outside of the player, not straight across center.
+      const radial=Phaser.Math.Clamp((preferredRadius-distance)*1.15,-75,75);
+      const tangent=Phaser.Math.Clamp(diff*distance*.82,-105,105);
+      vx=Math.cos(angle)*radial-Math.sin(angle)*tangent;
+      vy=Math.sin(angle)*radial+Math.cos(angle)*tangent;
+    }
+    // Lightweight pairwise separation. No physics collision solver or per-frame
+    // tween allocations: even six wolves stay within the existing enemy cap.
+    for(const other of members){
+      if(other===this)continue;
+      let dx=this.x-other.x,dy=this.y-other.y;
+      let dist=Math.hypot(dx,dy);
+      const minGap=(this.wolfAlpha||other.wolfAlpha)?75:62;
+      if(dist>=minGap)continue;
+      if(dist<.1){const a=(slot+1)*2.4;dx=Math.cos(a);dy=Math.sin(a);dist=1;}
+      const repel=(minGap-dist)/minGap*145;
+      vx+=dx/dist*repel;
+      vy+=dy/dist*repel;
+    }
+    const speed=Math.hypot(vx,vy);
+    const velocity=speed<5?0:this.definition.moveSpeed*(this.wolfAlpha?.97:1);
+    const headingX=speed>0?vx/speed:0,headingY=speed>0?vy/speed:0;
+    const canStep=(sx:number,sy:number)=>scene.canEnemyOccupy(this.x+sx*30,this.y+sy*30)
+      &&scene.hasClearPath(this.x,this.y,this.x+sx*30,this.y+sy*30);
+    let steerX=headingX,steerY=headingY;
+    if(velocity>0&&!canStep(steerX,steerY)){
+      // Attempt the two short tangents before giving up; never phase through walls.
+      if(canStep(-headingY,headingX)){steerX=-headingY;steerY=headingX;}
+      else if(canStep(headingY,-headingX)){steerX=headingY;steerY=-headingX;}
+      else{steerX=0;steerY=0;}
+    }
+    const targetX=steerX*velocity,targetY=steerY*velocity;
+    body.setVelocity(approachVelocity(body.velocity.x,targetX,delta,85),
+      approachVelocity(body.velocity.y,targetY,delta,85));
   }
 
   private beginAttack(scene: WorldScene, player: WorldScene['player'], time: number) {
@@ -239,8 +347,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if (time < this.nextSpecialAt) return;
     this.nextSpecialAt = time + (this.definition.summonCooldownMs ?? 20000);
     let spawned = 0;
-    for (let i = 0; i < (this.definition.summonCount ?? 1); i++) {
-      const angle = Math.PI * 2 * i / (this.definition.summonCount ?? 1) + this.rng() * .3;
+    // One wolf-summon call already creates a full pack; avoid summoning 2–3 packs at once.
+    const summonCount=summon==='gray-wolf'?1:(this.definition.summonCount??1);
+    for (let i = 0; i < summonCount; i++) {
+      const angle = Math.PI * 2 * i / summonCount + this.rng() * .3;
       if (scene.spawnEnemy(summon, this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110, true)) {
         spawned++;
         scene.playEffect('teleport', this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110);
@@ -335,15 +445,43 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     const scene=this.scene as WorldScene;
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
-    this.attackEpoch++;this.attackTelegraph?.destroy();this.attackTelegraph=null;this.clearWolfLeap();
-    this.hitStunUntil=this.scene.time.now+120;
+    const now=this.scene.time.now;
+    this.lastDamagedAt=now;
+    // Pressure fades after a break in the combo. Ordinary hits do not cancel
+    // attack windups or teleport the opponent back into the hurt animation.
+    if (now-this.lastPoiseHitAt>2500) this.poise=0;
+    this.lastPoiseHitAt=now;
+    const fatal=this.hp<=0;
+    const immune=now<this.staggerImmuneUntil;
+    if (!fatal&&!immune) {
+      const pressure=Math.min(40,12+Math.max(0,amount)/Math.max(1,this.definition.hp)*100);
+      this.poise+=pressure;
+    }
+    const staggered=!fatal&&!immune&&this.poise>=(this.boss?160:90);
+    if (staggered) {
+      this.poise=0;
+      this.staggerImmuneUntil=now+(this.boss?8500:4000);
+      this.hitStunUntil=now+(this.boss?120:190);
+      this.lockedUntil=this.hitStunUntil;
+      this.nextAttackAt=Math.max(this.nextAttackAt,now+(this.boss?350:450));
+    }
+    if (staggered||fatal) {
+      this.attackEpoch++;
+      this.attackTelegraph?.destroy();this.attackTelegraph=null;
+      this.clearWolfLeap();
+    }
     scene.playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(this.dragonCombat?0:knockback.x * 150,this.dragonCombat?0:knockback.y * 150);
+    // Routine hits keep the enemy's movement and committed attack intact.
+    if (staggered||fatal) {
+      const force=fatal?70:this.boss?55:100;
+      body.setVelocity(this.dragonCombat?0:knockback.x*force,
+        this.dragonCombat?0:knockback.y*force);
+    }
     this.setTintFill(0xffffff);
     this.scene.time.delayedCall(70, () => { if (this.active) this.clearTint(); });
     if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
-    else if(this.dragonCombat)this.dragonCombat.reactToHit();else this.playAction('hurt');
+    else if(this.dragonCombat){if(staggered)this.dragonCombat.reactToHit();}else if(staggered)this.playAction('hurt');
   }
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
 
@@ -382,3 +520,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
   }
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1
+
+// LEIGHNERON_WOLF_FLANKING_AI_V1

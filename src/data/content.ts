@@ -135,7 +135,12 @@ const home = TOWN_BY_ID.oakmere.world;
 const near = (x: number, y: number) => ({ x: home.x + x, y: home.y + y });
 WORLD_CONTENT.push(
   { id: 'prop:east-watchtower', kind: 'prop', world: near(1400, -850), texture:'world_buildings',frame:4,scale:1.2,solid:true,footprint:propFoundation('world_buildings',4,1.2) },
-  { id: 'creature:oakmere-wolf-east', kind: 'creature', world: near(1300, 450), enemyId: 'gray-wolf' },
+  // The authored starter encounter is a complete five-wolf family, not a lone wolf.
+  { id: 'creature:oakmere-wolf-east', kind: 'creature', world: near(1300, 450), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack',wolfAlpha:true },
+  { id: 'creature:oakmere-wolf-east:1', kind: 'creature', world: near(1345, 480), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-wolf-east:2', kind: 'creature', world: near(1255, 485), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-wolf-east:3', kind: 'creature', world: near(1330, 405), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-wolf-east:4', kind: 'creature', world: near(1235, 410), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
   { id: 'creature:oakmere-boar-north', kind: 'creature', world: near(-650, -1150), enemyId: 'rindass-boar' },
   { id: 'sign:oakmere-east-road', kind: 'interactable', world: near(500, -100), texture: 'world_assets', frame: PROPS.sign, scale: .8, name: 'East road marker',
     description: 'Old watchtower: northeast of Oakmere. Highmere: follow the crown road north. Aldren marked the watchtower route on this stone.',
@@ -276,3 +281,5 @@ export function initialContentState(definition: ContentDefinition): ContentState
     ...(definition.kind === 'npc' ? { trust: NPC_BY_ID[definition.npcId].relationshipToLeigneron.trust } : {}),
   };
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1

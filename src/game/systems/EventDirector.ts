@@ -35,7 +35,7 @@ export class EventDirector {
     if (!event.enemyId || !event.enemyCount) return;
 
     let spawned = 0;
-    for (let i = 0; i < event.enemyCount; i += 1) {
+    for (let i = 0; i < (event.enemyId === 'gray-wolf' ? 1 : event.enemyCount); i++) {
       const angle = rng() * Math.PI * 2;
       const distance = 220 + rng() * 170;
       if (this.host.spawnEnemy(event.enemyId,playerX + Math.cos(angle) * distance,playerY + Math.sin(angle) * distance,true)) spawned++;
@@ -43,3 +43,5 @@ export class EventDirector {
     if (spawned) this.host.notify(`${event.headline}: ${event.description}`);
   }
 }
+
+// LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1
