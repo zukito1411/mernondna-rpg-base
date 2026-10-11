@@ -32,7 +32,7 @@ export function RegionalMap({select}:{select:(id:string,button:HTMLButtonElement
   return <div className="regional-map-wrap">
     <canvas ref={ref} width={WIDTH} height={HEIGHT} aria-label="Expanded regional terrain, streets and river crossings"/>
     {TOWNS.map(town=>{const p=project(town.world.x,town.world.y);return p.x>2&&p.x<98&&p.y>3&&p.y<97?
-      <button key={town.id} className="regional-settlement" style={{left:p.x+'%',top:p.y+'%'}} aria-label={`Select ${town.name} for teleport`} onClick={e=>select(town.id,e.currentTarget)}>{town.name}</button>:null;})}
+      <button key={town.id} type="button" className="regional-settlement" style={{left:p.x+'%',top:p.y+'%'}} aria-label={`Select ${town.name} for teleport`} title={town.name} onClick={e=>select(town.id,e.currentTarget)}><i aria-hidden="true" /></button>:null;})}
     {navigation.markers.filter(m=>m.kind==='boss'||m.kind==='landmark').map(m=>{const p=project(m.x,m.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={m.id} title={m.label} className="regional-poi" style={{left:p.x+'%',top:p.y+'%'}}>◇</span>:null;})}
     {navigation.target&&(()=>{const p=project(navigation.target.x,navigation.target.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span className="regional-quest" style={{left:p.x+'%',top:p.y+'%'}}>◆</span>:null;})()}
     <span className="regional-player" style={{left:player.x+'%',top:player.y+'%',transform:`translate(-50%,-50%) rotate(${navigation.heading}rad)`}}>▲</span>

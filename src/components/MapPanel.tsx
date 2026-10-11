@@ -54,7 +54,6 @@ export function MapPanel() {
               key={town.id}
             >
               <i aria-hidden="true" />
-              <b>{localTravel || unlockedShrines.includes(town.id) || town.starterKnown || town.id === townId ? town.name : 'Unknown'}</b>
             </button>
           ))}
           <span className="atlas-player" style={{left:playerPin.x+'%',top:playerPin.y+'%'}} title="Leigneron’s current world position">▲</span>
