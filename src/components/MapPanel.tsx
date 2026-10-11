@@ -39,7 +39,7 @@ export function MapPanel() {
           <span>{Math.round(zoom*100)}%</span>
           <button type="button" aria-label="Zoom in" onClick={()=>setZoom(z=>Math.min(3,z+.25))} disabled={zoom>=3}><GameIcon name="zoom-in" /></button>
           <button type="button" onClick={()=>setZoom(1)}>Reset</button>
-        </div>
+        </div>}
         <div className="map-stage">{regional?<RegionalMap select={(id,button)=>{selectedPin.current=button;setSelectedId(id);}}/>:<div className="world-map-wrap"><div className="atlas-survey" style={{height:zoom*100+'%'}}>
           <img src="assets/reference/mernondna-world-map.jpg" alt="Illustrated map of Mernodna" />
           {TOWNS.map((town) => (
