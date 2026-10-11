@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { areaMonsterLevel, BOSS_RESPAWN_MS } from '../../data/enemyTiers';
+import {restoredEnemyHealth} from '../systems/enemyHealth';
+import {authoredRoofs} from '../systems/authoredRoofs';
 import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import { TOWN_BY_ID } from '../../data/towns';
@@ -45,6 +47,7 @@ import {ShipPassageSystem} from '../systems/ShipPassageSystem';
 import {EnemySoundSystem,type EnemySoundCue} from '../systems/EnemySoundSystem';
 import {WorldSpriteSystem,WORLD_SPRITE_OWNER} from '../systems/WorldSpriteSystem';
 import {VolcanicTremor} from '../systems/VolcanicTremor';
+import {VolcanicCameraShake} from '../systems/VolcanicCameraShake';
 import {renderDensity} from '../systems/renderSizing';
 import {groundMarkerPosition} from '../systems/groundMarkers';
 import {inDragonArena,DRAGON_BOSS_ID} from '../../data/dragonLair';
@@ -53,7 +56,6 @@ import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import type { Vec2 } from '../types';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
-const foregroundBuildings=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop');
 // LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1: cache tree crowns around Oakmere, rather than scanning every
 // world tree during NPC route planning. Actual tree feet and physics stay intact.
 const oakmereTreeCanopies=WORLD_CONTENT
@@ -77,7 +79,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private passage!:ShipPassageSystem;
   private enemySounds!:EnemySoundSystem;
   private worldSprites!:WorldSpriteSystem;
-  private readonly volcanicTremor=new VolcanicTremor();
+  private volcanicTremor!:VolcanicTremor;
+  private volcanicShake!:VolcanicCameraShake;
+  private readonly onVolcanicRumble=(seconds:number,intensity:number)=>this.volcanicShake.setRumble(seconds,intensity);
+  private readonly onVolcanicSilence=()=>this.volcanicShake.stopRumble();
   private eventDirector!: EventDirector;
   private readonly enemies = new Set<Enemy>();
   private readonly npcs: Npc[] = [];
@@ -178,6 +183,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    this.cameras.main.shakeEffect.destroy();
+    this.volcanicShake=new VolcanicCameraShake(this.cameras.main);
+    this.cameras.main.shakeEffect=this.volcanicShake;
+    this.volcanicTremor=new VolcanicTremor();
     useGameStore.getState().setBossEncounter(null);
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.dayNight = new DayNightSystem(this);
@@ -236,7 +245,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       create: (definition, runtime) => this.createContentActor(definition, runtime),
       position: actor => actor,
       capture: (definition, actor) => ({ x: actor.x, y: actor.y,
-        ...(definition.kind === 'creature' ? { hp: (actor as Enemy).hp } : {}),
+        ...(definition.kind === 'creature' ? { hp: (actor as Enemy).hp,hpMax:(actor as Enemy).definition.hp } : {}),
       }),
       destroy: actor => this.destroyContentActor(actor),
     });
@@ -288,6 +297,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const travelStore=useGameStore.getState();
     this.enemySounds.pause(!this.focused||Boolean(travelStore.panel||travelStore.dialogue||travelStore.cinematic||this.passage.active));
     if(travelStore.passageRequest){const from=travelStore.harborPortId,to=travelStore.passageRequest;travelStore.hydrate({passageRequest:null});if(from)this.passage.begin(from,to);}
+    this.volcanicTremor.update(delta,this.worldGenerator.getRegionAt(this.player.x,this.player.y)==='darkav',
+      !this.focused||Boolean(travelStore.panel||travelStore.dialogue||travelStore.cinematic||this.passage.active||this.cinematicDirector.active),
+      this.onVolcanicRumble,this.onVolcanicSilence,!travelStore.weatherAudio);
     if(this.passage.active){
       const paused=!this.focused||Boolean(travelStore.panel);this.physics.world.pause();this.player.discardActions();
       this.dayNight.setFirefliesEnabled(false);
@@ -321,8 +333,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     this.handleShrineTravel();
     const uiBlocked = !this.focused || Boolean(useGameStore.getState().panel || useGameStore.getState().dialogue);
-    this.volcanicTremor.update(delta,this.worldGenerator.getRegionAt(this.player.x,this.player.y)==='darkav',uiBlocked,
-      ()=>this.cameras.main.shake(420,.0018));
     if (uiBlocked && !this.wasBlocked) this.player.resetInput();
     this.wasBlocked = uiBlocked;
     if (uiBlocked) this.physics.world.pause();
@@ -690,7 +700,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const gold = definition.goldMin + Math.floor(rng() * (definition.goldMax - definition.goldMin + 1));
     const bossId = enemy.instanceId.startsWith('boss:') ? enemy.instanceId.slice(5) : undefined;
     const boss=bossId?BOSS_BY_ID[bossId]:undefined;
-    if(boss?.respawns)enemy.createRetreatVisual();else enemy.createDeathVisual();
+    if(definition.combatStyle==='dragon'&&boss?.respawns)enemy.createRetreatVisual();else enemy.createDeathVisual();
     this.contentManager.patchState(enemy.instanceId, { hp: 0, defeated: true,
       ...(boss?.respawns&&boss.respawnDelayMs?{respawnAt:Date.now()+boss.respawnDelayMs}:{}),
     });
@@ -737,12 +747,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private isBlockedByBuilding(x: number, y: number) {
     if(fortificationBlocksPoint(x,y,20))return true;
     const feet={left:x-11,right:x+11,top:y-24,bottom:y+2};
-    for(const object of this.buildings.getChildren()){
-      const body=(object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      if(body?.enable&&overlaps(feet,body))return true;
-    }
-    for(const object of this.treeBodies.getChildren()){
-      const body=(object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
+    for(const body of this.physics.overlapRect(x-11.01,y-24.01,22.02,26.02,false,true)){
       if(body?.enable&&overlaps(feet,body))return true;
     }
     return false;
@@ -750,8 +755,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private isNpcObscured(x:number,y:number) {
     const person={left:x-25,right:x+25,top:y-76,bottom:y+2};
-    return foregroundBuildings.some(d=>d.kind==='settlement-prop' && d.world.y>y
-      && overlaps(person,spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y)))
+    return authoredRoofs.query(person).some(roof=>roof.y>y&&overlaps(person,roof.bounds))
       ||(Math.abs(x-TOWN_BY_ID.oakmere.world.x)<1350
         &&Math.abs(y-TOWN_BY_ID.oakmere.world.y)<1350
         &&oakmereTreeCanopies.some(tree=>tree.y>y&&overlaps(person,tree.bounds)));
@@ -760,15 +764,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   hasClearPath(ax: number, ay: number, bx: number, by: number, exclude?: Phaser.GameObjects.GameObject) {
     if(fortificationBlocksPath({x:ax,y:ay},{x:bx,y:by}))return false;
     const line = new Phaser.Geom.Line(ax, ay, bx, by);
-    for(const object of this.buildings.getChildren()){
+    // Use Arcade's static spatial tree, then the original exact intersection.
+    const left=Math.min(ax,bx),top=Math.min(ay,by);
+    const nearby=this.physics.overlapRect(left-.01,top-.01,Math.abs(bx-ax)+.02,Math.abs(by-ay)+.02,false,true);
+    for(const body of nearby){
+      const object=body.gameObject;
       if(object===exclude||(exclude&&object.getData(WORLD_SPRITE_OWNER)===exclude))continue;
-      const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      if(body?.enable&&this.lineIntersectsBody(line,body))return false;
-    }
-    for(const object of this.treeBodies.getChildren()){
-      if(object===exclude||(exclude&&object.getData(WORLD_SPRITE_OWNER)===exclude))continue;
-      const body = (object as Phaser.Physics.Arcade.Sprite).body as Phaser.Physics.Arcade.StaticBody;
-      if(body?.enable&&this.lineIntersectsBody(line,body))return false;
+      if(body?.enable&&this.lineIntersectsBody(line,body as Phaser.Physics.Arcade.StaticBody))return false;
     }
     return true;
   }
@@ -862,7 +864,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     ],true);
   }
 
-  private onBlur() { this.focused = false; this.panelActions.clear(); this.player?.resetInput(); }
+  private onBlur() { this.focused = false; this.panelActions.clear(); this.player?.resetInput();this.volcanicTremor?.pause(); }
   private onFocus() { this.focused = true; this.player?.resetInput(); }
 
   private createContentActor(definition: ContentDefinition, state: ContentState): ContentActor {
@@ -910,9 +912,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const enemy = new Enemy(this,ENEMY_BY_ID[definition.enemyId],x,y,definition.id,definition.eventSpawn,
         definition.wolfPackId??null,definition.wolfAlpha??false);
       this.groundShadows.register(enemy);
-      const baseMax=ENEMY_BY_ID[definition.enemyId].hp;
-      enemy.hp=state.hp===undefined||state.hp===baseMax ? enemy.definition.hp :
-        Math.max(0,Math.min(enemy.definition.hp,state.hp));
+      enemy.hp=restoredEnemyHealth(state,enemy.definition.hp);
       this.creatureBodies.add(enemy); this.enemies.add(enemy);
       if (definition.bossId && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 1200) {
         const boss = BOSSES.find(b => b.id === definition.bossId);
@@ -1175,6 +1175,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   shutdown() {
+    this.volcanicTremor?.destroy();
     this.passage?.destroy();
     this.targeting?.clear();
     useGameStore.getState().setBossEncounter(null);

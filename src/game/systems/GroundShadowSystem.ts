@@ -92,10 +92,14 @@ export class GroundShadowSystem {
   // Static scenery needs no redraw for subpixel clock changes. Actor shadows
   // follow at up to 30 Hz, and unchanged poses do not upload another texture.
   const cloud=Math.round(Math.min(1,Math.max(0,cloudCover))*8)/8,sunHour=Math.floor(hour*10)/10;
-  const lightKey=sunHour+':'+cloud;
-  if(lightKey!==this.lightingKey){this.lightingKey=lightKey;this.staticDirty=true;this.actorStamp=null;}
   const daylight=sunHour>=6&&sunHour<=18?Math.max(0,Math.sin((sunHour-6)/12*Math.PI)):0;
-  const castX=Math.cos((sunHour-6)/12*Math.PI)*(.22+(1-daylight)*.4),castY=.16+(1-daylight)*.24;
+  // Contact shadows have identical pixels after sunset. Changing the clock
+  // or cloud cover must not invalidate them while solar projections are off.
+  const lightKey=daylight<=.02?'contact':sunHour+':'+cloud;
+  if(lightKey!==this.lightingKey){this.lightingKey=lightKey;this.staticDirty=true;this.actorStamp=null;}
+  // Keep the original maximum culling reach at night, including custom
+  // contact offsets. Its bounds stay fixed while solar projections are off.
+  const castX=daylight<=.02?.62:Math.cos((sunHour-6)/12*Math.PI)*(.22+(1-daylight)*.4),castY=daylight<=.02?.4:.16+(1-daylight)*.24;
   const graphics=getGraphicEffects();
   const cloudKey=Math.round(daylight*20)+':'+cloud+':'+graphics.cloudShadows+':'+graphics.sunRays;
   // Cloud movement is a cheap image transform on every frame; only repaint

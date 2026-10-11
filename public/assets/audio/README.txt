@@ -1,5 +1,19 @@
 Mernodna audio sources
 
+Nature ambience (CC0; recordings included unmodified)
+-----------------------------------------------------
+day-birds.ogg: "Ambient Bird Sounds" by isaiah658
+https://opengameart.org/content/ambient-bird-sounds
+night-crickets.mp3: "cricket sounds" by syncopika
+https://opengameart.org/content/cricket-sounds
+night-owl.mp3: "Owl Hoot" by Breviceps (high-quality MP3 preview)
+https://freesound.org/people/Breviceps/sounds/465697/
+All three authors offer these recordings under CC0:
+https://creativecommons.org/publicdomain/zero/1.0/
+Bird calls play in short spaced windows; owl calls are intermittent.
+Crickets run quietly at night. Regional BGM fades out from 18:00 to 06:00.
+Wind retains the existing filtered-noise ambience at a restrained volume.
+
 Footsteps, heavy slams, metallic skill impacts, and heavy hit OGG effects are
 selected from Kenney's RPG Audio and Impact Sounds packs.
 Both packs are CC0 1.0 Universal:
@@ -91,3 +105,7 @@ No new music is synthesized by the game.
 The CC BY-SA recordings are included unmodified. Their respective license
 terms require attribution; see each source page and license for details.
 Trandum continues to use "The Britons" by Kevin MacLeod, credited above.
+
+Darkav tremor: ambience/volcanic.mp3 is the project-provided 12-second recording.
+It plays once per volcanic tremor, with camera movement following its playback
+position and measured volume envelope. It is streamed only after entering Darkav.

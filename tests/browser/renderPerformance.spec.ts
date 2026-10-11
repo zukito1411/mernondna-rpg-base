@@ -35,7 +35,10 @@ for(const viewport of [{width:1280,height:720},{width:844,height:390}])test.desc
     restore.push(()=>{texture.refresh=refresh;ctx.drawImage=draw;});
    }
    for(let i=0;i<120;i++){s.player.x+=.5;shadows.update(8,12,0);}
-   const moving={calls:120,staticUploads,actorUploads,draws};staticUploads=actorUploads=draws=0;
+   const moving={calls:120,staticUploads,actorUploads,draws};
+   // Finish the last pending moving pose at the mobile 70ms cadence before
+   // measuring uploads for an unchanged, settled pose.
+   shadows.update(100,12,0);staticUploads=actorUploads=draws=0;
    for(let i=0;i<120;i++)shadows.update(8,12,0);
    const stationary={staticUploads,actorUploads,draws};restore.forEach(fn=>fn());
    // Controlled half-water fixture isolates the actual mask renderer from

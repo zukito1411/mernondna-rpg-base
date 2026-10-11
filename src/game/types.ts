@@ -210,7 +210,7 @@ export interface InteractableContentDefinition extends ContentBase {
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {
-  hp?: number; defeated?: boolean; used?: boolean; trust?: number;
+  hp?: number; hpMax?:number; defeated?: boolean; used?: boolean; trust?: number;
   respawnAt?:number;
 }
 export interface ContentWorldState {

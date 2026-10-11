@@ -9,11 +9,13 @@ declare global { interface Window { __mernondnaGame?: Phaser.Game } }
 
 async function ready(page: Page) {
   await page.goto('/?e2e');
+  await page.getByRole('button',{name:'Start New Game',exact:true}).click();
   await page.waitForFunction(() => {
     const game = window.__mernondnaGame;
     return game && (game.scene.getScene('world') as WorldScene)?.player?.active;
   });
   await expect(page.locator('.game-canvas canvas')).toHaveCount(1);
+  await page.waitForFunction(()=>window.__mernondnaGame?.registry.get('worldReady'));
 }
 async function snapshot(page: Page) {
   return page.evaluate(() => {
@@ -48,7 +50,7 @@ test('desktop movement, sprint, dash, menus, terrain chunks and NPC conversation
   }),{intervals:[20]}).toEqual({fast:true,trail:true,effect:true});
   await page.keyboard.up('q'); await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.waitForTimeout(200);
-  const lighting = await page.evaluate(() => {
+  const lighting = await page.evaluate(async () => {
     const s = window.__mernondnaGame!.scene.getScene('world') as unknown as {
       player: { x: number; y: number; depth: number };
       textures:Phaser.Textures.TextureManager;
@@ -58,9 +60,11 @@ test('desktop movement, sprint, dash, menus, terrain chunks and NPC conversation
     };
     s.dayNight.minuteOfDay = 22 * 60;
     s.dayNight.update(100, s.player.x, s.player.y);
+    const maskAlpha=await new Promise<number>(resolve=>(s.textures.get('night-overlay') as Phaser.Textures.DynamicTexture)
+      .snapshotPixel(0,0,color=>resolve((color as Phaser.Display.Color).alpha/255)));
     return { playerGlow: s.children.list.some(child => child.name === 'night-player-light' && child.visible),
       fireflies: s.children.list.filter(child => child.name === 'firefly-light' && child.visible).length,
-      darkness:(s.textures.get('night-overlay') as Phaser.Textures.CanvasTexture).getContext().getImageData(0,0,1,1).data[3]/255,
+      darkness:maskAlpha*s.dayNight.overlay.alpha,
       overlayAboveWorld:s.dayNight.overlay.depth > s.player.depth };
   });
   expect(lighting.playerGlow).toBe(false); expect(lighting.fireflies).toBeGreaterThan(0);

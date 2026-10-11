@@ -277,7 +277,7 @@ for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
 export const CONTENT_BY_ID = Object.fromEntries(WORLD_CONTENT.map(d => [d.id, d])) as Record<string, ContentDefinition>;
 export function initialContentState(definition: ContentDefinition): ContentState {
   return { ...definition.world,
-    ...(definition.kind === 'creature' ? { hp: ENEMY_BY_ID[definition.enemyId].hp } : {}),
+    ...(definition.kind === 'creature' ? { hp: ENEMY_BY_ID[definition.enemyId].hp,hpMax:ENEMY_BY_ID[definition.enemyId].hp } : {}),
     ...(definition.kind === 'npc' ? { trust: NPC_BY_ID[definition.npcId].relationshipToLeigneron.trust } : {}),
   };
 }

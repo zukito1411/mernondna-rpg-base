@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import {seededRandom} from '../../utils/seededRandom';
 import {useGameStore} from '../../store/gameStore';
-import {WORLD_CONTENT} from '../../data/content';
-import {spriteBounds,type Rect} from '../../data/settlementGeometry';
+import {type Rect} from '../../data/settlementGeometry';
+import {authoredRoofs} from './authoredRoofs';
 import type {WorldGenerator} from './WorldGenerator';
 import {REGION_SCENERY} from '../../data/regionScenery';
 import {nightStrength} from '../../data/environmentLights';
@@ -13,6 +13,7 @@ import {getGraphicEffects} from './graphicsEffects';
 import {AshfallArt} from './AshfallArt';
 import {REGION_MUSIC} from './regionMusic';
 import type {RegionId} from '../types';
+import {NatureAmbience,natureMix} from './NatureAmbience';
 type Kind='clear'|'cloudy'|'rain'|'storm'|'snow'|'fog'|'wind'|'dust'|'ash';
 const labels:Record<Kind,string>={clear:'Clear skies',cloudy:'Overcast',rain:'Light rain',storm:'Heavy rain',snow:'Snowfall',fog:'Valley mist',wind:'Windy',dust:'Dust and ash',ash:'Falling volcanic ash'};
 export function weatherFor(region:string,biome:string,day:number,minute:number):Kind{
@@ -29,6 +30,7 @@ export function weatherFor(region:string,biome:string,day:number,minute:number):
 export class WeatherSystem {
   private readonly texture:Phaser.Textures.CanvasTexture;
   private readonly overlay:Phaser.GameObjects.Image;
+  private readonly tint:Phaser.GameObjects.Image;
   private kind:Kind='clear';private target:Kind='clear';private strength=0;private elapsed=0;private drawMs=100;
   private roofMs=500;private roofs:Rect[]=[];
   private readonly fogArt=new FogArt();private ambientMist=0;
@@ -37,6 +39,8 @@ export class WeatherSystem {
   private audio:AudioContext|null=null;private gain:GainNode|null=null;private source:AudioBufferSourceNode|null=null;
   private audioBus:GainNode|null=null;private audioFilter:BiquadFilterNode|null=null;
   private music: HTMLAudioElement | null = null;private nextMusic:HTMLAudioElement|null=null;
+  private readonly nature=new NatureAmbience();
+  private musicLevel=0;private musicRegion:RegionId|null=null;
   private currentRegion:RegionId='trandum';private musicFadeElapsed=0;private audioUnlocked=false;
   private weatherRegion:RegionId|null=null;private weatherBiome:string|null=null;private weatherDay=-1;private weatherPeriod=-1;private weatherBefore600:boolean|null=null;
   private weatherSample:{x:number;y:number;region:RegionId;biome:string}|null=null;
@@ -52,6 +56,12 @@ export class WeatherSystem {
     const viewport=overlayViewport(scene);
     this.texture=scene.textures.createCanvas('weather-overlay',Math.max(1,Math.round(viewport.width*(this.lightweight ? 0.65 : 1))),Math.max(1,Math.round(viewport.height*(this.lightweight ? 0.65 : 1))))!;
     this.overlay=scene.add.image(0,0,'weather-overlay').setOrigin(0).setScrollFactor(0).setDepth(999_990).setName('regional-weather');
+    if(!scene.textures.exists('weather-tint')){
+      const tint=scene.textures.createCanvas('weather-tint',1,1)!;
+      const ctx=tint.getContext();ctx.fillStyle='#2a3a48';ctx.fillRect(0,0,1,1);tint.refresh();
+    }
+    this.tint=scene.add.image(0,0,'weather-tint').setOrigin(0).setScrollFactor(0).setDepth(999_989.999)
+      .setVisible(false).setName('regional-weather-tint');
     const rng=seededRandom('weather-particles');this.points=Array.from({length:96},()=>({x:rng(),y:rng(),speed:.6+rng(),phase:rng()*6.28}));
     window.addEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
     window.addEventListener('mernondna-weather-audio',this.enableAudio);
@@ -60,7 +70,7 @@ export class WeatherSystem {
     document.addEventListener('visibilitychange',this.visibility);
   }
   private visibility=()=>{
-    if(document.hidden){void this.audio?.suspend().catch(()=>{});this.music?.pause();this.nextMusic?.pause();}
+    if(document.hidden){void this.audio?.suspend().catch(()=>{});this.music?.pause();this.nextMusic?.pause();this.nature.pause();}
     else if(this.audioUnlocked){void this.audio?.resume().catch(()=>{});this.startMusic();}
   };
   private unlockAudio=()=>{if(!this.audioUnlocked||this.audio?.state==='suspended')this.enableAudio();};
@@ -76,11 +86,14 @@ export class WeatherSystem {
       void this.audio.resume().catch(()=>{});
     }catch{/* Unsupported/muted audio never prevents play. */}
     this.audioUnlocked=true;
+    this.nature.unlock();
     this.startMusic();
   };
   private startMusic(){
-    if(!this.audioUnlocked||document.hidden)return;
+    if(!this.audioUnlocked||document.hidden||this.musicLevel<=.001)return;
+    if(this.musicRegion===this.currentRegion){if(this.music)this.playMusic(this.music);if(this.nextMusic)this.playMusic(this.nextMusic);return;}
     const src=REGION_MUSIC[this.currentRegion],resolved=new URL(src,document.baseURI).href;
+    this.musicRegion=this.currentRegion;
     if(this.music?.src===resolved&&!this.nextMusic){this.playMusic(this.music);return;}
     if(this.nextMusic?.src===resolved){this.playMusic(this.nextMusic);return;}
     if(this.nextMusic){
@@ -89,7 +102,7 @@ export class WeatherSystem {
       this.nextMusic=null;
     }
     if(!this.music){
-      this.music=this.createMusic(src,.24);
+      this.music=this.createMusic(src,this.musicLevel);
       this.playMusic(this.music);
       return;
     }
@@ -109,17 +122,21 @@ export class WeatherSystem {
   private disposeMusic(player:HTMLAudioElement){
     player.pause();player.removeAttribute('src');player.load();
   }
-  private updateMusic(delta:number){
+  private updateMusic(delta:number,minute:number,muted:boolean){
     if(!this.audioUnlocked)return;
+    if(muted||document.hidden){this.music?.pause();this.nextMusic?.pause();return;}
+    const target=natureMix(minute,this.currentRegion,'').music;
+    this.musicLevel+=Math.max(-delta*.00014,Math.min(delta*.00014,target-this.musicLevel));
+    if(this.musicLevel<=.001){if(this.music){this.music.volume=0;this.music.pause();}if(this.nextMusic){this.nextMusic.volume=0;this.nextMusic.pause();}return;}
     this.startMusic();
-    if(!this.nextMusic)return;
+    if(!this.nextMusic){if(this.music)this.music.volume=this.musicLevel;return;}
     this.musicFadeElapsed+=Math.max(0,delta);
     const progress=Math.min(1,this.musicFadeElapsed/1800);
-    this.nextMusic.volume=.24*progress;
-    if(this.music)this.music.volume=.24*(1-progress);
+    this.nextMusic.volume=this.musicLevel*progress;
+    if(this.music)this.music.volume=this.musicLevel*(1-progress);
     if(progress===1){
       if(this.music)this.disposeMusic(this.music);
-      this.music=this.nextMusic;this.nextMusic=null;this.music.volume=.24;
+      this.music=this.nextMusic;this.nextMusic=null;this.music.volume=this.musicLevel;
     }
   }
   update(delta:number,x:number,y:number,paused=false){
@@ -150,7 +167,9 @@ export class WeatherSystem {
     const weatherLabel=region==='darkav'?labels.ash:labels[this.kind];
     if(state.weatherLabel!==weatherLabel)state.hydrate({weatherLabel});
     this.updateAmbience(region,biome,night,paused||!state.weatherAudio);
-    this.updateMusic(delta);
+    const muted=paused||!state.weatherAudio;
+    this.nature.update(delta,state.minuteOfDay,region,biome,muted);
+    this.updateMusic(Math.max(0,Math.min(100,delta)),state.minuteOfDay,muted);
     const animatedPrecip=effects.weatherParticles&&['rain','storm','snow'].includes(this.kind);
     if(this.drawMs<(this.lightweight?(animatedPrecip?170:290):50))return;this.drawMs=0;
     const camera=this.scene.cameras.main,full=overlayViewport(this.scene);
@@ -161,19 +180,23 @@ export class WeatherSystem {
     const ashAmount=effects.weatherParticles?(region==='darkav'?.65+.35*this.strength:this.kind==='ash'?this.strength:0):0;
     // Darkav ash must render over the night-darkness veil, but below local
     // lights/emissions so its red flakes glow without obscuring scenery.
-    this.overlay.setDepth(region==='darkav'?1_000_000.5:999_990);
+    const depth=region==='darkav'?1_000_000.5:999_990;
+    if(this.overlay.depth!==depth)this.overlay.setDepth(depth);
+    if(this.tint.depth!==depth-.001)this.tint.setDepth(depth-.001);
     fitViewportOverlay(this.scene,this.overlay);
+    fitViewportOverlay(this.scene,this.tint);
     const hasWeatherTint=this.strength>0&&['storm','rain','cloudy'].includes(this.kind);
     const hasWeatherParticles=effects.weatherParticles&&this.strength>0&&!['clear','cloudy','fog','ash'].includes(this.kind)&&region!=='darkav';
-    const hasEffect=hasWeatherTint||hasWeatherParticles||fogAmount>.001||ashAmount>.001;
+    const wet=this.kind==='rain'||this.kind==='storm';
+    this.tint.setVisible(hasWeatherTint).setAlpha(this.strength*(this.kind==='storm'?.16:wet?.07:this.kind==='cloudy'?.1:0));
+    const hasEffect=hasWeatherParticles||fogAmount>.001||ashAmount>.001;
     this.overlay.setVisible(hasEffect);
     if(!hasEffect)return;
     if(this.roofMs>(this.lightweight?850:350)){this.roofMs=0;const cx=camera.worldView.x+w/z/2,cy=camera.worldView.y+h/z/2;
-      this.roofs=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop'&&Math.abs(d.world.x-cx)<w/z+500&&Math.abs(d.world.y-cy)<h/z+500)
-      .map(d=>d.kind==='settlement-prop'?spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y):{left:0,right:0,top:0,bottom:0});}
+      this.roofs=authoredRoofs.query({left:cx-w/z-500,top:cy-h/z-500,right:cx+w/z+500,bottom:cy+h/z+500}).map(roof=>roof.bounds);}
     const ctx=this.texture.getContext();ctx.clearRect(0,0,w,h);
-    const wet=this.kind==='rain'||this.kind==='storm';
-    ctx.fillStyle=`rgba(42,58,72,${this.strength*(this.kind==='storm'?.16:wet?.07:this.kind==='cloudy'?.1:0)})`;ctx.fillRect(0,0,w,h);
+    // Uniform tint uses a one-pixel GPU image underneath the animated layer.
+    // Overcast skies need no full-screen canvas uploads.
     this.fogArt.draw(ctx,w,h,camera.worldView.x,camera.worldView.y,this.elapsed,fogAmount,REGION_SCENERY[region].fogTint,night);
     this.ashArt.draw(ctx,w,h,camera.worldView.x,camera.worldView.y,this.elapsed,ashAmount,night);
     if(effects.weatherParticles&&region!=='darkav'&&this.kind!=='ash'&&this.kind!=='cloudy'&&this.kind!=='clear'&&this.kind!=='fog'){
@@ -196,8 +219,8 @@ export class WeatherSystem {
     this.audioBus.gain.setTargetAtTime(muted?0:1,now,.18);
     const weather=['rain','storm','wind','dust','ash'].includes(this.kind)
       ? this.strength*(this.kind==='storm'?.075:this.kind==='rain'?.052:.035):0;
-    const bed=coast ? .013+Math.sin(this.elapsed*.0007)*.005 : biome==='forest' ? (night>.5 ? .005 : .002) :
-      region==='nardorous'||region==='frostlands' ? .007 : region==='darkav' ? .005 : .002;
+    const bed=coast ? .013+Math.sin(this.elapsed*.0007)*.005 : biome==='forest' ? .005 :
+      region==='nardorous'||region==='frostlands' ? .007 : region==='darkav' ? .005 : .004;
     this.gain.gain.setTargetAtTime(weather+bed,now,.8);
     this.audioFilter.frequency.setTargetAtTime(this.kind==='storm'?1500:this.kind==='rain'?1050:coast?420:260,now,1);
   }
@@ -206,7 +229,8 @@ export class WeatherSystem {
     window.removeEventListener('mernondna-weather-audio',this.enableAudio);window.removeEventListener('pointerdown',this.unlockAudio);window.removeEventListener('keydown',this.unlockAudio);
     document.removeEventListener('visibilitychange',this.visibility);this.source?.stop();
     if(this.music)this.disposeMusic(this.music);if(this.nextMusic)this.disposeMusic(this.nextMusic);void this.audio?.close().catch(()=>{});
-    this.fogArt.destroy();this.ashArt.destroy();this.overlay.destroy();this.scene.textures.remove('weather-overlay');}
+    this.nature.destroy();
+    this.fogArt.destroy();this.ashArt.destroy();this.overlay.destroy();this.tint.destroy();this.scene.textures.remove('weather-overlay');}
 }
 
 // LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

@@ -57,15 +57,17 @@ test('survey all eleven settlements: map travel, clear main roads, lighting and 
   await page.keyboard.press('m');await page.getByRole('button',{name:'Select Oakmere for teleport',exact:true}).click();
   await page.getByRole('button',{name:'Teleport',exact:true}).click();
   for(const [label,hour] of [['day',12],['night',22]] as const) {
-    const lighting=await page.evaluate(hour=>{
+    const lighting=await page.evaluate(async hour=>{
       const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
       s.cameras.main.setZoom(1.3).startFollow(s.player,true,1,1);
-      const dayNight=(s as unknown as {dayNight:{minuteOfDay:number;update(delta:number,x:number,y:number):void}}).dayNight;
+      const dayNight=(s as unknown as {dayNight:{minuteOfDay:number;overlay:Phaser.GameObjects.Image;update(delta:number,x:number,y:number):void}}).dayNight;
       dayNight.minuteOfDay=hour*60;dayNight.update(100,s.player.x,s.player.y);
       const lights=s.children.list.filter(c=>c.name.startsWith('environment-light:')) as Phaser.GameObjects.Image[];
+      const maskAlpha=await new Promise<number>(resolve=>(s.textures.get('night-overlay') as Phaser.Textures.DynamicTexture)
+        .snapshotPixel(0,0,color=>resolve((color as Phaser.Display.Color).alpha)));
       return {count:lights.length,alpha:Math.max(...lights.map(l=>l.alpha)),
         playerLight:s.children.list.some(c=>c.name==='player-glow'),
-        overlayAlpha:(s.textures.get('night-overlay') as Phaser.Textures.CanvasTexture).getContext().getImageData(0,0,1,1).data[3]};
+        overlayAlpha:maskAlpha*dayNight.overlay.alpha};
     },hour);
     expect(lighting.count).toBeGreaterThan(0);expect(lighting.playerLight).toBe(false);
     if(label==='day'){expect(lighting.alpha).toBe(0);expect(lighting.overlayAlpha).toBe(0);}

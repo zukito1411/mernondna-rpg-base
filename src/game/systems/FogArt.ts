@@ -28,8 +28,15 @@ export class FogArt {
       const ox=((worldX*parallax-time*(.006+layer*.003))%stepX+stepX)%stepX;
       const oy=((worldY*parallax+time*.0015)%stepY+stepY)%stepY;
       ctx.globalAlpha=amount*(.17-layer*.025);
-      for(let row=-1;row<Math.ceil(height/stepY)+2;row++)for(let col=-1;col<Math.ceil(width/stepX)+2;col++)
-        ctx.drawImage(this.tint,col*stepX-ox+(row%2)*stepX*.28,row*stepY-oy,size,size*2/3);
+      for(let row=-1;row<Math.ceil(height/stepY)+2;row++){
+        const y=row*stepY-oy;
+        if(y>=height||y+size*2/3<=0)continue;
+        for(let col=-1;col<Math.ceil(width/stepX)+2;col++){
+          const x=col*stepX-ox+(row%2)*stepX*.28;
+          if(x>=width||x+size<=0)continue;
+          ctx.drawImage(this.tint,x,y,size,size*2/3);
+        }
+      }
     }
     // Faint daylight shafts belong to mist, not a glowing player spotlight.
     if(getGraphicEffects().sunRays&&night<.2&&amount>.4){ctx.globalAlpha=amount*.035;ctx.fillStyle='#fff2d0';

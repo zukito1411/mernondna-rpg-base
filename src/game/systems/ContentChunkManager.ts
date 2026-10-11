@@ -108,7 +108,10 @@ export class ContentChunkManager<Actor> {
 
   getState(id: string): ContentState | undefined {
     const definition = this.definitions.get(id);
-    return definition ? { ...this.host.initialState(definition), ...this.states.get(id) } : undefined;
+    const recorded=this.states.get(id);
+    return definition ? { ...this.host.initialState(definition), ...recorded,
+      // A legacy record's HP is real damage, not the untouched spawn default.
+      ...(recorded?.hp!==undefined&&recorded.hpMax===undefined?{hpMax:undefined}:{}) } : undefined;
   }
   getDefinition(id: string) { return this.definitions.get(id); }
   getActiveIds() { return [...this.active.keys()]; }

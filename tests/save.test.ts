@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGameStore } from '../src/store/gameStore';
-import { loadGame, parseSave, SAVE_KEY, saveGame, setSaveSnapshotProvider, watchProgressSaves } from '../src/utils/save';
+import { allowExplicitNewGame,loadGame, parseSave, SAVE_KEY, saveGame, setSaveSnapshotProvider, watchProgressSaves } from '../src/utils/save';
 
 let values: Map<string, string>;
 beforeEach(() => {
@@ -8,6 +8,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) });
   setSaveSnapshotProvider();
+  allowExplicitNewGame();
   useGameStore.getState().resetGame();
 });
 describe('local saves', () => {
@@ -78,7 +79,7 @@ describe('local saves', () => {
     expect(useGameStore.getState().quests['first-road'].objectiveProgress['kill-varr']).toBe(1);
     expect(useGameStore.getState().worldContent.states['boss:captain-varr'].defeated).toBe(true);
     saveGame();
-    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(4);
+    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(5);
   });
   it('preserves allocated attributes and learned skills through save/load', () => {
     useGameStore.getState().addRewards(250, 0);
@@ -97,6 +98,7 @@ describe('local saves', () => {
     saveGame();
     const old = JSON.parse(values.get(SAVE_KEY)!);
     old.version = 2;
+    old.state.level=4; // Legacy 750 XP used the old flat 250-XP requirement.
     delete old.state.attributes; delete old.state.statPoints; delete old.state.skillPoints; delete old.state.learnedSkills;
     values.set(SAVE_KEY, JSON.stringify(old));
     useGameStore.getState().resetGame();
@@ -106,11 +108,12 @@ describe('local saves', () => {
   it('round-trips dynamic encounter HP, loot flags, and NPC trust', () => {
     useGameStore.getState().setContentWorld({ nextSpawnSequence: 1,
       spawns: { 'spawn:0': { id: 'spawn:0', kind: 'creature', enemyId: 'gray-wolf', world: { x: 35000, y: 39000 }, eventSpawn: true } },
-      states: { 'spawn:0': { x: 35100, y: 39000, hp: 12 }, 'loot:oakmere-road-cache': { x: 35120, y: 39278, used: true },
+      states: { 'spawn:0': { x: 35100, y: 39000, hp: 12,hpMax:60 }, 'loot:oakmere-road-cache': { x: 35120, y: 39278, used: true },
         'npc:aldren-vale': { x: 34440, y: 39248, trust: 60 } } });
     saveGame(); useGameStore.getState().resetGame();
     expect(loadGame()).toBe(true);
     expect(useGameStore.getState().worldContent.states['spawn:0'].hp).toBe(12);
+    expect(useGameStore.getState().worldContent.states['spawn:0'].hpMax).toBe(60);
     expect(useGameStore.getState().worldContent.states['npc:aldren-vale'].trust).toBe(60);
     expect(useGameStore.getState().worldContent.states['loot:oakmere-road-cache'].used).toBe(true);
   });

@@ -19,15 +19,15 @@ test('all mobs use dedicated decoded recordings and owned audio obeys pause, unl
   sound.forget(id);const deathFinishes=registry.voices.get(id)?.sound===death;
   sound.play(e,'unload-audit','attack',x,y);sound.forget('unload-audit');const forgotten=!registry.voices.has('unload-audit');
   sound.play(e,'far','attack',x+5000,y);const inaudible=!registry.voices.has('far');
-  sound.playEffect('dragon-audit','flight',x,y,2400);const flight=registry.effects.get('dragon-audit')!.sound;
-  const flightMarker=flight.markers.cue.duration;sound.playEffect('dragon-audit','breath',x,y,1660);const breathMarker=registry.effects.get('dragon-audit')!.sound.markers.cue.duration;
-  sound.stopEffect('dragon-audit');const effectStopped=!registry.effects.has('dragon-audit');
+  sound.playEffect('dragon-audit','flight',x,y,2400);const flight=registry.effects.get('dragon-audit:flight')!.sound;
+  const flightLoop=(flight as Phaser.Sound.WebAudioSound).loop;sound.playEffect('dragon-audit','breath',x,y,1660);const breathMarker=registry.effects.get('dragon-audit:breath')!.sound.markers.cue.duration;
+  sound.stopEffect('dragon-audit');const effectStopped=![...registry.effects.keys()].some(key=>key.startsWith('dragon-audit:'));
   useGameStore.getState().hydrate({weatherAudio:false});sound.play(e,'muted','attack',x,y);const muted=!registry.voices.has('muted');
   useGameStore.getState().hydrate({weatherAudio:true});
-  return{mappings,growlSkipped,hurtReplaced:hurt!==attack,deathRetained,deathFinishes,paused,resumed,forgotten,inaudible,muted,effectStopped,flightMarker,breathMarker};
+  return{mappings,growlSkipped,hurtReplaced:hurt!==attack,deathRetained,deathFinishes,paused,resumed,forgotten,inaudible,muted,effectStopped,flightLoop,breathMarker};
  });
  const expected:Record<string,string>={'gray-wolf':'wolf','road-bandit':'human','bandit-captain':'human','salt-king':'human','rindass-boar':'boar','redmesa-chieftain':'boar','marsh-wraith':'wraith','moonlit-warden':'wraith','rootfather':'wraith','ashen-seer':'wraith','cave-troll':'troll','stonejaw-troll':'troll','frost-wyrm':'wyrm','ash-dragon':'dragon'};
  for(const m of audit.mappings){expect(m.voice).toBe(expected[m.id]);for(const c of m.clips){expect(c.duration).toBeGreaterThan(.1);if(m.voice==='dragon')expect(c.rate).toBe(1);}}
  for(const flag of ['growlSkipped','hurtReplaced','deathRetained','deathFinishes','paused','resumed','forgotten','inaudible','muted','effectStopped'] as const)expect(audit[flag],flag).toBe(true);
- expect(audit.flightMarker).toBe(2.4);expect(audit.breathMarker).toBe(1.66);
+ expect(audit.flightLoop).toBe(true);expect(audit.breathMarker).toBe(1.66);
 });
