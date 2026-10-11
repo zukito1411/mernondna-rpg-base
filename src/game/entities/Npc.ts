@@ -15,6 +15,8 @@ import { approachVelocity, strideRate } from '../systems/locomotion';
 import { MARCH_SPEED } from '../../data/capitalResidents';
 import {guardMarchTexture} from '../../data/guardMarchArt';
 import {guardMarchScale} from '../systems/GuardMarchArt';
+import {npcSchedulePosition} from '../../data/npcPositions';
+import {npcMayPatrol} from '../systems/npcPlacement';
 
 const NPC_WALK_SPEED = 44;
 type WalkDirection = ActorDirection;
@@ -146,7 +148,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       const council=story.storyFlags['relief-joint-council']&&['maela-quill','nella-harrow'].includes(this.definition.id);
       const period=(routine?.startHour??0)+':'+returned+':'+Boolean(council);
       if(period!==this.routineKey) {
-        this.routineKey=period;const location=returned?{x:-1280,y:1609}:council?{x:this.definition.id==='maela-quill'?160:-180,y:140}:routine?.location??this.definition.worldOffset;
+        this.routineKey=period;const location=returned?toLocal(scene.escortArrival()):council?{x:this.definition.id==='maela-quill'?160:-180,y:140}:npcSchedulePosition(this.definition,this.definition.schedule.findIndex(p=>p.startHour===routine?.startHour));
         this.routineAnchor=toWorld(location);this.target=null;this.npcDetour=null;this.returningHome=false;
         this.route=npcStreetRoute(this.definition.townId,toLocal(this),location,(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
       }
@@ -257,9 +259,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private get mayPatrol(){
-    return !this.definition.stationary&&(this.definition.spriteTexture==='npc_royal_guard'
-      ||this.walkTexture==='npc_elven_guard'
-      ||this.walkTexture==='npc_guard'&&TOWN_BY_ID[this.definition.townId].regionId==='trandum');
+    return npcMayPatrol(this.definition);
   }
 
   updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false) {

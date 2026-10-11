@@ -1,5 +1,6 @@
 import manifests from 'virtual:mernondna-art-packs';
 import {BANDIT_COMBAT_ART,BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
+import {SALT_KING_ANIMATIONS} from './saltKingArt';
 const hero = manifests['characters/leigneron'], priestess = manifests['npcs/shrine_priestess'];
 const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_bandit'], boar = manifests['enemies/boarfiend'], wraith = manifests['enemies/marsh_wraith'];
 const troll=manifests['enemies/troll'],dragon=manifests['enemies/dragon'];
@@ -100,6 +101,7 @@ export const TROLL_IMPACT_SOURCES:SpriteSource[]=Array.from({length:4},(_,i):Spr
   name:`troll:club-impact:${i}`,renderScale:1,groundAnchor:[(i+1)*128+64,86],
 }));
 ENEMY_ANIMATIONS.push({key:'effect-troll-impact',texture:'effect_troll_impact',frames:[0,1,2,3],frameRate:12,repeat:0});
+ENEMY_ANIMATIONS.push(...SALT_KING_ANIMATIONS);
 export function enemyAnimation(species:number, state:EnemyAnimationState) {
   const animation = ENEMY_ANIMATIONS.find(a => a.key === `enemy:${species}:${state}`);
   if (!animation) throw new Error(`No enemy animation for ${species}/${state}`);

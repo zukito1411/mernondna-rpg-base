@@ -94,7 +94,7 @@ export interface EnemyDefinition {
   id: string;
   name: string;
   spriteFrame: number;
-  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon';
+  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king';
   appearanceMultiplier?:number;
   bodyRadius?:number;
   combatStyle?:'troll'|'dragon';

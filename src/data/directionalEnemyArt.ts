@@ -9,6 +9,7 @@ export const DIRECTIONAL_ENEMY_ART=[
  {species:3,id:'marsh-wraith',texture:'enemies',walkTexture:'enemy_walk_wraith',frameWidth:144,frameHeight:128},
  {species:4,id:'cave-troll',texture:'enemy_troll',walkTexture:'enemy_walk_troll',frameWidth:240,frameHeight:160},
  {species:5,id:'ash-dragon',texture:'enemy_dragon',walkTexture:'enemy_walk_dragon',frameWidth:384,frameHeight:288},
+ {species:6,id:'salt-king',texture:'enemy_salt_king',walkTexture:'enemy_walk_salt_king',frameWidth:128,frameHeight:112},
 ] as const;
 export function enemyLocomotionKey(species:number,state:'idle'|'walk',direction:ActorDirection){
  return `enemy:${species}:${state}:${direction}`;

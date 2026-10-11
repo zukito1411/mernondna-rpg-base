@@ -9,7 +9,7 @@ import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
 export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]{
  const animations:SpriteAnimation[]=[];
  const drawPose=createSpriteCropper();
- for(const art of DIRECTIONAL_ENEMY_ART){
+ for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6)){
   const sourceKey='directional-source:'+art.id,source=scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
   const sourceCanvas=document.createElement('canvas');sourceCanvas.width=source.width;sourceCanvas.height=source.height;
   const sourceCtx=sourceCanvas.getContext('2d',{willReadFrequently:true})!;sourceCtx.drawImage(source,0,0);

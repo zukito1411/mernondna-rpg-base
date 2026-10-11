@@ -1,6 +1,7 @@
 import { QUEST_BY_ID } from '../../data/quests';
 import { WORLD_CONTENT } from '../../data/content';
 import { NPC_BY_ID } from '../../data/npcs';
+import {npcWorldPosition} from '../../data/npcPositions';
 import { ENEMY_BY_ID } from '../../data/enemies';
 import { TOWN_BY_ID } from '../../data/towns';
 import type { ContentDefinition, ContentWorldState, QuestRuntimeState, QuestTarget, Vec2 } from '../types';
@@ -34,7 +35,7 @@ export function resolveQuestTarget(quests: Record<string, QuestRuntimeState>, wo
   if(objective.type==='quest'){
     if(quests[objective.targetId]?.status==='active')return resolveQuestTarget(quests,world,player,livePosition,objective.targetId);
     const dependency=QUEST_BY_ID[objective.targetId],npc=dependency&&NPC_BY_ID[dependency.giverNpcId];
-    if(!npc)return null;const town=TOWN_BY_ID[npc.townId],id='npc:'+npc.id,p=livePosition?.(id)??world.states[id]??{x:town.world.x+npc.worldOffset.x,y:town.world.y+npc.worldOffset.y};
+    if(!npc)return null;const id='npc:'+npc.id,p=livePosition?.(id)??world.states[id]??npcWorldPosition(npc);
     return {...p,contentId:id,label:npc.name+' — '+dependency.name,questId,objectiveId:objective.id,type:objective.type};
   }
   const candidates = WORLD_CONTENT.filter(d => {

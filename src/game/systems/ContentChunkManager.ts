@@ -2,6 +2,7 @@ import type { ContentDefinition, ContentState, ContentWorldState, CreatureConten
 import { chunkNeighborhood, contentChunkKey } from './chunkNeighborhood';
 import {CHUNK_SIZE,STREAM_RADIUS} from '../../data/world';
 import {NPC_BY_ID} from '../../data/npcs';
+import {npcMayPatrol} from './npcPlacement';
 
 export interface ContentHost<Actor> {
   initialState(definition: ContentDefinition): ContentState;
@@ -33,9 +34,12 @@ export class ContentChunkManager<Actor> {
       const d=known.get(id);if(!d) continue;
       // Static placements are authored, not world relocations. Layout repairs
       // apply to old saves while preserving opened caches and attuned shrines.
-      // Keep trust and quest progress, but clear old saved Oakmere coordinates.
-      const oakmereNpc=d.kind==='npc'&&NPC_BY_ID[d.npcId]?.townId==='oakmere';
-      this.states.set(id,{...state,...(oakmereNpc||(d.kind!=='npc'&&d.kind!=='creature')?d.world:{})});
+      // Fixed residents in every town use the repaired court coordinates;
+      // walking guards and the escorted witness retain their live journeys.
+      const npc=d.kind==='npc'?NPC_BY_ID[d.npcId]:undefined;
+      const fixedNpc=npc&&!npcMayPatrol(npc);
+      const escortedNpc=d.kind==='npc'&&d.npcId==='tovin-reed';
+      this.states.set(id,{...state,...(fixedNpc&&!escortedNpc||(d.kind!=='npc'&&d.kind!=='creature')?d.world:{})});
       if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);
     }
     for (const definition of definitions) this.register(definition);

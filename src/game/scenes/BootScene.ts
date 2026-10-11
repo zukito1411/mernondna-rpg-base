@@ -18,6 +18,8 @@ import {GUARD_MARCH_ART} from '../../data/guardMarchArt';
 import {prepareGuardMarchArt} from '../systems/GuardMarchArt';
 import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
+import {prepareSaltKingArt} from '../systems/SaltKingArt';
+import {SALT_KING_STATES,saltKingArtPath} from '../../data/saltKingArt';
 import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
 import {ATTACK_WARNING_TEXTURE,registerAttackWarningFrames} from '../systems/attackWarning';
 
@@ -130,7 +132,8 @@ export class BootScene extends Phaser.Scene {
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
     for(const art of GUARD_MARCH_ART)this.load.image('guard-march-source:'+art.walk,art.path);
-    for(const art of DIRECTIONAL_ENEMY_ART)this.load.image('directional-source:'+art.id,'assets/enemies/directional/'+art.id+'.png');
+    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6))this.load.image('directional-source:'+art.id,'assets/enemies/directional/'+art.id+'.png');
+    for(const state of ['walk',...SALT_KING_STATES] as const)this.load.image('salt-king-source:'+state,saltKingArtPath(state));
     for(const art of BANDIT_COMBAT_ART)this.load.image('bandit-combat-source:'+art.state,banditCombatPath(art.state));
     for(const art of REFINED_ENEMY_ART)for(const state of REFINED_ENEMY_STATES)
       this.load.image(`refined-source:${art.id}:${state}`,refinedEnemyPath(art.id,state));
@@ -355,6 +358,7 @@ export class BootScene extends Phaser.Scene {
     prepareRefinedEnemyArt(this);
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
     prepareBanditCombatArt(this);
+    const saltKingAnimations=prepareSaltKingArt(this);
     const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
     const guardMarchAnimations=prepareGuardMarchArt(this);
     prepareScorchedArt(this);
@@ -368,6 +372,7 @@ export class BootScene extends Phaser.Scene {
       ...directionalNpcIdles,
       ...ENEMY_ANIMATIONS,
       ...directionalEnemyAnimations,
+      ...saltKingAnimations,
       ...PLAYER_ATTACK_ANIMATIONS,
       ...PLAYER_EFFECT_ANIMATIONS,
       ...PLAYER_SKILL_ANIMATIONS

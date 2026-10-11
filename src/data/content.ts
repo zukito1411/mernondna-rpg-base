@@ -1,6 +1,7 @@
 import type { ContentDefinition, ContentState } from '../game/types';
 import { BOSSES, ENEMY_BY_ID } from './enemies';
 import { NPCS, NPC_BY_ID, NPC_NAME_ALIASES } from './npcs';
+import {npcWorldPosition} from './npcPositions';
 import { rewriteNpcMentions } from './npcPresentation';
 import { TOWNS, TOWN_BY_ID } from './towns';
 import { WORLD_ASSET_FRAMES as PROPS,artFrameSize } from './art';
@@ -115,9 +116,8 @@ for (const [index,bridgeY] of HIGHMERE_RIVER.bridgeY.entries()) {
     texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center' });
 }
 for (const npc of NPCS) {
-  const town = TOWN_BY_ID[npc.townId];
   WORLD_CONTENT.push({ id: `npc:${npc.id}`, kind: 'npc', npcId: npc.id,
-    world: { x: town.world.x + npc.worldOffset.x, y: town.world.y + npc.worldOffset.y } });
+    world: npcWorldPosition(npc) });
 }
 for (const boss of BOSSES) {
   // Keep authored boss territories outside the larger settlement boundaries.

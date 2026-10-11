@@ -50,7 +50,7 @@ export const ENEMIES: EnemyDefinition[] = [
     summonEnemyId: 'marsh-wraith', summonCount: 1, summonCooldownMs: 22000, attackRadius: 104, regionWeights: { druganwoods: 5 },
   },
   {
-    id: 'salt-king', name: 'The Salt King', spriteFrame: 1, hp: 380, damage: 23, moveSpeed: 72, aggroRange: 340, attackRange: 78, attackCooldownMs: 1550,
+    id: 'salt-king', name: 'The Salt King', spriteFrame: 6, spriteTexture:'enemy_salt_king', hp: 380, damage: 23, moveSpeed: 72, aggroRange: 340, attackRange: 78, attackCooldownMs: 1550,
     xp: 200, goldMin: 34, goldMax: 58, boss: true, attackWindupMs: 620, attackRecoveryMs: 980,
     summonEnemyId: 'road-bandit', summonCount: 2, summonCooldownMs: 18500, regionWeights: { portquill: 5 },
   },

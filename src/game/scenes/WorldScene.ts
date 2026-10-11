@@ -5,6 +5,8 @@ import {restoredEnemyHealth} from '../systems/enemyHealth';
 import {authoredRoofs} from '../systems/authoredRoofs';
 import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
+import {npcWorldPosition,npcEscortArrival} from '../../data/npcPositions';
+import {npcMayPatrol,npcPersonalSpace,npcStandingOffRoad} from '../systems/npcPlacement';
 import { TOWN_BY_ID } from '../../data/towns';
 import { ROAD_ROUTES } from '../../data/roadRoutes';
 import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
@@ -138,6 +140,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   streamCinematicView(x:number,y:number){this.chunkManager.update(x,y,Boolean(this.passage?.active));this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
   storyActorPosition(id:string){const actor=this.contentManager.getActor('npc:'+id)??this.contentManager.getState('npc:'+id);return actor?{x:actor.x,y:actor.y-35}:undefined;}
   prepareStoryActors(){for(const npc of this.npcs)if(!npc.definition.formation)npc.storyRest();}
+  escortArrival(){return npcEscortArrival();}
   recordTraining(targetId:string) {
     const target=this.contentManager.getActor('training:highmere-target');
     if(target&&Math.hypot(this.player.x-target.x,this.player.y-target.y)<240
@@ -179,7 +182,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   npcCanStandAt(x:number,y:number,exclude?:Npc):boolean {
     return this.worldGenerator.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y)
       &&!this.isNpcObscured(x,y)
-      &&this.npcs.every(n=>!n.active||n===exclude||Math.hypot(n.x-x,n.y-y)>=64)
+      &&this.npcs.every(n=>!n.active||n===exclude||(npcMayPatrol(n.definition)?Math.hypot(n.x-x,n.y-y)>=64:npcPersonalSpace(n,{x,y})))
       &&(!this.player?.active||Math.hypot(this.player.x-x,this.player.y-y)>=52);
   }
 
@@ -346,8 +349,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const store=useGameStore.getState();
       if(objectiveIsCurrent(store.quests,'escort','tovin-reed')) {
         const witness=this.npcs.find(n=>n.definition.id==='tovin-reed');
-        const kitchen=NPC_BY_ID['mairin-reed'],town=TOWN_BY_ID.highmere;
-        if(witness&&!witness.escorting)witness.beginEscort({x:town.world.x+kitchen.worldOffset.x,y:town.world.y+kitchen.worldOffset.y});
+        if(witness&&!witness.escorting)witness.beginEscort(this.escortArrival());
       }
       for (const npc of this.npcs) if (npc.active) npc.updatePatrol(time,delta);
       for (const enemy of this.enemies) {
@@ -890,25 +892,24 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const phase=npcDefinition.formation?formationPosition(this.activePlayMs,npcDefinition.formation.rank):null;
       const town=TOWN_BY_ID[npcDefinition.townId];
       const returned=definition.npcId==='tovin-reed'&&(useGameStore.getState().quests['shadows-highmere']?.objectiveProgress.escort??0)>=1;
-      const position = npcDefinition.stationary?definition.world
-        :returned?{x:town.world.x-1280,y:town.world.y+1609}
+      const position = returned?this.escortArrival()
+        :!npcMayPatrol(npcDefinition)&&definition.npcId!=='tovin-reed'?definition.world
         :phase&&this.getWorldHour()>=6&&this.getWorldHour()<20?{x:town.world.x+phase.x,y:town.world.y+phase.y}
         : obscuredKeeper || this.isNpcObscured(x,y) || this.isBlockedByBuilding(x,y) ? definition.world : { x,y };
-      // Oakmere residents return to their authored home positions. If a
-      // later layout moved scenery over an authored spot, choose the nearest
-      // accessible clear point without changing quest/trust/save identities.
+      // Validate every town against loaded GPU-derived scenery and neighbors.
+      // Fixed residents use audited courts, rather than stale saved positions.
       let npcPosition=position;
-      if(npcDefinition.townId==='oakmere'){
-        const home=definition.world;
+      if(!this.npcCanStandAt(position.x,position.y)){
+        const home=position;
         const offsets:Array<[number,number]>=[[0,0]];
-        for(const radius of [48,88,128,176,224,280])
+        for(const radius of [32,64,96,128,176,224,280,352,448,576])
           for(const [dx,dy] of [[0,-1],[-1,0],[1,0],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])
             offsets.push([dx*radius,dy*radius]);
         const clear=offsets.map(([dx,dy])=>({x:home.x+dx,y:home.y+dy}))
-          .find(candidate=>this.npcCanStandAt(candidate.x,candidate.y));
-        npcPosition=clear??home;
+          .find(candidate=>this.npcCanStandAt(candidate.x,candidate.y)&&(npcDefinition.formation||npcStandingOffRoad(npcDefinition,candidate)));
+        npcPosition=clear??npcWorldPosition(npcDefinition);
       }
-      const npc = new Npc(this, npcDefinition, npcPosition.x, npcPosition.y, definition.world);
+      const npc = new Npc(this, npcDefinition, npcPosition.x, npcPosition.y, npcWorldPosition(npcDefinition,'home'));
       this.groundShadows.register(npc);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
