@@ -1,3 +1,4 @@
+
 name: Build and publish Android APK
 
 on:
@@ -16,80 +17,232 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-java@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
+
       - name: Restore and verify permanent Android signing key
         env:
           ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
+
           if [[ -z "${ANDROID_DEBUG_KEYSTORE_BASE64:-}" ]]; then
             echo "::error::Missing ANDROID_DEBUG_KEYSTORE_BASE64 repository secret."
             exit 1
           fi
+
           install -d -m 700 "$HOME/.android"
-          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+
+          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" \
+            | base64 --decode > "$HOME/.android/debug.keystore"
+
           chmod 600 "$HOME/.android/debug.keystore"
+
           expected_cert="FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD"
-          actual_cert="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+
+          actual_cert="$(
+            keytool -list -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey \
+              -storepass android \
+              | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' \
+              | tr -d ':\r' \
+              | tr '[:lower:]' '[:upper:]'
+          )"
+
+          echo "Expected certificate: $expected_cert"
+          echo "Restored certificate: ${actual_cert:-NOT_FOUND}"
+
           if [[ "$actual_cert" != "$expected_cert" ]]; then
-            echo "::error::Signing key certificate does not match the existing locally installed game."
+            echo "::error::Restored signing key does not match the existing installed game."
             exit 1
           fi
-          echo "Permanent Android signing key restored and certificate verified."
+
+          echo "ANDROID_CI_KEYSTORE=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+
+          echo "Permanent Android signing key verified."
+
       - name: Install Android SDK packages
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;34.0.0'
+          set -euo pipefail
+
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-35' \
+            'build-tools;34.0.0'
+
       - name: Install dependencies
         run: npm ci
+
       - name: Check test TypeScript (non-blocking)
         continue-on-error: true
         run: npm run test:types
+
       - name: Run regression tests (non-blocking)
         continue-on-error: true
-        run: npm test -- tests/directionalActors.test.ts tests/dragonBreath.test.ts tests/passageStory.test.ts tests/travelRoutes.test.ts tests/questProgress.test.ts tests/contentStreaming.test.ts
+        run: |
+          npm test -- \
+            tests/directionalActors.test.ts \
+            tests/dragonBreath.test.ts \
+            tests/passageStory.test.ts \
+            tests/travelRoutes.test.ts \
+            tests/questProgress.test.ts \
+            tests/contentStreaming.test.ts
+
       - name: Build web assets and sync Android
         run: npm run cap:android:refresh
+
+      - name: Configure permanent APK signing
+        run: |
+          set -euo pipefail
+
+          if [[ ! -s "$ANDROID_CI_KEYSTORE" ]]; then
+            echo "::error::Permanent Android keystore not found."
+            exit 1
+          fi
+
+          cat > android/app/ci-signing.gradle <<'GRADLE'
+          android {
+              signingConfigs {
+                  debug {
+                      storeFile file(System.getenv('ANDROID_CI_KEYSTORE'))
+                      storePassword 'android'
+                      keyAlias 'androiddebugkey'
+                      keyPassword 'android'
+                  }
+              }
+
+              buildTypes {
+                  debug {
+                      signingConfig signingConfigs.debug
+                  }
+              }
+          }
+          GRADLE
+
+          printf '\napply from: "ci-signing.gradle"\n' \
+            >> android/app/build.gradle
+
+          echo "Gradle configured to use the restored permanent signing key."
+
       - name: Build installable APK
         working-directory: android
-        run: bash gradlew :app:assembleDebug -PciVersionCode="$GITHUB_RUN_NUMBER" --no-daemon --console=plain
+        run: |
+          set -euo pipefail
+
+          bash gradlew :app:assembleDebug \
+            -PciVersionCode="$GITHUB_RUN_NUMBER" \
+            --no-daemon \
+            --console=plain
+
       - name: Verify and prepare downloads
         run: |
           set -euo pipefail
+
           apk="android/app/build/outputs/apk/debug/app-debug.apk"
-          cert_info="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$apk")"
-          apk_cert="$(printf '%s\n' "$cert_info" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:lower:]' '[:upper:]')"
-          if [[ "$apk_cert" != "FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD" ]]; then
+
+          expected_cert="FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD"
+
+          if [[ ! -s "$apk" ]]; then
+            echo "::error::APK was not generated."
+            exit 1
+          fi
+
+          cert_info="$(
+            "$ANDROID_HOME/build-tools/34.0.0/apksigner" \
+              verify --print-certs "$apk"
+          )"
+
+          apk_cert="$(
+            printf '%s\n' "$cert_info" \
+              | awk '/Signer #1 certificate SHA-256 digest:/ {print $NF; exit}' \
+              | tr -d ':\r' \
+              | tr '[:lower:]' '[:upper:]'
+          )"
+
+          echo "Expected certificate: $expected_cert"
+          echo "Actual APK certificate: ${apk_cert:-NOT_FOUND}"
+
+          if [[ -z "$apk_cert" ]]; then
+            echo "::error::Unable to extract APK signing certificate."
+            printf '%s\n' "$cert_info"
+            exit 1
+          fi
+
+          if [[ "$apk_cert" != "$expected_cert" ]]; then
             echo "::error::APK signing certificate does not match the existing installed game."
             exit 1
           fi
-          echo "Verified APK signing certificate: $apk_cert"
-          cp android/app/build/outputs/apk/debug/app-debug.apk Tales-of-Leighneron.apk
-          sha256sum Tales-of-Leighneron.apk > Tales-of-Leighneron.apk.sha256
+
+          echo "APK signing certificate verified successfully."
+
+          cp "$apk" Tales-of-Leighneron.apk
+
+          sha256sum Tales-of-Leighneron.apk \
+            > Tales-of-Leighneron.apk.sha256
+
           cat > release-notes.md <<'NOTES'
-          Installable Android debug build, including the updated dragon breath sprites and animations, crewed boat passages, world traffic, quests and cutscenes.
+          # Tales of Leighneron - Android Build
 
-          Download Tales-of-Leighneron.apk below and open it on your Android device. Requires Android 6.0 or newer. The APK includes the game assets and does not need a running development server.
+          Installable Android debug build containing the latest game changes.
 
-          This is a development build signed with the persistent Android debug key from GitHub Actions Secrets. It matches the locally built app-debug.apk signing certificate (FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD). Android can update an installed app in place when the package name and signing certificate match and the version code is not lower. APKs signed with a different key cannot be installed as updates.
+          ## Installation
 
-          The accompanying SHA-256 file lets you verify your download.
+          Download Tales-of-Leighneron.apk and open it on your Android device.
+
+          Requires Android 6.0 or newer.
+
+          The APK contains the bundled game assets and does not require a running development server.
+
+          ## Updates and saved games
+
+          This APK uses the verified permanent Android signing certificate:
+
+          FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD
+
+          It is intended to support in-place updates of existing installations signed with the same certificate.
+
+          The package identifier remains com.mernondna.rpg.
+
+          The Android versionCode increases with the GitHub Actions run number.
+
+          Updating an existing installation with the same package name, signing certificate, and a higher versionCode should preserve its local application data.
+
+          ## Verification
+
+          The accompanying SHA-256 checksum file can be used to verify APK integrity.
           NOTES
+
       - name: Publish APK on GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+
           release_tag="android-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$release_tag" Tales-of-Leighneron.apk Tales-of-Leighneron.apk.sha256 \
+
+          gh release create "$release_tag" \
+            Tales-of-Leighneron.apk \
+            Tales-of-Leighneron.apk.sha256 \
             --target "$GITHUB_SHA" \
             --title "Android build ${GITHUB_SHA:0:7}" \
-            --notes-file release-notes.md --latest
-          printf 'Download: https://github.com/%s/releases/download/%s/Tales-of-Leighneron.apk\n' "$GITHUB_REPOSITORY" "$release_tag" >> "$GITHUB_STEP_SUMMARY"
+            --notes-file release-notes.md \
+            --latest
+
+          printf 'Download: https://github.com/%s/releases/download/%s/Tales-of-Leighneron.apk\n' \
+            "$GITHUB_REPOSITORY" \
+            "$release_tag" \
+            >> "$GITHUB_STEP_SUMMARY"

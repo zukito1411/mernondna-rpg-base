@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { GraphicsQualityControl } from './GraphicsQualityControl';
 
 interface HomeMenuProps {
   canContinue: boolean;
@@ -39,6 +40,7 @@ export function HomeMenu({ canContinue, message, onContinue, onNewGame }: HomeMe
             <button type="button" className="home-option-toggle" aria-pressed={ambience} onClick={toggleAmbience}>
               <span>World sounds</span><strong>{ambience ? 'On' : 'Off'}</strong>
             </button>
+            <GraphicsQualityControl />
             <p>This option controls weather ambience and gameplay sound effects. Regional background music is unaffected.</p>
           </section>
         </div>

@@ -8,6 +8,7 @@ import {REGION_SCENERY} from '../../data/regionScenery';
 import {nightStrength} from '../../data/environmentLights';
 import {FogArt} from './FogArt';
 import {overlayViewport,fitViewportOverlay} from './renderSizing';
+import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
 import {AshfallArt} from './AshfallArt';
 import {REGION_MUSIC} from './regionMusic';
 import type {RegionId} from '../types';
@@ -37,14 +38,20 @@ export class WeatherSystem {
   private music: HTMLAudioElement | null = null;private nextMusic:HTMLAudioElement|null=null;
   private currentRegion:RegionId='trandum';private musicFadeElapsed=0;private audioUnlocked=false;
   private weatherRegion:RegionId|null=null;private weatherBiome:string|null=null;private weatherDay=-1;private weatherPeriod=-1;private weatherBefore600:boolean|null=null;
+  private lightweight = getEffectsQuality() === 'low';
+  private readonly onQualityChange = () => {
+    this.lightweight = getEffectsQuality() === 'low';
+    this.drawMs = 150; this.roofMs = 1000;
+  };
   private destroyed=false;
   get windStrength(){return this.kind==='wind'||this.kind==='storm'||this.kind==='dust'||this.kind==='ash'?this.strength:.18+this.strength*.25;}
   get cloudCover(){return this.strength*({clear:0,cloudy:.8,rain:.65,storm:1,snow:.6,fog:.65,wind:.15,dust:.35,ash:.5}[this.kind]);}
   constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator){
     const viewport=overlayViewport(scene);
-    this.texture=scene.textures.createCanvas('weather-overlay',viewport.width,viewport.height)!;
+    this.texture=scene.textures.createCanvas('weather-overlay',Math.max(1,Math.round(viewport.width*(this.lightweight ? 0.65 : 1))),Math.max(1,Math.round(viewport.height*(this.lightweight ? 0.65 : 1))))!;
     this.overlay=scene.add.image(0,0,'weather-overlay').setOrigin(0).setScrollFactor(0).setDepth(999_990).setName('regional-weather');
     const rng=seededRandom('weather-particles');this.points=Array.from({length:96},()=>({x:rng(),y:rng(),speed:.6+rng(),phase:rng()*6.28}));
+    window.addEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
     window.addEventListener('mernondna-weather-audio',this.enableAudio);
     window.addEventListener('pointerdown',this.unlockAudio);
     window.addEventListener('keydown',this.unlockAudio);
@@ -135,8 +142,10 @@ export class WeatherSystem {
     if(state.weatherLabel!==weatherLabel)state.hydrate({weatherLabel});
     this.updateAmbience(region,biome,night,paused||!state.weatherAudio);
     this.updateMusic(delta);
-    if(this.drawMs<50)return;this.drawMs=0;
-    const camera=this.scene.cameras.main,{zoom:z,width:w,height:h}=overlayViewport(this.scene);
+    if(this.drawMs<(this.lightweight?130:50))return;this.drawMs=0;
+    const camera=this.scene.cameras.main,full=overlayViewport(this.scene);
+    const resolution=this.lightweight ? 0.65 : 1;
+    const z=full.zoom*resolution,w=Math.max(1,Math.round(full.width*resolution)),h=Math.max(1,Math.round(full.height*resolution));
     if(this.texture.width!==w||this.texture.height!==h)this.texture.setSize(w,h);
     const fogAmount=Math.max(this.ambientMist,this.kind==='fog'?this.strength:0);
     const ashAmount=region==='darkav'?.65+.35*this.strength:this.kind==='ash'?this.strength:0;
@@ -145,7 +154,7 @@ export class WeatherSystem {
     this.overlay.setDepth(region==='darkav'?1_000_000.5:999_990);
     fitViewportOverlay(this.scene,this.overlay);this.overlay.setVisible(this.strength>0||fogAmount>0||ashAmount>0);
     if(this.strength===0&&fogAmount===0&&ashAmount===0)return;
-    if(this.roofMs>350){this.roofMs=0;const cx=camera.worldView.x+w/z/2,cy=camera.worldView.y+h/z/2;
+    if(this.roofMs>(this.lightweight?850:350)){this.roofMs=0;const cx=camera.worldView.x+w/z/2,cy=camera.worldView.y+h/z/2;
       this.roofs=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop'&&Math.abs(d.world.x-cx)<w/z+500&&Math.abs(d.world.y-cy)<h/z+500)
       .map(d=>d.kind==='settlement-prop'?spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y):{left:0,right:0,top:0,bottom:0});}
     const ctx=this.texture.getContext();ctx.clearRect(0,0,w,h);
@@ -154,7 +163,8 @@ export class WeatherSystem {
     this.fogArt.draw(ctx,w,h,camera.worldView.x,camera.worldView.y,this.elapsed,fogAmount,REGION_SCENERY[region].fogTint,night);
     this.ashArt.draw(ctx,w,h,camera.worldView.x,camera.worldView.y,this.elapsed,ashAmount,night);
     if(region!=='darkav'&&this.kind!=='ash'&&this.kind!=='cloudy'&&this.kind!=='clear'&&this.kind!=='fog'){
-      const count=this.kind==='storm'?96:wet?60:this.kind==='snow'?Math.floor(32+this.strength*40):20;
+      const count=this.lightweight?(this.kind==='storm'?42:wet?30:this.kind==='snow'?28:14)
+        :this.kind==='storm'?96:wet?60:this.kind==='snow'?Math.floor(32+this.strength*40):20;
       for(let i=0;i<count;i++){const p=this.points[i],px=(p.x*w+this.elapsed*(wet?.08:.018)*p.speed)%w,
         py=(p.y*h+this.elapsed*(wet?.55:this.kind==='snow'?.04:.009)*p.speed)%h;
         const wx=camera.worldView.x+px/z,wy=camera.worldView.y+py/z;
@@ -178,6 +188,7 @@ export class WeatherSystem {
     this.audioFilter.frequency.setTargetAtTime(this.kind==='storm'?1500:this.kind==='rain'?1050:coast?420:260,now,1);
   }
   destroy(){if(this.destroyed)return;this.destroyed=true;
+    window.removeEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
     window.removeEventListener('mernondna-weather-audio',this.enableAudio);window.removeEventListener('pointerdown',this.unlockAudio);window.removeEventListener('keydown',this.unlockAudio);
     document.removeEventListener('visibilitychange',this.visibility);this.source?.stop();
     if(this.music)this.disposeMusic(this.music);if(this.nextMusic)this.disposeMusic(this.nextMusic);void this.audio?.close().catch(()=>{});

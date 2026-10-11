@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ACTIVE_SKILLS } from '../data/activeSkills';
 import type { ActiveSkillId } from '../data/activeSkills';
 import { mobileInput } from '../game/input';
@@ -13,7 +13,6 @@ const SKILL_ICONS: Record<ActiveSkillId, string> = {
 
 export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
-  const [stick, setStick] = useState({ x: 0, y: 0 });
   const pointerId = useRef<number | null>(null);
   const sprintPointer = useRef<{id:number;startedAt:number;timer:number}|null>(null);
   const panel = useGameStore(s => s.panel);
@@ -27,7 +26,8 @@ export function MobileControls() {
       pointerId.current = null;
       if(sprintPointer.current)window.clearTimeout(sprintPointer.current.timer);
       sprintPointer.current = null;
-      setStick({ x: 0, y: 0 });
+      joystickRef.current?.style.setProperty('--stick-x', '0px');
+      joystickRef.current?.style.setProperty('--stick-y', '0px');
       mobileInput.reset();
     };
     reset();
@@ -46,13 +46,15 @@ export function MobileControls() {
     let y = (clientY - cy) / (rect.height * 0.36);
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
-    setStick({ x, y });
+    node.style.setProperty('--stick-x', `${x * Math.min(40, rect.width * .27)}px`);
+    node.style.setProperty('--stick-y', `${y * Math.min(40, rect.height * .27)}px`);
     mobileInput.setMove(x, y);
   };
 
   const release = () => {
     pointerId.current = null;
-    setStick({ x: 0, y: 0 });
+    joystickRef.current?.style.setProperty('--stick-x', '0px');
+    joystickRef.current?.style.setProperty('--stick-y', '0px');
     mobileInput.releaseMove();
   };
 
@@ -84,7 +86,7 @@ export function MobileControls() {
         onLostPointerCapture={(event) => { if (pointerId.current === event.pointerId) release(); }}
         aria-label="Movement joystick"
       >
-        <div className="joystick-knob" style={{ transform: `translate(calc(-50% + ${stick.x * Math.min(34, (joystickRef.current?.clientWidth ?? 116) * .25)}px), calc(-50% + ${stick.y * Math.min(34, (joystickRef.current?.clientHeight ?? 116) * .25)}px))` }} />
+        <div className="joystick-knob" />
       </div>
 
       <div className="touch-actions">

@@ -4,12 +4,18 @@ import { seededRandom } from '../../utils/seededRandom';
 import { ART_BY_KEY, type ArtTextureKey } from '../../data/art';
 import { environmentLightPoints, nightStrength } from '../../data/environmentLights';
 import {overlayViewport,fitViewportOverlay} from './renderSizing';
+import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
 
 interface LocalLight {
   actor:Phaser.GameObjects.Sprite; x:number; y:number; radius:number; fire:boolean; phase:number;
   glow:Phaser.GameObjects.Image;
 }
 export class DayNightSystem {
+  private lightweight = getEffectsQuality() === 'low';
+  private readonly onQualityChange = () => {
+    const next = getEffectsQuality() === 'low';
+    if (this.lightweight !== next) { this.lightweight = next; this.onResize(); }
+  };
   private day:number;
   private minuteOfDay:number;
   private readonly overlay:Phaser.GameObjects.Image;
@@ -27,7 +33,7 @@ export class DayNightSystem {
   constructor(private readonly scene:Phaser.Scene) {
     const state=useGameStore.getState();this.day=state.day;this.minuteOfDay=state.minuteOfDay;
     const viewport=overlayViewport(scene);
-    this.texture=scene.textures.createCanvas('night-overlay',viewport.width,viewport.height)!;
+    this.texture=scene.textures.createCanvas('night-overlay',Math.max(1,Math.round(viewport.width*(this.lightweight ? 0.65 : 1))),Math.max(1,Math.round(viewport.height*(this.lightweight ? 0.65 : 1))))!;
     this.overlay=scene.add.image(0,0,'night-overlay').setOrigin(0).setScrollFactor(0).setDepth(1_000_000).setName('night-darkness');
     if(!scene.textures.exists('warm-light')) {
       const t=scene.textures.createCanvas('warm-light',128,128)!,ctx=t.getContext();
@@ -36,6 +42,7 @@ export class DayNightSystem {
       ctx.fillStyle=gradient;ctx.fillRect(0,0,128,128);t.refresh();
     }
     scene.scale.on('resize',this.onResize,this);
+    window.addEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
     const random=seededRandom('mernondna:fireflies');
     for(let i=0;i<18;i++) this.fireflies.push({
       glow:scene.add.circle(0,0,7,0x9bf5a7,.2).setName('firefly-glow').setDepth(1_000_003).setBlendMode(Phaser.BlendModes.ADD).setVisible(false),
@@ -112,10 +119,12 @@ export class DayNightSystem {
     for(const fly of this.fireflies) {
       const drift=this.elapsed*.00035, pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
       const x=cx+fly.dx+Math.sin(drift+fly.phase)*32,y=cy+fly.dy+Math.cos(drift*.8+fly.phase)*24;
-      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(this.firefliesEnabled&&night>.02);
-      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(this.firefliesEnabled&&night>.02);
+      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(this.firefliesEnabled&&!this.lightweight&&night>.02);
+      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(this.firefliesEnabled&&(!this.lightweight||this.fireflies.indexOf(fly)<6)&&night>.02);
     }
-    const camera=this.scene.cameras.main,{zoom:z,width:w,height:h}=overlayViewport(this.scene);
+    const camera=this.scene.cameras.main,full=overlayViewport(this.scene);
+    const resolution=this.lightweight ? 0.65 : 1;
+    const z=full.zoom*resolution,w=this.texture.width,h=this.texture.height;
     fitViewportOverlay(this.scene,this.overlay);this.overlay.setVisible(night>0);
     if(night===0) {
       if(this.previousNight>0){this.texture.getContext().clearRect(0,0,w,h);this.texture.refresh();}
@@ -125,14 +134,17 @@ export class DayNightSystem {
     const cameraStamp=[Math.round(camera.zoom*100),Math.round(camera.worldView.x*z/8),Math.round(camera.worldView.y*z/8)].join(':');
     const cameraChanged=cameraStamp!==this.maskCameraStamp;
     this.renderAccumulator+=deltaMs;
-    if(this.renderAccumulator<75&&!cameraChanged)return;
+    if(this.renderAccumulator<(this.lightweight?150:75)&&(this.lightweight||!cameraChanged))return;
     this.renderAccumulator=0;this.maskCameraStamp=cameraStamp;
     const ctx=this.texture.getContext();
     ctx.globalCompositeOperation='copy';ctx.fillStyle='rgba(2,6,17,'+night*.84+')';ctx.fillRect(0,0,w,h);
     ctx.globalCompositeOperation='destination-out';
+    let visibleLightCount=0;
     for(const node of this.lights) {
       const x=(node.actor.x+node.x-camera.worldView.x)*z,y=(node.actor.y+node.y-camera.worldView.y)*z,r=node.radius*z;
       if(x+r<0||y+r<0||x-r>w||y-r>h) continue;
+      if(this.lightweight&&visibleLightCount>=18)continue;
+      visibleLightCount++;
       const flicker=node.fire ? .92+Math.sin(this.elapsed*.013+node.phase)*.06 : 1;
       const gradient=ctx.createRadialGradient(x,y,0,x,y,r);
       gradient.addColorStop(0,'rgba(0,0,0,'+.88*flicker+')');gradient.addColorStop(.3,'rgba(0,0,0,.65)');gradient.addColorStop(1,'rgba(0,0,0,0)');
@@ -143,6 +155,7 @@ export class DayNightSystem {
   getHour(){return this.minuteOfDay/60;}
   syncState(){useGameStore.getState().setClock(this.day,this.minuteOfDay);}
   destroy(){
+    window.removeEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
     this.scene.scale.off('resize',this.onResize,this);this.overlay.destroy();
     for(const node of this.lights) node.glow.destroy();this.lights.clear();
     for(const emission of this.emissions) emission.destroy();this.emissions.clear();
@@ -150,5 +163,6 @@ export class DayNightSystem {
     this.scene.textures.remove('night-overlay');
   }
   private onResize(){const viewport=overlayViewport(this.scene);
-    this.texture.setSize(viewport.width,viewport.height);this.renderAccumulator=100;this.maskCameraStamp='';}
+    const resolution=this.lightweight ? 0.65 : 1;
+    this.texture.setSize(Math.max(1,Math.round(viewport.width*resolution)),Math.max(1,Math.round(viewport.height*resolution)));this.renderAccumulator=200;this.maskCameraStamp='';}
 }

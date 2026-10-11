@@ -31,7 +31,7 @@ export function MapPanel() {
           : `Click a settlement pin to teleport · ${unlockedShrines.length} shrines attuned.`}</p></div>
           <button onClick={()=>open(regional?'map':'regional-map')}>{regional?'World Map':'Regional Map'}</button><button type="button" onClick={close}>Close</button></header>
         {!regional&&<div className="atlas-zoom-controls"><button onClick={()=>setZoom(z=>Math.max(1,z-.25))} disabled={zoom<=1}>Zoom out</button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(z=>Math.min(3,z+.25))} disabled={zoom>=3}>Zoom in</button></div>}
-        {regional?<RegionalMap select={(id,button)=>{selectedPin.current=button;setSelectedId(id);}}/>:<div className="world-map-wrap"><div className="atlas-survey" style={{width:zoom*100+'%'}}>
+        <div className="map-stage">{regional?<RegionalMap select={(id,button)=>{selectedPin.current=button;setSelectedId(id);}}/>:<div className="world-map-wrap"><div className="atlas-survey" style={{height:zoom*100+'%'}}>
           <img src="assets/reference/mernondna-world-map.jpg" alt="Illustrated map of Mernodna" />
           {TOWNS.map((town) => (
             <button
@@ -49,7 +49,7 @@ export function MapPanel() {
             </button>
           ))}
           <span className="atlas-player" style={{left:playerPin.x+'%',top:playerPin.y+'%'}} title="Leigneron’s current world position">▲</span>
-        </div></div>}
+        </div></div>}</div>
         <details className="map-settlement-list">
           <summary>Settlement destinations</summary>
           <div>{TOWNS.map(town => <button type="button" key={town.id}
