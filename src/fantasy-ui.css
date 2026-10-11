@@ -871,3 +871,46 @@
   }
 }
 
+
+/* LEIGHNERON_MOBILE_MAP_PARCHMENT_CENTERING_V1
+   Same safe-area-centering treatment as the Journal/Gear/Character parchment.
+   Only changes the OUTER scroll frame: atlas viewport, zoom, map destinations,
+   pins and drag gestures retain their existing styling and behavior. */
+@media (hover: none), (pointer: coarse) {
+  .overlay-backdrop:has(> .map-panel) {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top))
+             max(12px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom))
+             max(12px, env(safe-area-inset-left));
+    overflow: hidden;
+  }
+
+  .overlay-backdrop > .map-panel {
+    box-sizing: border-box !important;
+    flex: 0 1 auto !important;
+    align-self: center;
+    width: min(1440px, 94%) !important;
+    max-width: 100% !important;
+    height: min(900px, calc(100dvh - 36px)) !important;
+    max-height: calc(100dvh - 36px) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
+  }
+}
+
+/* Short phone landscape: scale ONLY the parchment's nine-slice border down
+   so the top and bottom rollers stay inside the screen, not over the UI. */
+@media (orientation: landscape) and (max-height: 560px) and (hover: none),
+       (orientation: landscape) and (max-height: 560px) and (pointer: coarse) {
+  .overlay-backdrop > .map-panel {
+    border-width: clamp(32px, 9.5dvh, 45px)
+                  clamp(16px, 2.2vw, 24px)
+                  clamp(36px, 10.5dvh, 49px) !important;
+  }
+}
