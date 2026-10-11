@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { BossDefinition, EnemyDefinition } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier } from '../../data/enemies';
+import { areaMonsterLevel,scaledEnemy } from '../../data/enemyTiers';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
 import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize,type ArtTextureKey } from '../../data/art';
@@ -16,6 +17,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
   hp: number;
   readonly eventSpawn: boolean;
+  readonly level:number;
   readonly instanceId: string;
   private nextAttackAt = 0;
   private lockedUntil = 0;
@@ -57,9 +59,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
-    this.definition = definition;
     this.boss = instanceId.startsWith('boss:') ? BOSS_BY_ID[instanceId.slice(5)] : undefined;
-    this.hp = definition.hp;
+    const zone=(scene as WorldScene).getRegionAtPosition(x,y);
+    this.level=areaMonsterLevel(x,y,zone)+(this.boss?10:0);
+    this.definition=scaledEnemy(definition,this.level);
+    this.hp=this.definition.hp;
     this.eventSpawn = eventSpawn;
     this.instanceId = instanceId;
     this.rng = seededRandom(instanceId);
@@ -79,7 +83,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(y);
     this.anims.play(idle.key);
     this.healthBar = scene.add.graphics().setName(`enemy-health:${instanceId}`);
-    this.nameLabel = scene.add.text(x, y - 40, this.boss?.name ?? definition.name, {
+    this.nameLabel = scene.add.text(x, y - 40, `Lv.${this.level} ${this.boss?.name ?? definition.name}`, {
       fontFamily: 'Georgia, serif', fontSize: definition.boss ? '12px' : '9px',
       color: definition.boss ? '#f3c69c' : '#edddcb', stroke: '#17120e', strokeThickness: 3,
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);

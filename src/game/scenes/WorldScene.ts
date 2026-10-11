@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
+import { areaMonsterLevel, BOSS_RESPAWN_MS } from '../../data/enemyTiers';
 import { LEIGNERON } from '../../data/player';
 import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import { TOWN_BY_ID } from '../../data/towns';
@@ -24,7 +25,7 @@ import { ContentChunkManager } from '../systems/ContentChunkManager';
 import { resolveQuestTarget, questBearing } from '../systems/questNavigation';
 import { artScale, artFrameSize, worldPropOrigin } from '../../data/art';
 import { repairCreaturePlacements } from '../systems/creaturePlacement';
-import { progressionStats } from '../../data/progression';
+import { progressionStats, playerDamageGrowth } from '../../data/progression';
 import { localSettlementTravelEnabled } from '../../utils/localSettlementTravel';
 import type { ActiveSkillDefinition } from '../../data/activeSkills';
 import { propFoundation, spriteBounds, overlaps } from '../../data/settlementGeometry';
@@ -112,7 +113,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2) {
     if(!enemy.active||enemy.hp<=0)return;
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*multiplier)),direction);
+    const level=useGameStore.getState().level;
+    const growth=playerDamageGrowth(level);
+    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction);
   }
   streamCinematicView(x:number,y:number){this.chunkManager.update(x,y,Boolean(this.passage?.active));this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
   storyActorPosition(id:string){const actor=this.contentManager.getActor('npc:'+id)??this.contentManager.getState('npc:'+id);return actor?{x:actor.x,y:actor.y-35}:undefined;}
@@ -180,10 +183,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.physics.add.collider(this.npcBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.npcBodies);
     let logical = { ...state.worldContent, states: { ...state.worldContent.states } };
+    // Defeat history remains permanent for quests; the content ledger, not
+    // defeatedBosses, controls the 20-minute battle respawn timer.
     for (const bossId of state.defeatedBosses) {
-      if(BOSS_BY_ID[bossId]?.respawns)continue; // Victory history is not permanent dragon removal.
-      const definition = WORLD_CONTENT.find(d => d.id === `boss:${bossId}`);
-      if (definition) logical.states[definition.id] = { ...initialContentState(definition), hp: 0, defeated: true };
+      const definition=WORLD_CONTENT.find(d=>d.id===`boss:${bossId}`);
+      if(definition&&!logical.states[definition.id])logical.states[definition.id]={
+        ...initialContentState(definition),hp:0,defeated:true,respawnAt:Date.now()+BOSS_RESPAWN_MS,
+      };
     }
     logical = repairCreaturePlacements(WORLD_CONTENT,logical,this.worldGenerator);
     this.contentManager = new ContentChunkManager(WORLD_CONTENT, logical, {
@@ -374,6 +380,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
   }
 
+  getRegionAtPosition(x:number,y:number){return this.worldGenerator.getRegionAt(x,y);}
+
   getEquippedWeapon(): WeaponDefinition {
     return WEAPON_BY_ID[useGameStore.getState().weaponId] ?? WEAPON_BY_ID['roadwarden-sword'];
   }
@@ -399,7 +407,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       toEnemy.normalize();
       if (facing.dot(toEnemy) < 0.25) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(Math.round(weapon.damage * progression.damageMultiplier), facing);
+      enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level))), facing);
     }
   }
 
@@ -407,7 +415,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     player.recovery.interrupt();
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * multiplier));
+    const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
     for (const enemy of this.enemies) {
       if (!enemy.active || enemy.hp <= 0 || !enemy.canBeTargeted) continue;
       const offset = new Phaser.Math.Vector2(enemy.x - player.x,enemy.y - player.y);
@@ -552,11 +560,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       ...(boss?.respawns&&boss.respawnDelayMs?{respawnAt:Date.now()+boss.respawnDelayMs}:{}),
     });
     useGameStore.getState().recordEnemyDefeat(definition.id, definition.xp, gold, bossId, this.contentManager.snapshot());
+    const gained=this.add.text(enemy.x,enemy.y-48,`+${definition.xp} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
+    this.tweens.add({targets:gained,y:enemy.y-112,alpha:0,duration:1450,ease:'Sine.easeOut',onComplete:()=>gained.destroy()});
 
     if (enemy.instanceId.startsWith('boss:')) {
       useGameStore.getState().setBossEncounter(null);
-      this.notify(boss?.respawns?`${definition.name} takes flight! He returns to his lair in 30 minutes.`
-        :`${definition.name} defeated. The world state remembers this.`);
+      this.notify(boss?`${definition.name} defeated! This boss returns in 20 minutes.`:`${definition.name} defeated.`);
     }
     // Persist the retreat deadline and reward together; a streamed-away dragon
     // cannot return early, and quest completion remains separate from cooldown.
@@ -746,7 +755,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (definition.kind === 'creature') {
       const enemy = new Enemy(this, ENEMY_BY_ID[definition.enemyId], x, y, definition.id, definition.eventSpawn);
       this.groundShadows.register(enemy);
-      enemy.hp = state.hp ?? enemy.hp;
+      const baseMax=ENEMY_BY_ID[definition.enemyId].hp;
+      enemy.hp=state.hp===undefined||state.hp===baseMax ? enemy.definition.hp :
+        Math.max(0,Math.min(enemy.definition.hp,state.hp));
       this.creatureBodies.add(enemy); this.enemies.add(enemy);
       if (definition.bossId && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 1200) {
         const boss = BOSSES.find(b => b.id === definition.bossId);

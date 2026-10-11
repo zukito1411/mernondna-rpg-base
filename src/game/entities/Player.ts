@@ -174,7 +174,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   takeDamage(amount: number) {
     const scene = this.scene as WorldScene;
     this.recovery.interrupt();
-    this.hp = Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier));
+    this.hp = Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills).incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);
     scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });

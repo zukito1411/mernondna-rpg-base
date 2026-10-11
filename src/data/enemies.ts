@@ -79,53 +79,53 @@ export const BOSSES: BossDefinition[] = [
   {
     id: 'captain-varr', enemyId: 'bandit-captain', name: 'Captain Varr', regionId: 'trandum',
     world: { x: oakmere.x + 1400, y: oakmere.y - 850 },
-    lore: 'A former caravan guard who now controls a ruined watchtower east of Oakmere.', respawns: false,
+    lore: 'A former caravan guard who now controls a ruined watchtower east of Oakmere.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'melee',
   },
   {
     id: 'moonlit-warden', enemyId: 'moonlit-warden', name: 'Moonlit Warden', regionId: 'narenthil',
     world: { x: TOWN_BY_ID.elarion.world.x + 900, y: TOWN_BY_ID.elarion.world.y + 700 },
-    lore: 'An ancient guardian twisted by the blight spreading through Narenthil’s moon grove.', respawns: false,
+    lore: 'An ancient guardian twisted by the blight spreading through Narenthil’s moon grove.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'pounce',
   },
   {
     id: 'stonejaw-troll', enemyId: 'stonejaw-troll', name: 'Stonejaw', regionId: 'nardorous',
     world: { x: TOWN_BY_ID.starhold.world.x - 1550, y: TOWN_BY_ID.starhold.world.y + 720 },
-    lore: 'An old pass-troll that has learned to break wagons open before eating their draft animals.', respawns: false,
+    lore: 'An old pass-troll that has learned to break wagons open before eating their draft animals.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'slam',
   },
   {
     id: 'iron-tusk', enemyId: 'redmesa-chieftain', name: 'Krag the Iron-Tusk', regionId: 'rindass',
     world: { x: TOWN_BY_ID.redmesa.world.x + 850, y: TOWN_BY_ID.redmesa.world.y + 700 },
-    lore: 'A clan war-chief whose stampeding warband has driven the Rindass clans to the brink of open war.', respawns: false,
+    lore: 'A clan war-chief whose stampeding warband has driven the Rindass clans to the brink of open war.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'pounce',
   },
   {
     id: 'rootfather', enemyId: 'rootfather', name: 'The Rootfather', regionId: 'druganwoods',
     world: { x: TOWN_BY_ID.deepford.world.x - 950, y: TOWN_BY_ID.deepford.world.y + 750 },
-    lore: 'A mine guardian awakened beneath the river forest, calling hungry spirits from the roots.', respawns: false,
+    lore: 'A mine guardian awakened beneath the river forest, calling hungry spirits from the roots.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'slam',
   },
   {
     id: 'salt-king', enemyId: 'salt-king', name: 'The Salt King', regionId: 'portquill',
     world: { x: TOWN_BY_ID.tidewatch.world.x + 850, y: TOWN_BY_ID.tidewatch.world.y - 650 },
-    lore: 'A ruthless sea-lord who has turned the harbor lanes into a toll road for his crew.', respawns: false,
+    lore: 'A ruthless sea-lord who has turned the harbor lanes into a toll road for his crew.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'melee',
   },
   {
     id: 'frost-wyrm', enemyId: 'frost-wyrm', name: 'The Frost Wyrm', regionId: 'frostlands',
     world: { x: TOWN_BY_ID.skallheim.world.x - 850, y: TOWN_BY_ID.skallheim.world.y + 650 },
-    lore: 'A white-furred terror driven from the ice cliffs, now hunting the Skallheim beacon road.', respawns: false,
+    lore: 'A white-furred terror driven from the ice cliffs, now hunting the Skallheim beacon road.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'pounce',
   },
   {
     id: 'ashen-seer', enemyId: 'ashen-seer', name: 'The Ashen Seer', regionId: 'darkav',
     world: { x: TOWN_BY_ID.blackspire.world.x - 900, y: TOWN_BY_ID.blackspire.world.y + 750 },
-    lore: 'A volcanic oracle who binds wraiths to the ash and guards the path to Blackspire.', respawns: false,
+    lore: 'A volcanic oracle who binds wraiths to the ash and guards the path to Blackspire.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'slam',
   },
 ];
 BOSSES.push({id:DRAGON_BOSS_ID,enemyId:'ash-dragon',name:'Varkhul, the Returning Ember',regionId:'darkav',world:{...DRAGON_LAIR},
   lore:'An ancient ember dragon that retreats to recover above Darkav’s molten ridges rather than dying at the hands of challengers.',
-  respawns:true,respawnDelayMs:DRAGON_RETURN_MS,attackStyle:'slam'});
+  respawns:true,respawnDelayMs:20*60*1000,attackStyle:'slam'});
 export const BOSS_BY_ID = Object.fromEntries(BOSSES.map((boss) => [boss.id, boss])) as Record<string, BossDefinition>;

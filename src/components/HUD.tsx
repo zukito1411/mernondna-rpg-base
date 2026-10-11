@@ -7,7 +7,7 @@ import { useGameStore } from '../store/gameStore';
 import { activeObjective } from '../game/systems/questNavigation';
 import { MiniMap } from './MiniMap';
 import { QuestCompass } from './QuestCompass';
-import { XP_PER_LEVEL } from '../data/progression';
+import { experienceWithinLevel } from '../data/progression';
 
 function barPercent(value: number, max: number) {
   return `${Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))}%`;
@@ -39,7 +39,7 @@ export function HUD() {
   const hour = Math.floor(minute / 60);
   const mins = Math.floor(minute % 60);
   const timeLabel = `${String(hour).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-  const xpInLevel = xp % XP_PER_LEVEL;
+  const xpProgress=experienceWithinLevel(xp);
   const regionName = regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[regionId]?.name ?? regionId;
   const location = townId ? TOWN_BY_ID[townId]?.name ?? regionName : regionName;
 
@@ -51,9 +51,9 @@ export function HUD() {
           <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
           <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
           <div className="meter"><div className="meter-fill stamina" style={{ width: barPercent(stamina, maxStamina) }} /></div>
-          <div className="xp-meter" role="progressbar" aria-label="Experience to next level" aria-valuemin={0} aria-valuemax={XP_PER_LEVEL} aria-valuenow={xpInLevel}>
-            <div className="xp-meter-fill" style={{ width: barPercent(xpInLevel, XP_PER_LEVEL) }} />
-            <span>{xpInLevel} / {XP_PER_LEVEL} XP</span>
+          <div className="xp-meter" role="progressbar" aria-label="Experience to next level" aria-valuemin={0} aria-valuemax={xpProgress.required} aria-valuenow={xpProgress.current}>
+            <div className="xp-meter-fill" style={{ width: barPercent(xpProgress.current, xpProgress.required) }} />
+            <span>{xpProgress.current} / {xpProgress.required} XP</span>
           </div>
           <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{gold}g</span></div>
         </section>

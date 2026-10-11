@@ -268,10 +268,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   unlockSkill: (skillId) => set((state) => {
     const skill = SKILLS.find(entry => entry.id === skillId);
-    if (!skill || state.skillPoints <= 0 || state.learnedSkills.includes(skillId)) return {};
+    if (!skill || state.skillPoints < skill.cost || state.level < skill.minLevel || (skill.requires&&!state.learnedSkills.includes(skill.requires)) || state.learnedSkills.includes(skillId)) return {};
     const learnedSkills = [...state.learnedSkills, skillId];
     const derived = progressionStats(state.attributes, learnedSkills);
-    return { learnedSkills, skillPoints: state.skillPoints - 1, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
+    return { learnedSkills, skillPoints: state.skillPoints - skill.cost, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
       toast: `Skill learned: ${skill.name}.` };
   }),
   setContentWorld: (worldContent) => set({ worldContent }),

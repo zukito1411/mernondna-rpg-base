@@ -12,6 +12,7 @@ export function MobileControls() {
   const dialogue = useGameStore(s => s.dialogue);
   const cinematic=useGameStore(s=>s.cinematic);
   const activeSkillStatus = useGameStore(s => s.activeSkillStatus);
+  const level=useGameStore(s=>s.level);
   const interaction = useGameStore(s => s.navigation.interaction);
   const blocked = Boolean(panel || dialogue || cinematic);
   useEffect(() => {
@@ -84,18 +85,20 @@ export function MobileControls() {
 
       <div className="touch-actions">
         {ACTIVE_SKILLS.map(skill => {
+          const locked=level<skill.minLevel;
           const remaining = activeSkillStatus.cooldowns[skill.id];
           const cooldown = remaining > 0;
           const progress = Math.max(0, Math.min(1, remaining / skill.cooldownMs));
-          const cooldownLabel = cooldown ? `cooldown ${Math.ceil(remaining / 1000)} seconds` : 'ready';
+          const cooldownLabel=locked?`unlocks at level ${skill.minLevel}`:cooldown?`cooldown ${Math.ceil(remaining / 1000)} seconds`:'ready';
           return (
             <button
               key={skill.id}
               type="button"
               aria-label={`${skill.name}, ${cooldownLabel}`}
               title={`${skill.name} · ${skill.staminaCost} stamina${cooldown ? ` · ${cooldownLabel}` : ' · ready'}`}
-              className={`touch-button touch-skill skill-${skill.slot}${cooldown ? ' cooling' : ''}`}
-              onPointerDown={() => mobileInput.press(skill.action)}
+              className={`touch-button touch-skill skill-${skill.slot}${cooldown ? ' cooling' : ''}${locked?' locked':''}`}
+              disabled={locked}
+              onPointerDown={() => {if(!locked)mobileInput.press(skill.action);}}
             >
               {cooldown && <span className="touch-cooldown-ring" style={{
                 background: `conic-gradient(rgba(12, 19, 23, .78) ${progress * 360}deg, transparent 0)`,

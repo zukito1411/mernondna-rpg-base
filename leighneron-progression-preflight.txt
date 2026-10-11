@@ -1,0 +1,17 @@
+Leighneron progression installer preflight (no game files changed)
+Found 5 issue(s):
+1. src/game/scenes/WorldScene.ts
+   src/game/scenes/WorldScene.ts anchor:     for (const bossId of state.defeatedBosses) {
+      if(BOSS_B: expected one source match, got 0.
+2. src/game/entities/Enemy.ts
+   src/game/entities/Enemy.ts anchor:     this.definition = definition;
+    this.boss = instanceId.sta: expected one source match, got 0.
+3. src/utils/save.ts
+   save migration end: expected one source match, got 0.
+4. src/components/CharacterPanel.tsx
+   src/components/CharacterPanel.tsx anchor:               const learned = learnedSkills.includes(skill.id);
+: expected one source match, got 0.
+5. src/components/MobileControls.tsx
+   src/components/MobileControls.tsx anchor: className={`touch-button touch-skill skill-${skill.slot}${cooldo: expected one source match, got 0.
+
+Provide this report alongside the source file(s) named above, if needed.

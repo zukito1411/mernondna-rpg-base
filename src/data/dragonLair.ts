@@ -3,7 +3,7 @@ import type {TerrainKind,Vec2,QuestDefinition,ContentDefinition} from '../game/t
 
 const city=TOWN_BY_ID.blackspire.world;
 export const DRAGON_BOSS_ID='varkhul';
-export const DRAGON_RETURN_MS=30*60*1000;
+export const DRAGON_RETURN_MS=20*60*1000;
 export const DRAGON_LAIR={x:city.x+6100,y:city.y-4500};
 export const DRAGON_LAIR_TRAIL:Vec2[]=[{x:city.x,y:city.y+2400},{x:city.x+5200,y:city.y+2400},
   {x:city.x+5200,y:city.y-4500},{...DRAGON_LAIR}];
@@ -54,7 +54,7 @@ export const DRAGON_QUEST:QuestDefinition={
     {id:'survey-ward',type:'investigate',targetId:'varkhul-ward',contentId:'clue:varkhul-ward',amount:1,text:'Inspect the Cinderwatch Ward beside the lava-ringed lair.'},
     {id:'repel-varkhul',type:'kill',targetId:'ash-dragon',bossId:DRAGON_BOSS_ID,amount:1,text:'Force Varkhul to retreat from his basalt lair.'},
     {id:'dain-report',type:'talk',targetId:'blackspire-warder',amount:1,text:'Tell Dain Emberfall that the ash road has a respite.',
-      dialogue:['I saw the wings above the molten ridge. You bought us time, Leigneron, not a permanent victory.','The crews are moving under cover of the wards. Varkhul will return after thirty minutes; those who choose another battle should wait at the western marker, not in the lava.']},
+      dialogue:['I saw the wings above the molten ridge. You bought us time, Leigneron, not a permanent victory.','The crews are moving under cover of the wards. Varkhul will return after twenty minutes; those who choose another battle should wait at the western marker, not in the lava.']},
     {id:'vexa-resolution',type:'talk',targetId:'blackspire-forgemaster',amount:1,text:'Return to Vexa as the ward chains are reforged.',
       dialogue:['Dain brought the last furnace crew home. Because of you, we can repair the chains without losing another household.','The dragon still lives. Your deed is remembered even when his wings return; the lair remains open to future challengers.']},
   ],rewardGold:300,rewardXp:650,

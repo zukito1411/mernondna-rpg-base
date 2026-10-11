@@ -10,14 +10,14 @@ import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
 import type { ContentState, ContentWorldState, CreatureContentDefinition } from '../game/types';
-import { BASE_ATTRIBUTES, SKILLS, levelForExperience, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'>;
-export interface SaveData { version: 4; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
+export interface SaveData { version: 5; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -71,7 +71,7 @@ function validateContent(value: unknown): ContentWorldState | null {
     if (!definition || !record(s) || !numberIn(s.x, 0, WORLD_WIDTH - 1) || !numberIn(s.y, 0, WORLD_HEIGHT - 1)
       || (s.defeated !== undefined && typeof s.defeated !== 'boolean') || (s.used !== undefined && typeof s.used !== 'boolean')
       || (s.trust !== undefined && !numberIn(s.trust, 0, 100))
-      || (s.hp !== undefined && (definition.kind !== 'creature' || !numberIn(s.hp, 0, ENEMY_BY_ID[definition.enemyId].hp)))
+      || (s.hp !== undefined && (definition.kind !== 'creature' || !numberIn(s.hp, 0, ENEMY_BY_ID[definition.enemyId].hp*8)))
       || (s.respawnAt!==undefined && (!numberIn(s.respawnAt)||!Number.isInteger(s.respawnAt)||s.defeated!==true
         ||definition.kind!=='creature'||!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs)))
       || (s.hp === 0 && s.defeated !== true)) return null;
@@ -111,13 +111,37 @@ export function migrateSave(data: unknown): unknown {
     }).map(shrine => shrine.townId);
     migrated = { ...migrated,version:4,state:{ ...migrated.state,unlockedTownShrines } };
   }
+  if(record(migrated)&&migrated.version===4&&record(migrated.state)){
+    const old=migrated.state;
+    const level=typeof old.level==='number'&&Number.isFinite(old.level)?Math.max(1,Math.floor(old.level)):1;
+    const rawXp=typeof old.xp==='number'&&Number.isFinite(old.xp)?old.xp:0;
+    const oldInto=Math.max(0,rawXp-(level-1)*250);
+    // Preserve current level and the percentage of its old experience bar.
+    const xp=xpTotalForLevel(level)+Math.round(Math.min(1,oldInto/250)*xpNeededForLevel(level));
+    const content=old.worldContent;
+    const states:Record<string,unknown>=record(content)&&record(content.states)?{...content.states}:{};
+    for(const boss of BOSSES){
+      const id='boss:'+boss.id;
+      const previous=states[id];
+      if((Array.isArray(old.defeatedBosses)&&old.defeatedBosses.includes(boss.id))||
+        (record(previous)&&previous.defeated===true)){
+        const def=CONTENT_BY_ID[id];
+        if(def){const base=record(previous)?previous:initialContentState(def);
+          states[id]={...base,hp:0,defeated:true,respawnAt:typeof base.respawnAt==='number'?Math.min(base.respawnAt,Date.now()+20*60*1000):
+            (Number.isFinite(Date.parse(String(migrated.savedAt)))?Date.parse(String(migrated.savedAt)):Date.now())+20*60*1000};
+        }
+      }
+    }
+    migrated={...migrated,version:5,state:{...old,xp,
+      worldContent:record(content)?{...content,states}:content}};
+  }
   return migrated;
 }
 
 export function parseSave(raw: string): SaveData | null {
   try {
     const data = migrateSave(JSON.parse(raw));
-    if (!record(data) || data.version !== 4 || !record(data.state)) return null;
+    if (!record(data) || data.version !== 5 || !record(data.state)) return null;
     const s = data.state;
     if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return null;
     const storyFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
@@ -181,7 +205,7 @@ export function parseSave(raw: string): SaveData | null {
     const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags as Record<string,boolean>);
     const xp = state.xp + result.xp;
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
-    return { version: 4, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
+    return { version: 5, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state, worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
@@ -216,7 +240,7 @@ export function saveGame(): boolean {
   try {
     syncSnapshot?.();
     const s = useGameStore.getState();
-    const data: SaveData = { version: 4, savedAt: new Date().toISOString(), state: {
+    const data: SaveData = { version: 5, savedAt: new Date().toISOString(), state: {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,

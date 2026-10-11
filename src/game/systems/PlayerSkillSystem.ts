@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ACTIVE_SKILLS, ACTIVE_SKILL_BY_ID, initialActiveSkillStatus, type ActiveSkillDefinition, type ActiveSkillId, type ActiveSkillStatus } from '../../data/activeSkills';
 import { artScale } from '../../data/art';
+import { progressionStats } from '../../data/progression';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../entities/Player';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -28,6 +29,8 @@ export class PlayerSkillSystem {
   tryCast(id:ActiveSkillId):boolean {
     const skill = ACTIVE_SKILL_BY_ID[id];
     if (this.cast) return false;
+    const state=useGameStore.getState();
+    if(state.level<skill.minLevel){this.scene.notify(`${skill.name} unlocks at level ${skill.minLevel}.`);return false;}
     if (this.cooldowns[id] > 0) {
       this.scene.notify(`${skill.name} is recovering (${Math.ceil(this.cooldowns[id] / 1000)}s).`);
       return false;
@@ -37,7 +40,8 @@ export class PlayerSkillSystem {
       return false;
     }
     this.player.stamina -= skill.staminaCost;
-    this.cooldowns[id] = skill.cooldownMs;
+    const stats=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
+    this.cooldowns[id] = Math.round(skill.cooldownMs*stats.cooldownMultiplier);
     if (id !== 'crown-rally' || this.player.hp >= this.player.maxHp) {
       this.scene.playSkillSound(id, 'cast');
     }
