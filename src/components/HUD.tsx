@@ -89,7 +89,6 @@ export function HUD() {
       </div>
 
       <DesktopSkillBar />
-      <div className="pc-hint">WASD move · Shift sprint · Q dash · Space attack · 1–4 combat arts · E interact · C status</div>
     </div>
   );
 }
