@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { GameIcon } from './GameIcon';
 import { REGIONS, REGION_BY_ID } from '../data/regions';
 import { TOWNS, TOWN_BY_ID } from '../data/towns';
 import { useGameStore } from '../store/gameStore';
@@ -27,10 +28,18 @@ export function MapPanel() {
   return (
     <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label={regional?'Expanded regional minimap':'Mernodna world map'}>
       <section className="panel map-panel">
-        <header><div><h2>{regional?'Regional survey':'Merdnona'}</h2><p>{localTravel ? 'Local exploration: click any settlement pin to teleport.'
-          : `Click a settlement pin to teleport · ${unlockedShrines.length} shrines attuned.`}</p></div>
-          <button onClick={()=>open(regional?'map':'regional-map')}>{regional?'World Map':'Regional Map'}</button><button type="button" onClick={close}>Close</button></header>
-        {!regional&&<div className="atlas-zoom-controls"><button onClick={()=>setZoom(z=>Math.max(1,z-.25))} disabled={zoom<=1}>Zoom out</button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(z=>Math.min(3,z+.25))} disabled={zoom>=3}>Zoom in</button></div>}
+        <header><div><h2>{regional?'Regional survey':'Mernodna'}</h2><p>{localTravel ? 'Select a settlement to explore.' : `${unlockedShrines.length} shrines attuned · choose a destination.`}</p></div>
+          <div className="map-header-actions">
+            <button type="button" onClick={()=>open(regional?'map':'regional-map')}><GameIcon name="map" />{regional?'World Map':'Regional Map'}</button>
+            <button type="button" onClick={close}><GameIcon name="close" />Close</button>
+          </div>
+        </header>
+        {!regional&&<div className="atlas-zoom-controls" role="group" aria-label="Map zoom">
+          <button type="button" aria-label="Zoom out" onClick={()=>setZoom(z=>Math.max(1,z-.25))} disabled={zoom<=1}><GameIcon name="zoom-out" /></button>
+          <span>{Math.round(zoom*100)}%</span>
+          <button type="button" aria-label="Zoom in" onClick={()=>setZoom(z=>Math.min(3,z+.25))} disabled={zoom>=3}><GameIcon name="zoom-in" /></button>
+          <button type="button" onClick={()=>setZoom(1)}>Reset</button>
+        </div>
         <div className="map-stage">{regional?<RegionalMap select={(id,button)=>{selectedPin.current=button;setSelectedId(id);}}/>:<div className="world-map-wrap"><div className="atlas-survey" style={{height:zoom*100+'%'}}>
           <img src="assets/reference/mernondna-world-map.jpg" alt="Illustrated map of Mernodna" />
           {TOWNS.map((town) => (
@@ -49,17 +58,20 @@ export function MapPanel() {
             </button>
           ))}
           <span className="atlas-player" style={{left:playerPin.x+'%',top:playerPin.y+'%'}} title="Leigneron’s current world position">▲</span>
-        </div></div>}</div>
-        <details className="map-settlement-list">
-          <summary>Settlement destinations</summary>
-          <div>{TOWNS.map(town => <button type="button" key={town.id}
-            onClick={event => { selectedPin.current = event.currentTarget; setSelectedId(town.id); }}>
-            <strong>{town.name}</strong>
-            <small>{localTravel || unlockedShrines.includes(town.id) ? 'Teleport available' : 'Shrine locked'}</small>
-          </button>)}</div>
-        </details>
-        <div className="region-strip">
-          {REGIONS.map((region) => <span key={region.id}><strong>{region.name}</strong>{region.people} · {region.climate}</span>)}
+        </div></div>}
+          <aside className="map-sidebar" aria-label="Map destinations">
+            <div className="map-sidebar-heading"><strong>Destinations</strong><span>{unlockedShrines.length} shrines attuned</span></div>
+            <div className="map-destination-grid">
+              {TOWNS.map(town => <button type="button" key={town.id} className={town.id===townId ? 'is-current' : ''} onClick={event => {selectedPin.current=event.currentTarget;setSelectedId(town.id);}}>
+                <span><strong>{town.name}</strong><small>{town.regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[town.regionId]?.name}</small></span>
+                <span className="destination-state">{town.id===townId?'Here':localTravel||unlockedShrines.includes(town.id)?'Ready':'Locked'}</span>
+              </button>)}
+            </div>
+            <details className="map-region-details">
+              <summary>Realm guide</summary>
+              <div className="region-strip">{REGIONS.map(region=><span key={region.id}><strong>{region.name}</strong>{region.people} · {region.climate}</span>)}</div>
+            </details>
+          </aside>
         </div>
       </section>
       {selected && <div className="map-travel-prompt" role="alertdialog" aria-modal="true"

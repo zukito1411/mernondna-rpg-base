@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#73543a"/><stop offset=".35" stop-color="#3b2b21"/><stop offset=".68" stop-color="#281e19"/><stop offset="1" stop-color="#65472f"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#bc985a"/><stop offset=".5" stop-color="#765233"/><stop offset="1" stop-color="#d0ab68"/>
+    </linearGradient>
+    <radialGradient id="inner" cx=".52" cy=".47" r=".8">
+      <stop stop-color="#322720"/><stop offset=".65" stop-color="#271e18"/><stop offset="1" stop-color="#1c1714"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="#171210"/>
+  <rect x="10" y="10" width="236" height="236" rx="12" fill="url(#wood)" stroke="#ae8752" stroke-width="2"/>
+  <rect x="23" y="23" width="210" height="210" rx="6" fill="url(#inner)" stroke="#4b3525" stroke-width="2"/>
+  <path d="M24 17H232M24 239H232M17 24V232M239 24V232" fill="none" stroke="url(#edge)" stroke-width="3"/>
+  <path d="M29 26H227M29 230H227M26 29V227M230 29V227" stroke="#9f7b4a" stroke-width=".8" opacity=".6"/>
+  <path d="M30 30H226V226H30Z" fill="none" stroke="#15120e" stroke-width=".8" opacity=".7"/>
+  <path d="M15 47Q15 20 45 15Q31 27 35 42Q21 33 15 47Zm226 0Q241 20 211 15Q225 27 221 42Q235 33 241 47ZM15 209Q15 236 45 241Q31 229 35 214Q21 223 15 209Zm226 0Q241 236 211 241Q225 229 221 214Q235 223 241 209Z" fill="#7a522d" stroke="#cca66a" stroke-width="1.5"/>
+  <path d="M13 51Q29 27 50 13M243 51Q227 27 206 13M13 205Q29 229 50 243M243 205Q227 229 206 243" stroke="#e6bd70" stroke-width="1" fill="none"/>
+  <path d="M15 15h20M221 15h20M15 241h20M221 241h20" stroke="#4c3526" stroke-width="2"/>
+  <g fill="#b99656" stroke="#332316" stroke-width="1.2">
+    <circle cx="17" cy="17" r="6"/><circle cx="239" cy="17" r="6"/><circle cx="17" cy="239" r="6"/><circle cx="239" cy="239" r="6"/>
+  </g>
+  <g fill="#402b1b">
+    <circle cx="17" cy="17" r="2.2"/><circle cx="239" cy="17" r="2.2"/><circle cx="17" cy="239" r="2.2"/><circle cx="239" cy="239" r="2.2"/>
+  </g>
+</svg>

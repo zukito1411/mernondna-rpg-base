@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { GameIcon } from './GameIcon';
 import { REGION_BY_ID } from '../data/regions';
 import { TOWN_BY_ID } from '../data/towns';
 import { useGameStore } from '../store/gameStore';
@@ -11,6 +13,8 @@ function barPercent(value: number, max: number) {
 }
 
 export function HUD() {
+  const [menuExpanded, setMenuExpanded] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(true);
   const hp = useGameStore((s) => s.hp);
   const maxHp = useGameStore((s) => s.maxHp);
   const stamina = useGameStore((s) => s.stamina);
@@ -42,7 +46,10 @@ export function HUD() {
   if(cinematic)return null;
   return (
     <div className="hud-layer" aria-live="polite">
-      <div className="hud-primary-stack">
+      <div className={`hud-primary-stack ${infoExpanded ? '' : 'is-collapsed'}`}>
+        <button type="button" className="hud-info-toggle" aria-label={infoExpanded ? 'Hide status and quest information' : 'Show status and quest information'} aria-expanded={infoExpanded} onClick={() => setInfoExpanded(value => !value)}>
+          <GameIcon name={infoExpanded ? 'chevron-left' : 'chevron-right'} />
+        </button>
         <section className="status-card">
           <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
           <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
@@ -71,12 +78,17 @@ export function HUD() {
       <MiniMap />
       {!blocked && interaction && <div className="interaction-hint"><kbd>E</kbd><span>{interaction}</span><small>or tap nearby</small></div>}
 
-      <div className="hud-actions">
-        <button type="button" aria-label="World Map" onClick={() => openPanel('map')}><span className="hud-icon" aria-hidden="true">⌖</span><span>Map</span><kbd>M</kbd></button>
-        <button type="button" aria-label="Quest Journal" onClick={() => openPanel('journal')}><span className="hud-icon" aria-hidden="true">☷</span><span>Quest</span><kbd>J</kbd></button>
-        <button type="button" aria-label="Gear" onClick={() => openPanel('inventory')}><span className="hud-icon" aria-hidden="true">▣</span><span>Bag</span><kbd>I</kbd></button>
-        <button type="button" aria-label="Status" onClick={() => openPanel('character')}><span className="hud-icon" aria-hidden="true">♙</span><span>Status</span><kbd>C</kbd></button>
-        <button type="button" aria-label="Menu" onClick={() => openPanel('pause')}><span className="hud-icon" aria-hidden="true">☰</span><span>Menu</span><kbd>Esc</kbd></button>
+      <div className={`hud-action-dock ${menuExpanded ? 'is-expanded' : 'is-collapsed'}`}>
+        <nav id="hud-main-actions" className="hud-actions" aria-label="Game menus" aria-hidden={!menuExpanded}>
+          <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="World Map" onClick={() => openPanel('map')}><span className="hud-icon"><GameIcon name="map" /></span><span>Map</span><kbd>M</kbd></button>
+          <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Quest Journal" onClick={() => openPanel('journal')}><span className="hud-icon"><GameIcon name="quest" /></span><span>Quest</span><kbd>J</kbd></button>
+          <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Gear" onClick={() => openPanel('inventory')}><span className="hud-icon"><GameIcon name="bag" /></span><span>Bag</span><kbd>I</kbd></button>
+          <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Status" onClick={() => openPanel('character')}><span className="hud-icon"><GameIcon name="status" /></span><span>Status</span><kbd>C</kbd></button>
+          <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Menu" onClick={() => openPanel('pause')}><span className="hud-icon"><GameIcon name="menu" /></span><span>Menu</span><kbd>Esc</kbd></button>
+        </nav>
+        <button type="button" className="hud-dock-toggle" aria-controls="hud-main-actions" aria-expanded={menuExpanded} aria-label={menuExpanded ? 'Hide menu buttons' : 'Show menu buttons'} onClick={() => setMenuExpanded(value => !value)}>
+          <GameIcon name={menuExpanded ? 'chevron-right' : 'chevron-left'} />
+        </button>
       </div>
 
       <div className="pc-hint">WASD move · Shift sprint · Q dash · Space attack · 1–4 combat arts · E interact · C status</div>
