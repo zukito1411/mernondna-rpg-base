@@ -9,6 +9,7 @@ import {nightStrength} from '../../data/environmentLights';
 import {FogArt} from './FogArt';
 import {overlayViewport,fitViewportOverlay} from './renderSizing';
 import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
+import {getGraphicEffects} from './graphicsEffects';
 import {AshfallArt} from './AshfallArt';
 import {REGION_MUSIC} from './regionMusic';
 import type {RegionId} from '../types';
@@ -38,6 +39,7 @@ export class WeatherSystem {
   private music: HTMLAudioElement | null = null;private nextMusic:HTMLAudioElement|null=null;
   private currentRegion:RegionId='trandum';private musicFadeElapsed=0;private audioUnlocked=false;
   private weatherRegion:RegionId|null=null;private weatherBiome:string|null=null;private weatherDay=-1;private weatherPeriod=-1;private weatherBefore600:boolean|null=null;
+  private weatherSample:{x:number;y:number;region:RegionId;biome:string}|null=null;
   private lightweight = getEffectsQuality() === 'low';
   private readonly onQualityChange = () => {
     this.lightweight = getEffectsQuality() === 'low';
@@ -121,7 +123,14 @@ export class WeatherSystem {
     }
   }
   update(delta:number,x:number,y:number,paused=false){
-    const state=useGameStore.getState(),biome=this.world.getBiomeAt(x,y),region=this.world.getRegionAt(x,y);
+    const state=useGameStore.getState(),effects=getGraphicEffects();
+    // Reuse world noise sampling until the camera/player has moved beyond the
+    // local 80-world-unit radius. This does not change scenery rendering.
+    const sample=this.weatherSample;
+    const moved=!sample||Math.abs(x-sample.x)>80||Math.abs(y-sample.y)>80;
+    const region=moved?this.world.getRegionAt(x,y):sample!.region;
+    const biome=moved?this.world.getBiomeAt(x,y):sample!.biome;
+    if(moved)this.weatherSample={x,y,region,biome};
     this.currentRegion=region;
     const period=Math.floor(state.minuteOfDay/480),before600=state.minuteOfDay<600;
     if(region!==this.weatherRegion||biome!==this.weatherBiome||state.day!==this.weatherDay
@@ -136,24 +145,29 @@ export class WeatherSystem {
       this.strength+=Math.max(-step,Math.min(step,goal-this.strength));}
     this.elapsed+=delta;this.drawMs+=delta;this.roofMs+=delta;
     const night=nightStrength(state.minuteOfDay),dawn=state.minuteOfDay>=240&&state.minuteOfDay<540;
-    const mistTarget=region==='darkav'?.14:(dawn||night>.5)&&(biome==='forest'||biome==='wetland'||this.world.distanceToWater(x,y)<300)?(dawn ? .32 : .1):0;
+    const mistTarget=((night>.02&&!effects.nightMist)||(night<=.02&&!effects.daytimeFog))?0:region==='darkav'?.14:(dawn||night>.5)&&(biome==='forest'||biome==='wetland'||this.world.distanceToWater(x,y)<300)?(dawn ? .32 : .1):0;
     this.ambientMist+=Math.max(-step,Math.min(step,mistTarget-this.ambientMist));
     const weatherLabel=region==='darkav'?labels.ash:labels[this.kind];
     if(state.weatherLabel!==weatherLabel)state.hydrate({weatherLabel});
     this.updateAmbience(region,biome,night,paused||!state.weatherAudio);
     this.updateMusic(delta);
-    if(this.drawMs<(this.lightweight?130:50))return;this.drawMs=0;
+    const animatedPrecip=effects.weatherParticles&&['rain','storm','snow'].includes(this.kind);
+    if(this.drawMs<(this.lightweight?(animatedPrecip?170:290):50))return;this.drawMs=0;
     const camera=this.scene.cameras.main,full=overlayViewport(this.scene);
     const resolution=this.lightweight ? 0.65 : 1;
     const z=full.zoom*resolution,w=Math.max(1,Math.round(full.width*resolution)),h=Math.max(1,Math.round(full.height*resolution));
     if(this.texture.width!==w||this.texture.height!==h)this.texture.setSize(w,h);
-    const fogAmount=Math.max(this.ambientMist,this.kind==='fog'?this.strength:0);
-    const ashAmount=region==='darkav'?.65+.35*this.strength:this.kind==='ash'?this.strength:0;
+    const fogAmount=((night>.02&&!effects.nightMist)||(night<=.02&&!effects.daytimeFog))?0:Math.max(this.ambientMist,this.kind==='fog'?this.strength:0);
+    const ashAmount=effects.weatherParticles?(region==='darkav'?.65+.35*this.strength:this.kind==='ash'?this.strength:0):0;
     // Darkav ash must render over the night-darkness veil, but below local
     // lights/emissions so its red flakes glow without obscuring scenery.
     this.overlay.setDepth(region==='darkav'?1_000_000.5:999_990);
-    fitViewportOverlay(this.scene,this.overlay);this.overlay.setVisible(this.strength>0||fogAmount>0||ashAmount>0);
-    if(this.strength===0&&fogAmount===0&&ashAmount===0)return;
+    fitViewportOverlay(this.scene,this.overlay);
+    const hasWeatherTint=this.strength>0&&['storm','rain','cloudy'].includes(this.kind);
+    const hasWeatherParticles=effects.weatherParticles&&this.strength>0&&!['clear','cloudy','fog','ash'].includes(this.kind)&&region!=='darkav';
+    const hasEffect=hasWeatherTint||hasWeatherParticles||fogAmount>.001||ashAmount>.001;
+    this.overlay.setVisible(hasEffect);
+    if(!hasEffect)return;
     if(this.roofMs>(this.lightweight?850:350)){this.roofMs=0;const cx=camera.worldView.x+w/z/2,cy=camera.worldView.y+h/z/2;
       this.roofs=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop'&&Math.abs(d.world.x-cx)<w/z+500&&Math.abs(d.world.y-cy)<h/z+500)
       .map(d=>d.kind==='settlement-prop'?spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y):{left:0,right:0,top:0,bottom:0});}
@@ -162,7 +176,7 @@ export class WeatherSystem {
     ctx.fillStyle=`rgba(42,58,72,${this.strength*(this.kind==='storm'?.16:wet?.07:this.kind==='cloudy'?.1:0)})`;ctx.fillRect(0,0,w,h);
     this.fogArt.draw(ctx,w,h,camera.worldView.x,camera.worldView.y,this.elapsed,fogAmount,REGION_SCENERY[region].fogTint,night);
     this.ashArt.draw(ctx,w,h,camera.worldView.x,camera.worldView.y,this.elapsed,ashAmount,night);
-    if(region!=='darkav'&&this.kind!=='ash'&&this.kind!=='cloudy'&&this.kind!=='clear'&&this.kind!=='fog'){
+    if(effects.weatherParticles&&region!=='darkav'&&this.kind!=='ash'&&this.kind!=='cloudy'&&this.kind!=='clear'&&this.kind!=='fog'){
       const count=this.lightweight?(this.kind==='storm'?42:wet?30:this.kind==='snow'?28:14)
         :this.kind==='storm'?96:wet?60:this.kind==='snow'?Math.floor(32+this.strength*40):20;
       for(let i=0;i<count;i++){const p=this.points[i],px=(p.x*w+this.elapsed*(wet?.08:.018)*p.speed)%w,
@@ -194,3 +208,5 @@ export class WeatherSystem {
     if(this.music)this.disposeMusic(this.music);if(this.nextMusic)this.disposeMusic(this.nextMusic);void this.audio?.close().catch(()=>{});
     this.fogArt.destroy();this.ashArt.destroy();this.overlay.destroy();this.scene.textures.remove('weather-overlay');}
 }
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

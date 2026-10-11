@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type {WorldGenerator} from './WorldGenerator';
 import {overlayViewport} from './renderSizing';
+import {getGraphicEffects} from './graphicsEffects';
 
 interface WaterCell {x:number;y:number;edges:Array<[number,number]>}
 const OVERSCAN=96;
@@ -22,6 +23,7 @@ export class WaterSurfaceSystem {
     this.ocean=scene.add.tileSprite(0,0,1,1,'water-foam',0).setOrigin(0).setScrollFactor(0).setDepth(-990).setAlpha(.18).setTileScale(.7,.45).setVisible(false).setName('ocean-foam-surface');
   }
   update(delta:number){
+    if(!getGraphicEffects().waterMotion){this.overlay.setVisible(false);this.ocean.setVisible(false);this.base.zoom=0;this.drawMs=100;return;}
     if(!this.reducedMotion.matches)this.elapsed+=Math.min(delta,100);
     this.drawMs+=delta;
     const camera=this.scene.cameras.main,viewport=overlayViewport(this.scene),z=viewport.zoom,view=camera.worldView;
@@ -75,3 +77,5 @@ export class WaterSurfaceSystem {
   }
   destroy(){if(this.destroyed)return;this.destroyed=true;this.overlay.destroy();this.ocean.destroy();this.scene.textures.remove('moving-water');this.mask.width=this.mask.height=1;this.cells=[];}
 }
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

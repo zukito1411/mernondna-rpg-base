@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {isTreeArt,treeLayerKey} from '../../data/treeArt';
+import {getGraphicEffects} from './graphicsEffects';
 
 type TreeActor=Phaser.GameObjects.Image|Phaser.GameObjects.Sprite;
 interface Canopy {tree:TreeActor;leaves:Phaser.GameObjects.Image;phase:number}
@@ -20,13 +21,14 @@ export class TreeSwaySystem {
     tree.once('destroy',()=>{this.canopies.delete(entry);leaves.destroy();});
   }
   update(delta:number,wind:number){
-    this.elapsed+=Math.min(delta,100);this.drawMs+=delta;if(this.drawMs<50)return;this.drawMs=0;
+    const swayEnabled=getGraphicEffects().treeSway;
+    this.elapsed+=Math.min(delta,100);this.drawMs+=delta;if(this.drawMs<(swayEnabled?50:350))return;this.drawMs=0;
     const view=this.scene.cameras.main.worldView;
     for(const entry of this.canopies){
       const {tree,leaves,phase}=entry;
       const visible=tree.visible&&tree.x>view.x-400&&tree.x<view.right+400&&tree.y>view.y-80&&tree.y<view.bottom+500;
       leaves.setVisible(visible);if(!visible)continue;
-      const amplitude=this.reducedMotion.matches?0:Math.min(3.2,.7+wind*2.1);
+      const amplitude=!swayEnabled||this.reducedMotion.matches?0:Math.min(3.2,.7+wind*2.1);
       const sway=Math.sin(this.elapsed*.0013+phase)*amplitude+Math.sin(this.elapsed*.0027+phase)*amplitude*.22;
       leaves.setPosition(tree.x+sway,tree.y+Math.sin(this.elapsed*.0018+phase)*amplitude*.2)
         .setDepth(tree.depth+.01).setAlpha(tree.alpha);
@@ -35,3 +37,5 @@ export class TreeSwaySystem {
   }
   destroy(){for(const entry of this.canopies)entry.leaves.destroy();this.canopies.clear();}
 }
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

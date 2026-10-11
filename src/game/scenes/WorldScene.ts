@@ -54,6 +54,13 @@ import type { Vec2 } from '../types';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
 const foregroundBuildings=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop');
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1: cache tree crowns around Oakmere, rather than scanning every
+// world tree during NPC route planning. Actual tree feet and physics stay intact.
+const oakmereTreeCanopies=WORLD_CONTENT.filter(d=>d.kind==='prop'&&'frame' in d
+  &&isTreeArt(d.texture??'',d.frame)
+  &&Math.abs(d.world.x-TOWN_BY_ID.oakmere.world.x)<1400
+  &&Math.abs(d.world.y-TOWN_BY_ID.oakmere.world.y)<1400)
+  .map(d=>({y:d.world.y,bounds:spriteBounds(d.texture??'world_assets',d.frame,d.scale??1,d.world.x,d.world.y)}));
 
 export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   player!: Player;
@@ -743,7 +750,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private isNpcObscured(x:number,y:number) {
     const person={left:x-25,right:x+25,top:y-76,bottom:y+2};
     return foregroundBuildings.some(d=>d.kind==='settlement-prop' && d.world.y>y
-      && overlaps(person,spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y)));
+      && overlaps(person,spriteBounds(d.texture??'world_objects',d.frame,d.scale,d.world.x,d.world.y)))
+      ||(Math.abs(x-TOWN_BY_ID.oakmere.world.x)<1350
+        &&Math.abs(y-TOWN_BY_ID.oakmere.world.y)<1350
+        &&oakmereTreeCanopies.some(tree=>tree.y>y&&overlaps(person,tree.bounds)));
   }
 
   hasClearPath(ax: number, ay: number, bx: number, by: number, exclude?: Phaser.GameObjects.GameObject) {
@@ -870,19 +880,19 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         :returned?{x:town.world.x-1280,y:town.world.y+1609}
         :phase&&this.getWorldHour()>=6&&this.getWorldHour()<20?{x:town.world.x+phase.x,y:town.world.y+phase.y}
         : obscuredKeeper || this.isNpcObscured(x,y) || this.isBlockedByBuilding(x,y) ? definition.world : { x,y };
-      // Old saves can retain civilian positions from previous village layouts.
-      // Alice works by the herb garden; Hawise stays outside the inn entrance.
-      // Keep their narrative identity, trust and quests; repair position only.
+      // Oakmere residents return to their authored home positions. If a
+      // later layout moved scenery over an authored spot, choose the nearest
+      // accessible clear point without changing quest/trust/save identities.
       let npcPosition=position;
-      if(npcDefinition.townId==='oakmere' && (definition.npcId==='mira-fen'||definition.npcId==='sena-marrow')) {
-        const preferred=definition.npcId==='mira-fen'
-          ? {x:town.world.x+195,y:town.world.y+140}
-          : {x:town.world.x+440,y:town.world.y+340};
-        const offsets=[[0,0],[60,0],[-60,0],[0,65],[0,-65],[80,65],[-80,65],[90,-65],[-90,-65]];
-        const safe=offsets.map(([dx,dy])=>({x:preferred.x+dx,y:preferred.y+dy}))
+      if(npcDefinition.townId==='oakmere'){
+        const home=definition.world;
+        const offsets:Array<[number,number]>=[[0,0]];
+        for(const radius of [48,88,128,176,224,280])
+          for(const [dx,dy] of [[0,-1],[-1,0],[1,0],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])
+            offsets.push([dx*radius,dy*radius]);
+        const clear=offsets.map(([dx,dy])=>({x:home.x+dx,y:home.y+dy}))
           .find(candidate=>this.npcCanStandAt(candidate.x,candidate.y));
-        if(safe)npcPosition=safe;
-        else if(this.npcCanStandAt(definition.world.x,definition.world.y))npcPosition=definition.world;
+        npcPosition=clear??home;
       }
       const npc = new Npc(this, npcDefinition, npcPosition.x, npcPosition.y, definition.world);
       this.groundShadows.register(npc);

@@ -1,5 +1,6 @@
 import {createNoise2D} from 'simplex-noise';
 import {seededRandom} from '../../utils/seededRandom';
+import {getGraphicEffects} from './graphicsEffects';
 
 /** A reusable soft density field: three parallax layers imitate depth in a
  * 2D scene. This is not a 3D volumetric/ray-marched renderer. */
@@ -31,9 +32,11 @@ export class FogArt {
         ctx.drawImage(this.tint,col*stepX-ox+(row%2)*stepX*.28,row*stepY-oy,size,size*2/3);
     }
     // Faint daylight shafts belong to mist, not a glowing player spotlight.
-    if(night<.2&&amount>.4){ctx.globalAlpha=amount*.035;ctx.fillStyle='#fff2d0';
+    if(getGraphicEffects().sunRays&&night<.2&&amount>.4){ctx.globalAlpha=amount*.035;ctx.fillStyle='#fff2d0';
       for(let i=0;i<3;i++){const x=width*(.18+i*.33)+Math.sin(time*.00007+i)*50;ctx.beginPath();ctx.moveTo(x,-20);ctx.lineTo(x+30,-20);ctx.lineTo(x+190,height);ctx.lineTo(x+110,height);ctx.closePath();ctx.fill();}}
     ctx.restore();
   }
   destroy(){this.cloud.width=this.cloud.height=this.tint.width=this.tint.height=1;}
 }
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

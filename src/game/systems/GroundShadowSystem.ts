@@ -3,6 +3,7 @@ import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {overlayViewport} from './renderSizing';
 import {cloudShadowStamps} from './CloudShadowArt';
 import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
+import {getGraphicEffects} from './graphicsEffects';
 
 type Actor=Phaser.GameObjects.Sprite|Phaser.GameObjects.Image;
 export interface ShadowOptions {projection?:number;contactScale?:number;contactHeight?:number;contactOffset?:number;groundOffsetY?:number}
@@ -95,13 +96,15 @@ export class GroundShadowSystem {
   if(lightKey!==this.lightingKey){this.lightingKey=lightKey;this.staticDirty=true;this.actorStamp=null;}
   const daylight=sunHour>=6&&sunHour<=18?Math.max(0,Math.sin((sunHour-6)/12*Math.PI)):0;
   const castX=Math.cos((sunHour-6)/12*Math.PI)*(.22+(1-daylight)*.4),castY=.16+(1-daylight)*.24;
-  const cloudKey=Math.round(daylight*20)+':'+cloud;
+  const graphics=getGraphicEffects();
+  const cloudKey=Math.round(daylight*20)+':'+cloud+':'+graphics.cloudShadows+':'+graphics.sunRays;
   // Cloud movement is a cheap image transform on every frame; only repaint
   // when lighting/viewport changes, the buffer nears its overscan edge, or
   // the weather needs an occasional refreshed cloud pattern.
   const driftPx=Math.abs(this.cloudElapsed-this.cloudPaintElapsed)*zoom;
   const cloudInterval=this.lightweight?1400:850;
-  if(shifted||cloudKey!==this.cloudLightKey||driftPx>OVERSCAN*.4
+  if(!graphics.cloudShadows&&!graphics.sunRays){this.cloudLayer.image.setVisible(false);this.cloudLightKey='';}
+  else if(shifted||cloudKey!==this.cloudLightKey||driftPx>OVERSCAN*.4
     ||daylight>.02&&!this.reducedMotion.matches&&this.cloudDrawMs>=cloudInterval){
    this.cloudDrawMs=0;this.cloudLightKey=cloudKey;
    this.cloudPaintElapsed=this.cloudElapsed;
@@ -109,12 +112,14 @@ export class GroundShadowSystem {
   }
   const cloudShift=this.cloudElapsed-this.cloudPaintElapsed;
   this.cloudLayer.image.setPosition(this.base.x+cloudShift,this.base.y-cloudShift*.24);
-  if(this.staticDirty||this.staticScanMs>=250){
+  if(this.staticDirty||this.staticScanMs>=(this.lightweight?650:250)){
    this.staticScanMs=0;const visible=this.visible(this.scenery,width,height,castX,castY),stamp=this.stamp(visible);
    if(this.staticDirty||stamp!==this.sceneryStamp){this.paint(this.staticLayer,visible,daylight,castX,castY,cloud);this.sceneryStamp=stamp;}
    this.staticDirty=false;
   }
-  if(this.drawMs<33&&!shifted)return;
+  this.actorLayer.image.setVisible(graphics.dynamicShadows);
+  if(!graphics.dynamicShadows){this.actorStamp=null;return;}
+  if(this.drawMs<(this.lightweight?70:33)&&!shifted)return;
   this.drawMs=0;const visible=this.visible(this.moving,width,height,castX,castY),stamp=this.stamp(visible);
   if(stamp===this.actorStamp)return;
   this.paint(this.actorLayer,visible,daylight,castX,castY,cloud);this.actorStamp=stamp;
@@ -161,7 +166,8 @@ export class GroundShadowSystem {
  private paintClouds(daylight:number,cloudCover:number){
   const layer=this.cloudLayer,ctx=layer.texture.getContext(),zoom=this.base.zoom*this.cloudResolution;
   ctx.clearRect(0,0,layer.texture.width,layer.texture.height);
-  layer.image.setVisible(daylight>.02);
+  const graphics=getGraphicEffects();
+  layer.image.setVisible(daylight>.02&&(graphics.cloudShadows||graphics.sunRays));
   if(daylight<=.02)return;
   // LEIGHNERON_CLOUD_SHADOW_VISIBILITY_V2
   // Template pixels already have alpha: do not multiply them by another tiny
@@ -171,7 +177,7 @@ export class GroundShadowSystem {
   // LEIGHNERON_WEATHER_SKY_MANUAL_A
   const strength=Math.min(.62,Math.pow(Math.max(0,daylight),.55)*(.38+cover*.20));
   const sun=Math.max(0,Math.min(1,(daylight-.30)/.45))*Math.max(0,1-cover*1.8);
-  if(sun>.08){
+  if(graphics.sunRays&&sun>.08){
    const n=this.lightweight?1:2;
    for(let i=0;i<n;i++){
     ctx.save();
@@ -197,7 +203,7 @@ export class GroundShadowSystem {
    const value=Math.sin(x*127.1+y*311.7+salt*74.7)*43758.5453;
    return value-Math.floor(value);
   };
-  for(let gy=firstY;gy<=lastY;gy++)for(let gx=firstX;gx<=lastX;gx++){
+  if(graphics.cloudShadows)for(let gy=firstY;gy<=lastY;gy++)for(let gx=firstX;gx<=lastX;gx++){
    if(random(gx,gy,9)>.22+cover*.60)continue;
    const seed=random(gx,gy,1),x=(gx+.25+random(gx,gy,2)*.5)*stepX+driftX;
    const y=(gy+.25+random(gx,gy,3)*.5)*stepY+driftY;
@@ -228,3 +234,5 @@ export class GroundShadowSystem {
   this.contact.width=this.contact.height=1;
  }
 }
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

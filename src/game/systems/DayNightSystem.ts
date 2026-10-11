@@ -5,6 +5,7 @@ import { ART_BY_KEY, type ArtTextureKey } from '../../data/art';
 import { environmentLightPoints, nightStrength } from '../../data/environmentLights';
 import {overlayViewport} from './renderSizing';
 import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
+import {getGraphicEffects} from './graphicsEffects';
 
 interface LocalLight {
   actor:Phaser.GameObjects.Sprite; x:number; y:number; radius:number; fire:boolean; phase:number;
@@ -105,10 +106,11 @@ export class DayNightSystem {
     this.accumulator+=deltaMs;
     if(this.accumulator>700){this.accumulator=0;this.syncState();}
     const night=nightStrength(this.minuteOfDay);
+    const effects=getGraphicEffects();
     for(const node of this.lights) {
       const flicker=node.fire ? .92+Math.sin(this.elapsed*.013+node.phase)*.055+Math.sin(this.elapsed*.021+node.phase)*.025 : 1;
       const intensity=node.actor.texture.key==='elven_villas'?.28:.15;
-      node.glow.setPosition(node.actor.x+node.x,node.actor.y+node.y).setAlpha(night*intensity*flicker).setVisible(night>0);
+      node.glow.setPosition(node.actor.x+node.x,node.actor.y+node.y).setAlpha(night*intensity*flicker).setVisible(effects.lightBloom&&night>0);
     }
     for(const emission of this.emissions){
       const owner=emission.getData('emissionOwner') as Phaser.GameObjects.Sprite;
@@ -120,28 +122,28 @@ export class DayNightSystem {
         const runeGlow=type==='tree-rune-glow';
         emission.setDepth(runeGlow?1_000_002:1_000_003)
           .setPosition(owner.x,owner.y).setAlpha(runeGlow?.48+.42*pulse:.88+.12*pulse)
-          .setVisible(owner.visible);
-      }else emission.setDepth(owner.depth+.005).setAlpha(night*.8).setVisible(night>0&&owner.visible);
+          .setVisible(effects.lightBloom&&owner.visible);
+      }else emission.setDepth(owner.depth+.005).setAlpha(night*.8).setVisible(effects.lightBloom&&night>0&&owner.visible);
     }
     // Stable world-space pockets. Camera zoom never gets applied twice.
     const cx=Math.floor(playerX/1024)*1024+512,cy=Math.floor(playerY/1024)*1024+512;
     for(const fly of this.fireflies) {
       const drift=this.elapsed*.00035, pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
       const x=cx+fly.dx+Math.sin(drift+fly.phase)*32,y=cy+fly.dy+Math.cos(drift*.8+fly.phase)*24;
-      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(this.firefliesEnabled&&!this.lightweight&&night>.02);
-      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(this.firefliesEnabled&&(!this.lightweight||this.fireflies.indexOf(fly)<6)&&night>.02);
+      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(effects.fireflies&&this.firefliesEnabled&&!this.lightweight&&night>.02);
+      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(effects.fireflies&&this.firefliesEnabled&&(!this.lightweight||this.fireflies.indexOf(fly)<6)&&night>.02);
     }
     const camera=this.scene.cameras.main,full=overlayViewport(this.scene);
     const resolution=this.lightweight ? .65 : 1;
     const z=full.zoom*resolution,pad=Math.round(this.maskPaddingCss*resolution);
     const w=this.texture.width,h=this.texture.height;
-    this.overlay.setVisible(night>0);
-    if(night===0) {
+    this.overlay.setVisible(effects.nightDarkness&&night>0);
+    if(night===0||!effects.nightDarkness) {
       this.previousNight=0;
       this.maskWorldOrigin=null;
       return; // Avoid full-screen texture uploads in daylight.
     }
-    const changedLight=Math.abs(night-this.previousNight)>.018;
+    const changedLight=Math.abs(night-this.previousNight)>(this.lightweight?.055:.018);
     this.previousNight=night;
     this.renderAccumulator+=Math.max(0,deltaMs);
     const movement=this.maskWorldOrigin
@@ -149,7 +151,8 @@ export class DayNightSystem {
       : Infinity;
     // Keep masks reasonably fresh; the buffered image tracks camera motion
     // in the interim, without an expensive canvas redraw on every frame.
-    if(this.renderAccumulator>=(this.lightweight?115:70)||movement>pad*.7||changedLight) {
+    const interval=this.lightweight?220:70;
+    if(this.renderAccumulator>=interval || (changedLight&&this.renderAccumulator>=90) || (movement>pad*.7&&this.renderAccumulator>=140)) {
       this.renderAccumulator=0;
       this.maskWorldOrigin={x:camera.worldView.x,y:camera.worldView.y};
       const ctx=this.texture.getContext();
@@ -212,3 +215,5 @@ export class DayNightSystem {
     this.renderAccumulator=200;
   }
 }
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1

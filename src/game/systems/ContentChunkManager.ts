@@ -1,6 +1,7 @@
 import type { ContentDefinition, ContentState, ContentWorldState, CreatureContentDefinition, Vec2 } from '../types';
 import { chunkNeighborhood, contentChunkKey } from './chunkNeighborhood';
 import {CHUNK_SIZE,STREAM_RADIUS} from '../../data/world';
+import {NPC_BY_ID} from '../../data/npcs';
 
 export interface ContentHost<Actor> {
   initialState(definition: ContentDefinition): ContentState;
@@ -32,7 +33,9 @@ export class ContentChunkManager<Actor> {
       const d=known.get(id);if(!d) continue;
       // Static placements are authored, not world relocations. Layout repairs
       // apply to old saves while preserving opened caches and attuned shrines.
-      this.states.set(id,{...state,...(d.kind!=='npc'&&d.kind!=='creature'?d.world:{})});
+      // Keep trust and quest progress, but clear old saved Oakmere coordinates.
+      const oakmereNpc=d.kind==='npc'&&NPC_BY_ID[d.npcId]?.townId==='oakmere';
+      this.states.set(id,{...state,...(oakmereNpc||(d.kind!=='npc'&&d.kind!=='creature')?d.world:{})});
       if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);
     }
     for (const definition of definitions) this.register(definition);
@@ -187,3 +190,5 @@ export class ContentChunkManager<Actor> {
 }
 
 // LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1
+
+// LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1
