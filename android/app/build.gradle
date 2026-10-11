@@ -7,7 +7,8 @@ android {
         applicationId "com.mernondna.rpg"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // CI Android APK releases get an increasing versionCode; local builds keep versionCode 1.
+        versionCode (project.findProperty('ciVersionCode') ?: '1').toInteger()
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

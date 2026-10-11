@@ -26,11 +26,25 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Retain the development signing identity between CI builds
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: android-debug-signing-v1
+      - name: Restore and verify permanent Android signing key
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ANDROID_DEBUG_KEYSTORE_BASE64:-}" ]]; then
+            echo "::error::Missing ANDROID_DEBUG_KEYSTORE_BASE64 repository secret."
+            exit 1
+          fi
+          install -d -m 700 "$HOME/.android"
+          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          expected_cert="FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD"
+          actual_cert="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ "$actual_cert" != "$expected_cert" ]]; then
+            echo "::error::Signing key certificate does not match the existing locally installed game."
+            exit 1
+          fi
+          echo "Permanent Android signing key restored and certificate verified."
       - name: Install Android SDK packages
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;34.0.0'
@@ -46,10 +60,18 @@ jobs:
         run: npm run cap:android:refresh
       - name: Build installable APK
         working-directory: android
-        run: bash gradlew :app:assembleDebug --no-daemon --console=plain
+        run: bash gradlew :app:assembleDebug -PciVersionCode="$GITHUB_RUN_NUMBER" --no-daemon --console=plain
       - name: Verify and prepare downloads
         run: |
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify android/app/build/outputs/apk/debug/app-debug.apk
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          cert_info="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$apk")"
+          apk_cert="$(printf '%s\n' "$cert_info" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:lower:]' '[:upper:]')"
+          if [[ "$apk_cert" != "FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD" ]]; then
+            echo "::error::APK signing certificate does not match the existing installed game."
+            exit 1
+          fi
+          echo "Verified APK signing certificate: $apk_cert"
           cp android/app/build/outputs/apk/debug/app-debug.apk Tales-of-Leighneron.apk
           sha256sum Tales-of-Leighneron.apk > Tales-of-Leighneron.apk.sha256
           cat > release-notes.md <<'NOTES'
@@ -57,7 +79,7 @@ jobs:
 
           Download Tales-of-Leighneron.apk below and open it on your Android device. Requires Android 6.0 or newer. The APK includes the game assets and does not need a running development server.
 
-          This is a development build. CI reuses its cached debug signing identity. An earlier APK built locally may have a different signature; Android can reject an update between those two builds. Uninstalling the earlier app also removes its local saves.
+          This is a development build signed with the persistent Android debug key from GitHub Actions Secrets. It matches the locally built app-debug.apk signing certificate (FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD). Android can update an installed app in place when the package name and signing certificate match and the version code is not lower. APKs signed with a different key cannot be installed as updates.
 
           The accompanying SHA-256 file lets you verify your download.
           NOTES
