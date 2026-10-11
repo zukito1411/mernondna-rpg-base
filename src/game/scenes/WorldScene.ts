@@ -17,7 +17,7 @@ import { mobileInput } from '../input';
 import { Enemy } from '../entities/Enemy';
 import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
-import type { ContentDefinition, ContentState, EnemyDefinition, InteractableContentDefinition, NavigationMarker, QuestTarget, RegionId, WeaponDefinition, WorldPropTexture } from '../types';
+import type { ContentDefinition, ContentState, EnemyDefinition, InteractableContentDefinition, NavigationMarker, PropContentDefinition, QuestTarget, RegionId, WeaponDefinition, WorldPropTexture } from '../types';
 import { ChunkManager } from '../systems/ChunkManager';
 import { DayNightSystem } from '../systems/DayNightSystem';
 import { EventDirector, type EventDirectorHost } from '../systems/EventDirector';
@@ -56,11 +56,12 @@ type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
 const foregroundBuildings=WORLD_CONTENT.filter(d=>d.kind==='settlement-prop');
 // LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1: cache tree crowns around Oakmere, rather than scanning every
 // world tree during NPC route planning. Actual tree feet and physics stay intact.
-const oakmereTreeCanopies=WORLD_CONTENT.filter(d=>d.kind==='prop'&&'frame' in d
-  &&isTreeArt(d.texture??'',d.frame)
-  &&Math.abs(d.world.x-TOWN_BY_ID.oakmere.world.x)<1400
-  &&Math.abs(d.world.y-TOWN_BY_ID.oakmere.world.y)<1400)
-  .map(d=>({y:d.world.y,bounds:spriteBounds(d.texture??'world_assets',d.frame,d.scale??1,d.world.x,d.world.y)}));
+const oakmereTreeCanopies=WORLD_CONTENT
+  .filter((d): d is PropContentDefinition=>d.kind==='prop')
+  .filter(d=>isTreeArt(d.texture??'',d.frame)
+    &&Math.abs(d.world.x-TOWN_BY_ID.oakmere.world.x)<1400
+    &&Math.abs(d.world.y-TOWN_BY_ID.oakmere.world.y)<1400)
+  .map(d=>({y:d.world.y,bounds:spriteBounds(d.texture??'world_assets',d.frame,d.scale,d.world.x,d.world.y)}));
 
 export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   player!: Player;
