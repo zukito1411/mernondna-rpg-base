@@ -168,7 +168,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileInteract = mobileInput.consume('interact');
     const interactPressed = this.consumeAction('interact') || mobileInteract;
-    if (interactPressed && !this.skills.isCasting) scene.tryInteract(this.x, this.y);
+    if (interactPressed) {
+      if (this.skills.isCasting) scene.notify('Finish your combat art before interacting.');
+      else scene.tryInteract(this.x, this.y);
+    }
   }
 
   takeDamage(amount: number) {

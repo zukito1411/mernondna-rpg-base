@@ -4,6 +4,7 @@ import { DesktopSkillBar } from './DesktopSkillBar';
 import { REGION_BY_ID } from '../data/regions';
 import { TOWN_BY_ID } from '../data/towns';
 import { useGameStore } from '../store/gameStore';
+import { mobileInput } from '../game/input';
 import { activeObjective } from '../game/systems/questNavigation';
 import { MiniMap } from './MiniMap';
 import { QuestCompass } from './QuestCompass';
@@ -73,7 +74,11 @@ export function HUD() {
         </div>
       </section>}
       <MiniMap />
-      {!blocked && interaction && <div className="interaction-hint"><kbd>E</kbd><span>{interaction}</span><small>or tap nearby</small></div>}
+      {!blocked && interaction && <button type="button" className="interaction-hint"
+        aria-label={`Interact: ${interaction}`} title={`Interact: ${interaction}`}
+        onClick={() => mobileInput.press('interact')}>
+        <kbd>E</kbd><span>{interaction}</span><small>Click or press E</small>
+      </button>}
 
       <div className={`hud-action-dock ${menuExpanded ? 'is-expanded' : 'is-collapsed'}`}>
         <nav id="hud-main-actions" className="hud-actions" aria-label="Game menus" aria-hidden={!menuExpanded}>

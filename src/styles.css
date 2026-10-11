@@ -494,3 +494,8 @@ kbd { font-size: 10px; opacity: .65; }
     display: none;
   }
 }
+
+/* An interaction shown on-screen should also be clickable. */
+.hud-layer button.interaction-hint {pointer-events:auto;cursor:pointer;color:#f1dfb9;font-family:inherit;text-align:left;z-index:16;}
+.hud-layer button.interaction-hint:hover {border-color:#d9b779;background:#2a2118f5;}
+.hud-layer button.interaction-hint:focus-visible {outline:2px solid #f6d38a;outline-offset:2px;}

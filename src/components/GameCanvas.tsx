@@ -1,5 +1,7 @@
 import { useEffect, useRef,useState } from 'react';
 import { createMernondnaGame } from '../game/MernondnaGame';
+import { mobileInput } from '../game/input';
+import { useGameStore } from '../store/gameStore';
 import type Phaser from 'phaser';
 
 declare global { interface Window { __mernondnaGame?: Phaser.Game } }
@@ -27,6 +29,17 @@ export function GameCanvas() {
     const onError=(event:ErrorEvent)=>{if(event.error)failed(event.error);};
     const onRejection=(event:PromiseRejectionEvent)=>failed(event.reason);
     window.addEventListener('error',onError);window.addEventListener('unhandledrejection',onRejection);
+    // Some overlay focus transitions prevent Phaser from seeing a keydown.
+    // Both inputs use the same boolean action queue, so a duplicate event is harmless.
+    const onInteractKey = (event:KeyboardEvent) => {
+      if(event.code!=='KeyE'||event.repeat||event.altKey||event.ctrlKey||event.metaKey)return;
+      const target=event.target instanceof HTMLElement?event.target:null;
+      if(target && (target.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(target.tagName)))return;
+      const state=useGameStore.getState();
+      if(state.panel||state.dialogue||state.cinematic||!state.navigation.interaction)return;
+      mobileInput.press('interact');
+    };
+    window.addEventListener('keydown',onInteractKey);
     try{
       game = createMernondnaGame(ref.current);
     }catch(reason){failed(reason);}
@@ -40,7 +53,7 @@ export function GameCanvas() {
       setLoading(current=>current.ready===ready&&current.progress===progress?current:
         {...current,ready,progress:typeof progress==='number'?progress:current.progress});
     },100);
-    return () => {window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);
+    return () => {window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);window.removeEventListener('keydown',onInteractKey);
       if (window.__mernondnaGame === game) delete window.__mernondnaGame; game?.destroy(true); };
   }, []);
 
