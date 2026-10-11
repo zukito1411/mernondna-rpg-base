@@ -33,7 +33,8 @@ export function MiniMap() {
     const extent = RANGE * 8 / 3;
     if (terrainCache.current?.key !== key) {
       const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
-      const background = canvas.getContext('2d')!;
+      const background = canvas.getContext('2d');
+      if (!background) return; // A memory-stressed Android WebView may deny a 2D context.
       const left = originX - extent / 2, top = originY - extent / 2;
       for (let row = 0; row < 48; row++) for (let column = 0; column < 48; column++) {
         const px = left + (column + .5) * extent / 48, py = top + (row + .5) * extent / 48;

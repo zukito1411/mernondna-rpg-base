@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DialoguePanel } from './components/DialoguePanel';
+import { SafeDialoguePanel } from './components/DialoguePanel';
 import { CharacterPanel } from './components/CharacterPanel';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
@@ -76,7 +76,7 @@ export default function App() {
         <GameCanvas />
         <HUD />
         <MobileControls />
-        <DialoguePanel />
+        <SafeDialoguePanel />
         <MapPanel />
         <InventoryPanel />
         <CharacterPanel />

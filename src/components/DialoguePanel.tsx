@@ -1,3 +1,4 @@
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { NPC_BY_ID } from '../data/npcs';
 import { useGameStore } from '../store/gameStore';
 import { SpritePortrait } from './SpritePortrait';
@@ -34,4 +35,42 @@ export function DialoguePanel() {
       </section>
     </div>
   );
+}
+
+/**
+ * A broken NPC portrait or future dialogue-only render error must not unmount
+ * the Phaser game or trap the player in a bad interaction. The wrapper is
+ * unmounted whenever the dialogue closes, resetting its error state.
+ */
+class DialogueRenderBoundary extends Component<
+  { children: ReactNode }, { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() { return { failed: true }; }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Dialogue UI render failed:', error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="dialogue-wrap">
+        <section className="dialogue-panel" role="alert">
+          <p>This conversation could not be displayed. Your progress is safe.</p>
+          <button type="button" onClick={() => useGameStore.getState().endDialogue()}>
+            Close conversation
+          </button>
+        </section>
+      </div>
+    );
+  }
+}
+
+/** Mount a fresh boundary for each conversation; don't retain an error state. */
+export function SafeDialoguePanel() {
+  const npcId = useGameStore(state => state.dialogue?.npcId);
+  if (!npcId) return null;
+  return <DialogueRenderBoundary key={npcId}><DialoguePanel /></DialogueRenderBoundary>;
 }
