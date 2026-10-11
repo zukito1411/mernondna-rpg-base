@@ -500,3 +500,304 @@
   outline-offset:0;
   border-radius:6px;
 }
+
+/* Leighneron scroll modal correction.
+   ONE illustrated skin (the player's actual PNG), rendered as a nine-slice.
+   Rollers and torn edges do not get stretched with modal height.
+   No additional CSS frame, overlay or decorative card/background. */
+
+:root {
+  --scroll-ink: #3e2915;
+  --scroll-muted: #684a2a;
+}
+
+/* A real border-image nine-slice uses the entire original artwork and keeps
+   the top and bottom rollers separate from the flexible parchment center. */
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options) {
+  box-sizing: border-box !important;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  border-width: clamp(44px, 12vh, 62px) clamp(18px, 3vw, 30px) clamp(48px, 13vh, 66px) !important;
+  border-image-source: url('/assets/ui/parchment-scroll-modal.png') !important;
+  border-image-slice: 155 58 168 58 fill !important;
+  border-image-width: 1 !important;
+  border-image-outset: 0 !important;
+  border-image-repeat: stretch !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--scroll-ink) !important;
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100dvh - 8px) !important;
+  overflow: hidden !important;
+}
+
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options)::before,
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options)::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* High-contrast ink, rather than previous white/faded text on tan paper. */
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options)
+  :is(h1, h2, h3, h4, h5, strong, p, small, span, li, summary, dt, dd, label) {
+  color: var(--scroll-ink) !important;
+  text-shadow: none !important;
+}
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options)
+  :is(p, small, dt, dd) {
+  color: var(--scroll-muted) !important;
+}
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options)
+  :is(button, button *, select, option) {
+  color: #f5e4c4 !important;
+}
+
+/* No extra header stripe, outlined cards or doubled frames. */
+:is(.panel, .quest-journal) > header,
+.home-options > header {
+  box-sizing: border-box;
+  position: relative !important;
+  top: auto !important;
+  flex: 0 0 auto;
+  min-height: 0;
+  width: 100%;
+  margin: 0 !important;
+  padding: 1px clamp(3px, 1vw, 10px) 6px !important;
+  background: none !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-image: none !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+:is(.panel, .quest-journal) > header :is(h2, h3),
+.home-options > header h2 {
+  margin: 0;
+  font: bold clamp(17px, 2.5vh, 24px)/1.08 Georgia, serif;
+  color: #462813 !important;
+}
+:is(.panel, .quest-journal) > header p {margin: 3px 0 0; font-size: 11px;}
+:is(.panel, .quest-journal) > header button {flex: 0 0 auto;}
+
+/* Real padding is for content only, inside the image's already-safe center. */
+:is(.panel, .quest-journal) > :not(header) {
+  min-height: 0;
+}
+:is(.panel, .quest-journal) .character-grid,
+:is(.panel, .quest-journal) .gear-grid,
+:is(.panel, .quest-journal) .journal-content,
+:is(.panel, .quest-journal) .shrine-destinations,
+:is(.panel, .quest-journal) .menu-actions {
+  box-sizing: border-box;
+  padding: 5px clamp(3px, 1vw, 12px) 8px !important;
+  min-height: 0;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #9d7843 transparent;
+}
+:is(.panel, .quest-journal) .character-grid,
+:is(.panel, .quest-journal) .gear-grid,
+:is(.panel, .quest-journal) .journal-content,
+:is(.panel, .quest-journal) .shrine-destinations {
+  flex: 1 1 auto;
+}
+.quest-journal {width: min(900px, 98vw) !important; height: min(650px, calc(100dvh - 8px)) !important;}
+.quest-journal > .journal-content {flex: 1 1 auto !important;}
+.quest-journal article {margin: 5px 0 !important; padding: 6px 2px !important;}
+.quest-journal article h3 {margin: 0 0 4px !important;}
+.quest-journal article p {margin: 4px 0 !important; line-height: 1.35;}
+.quest-journal article ol {margin: 4px 0 !important; padding-left: 22px;}
+.quest-journal details {padding: 4px 2px !important;}
+
+/* No secondary fake cards on top of the user's scroll artwork. */
+:is(.panel, .quest-journal) :is(.progression-row, .combat-art-row, .gear-grid article, .gear-grid dl div,
+  .quest-journal article, .shrine-destinations button, .graphics-quality, .map-sidebar, .region-strip span) {
+  border: none !important;
+  border-image: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+}
+/* Keep functional buttons visibly actionable, despite removing the extra cards. */
+:is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options)
+  button:not(.map-marker):not(.regional-settlement),
+:is(.panel, .quest-journal) select {
+  min-height: 35px;
+  padding: 4px 10px;
+  border: 1px solid #6b4825 !important;
+  border-radius: 6px !important;
+  background: #543620 !important;
+  box-shadow: none !important;
+  touch-action: manipulation;
+}
+:is(.panel, .quest-journal) :is(.progression-row, .combat-art-row) {padding: 5px 2px !important; margin: 0 !important;}
+:is(.panel, .quest-journal) .progression-row :is(p, strong, span),
+:is(.panel, .quest-journal) .combat-art-row :is(p, strong, small),
+:is(.panel, .quest-journal) .gear-grid :is(strong, dt, dd, p, li),
+:is(.panel, .quest-journal) .progression-heading :is(h3, span) {
+  color: var(--scroll-ink) !important;
+}
+
+/* Map uses all the available *interior*, never overlaps the bottom roller. */
+.map-panel {
+  width: min(1440px, 98.7vw) !important;
+  height: calc(100dvh - 8px) !important;
+  max-height: 930px !important;
+}
+.map-panel > header {flex-wrap: nowrap !important;}
+.map-panel > header > div:first-child {min-width: 0; flex: 1 1 auto;}
+.map-panel .map-header-actions {flex: 0 0 auto; gap: 4px;}
+.map-panel .map-header-actions button {font-size: 11px; padding: 4px 7px !important;}
+.map-panel .atlas-zoom-controls {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 !important;
+  padding: 2px 8px 5px !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.map-panel .atlas-zoom-controls span {color: #422915 !important; font-size: 12px;}
+.map-panel .atlas-zoom-controls button {min-height: 32px; min-width: 34px; padding: 2px 6px !important;}
+.map-panel > .map-stage {
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+  width: 100%;
+  padding: 0 clamp(3px, .9vw, 10px) 4px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+}
+.map-panel .world-map-wrap {
+  flex: 1 1 55%;
+  width: auto !important;
+  max-width: 58% !important;
+  height: 100% !important;
+  min-height: 0;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-image: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: auto !important;
+}
+.map-panel .atlas-survey {height:100% !important; width:max-content !important; margin: 0 auto;}
+.map-panel .atlas-survey > img {height:100% !important; width:auto !important; max-width:none !important;}
+.map-panel .map-sidebar {
+  flex: 1 1 42%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 2px !important;
+  margin: 0;
+  overflow: hidden;
+  color: var(--scroll-ink) !important;
+}
+.map-panel .map-sidebar-heading {flex:0 0 auto; padding: 0 2px 3px;}
+.map-panel .map-sidebar-heading :is(strong, span) {color: #402a18 !important;}
+.map-panel .map-destination-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 3px;
+  padding: 0 !important;
+  overflow-y: auto;
+}
+.map-panel .map-destination-grid button {
+  display: flex;
+  min-height: 32px !important;
+  padding: 3px 6px !important;
+  background: #50351e !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  text-align: left;
+}
+.map-panel .map-destination-grid button :is(strong, small, span) {color:#f7e5c3 !important;}
+.map-panel .map-destination-grid button small {opacity: .8;}
+.map-panel .map-region-details {flex:0 0 auto;max-height:35%;border:0 !important;}
+.map-panel .map-region-details summary {min-height:24px; padding:3px !important;}
+.map-panel .regional-map-wrap {flex: 1 1 55%; max-width:58%; min-height: 0; max-height:100%;}
+.map-panel .map-marker, .map-panel .regional-settlement {background:transparent !important; border:0 !important;}
+
+/* Long pages scroll in the parchment center, rather than crossing the roller. */
+.character-panel {height: min(800px, calc(100dvh - 8px)) !important;}
+.character-panel .character-grid {flex: 1 1 auto; padding-top: 1px !important;}
+.inventory-panel {height: min(650px, calc(100dvh - 8px)) !important;}
+.inventory-panel .gear-grid {flex:1 1 auto;}
+.pause-panel {width:min(670px, 96vw) !important; height:min(440px, calc(100dvh - 8px)) !important;}
+.pause-panel .menu-actions {flex:1 1 auto; overflow-y:auto !important; padding: 3px 4px !important; gap:6px; align-content:start;}
+.pause-panel .menu-actions button {min-height:34px !important;}
+.pause-panel .menu-note {flex:0 0 auto; margin:0; padding:2px 5px 4px !important; font-size:11px; line-height:1.25;}
+.dialogue-panel, .map-travel-card, .home-options {max-height:calc(100dvh - 8px) !important; overflow-y:auto !important;}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  :is(.panel, .quest-journal, .dialogue-panel, .map-travel-card, .home-options) {
+    border-width: 48px 24px 52px 24px !important;
+  }
+  .map-panel {height:calc(100dvh - 5px) !important;}
+  .map-panel .map-stage {padding-bottom:2px !important;}
+  .character-grid {gap: 7px !important;}
+  .character-grid .progression-row {min-height:0 !important;}
+  .quest-journal article {padding: 4px 2px !important;}
+  .pause-panel .menu-note:last-child {max-height:35px;overflow-y:auto;}
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  .map-panel .map-stage {flex-direction:column;}
+  .map-panel .world-map-wrap {flex:1 1 52%;width:100% !important;max-width:100% !important;max-height:52%;}
+  .map-panel .atlas-survey {width:max-content !important; height:100% !important;}
+  .map-panel .map-sidebar {flex:1 1 48%;}
+  .map-panel .regional-map-wrap {max-width:100%;max-height:50%;}
+  .character-grid,.gear-grid {grid-template-columns:1fr !important;}
+}
+
+/* Restore Day/time and quest distance on mobile */
+@media (hover: none), (pointer: coarse) {
+
+  /* Give the minimap room for Day and time */
+  .hud-layer .minimap-card {
+    width: 116px;
+  }
+
+  .hud-layer .minimap-card .minimap-clock {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3px;
+    margin-top: 4px;
+    padding: 3px 4px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  /* Restore quest direction and distance */
+  .hud-layer .quest-card .quest-guidance small {
+    display: block;
+    font-size: 9px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+}

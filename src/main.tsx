@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import './fantasy-ui.css';
+import './map-layout-fix.css';
+import './map-regional-navigation.css';
+import './inventory-column.css';
 import {prepareOfflineStartup} from './utils/appStartup';
 
 async function start(){

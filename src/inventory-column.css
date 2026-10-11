@@ -1,0 +1,12 @@
+/* A soft brown wash over ONLY the Inventory listing (right-side column).
+   Translucent so the supplied parchment scroll remains visible. No extra frame. */
+.inventory-panel .gear-grid > article:last-child {
+  background: rgba(89, 53, 28, 0.19) !important;
+  background-image: none !important;
+  border: none !important;
+  border-image: none !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  padding: clamp(12px, 1.3vw, 18px) !important;
+  min-width: 0;
+}

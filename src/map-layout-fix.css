@@ -1,0 +1,146 @@
+/* Contained map viewport: no browser scrollbars, proportional map at 100%.
+   This stylesheet is intentionally loaded AFTER the custom scroll skin.
+   It fixes map sizing only, leaving the parchment artwork untouched. */
+.map-panel .map-stage {
+  box-sizing: border-box !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.9fr) minmax(230px, .9fr) !important;
+  align-items: stretch !important;
+  justify-items: stretch !important;
+  gap: 9px !important;
+  overflow: hidden !important;
+  padding: 4px 7px 7px !important;
+}
+.map-panel .map-viewport {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+  border: 1px solid #80603d;
+  border-radius: 5px;
+  background: rgba(37, 29, 23, .38);
+  touch-action: none;
+  user-select: none;
+  cursor: default;
+}
+.map-panel .map-viewport.is-zoomed { cursor: grab; }
+.map-panel .map-viewport.is-zoomed:active { cursor: grabbing; }
+.map-panel .map-surface {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  flex: none;
+  margin: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible;
+  will-change: transform;
+}
+.map-panel .map-surface > .world-map-wrap,
+.map-panel .map-surface > .regional-map-wrap {
+  position: relative !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  flex: none !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  touch-action: none;
+}
+.map-panel .map-surface .atlas-survey {
+  display: block !important;
+  position: relative !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+}
+.map-panel .map-surface .atlas-survey > img,
+.map-panel .map-surface .regional-map-wrap > canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  object-fit: fill !important;
+  border: none !important;
+  border-radius: 0 !important;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.map-panel .map-surface .regional-north {
+  top: 8px;
+  left: 9px;
+  padding: 5px 7px;
+  font-size: clamp(10px, 1vw, 13px);
+  color: #f4e4bf;
+  background: #201911d9;
+  border-radius: 3px;
+}
+.map-panel .map-stage > .map-sidebar {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  align-self: stretch !important;
+  overflow: hidden !important;
+}
+.map-panel .atlas-zoom-controls {
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  gap: 6px !important;
+  min-width: 0;
+}
+.map-panel .atlas-zoom-controls button { cursor: pointer; }
+.map-panel .atlas-zoom-controls .map-help {
+  margin-left: auto;
+  color: #5a432d;
+  font-size: 11px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  .map-panel .map-stage {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1.3fr) minmax(130px, .7fr) !important;
+    gap: 6px !important;
+  }
+  .map-panel .map-help { display: none; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  .map-panel .map-stage {
+    grid-template-columns: minmax(0, 1.7fr) minmax(180px, 1fr) !important;
+    gap: 5px !important;
+    padding: 2px 4px 4px !important;
+  }
+  .map-panel .map-help { display: none; }
+}
