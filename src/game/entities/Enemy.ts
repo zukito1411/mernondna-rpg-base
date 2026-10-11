@@ -45,10 +45,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly boss: BossDefinition | undefined;
   private attackEpoch=0;
   private hitStunUntil=0;
-  // Hit pressure builds toward a brief stagger instead of cancelling every attack.
-  private poise=0;
-  private lastPoiseHitAt=0;
   private staggerImmuneUntil=0;
+  private flurrySuppressed=false;
   private lastDamagedAt=0;
   private lastEngagedAt=0;
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
@@ -58,6 +56,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private wolfFlankSlot: number | null = null;
   private wolfHuntBearing = 0;
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
+  get isStaggered(){return this.flurrySuppressed||this.scene.time.now<this.hitStunUntil;}
   get facingLeft(){return this.visualDirection==='left';}
   playMonsterVocal(cue:'attack'|'growl'|'hurt'|'death'){
     (this.scene as WorldScene).playEnemyVocal(this.definition,this.instanceId,cue,this.x,this.y);
@@ -153,6 +152,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    if(this.isStaggered){body.setVelocity(0,0);this.setDepth(this.y);this.updateVisual(time);return;}
     if (time < this.lockedUntil) {
       body.setVelocity(0, 0);
       if(this.attackTelegraph)this.updateAttackTelegraph(time);
@@ -160,7 +160,6 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.updateVisual(time);
       return;
     }
-    if(time<this.hitStunUntil){body.velocity.scale(.85);this.updateVisual(time);return;}
 
     const territory=scene.isEnemyTerritory(player.x,player.y);
     const spotted=distance<=this.definition.aggroRange&&territory;
@@ -440,48 +439,57 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.scene.time.delayedCall(animationDuration(animation) + 200,() => { if (effect.active) effect.destroy(); });
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2) {
+  /** Flurry holds only reachable targets, releasing them when the cast ends,
+   * is cancelled, or they leave its area. Damage pulses still play hurt poses. */
+  setFlurrySuppressed(suppressed:boolean){
+    if(!this.active||this.hp<=0||this.flurrySuppressed===suppressed)return;
+    if(suppressed&&!this.canBeTargeted)return;
+    this.flurrySuppressed=suppressed;
+    if(suppressed)this.stagger(true);
+  }
+
+  private interruptAttack(){
+    this.attackEpoch++;
+    this.attackTelegraph?.destroy();this.attackTelegraph=null;
+    this.clearWolfLeap();
+  }
+  private stagger(forced:boolean){
+    const now=this.scene.time.now;
+    if(!forced&&now<this.staggerImmuneUntil)return false;
+    const duration=animationDuration(enemyAnimation(this.definition.spriteFrame,'hurt'));
+    this.hitStunUntil=now+duration;
+    // A full hurt pose is followed by a real opportunity to retaliate.
+    this.staggerImmuneUntil=this.hitStunUntil+(this.boss?1500:1000);
+    this.lockedUntil=this.hitStunUntil;
+    this.nextAttackAt=Math.max(this.nextAttackAt,this.hitStunUntil+150);
+    this.interruptAttack();
+    this.dragonCombat?.interruptForStagger(duration);
+    (this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
+    this.playAction('hurt');
+    return true;
+  }
+
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean}={}) {
     if (!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     this.hp -= amount;
     const scene=this.scene as WorldScene;
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
-    const now=this.scene.time.now;
-    this.lastDamagedAt=now;
-    // Pressure fades after a break in the combo. Ordinary hits do not cancel
-    // attack windups or teleport the opponent back into the hurt animation.
-    if (now-this.lastPoiseHitAt>2500) this.poise=0;
-    this.lastPoiseHitAt=now;
+    this.lastDamagedAt=this.scene.time.now;
     const fatal=this.hp<=0;
-    const immune=now<this.staggerImmuneUntil;
-    if (!fatal&&!immune) {
-      const pressure=Math.min(40,12+Math.max(0,amount)/Math.max(1,this.definition.hp)*100);
-      this.poise+=pressure;
-    }
-    const staggered=!fatal&&!immune&&this.poise>=(this.boss?160:90);
-    if (staggered) {
-      this.poise=0;
-      this.staggerImmuneUntil=now+(this.boss?8500:4000);
-      this.hitStunUntil=now+(this.boss?120:190);
-      this.lockedUntil=this.hitStunUntil;
-      this.nextAttackAt=Math.max(this.nextAttackAt,now+(this.boss?350:450));
-    }
-    if (staggered||fatal) {
-      this.attackEpoch++;
-      this.attackTelegraph?.destroy();this.attackTelegraph=null;
-      this.clearWolfLeap();
-    }
+    const staggered=!fatal&&this.stagger(Boolean(options.forceStagger));
+    if(fatal)this.interruptAttack();
     scene.playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    // Routine hits keep the enemy's movement and committed attack intact.
+    // Flurry keeps its targets inside the sweep instead of knocking them out
+    // of range while Leigneron is committed to the stationary animation.
     if (staggered||fatal) {
-      const force=fatal?70:this.boss?55:100;
+      const force=fatal?70:options.forceStagger?0:this.boss?55:100;
       body.setVelocity(this.dragonCombat?0:knockback.x*force,
         this.dragonCombat?0:knockback.y*force);
     }
     this.setTintFill(0xffffff);
     this.scene.time.delayedCall(70, () => { if (this.active) this.clearTint(); });
     if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
-    else if(this.dragonCombat){if(staggered)this.dragonCombat.reactToHit();}else if(staggered)this.playAction('hurt');
   }
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
 

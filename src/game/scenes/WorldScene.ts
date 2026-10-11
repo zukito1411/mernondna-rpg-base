@@ -132,7 +132,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const level=useGameStore.getState().level;
     const growth=playerDamageGrowth(level);
-    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction);
+    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
+      {forceStagger:skill.id==='crescent-flurry'});
   }
   streamCinematicView(x:number,y:number){this.chunkManager.update(x,y,Boolean(this.passage?.active));this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
   storyActorPosition(id:string){const actor=this.contentManager.getActor('npc:'+id)??this.contentManager.getState('npc:'+id);return actor?{x:actor.x,y:actor.y-35}:undefined;}
@@ -469,6 +470,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
+    for (const enemy of this.skillTargets(player,direction,skill)){
+      const outward=new Phaser.Math.Vector2(enemy.x-player.x,enemy.y-player.y);
+      if(outward.lengthSq()>0)outward.normalize();else outward.copy(direction);
+      enemy.takeDamage(damage,outward,{forceStagger:skill.id==='crescent-flurry'});
+    }
+  }
+
+  skillTargets(player:Player,direction:Phaser.Math.Vector2,skill:ActiveSkillDefinition):Enemy[]{
+    const targets:Enemy[]=[];
     for (const enemy of this.enemies) {
       if (!enemy.active || enemy.hp <= 0 || !enemy.canBeTargeted) continue;
       const offset = new Phaser.Math.Vector2(enemy.x - player.x,enemy.y - player.y);
@@ -478,8 +488,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       // targets are included even if normalization introduces rounding error.
       if (skill.coneDot > -1 && direction.dot(outward) < skill.coneDot) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(damage,outward);
+      targets.push(enemy);
     }
+    return targets;
   }
 
   playAudio(key:string,volume=.3,rate=1) {

@@ -4,7 +4,7 @@ import type {WorldScene} from '../scenes/WorldScene';
 import {DRAGON_LAIR,inDragonArena} from '../../data/dragonLair';
 import {artScale,actorArtLayout} from '../../data/art';
 import {enemyAppearanceMultiplier} from '../../data/enemies';
-import {enemyAnimation,animationDuration} from '../../data/animationPacks';
+import {enemyAnimation} from '../../data/animationPacks';
 import {DragonBreathEffect} from './DragonBreathEffect';
 import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth} from './dragonBreath';
 import {ATTACK_WARNING_FRAMES,ATTACK_WARNING_TEXTURE} from './attackWarning';
@@ -21,7 +21,6 @@ export class DragonCombat {
   private readonly shadow:Phaser.GameObjects.Ellipse;
   private breathTick=0;
   private breathSoundPlayed=false;
-  private hurtUntil=0;
   private flightStart={x:0,y:0};private landingPoint={...DRAGON_LAIR};
   private lastFlightX=0;
   constructor(private readonly enemy:Enemy,private readonly scene:WorldScene){
@@ -43,7 +42,6 @@ export class DragonCombat {
     this.phase=phase;this.age=0;this.warningArt.setVisible(false);this.fire.hide();if(phase==='breath')this.breathSoundPlayed=false;
   }
   private groundAnimation(state:'idle'|'walk'|'attack'){
-    if(state!=='attack'&&this.clock<this.hurtUntil)return;
     if(state==='attack'){this.enemy.useVisualTexture('enemy_dragon');this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);}
     else this.enemy.playLocomotion(state);
     this.enemy.anims.timeScale=1;
@@ -62,6 +60,7 @@ export class DragonCombat {
       this.leaveAir();body.reset(DRAGON_LAIR.x,DRAGON_LAIR.y);this.enter('rest');this.nextAttack=this.clock+2500;
     }
     body.setVelocity(0,0);e.setDepth(e.y);
+    if(e.isStaggered)return;
     if(this.phase==='rest'){
       const goal=engaged?{x:player.x,y:player.y}:{x:DRAGON_LAIR.x+Math.cos(this.clock*.00018)*150,y:DRAGON_LAIR.y+Math.sin(this.clock*.00018)*110};
       const dx=goal.x-e.x,dy=goal.y-e.y,length=Math.hypot(dx,dy);
@@ -74,7 +73,6 @@ export class DragonCombat {
       }else this.groundAnimation('idle');
       if(engaged&&distance<650&&this.clock>=this.nextAttack&&this.scene.hasClearPath(e.x,e.y,player.x,player.y)){
         body.setVelocity(0,0);this.aim.set(player.x-e.x,player.y-e.y).normalize();
-        this.hurtUntil=0;
         if(this.aim.lengthSq()===0)this.aim.set(e.flipX?-1:1,0);
         e.useVisualTexture('enemy_dragon');
         e.setFlipX(this.aim.x<0);
@@ -185,11 +183,11 @@ export class DragonCombat {
     visual.once(Phaser.GameObjects.Events.DESTROY,()=>this.scene.stopDragonSound(soundId,'flight'));
     this.scene.tweens.add({targets:visual,x:e.x+1100,y:e.y-1300,alpha:0,duration:2800,ease:'Sine.easeIn',onComplete:()=>visual.destroy()});
   }
-  reactToHit(){
-    if(this.phase!=='rest'&&this.phase!=='recover')return;
-    const animation=enemyAnimation(5,'hurt');
-    this.enemy.useVisualTexture('enemy_dragon');this.enemy.setFlipX(this.enemy.facingLeft);
-    this.hurtUntil=this.clock+animationDuration(animation);this.enemy.play(animation.key);this.enemy.anims.timeScale=1;
+  interruptForStagger(duration:number){
+    if(this.airborne)return;
+    // Cancel ground windups and live breath together with their warnings,
+    // fire sprites and looped sound. Flight/landing remain untargetable.
+    this.enter('rest');this.nextAttack=Math.max(this.nextAttack,this.clock+duration+150);
   }
   destroy(){this.warningArt.destroy();this.fire.destroy();this.flight.destroy();this.shadow.destroy();}
 }

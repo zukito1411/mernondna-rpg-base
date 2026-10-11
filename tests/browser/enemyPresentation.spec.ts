@@ -41,11 +41,13 @@ test('enemy atlas GPU coordinates and combat appearance audit',async({page})=>{
    (e as unknown as {playAction(state:string):void}).playAction('attack');
    const after={x:body.center.x,y:body.center.y,w:body.width,h:body.height};
    const texture=e.texture.key;
+   e.takeDamage(1,s.player.lastDirection);
+   const hurt={x:body.center.x,y:body.center.y,w:body.width,h:body.height};
    e.playLocomotion('idle');const restored={x:body.center.x,y:body.center.y,w:body.width,h:body.height};e.destroy();
-   return {id:def.id+'/'+direction.name,before,after,restored,texture};
+   return {id:def.id+'/'+direction.name,before,after,hurt,restored,texture};
   }));
  });
- for(const t of transitions)for(const key of ['x','y','w','h'] as const){expect(t.after[key],t.id+'/'+key).toBeCloseTo(t.before[key],7);expect(t.restored[key]).toBeCloseTo(t.before[key],7);}
+ for(const t of transitions)for(const key of ['x','y','w','h'] as const){expect(t.after[key],t.id+'/'+key).toBeCloseTo(t.before[key],7);expect(t.hurt[key],t.id+'/hurt/'+key).toBeCloseTo(t.before[key],7);expect(t.restored[key]).toBeCloseTo(t.before[key],7);}
  await page.evaluate(async()=>{
   const ap='/src/data/animationPacks.ts',dp='/src/data/directionalEnemyArt.ts',artp='/src/data/art.ts';
   const {enemyAnimation}=await import(ap),{DIRECTIONAL_ENEMY_ART}=await import(dp),{ART_BY_KEY}=await import(artp);
@@ -56,12 +58,12 @@ test('enemy atlas GPU coordinates and combat appearance audit',async({page})=>{
   s.add.rectangle(cx,cy,1600,2000,0x182029).setDepth(2000000);
   DIRECTIONAL_ENEMY_ART.forEach((a:{id:string;species:number},row:number)=>{
    const y=cy-620+row*220+(row===5?120:0);
-   const clips=[s.anims.get('enemy:'+a.species+':idle:right'),s.anims.get('enemy:'+a.species+':walk:right'),s.anims.get(enemyAnimation(a.species,'attack').key)];
+   const clips=[s.anims.get('enemy:'+a.species+':idle:right'),s.anims.get('enemy:'+a.species+':walk:right'),s.anims.get(enemyAnimation(a.species,'attack').key),s.anims.get(enemyAnimation(a.species,'hurt').key)];
    clips.forEach((clip:Phaser.Animations.Animation,col:number)=>{
-    const f=clip.frames[col===2?2:0],sheet=ART_BY_KEY[f.textureKey],x=cx-350+col*350;
-    s.add.sprite(x,y,f.textureKey,f.textureFrame).setScale(.5*(a.species===5?1.6:a.species===4?1.3:a.species===1?1.16:1))
+    const f=clip.frames[col>=2?2:0],sheet=ART_BY_KEY[f.textureKey],x=cx-450+col*300;
+    s.add.sprite(x,y,f.textureKey,f.textureFrame).setScale(.5*(a.species===4?1.3:a.species===1?1.16:1))
       .setOrigin(.5,1-(sheet.groundPadding??2)/sheet.frameHeight).setDepth(2000001);
-    s.add.text(x,y+10,a.id+' · '+['stand','walk','attack'][col],{fontSize:'13px',color:'#ffffff'}).setOrigin(.5,0).setDepth(2000002);
+    s.add.text(x,y+10,a.id+' · '+['stand','walk','attack','hurt'][col],{fontSize:'13px',color:'#ffffff'}).setOrigin(.5,0).setDepth(2000002);
    });
   });
   const gameCanvas=window.__mernondnaGame!.canvas;

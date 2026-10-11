@@ -22,7 +22,7 @@ export const ACTIVE_SKILLS:readonly ActiveSkillDefinition[] = [
     description:'Recover 20% maximum health and take 50% less damage for 5 seconds.',kind:'rally',staminaCost:24,cooldownMs:16000,durationMs:600,
     radius:0,coneDot:-1,hitTimes:[300],damageMultipliers:[] },
   { id:'crescent-flurry',name:'Crescent Flurry',minLevel:15,slot:4,action:'skill4',texture:'skill_crescent_flurry',
-    description:'Unleash ten sweeping slashes over four seconds, hitting nearby enemies in all directions.',kind:'strike',staminaCost:22,cooldownMs:6500,durationMs:4000,
+    description:'Unleash ten sweeping slashes over four seconds, staggering nearby enemies in all directions and interrupting their attacks throughout the flurry.',kind:'strike',staminaCost:22,cooldownMs:6500,durationMs:4000,
     radius:104,coneDot:-1,hitTimes:[200,600,1000,1400,1800,2200,2600,3000,3400,3800],
     damageMultipliers:[.25,.25,.25,.25,.25,.25,.25,.25,.25,.25] },
 ];

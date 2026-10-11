@@ -4,6 +4,7 @@ import { artScale } from '../../data/art';
 import { progressionStats } from '../../data/progression';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../entities/Player';
+import type {Enemy} from '../entities/Enemy';
 import type { WorldScene } from '../scenes/WorldScene';
 import type {Vec2} from '../types';
 
@@ -19,6 +20,7 @@ export class PlayerSkillSystem {
   private cast:Cast | null = null;
   private rallyRemaining = 0;
   private readonly waves=new Set<SlashWave>();
+  private readonly flurryTargets=new Set<Enemy>();
 
   constructor(private readonly scene:WorldScene,private readonly player:Player) {
     useGameStore.getState().setActiveSkillStatus(this.snapshot());
@@ -58,6 +60,7 @@ export class PlayerSkillSystem {
     const landing=id==='skyfall-slam'?this.scene.skillLanding(target??{x:start.x+direction.x*90,y:start.y+direction.y*90},skill.targetingRange??90):undefined;
     const shadow=id==='skyfall-slam'?this.scene.add.ellipse(start.x,start.y+2,34,12,0x101512,.3).setDepth(start.y-1).setName('player-slam-shadow'):undefined;
     this.cast = { skill,elapsed:0,nextHit:0,direction,visual,start,landing,shadow };
+    this.updateFlurryTargets();
     this.player.setAlpha(0);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
     useGameStore.getState().setVitals(this.player.hp,this.player.stamina);
@@ -73,6 +76,7 @@ export class PlayerSkillSystem {
     this.updateWaves(Math.min(deltaMs,80));
     const cast = this.cast;
     if (!cast) return;
+    this.updateFlurryTargets();
     cast.elapsed += deltaMs;
     let height=0;
     if(cast.landing) {
@@ -145,7 +149,16 @@ export class PlayerSkillSystem {
   snapshot():ActiveSkillStatus {
     return { cooldowns:{ ...this.cooldowns },casting:this.cast?.skill.id ?? null,rallyRemaining:this.rallyRemaining };
   }
+  private updateFlurryTargets(){
+    const cast=this.cast;if(cast?.skill.id!=='crescent-flurry')return;
+    const current=new Set(this.scene.skillTargets(this.player,cast.direction,cast.skill));
+    for(const enemy of this.flurryTargets)if(!current.has(enemy))enemy.setFlurrySuppressed(false);
+    this.flurryTargets.clear();
+    for(const enemy of current){enemy.setFlurrySuppressed(true);this.flurryTargets.add(enemy);}
+  }
   private finishCast() {
+    for(const enemy of this.flurryTargets)enemy.setFlurrySuppressed(false);
+    this.flurryTargets.clear();
     this.cast?.visual.destroy();
     this.cast?.shadow?.destroy();
     this.cast = null;
