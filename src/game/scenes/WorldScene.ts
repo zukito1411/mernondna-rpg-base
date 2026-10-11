@@ -526,8 +526,28 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.playAudio('sfx-sword-flesh-impact',Math.min(1,volume*2.1),.96);
   }
 
+  // LEIGHNERON_ELARION_SHRINE_APPROACH_V1
+  // The elven shrine uses a taller, wider sprite than common wayfarer shrines.
+  // The visible door is above the actor's ground anchor. Resolve a reachable
+  // forecourt target once and reuse it for the prompt and actual interaction.
+  private nearbyElarionShrine(x:number,y:number):
+    {definition:InteractableContentDefinition;actor:ContentActor}|undefined {
+    const shrine=TOWN_SHRINE_BY_ID.elarion;
+    const entry=this.interactables.get(shrine.contentId);
+    if(!entry || !entry.actor.active || entry.definition.townShrineId!=='elarion')return;
+    const front={x:entry.actor.x,y:entry.actor.y+64};
+    if(Phaser.Math.Distance.Between(x,y,front.x,front.y)>116)return;
+    // Exclude the shrine's own foundation. Also accept the base sight line
+    // already used by older saves/layouts, without walking through walls.
+    if(!this.hasClearPath(x,y,front.x,front.y,entry.actor)
+       && !this.hasClearPath(x,y,entry.actor.x,entry.actor.y,entry.actor))return;
+    return entry;
+  }
+
   tryInteract(x: number, y: number) {
     if (useGameStore.getState().panel || useGameStore.getState().dialogue) return;
+    const elarionShrine=this.nearbyElarionShrine(x,y);
+    if(elarionShrine){this.useInteractable(elarionShrine.definition,elarionShrine.actor);return;}
     let nearest: Npc | null = null;
     let nearestDistance = 72;
     for (const npc of this.npcs) {
@@ -794,6 +814,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       markers.push({ id, kind, label, x: actor.x, y: actor.y });
     }
     let interaction: string | null = null, distance = 72;
+    const elarionShrine=this.nearbyElarionShrine(this.player.x,this.player.y);
+    if(elarionShrine){interaction=elarionShrine.definition.name;distance=0;}
     for (const npc of this.npcs) {
       npc.updatePresentation(this.player.x,this.player.y,this.questTarget?.contentId === `npc:${npc.definition.id}`,this.wasBlocked);
       const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,npc.x,npc.y);
@@ -927,6 +949,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     if (state.used) actor.setTint(definition.id==='clue:cibar-pump'&&useGameStore.getState().storyFlags['cibar-irrigation-repaired']?0xc9f2ed:definition.townShrineId ? 0xc9e7eb : 0x99907b);
     actor.on('pointerdown', () => {
+      if(definition.townShrineId==='elarion'){
+        const elarionShrine=this.nearbyElarionShrine(this.player.x,this.player.y);
+        if(elarionShrine){this.useInteractable(elarionShrine.definition,elarionShrine.actor);return;}
+      }
       const point=definition.portId?PORT_BY_ID[definition.portId].landing:actor;
       if (!useGameStore.getState().panel && !useGameStore.getState().dialogue
         && Phaser.Math.Distance.Between(this.player.x, this.player.y, point.x, point.y) < 72
@@ -979,11 +1005,22 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       store.setContentWorld(this.contentManager.snapshot());this.notify(repairing?'The new fittings set the pump running, and water flows to the fields again.':definition.description);return;
     }
     if (definition.townShrineId) {
-      this.contentManager.patchState(definition.id,{ used:true });
-      actor.setTint(0xc9e7eb);
-      useGameStore.getState().setContentWorld(this.contentManager.snapshot());
+      // The travel UI is the action, not a side effect of marking scenery used.
+      // Open it first so a save/capture problem cannot silently swallow E.
       useGameStore.getState().openShrineTravel(definition.townShrineId);
-      saveGame();
+      if(useGameStore.getState().panel!=='travel'){
+        this.notify('Shrine travel did not open. Close any current menu and try again.');
+        return;
+      }
+      try {
+        this.contentManager.patchState(definition.id,{used:true});
+        if(actor.active)actor.setTint(0xc9e7eb);
+        useGameStore.getState().setContentWorld(this.contentManager.snapshot());
+        saveGame();
+      }catch(error){
+        console.error('Shrine attunement persistence failed:',definition.id,error);
+        this.notify('Shrine travel opened, but its attunement could not be saved.');
+      }
       return;
     }
     const state = this.contentManager.getState(definition.id)!;

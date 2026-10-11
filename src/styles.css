@@ -499,3 +499,14 @@ kbd { font-size: 10px; opacity: .65; }
 .hud-layer button.interaction-hint {pointer-events:auto;cursor:pointer;color:#f1dfb9;font-family:inherit;text-align:left;z-index:16;}
 .hud-layer button.interaction-hint:hover {border-color:#d9b779;background:#2a2118f5;}
 .hud-layer button.interaction-hint:focus-visible {outline:2px solid #f6d38a;outline-offset:2px;}
+
+/* LEIGHNERON_DESKTOP_BOSS_BAR_TOP_CENTER_V1
+   Desktop boss health belongs at the top center, never beneath the skill bar.
+   Phone/tablet touch layouts retain their current responsive positions. */
+@media (hover: hover) and (pointer: fine) {
+  .hud-layer .boss-encounter-card {
+    top: max(16px, env(safe-area-inset-top));
+    bottom: auto;
+    z-index: 10;
+  }
+}

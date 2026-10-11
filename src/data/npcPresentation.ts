@@ -1,4 +1,5 @@
 import type { NpcDefinition } from '../game/types';
+import { TOWNS } from './towns';
 
 type Culture = 'english' | 'welsh' | 'norse' | 'iberian' | 'german';
 
@@ -332,6 +333,12 @@ function makeDialogue(npc: NpcDefinition): string[] {
   return [first, second];
 }
 
+// LEIGHNERON_SHRINE_TOWN_ID_ALIAS_FIX_V1
+// NPCs such as "Elarion King" must not rename the settlement of Elarion.
+const SETTLEMENT_NAME_KEYS = new Set(TOWNS.flatMap(town => [
+  town.id.toLowerCase(), town.name.toLowerCase(),
+]));
+
 function makeAliases(npcs: readonly NpcDefinition[], namesById: ReadonlyMap<string, string>): Map<string, string> {
   const aliases = new Map<string, string>();
   const firstNameTargets = new Map<string, Set<string>>();
@@ -349,7 +356,7 @@ function makeAliases(npcs: readonly NpcDefinition[], namesById: ReadonlyMap<stri
     if (oldSurname !== newSurname) aliases.set(oldSurname.toLowerCase(), newSurname);
   }
   for (const [oldGiven, targets] of firstNameTargets) {
-    if (targets.size === 1) aliases.set(oldGiven, [...targets][0]);
+    if (targets.size === 1 && !SETTLEMENT_NAME_KEYS.has(oldGiven)) aliases.set(oldGiven, [...targets][0]);
   }
   aliases.set('sister halla', namesById.get('starhold-templar') ?? 'Elspeth MacRae');
   aliases.set('halla', 'Elspeth');
@@ -358,7 +365,8 @@ function makeAliases(npcs: readonly NpcDefinition[], namesById: ReadonlyMap<stri
 
 const STABLE_ID_KEYS = new Set([
   'id', 'giverNpcId', 'targetId', 'contentId', 'questTargetId', 'questEventType', 'discoveryId',
-  'npcId', 'questIds', 'townId', 'regionId', 'bossId', 'prerequisiteQuestId', 'nextQuestId',
+  'npcId', 'questIds', 'townId', 'townShrineId', 'portId', 'regionId', 'bossId', 'enemyId',
+  'wolfPackId', 'prerequisiteQuestId', 'nextQuestId',
   'flag', 'kind', 'type', 'cinematicId',
 ]);
 

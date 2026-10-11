@@ -1,0 +1,4 @@
+Shrine root-cause fix preflight: NOTHING WAS CHANGED.
+1. Already installed: shrine town-ID alias fix. No changes needed.
+2. disallow settlement-name first-name aliases: expected one anchor, found 0
+3. protect referential game IDs: expected one anchor, found 0
