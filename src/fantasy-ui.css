@@ -455,3 +455,48 @@
 .map-panel .regional-map-wrap > button.regional-settlement:focus-visible {
   outline:0;
 }
+
+
+/* Keep Leighneron's HP / quest HUD permanently visible.
+   The menu arrow retains a full 44px tap target, but draws a 28x30px
+   ornament so it no longer looks like an extra large menu button. */
+.hud-action-dock .hud-dock-toggle {
+  position:relative;
+  isolation:isolate;
+  box-sizing:border-box;
+  display:grid;
+  place-items:center;
+  flex:0 0 44px;
+  width:44px;
+  height:44px;
+  min-width:44px;
+  min-height:44px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:#f2d9a6;
+}
+.hud-action-dock .hud-dock-toggle::before {
+  content:'';
+  position:absolute;
+  z-index:0;
+  inset:7px 8px;
+  border:1px solid #a68050;
+  border-radius:6px;
+  background:linear-gradient(#574029,#2c2017);
+  box-shadow:0 2px 5px #0008;
+  pointer-events:none;
+}
+.hud-action-dock .hud-dock-toggle svg {
+  position:relative;
+  z-index:1;
+  width:15px;
+  height:15px;
+}
+.hud-action-dock .hud-dock-toggle:focus-visible {
+  outline:2px solid #f3ce84;
+  outline-offset:0;
+  border-radius:6px;
+}

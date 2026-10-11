@@ -14,7 +14,6 @@ function barPercent(value: number, max: number) {
 
 export function HUD() {
   const [menuExpanded, setMenuExpanded] = useState(false);
-  const [infoExpanded, setInfoExpanded] = useState(true);
   const hp = useGameStore((s) => s.hp);
   const maxHp = useGameStore((s) => s.maxHp);
   const stamina = useGameStore((s) => s.stamina);
@@ -46,10 +45,7 @@ export function HUD() {
   if(cinematic)return null;
   return (
     <div className="hud-layer" aria-live="polite">
-      <div className={`hud-primary-stack ${infoExpanded ? '' : 'is-collapsed'}`}>
-        <button type="button" className="hud-info-toggle" aria-label={infoExpanded ? 'Hide status and quest information' : 'Show status and quest information'} aria-expanded={infoExpanded} onClick={() => setInfoExpanded(value => !value)}>
-          <GameIcon name={infoExpanded ? 'chevron-left' : 'chevron-right'} />
-        </button>
+      <div className="hud-primary-stack">
         <section className="status-card">
           <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
           <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
