@@ -278,11 +278,19 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
 
 
-const directionalSheets:ArtSheet[]=DIRECTIONAL_ENEMY_ART.map(a=>({
- key:a.walkTexture,path:a.sourcePath??(a.species===6?'assets/enemies/salt_king/walk.png':`assets/enemies/directional/${a.id}.png`),
- columns:a.frameCount??(a.species===6?27:20),atlasColumns:a.species===8?6:5,
- frameWidth:a.frameWidth,frameHeight:a.frameHeight,density:2,blackBackground:false,
- names:Array.from({length:a.frameCount??(a.species===6?27:20)},(_,i)=>`${a.id}:directional:${i}`),
+const directionalSheets: ArtSheet[] = DIRECTIONAL_ENEMY_ART.map(a => ({
+  key: a.walkTexture,
+  path: a.sourcePath,
+  columns: a.frameCount,
+  atlasColumns: a.species === 8 ? 6 : 5,
+  frameWidth: a.frameWidth,
+  frameHeight: a.frameHeight,
+  density: 2,
+  blackBackground: false,
+  names: Array.from(
+    { length: a.frameCount },
+    (_, i) => `${a.id}:directional:${i}`
+  ),
 }));
 const npcDirectionalIdleSheets:ArtSheet[]=NPC_IDLE_ART.flatMap(entry=>{
  const walk=ART_SHEETS.find(sheet=>sheet.key===entry.walk);

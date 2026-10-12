@@ -151,8 +151,9 @@ export class BootScene extends Phaser.Scene {
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
     for(const art of GUARD_MARCH_ART)this.load.image('guard-march-source:'+art.walk,art.path);
-    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6))
-      this.load.image('directional-source:'+art.id,art.sourcePath??'assets/enemies/directional/'+art.id+'.png');
+    for (const art of DIRECTIONAL_ENEMY_ART.filter(a => a.species !== 6)) {
+      this.load.image('directional-source:' + art.id, art.sourcePath);
+    }
     this.load.image('rindass-orc-raider:actions','assets/enemies/rindass_orc_raider/actions.png');
     for(const state of ['walk',...SALT_KING_STATES] as const)this.load.image('salt-king-source:'+state,saltKingArtPath(state));
     for(const art of BANDIT_COMBAT_ART)this.load.image('bandit-combat-source:'+art.state,banditCombatPath(art.state));

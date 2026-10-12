@@ -68,7 +68,7 @@ export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]
    drawPose(ctx,spriteSubjectCanvas(subjects[i]),[0,0,w,h],x+drawX,y+drawY,w*fit*sheet.density,h*fit*sheet.density);ctx.restore();
    const prepared=texture.add(frame,0,x,y,fw,fh);
    if(prepared)prepared.customData={fullSprite:true,isolatedSubject:true,foreignProbes:subjects[i].foreignProbes,visibleBounds:{left:drawX/sheet.density,top:drawY/sheet.density,width:w*fit,height:h*fit},
-    sourcePath:art.sourcePath??'assets/enemies/directional/'+art.id+'.png',sourceImageSize:[source.width,source.height],sourceRegion:cell.region,sourceFit:fit};
+    sourcePath: art.sourcePath,sourceImageSize:[source.width,source.height],sourceRegion:cell.region,sourceFit:fit};
   });
   ACTOR_DIRECTIONS.forEach((direction,row)=>{
    const base=row*stride;
