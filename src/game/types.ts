@@ -94,7 +94,7 @@ export interface EnemyDefinition {
   id: string;
   name: string;
   spriteFrame: number;
-  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king';
+  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king'|'enemy_cutlass_pirate'|'enemy_orc_raider';
   appearanceMultiplier?:number;
   bodyRadius?:number;
   combatStyle?:'troll'|'dragon';
@@ -172,7 +172,7 @@ export interface QuestRuntimeState {
 }
 
 interface ContentBase { id: string; world: Vec2 }
-export type WorldPropTexture = 'port_dock' | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
+export type WorldPropTexture = 'pirate_flagship' | 'port_dock' | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export type EncounterRole = 'leader' | 'melee' | 'flanker' | 'ranged' | 'heavy';
 export interface EncounterBehavior {

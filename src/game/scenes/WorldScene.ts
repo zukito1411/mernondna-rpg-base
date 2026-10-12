@@ -29,6 +29,8 @@ import { WorldGenerator } from '../systems/WorldGenerator';
 import { ContentChunkManager } from '../systems/ContentChunkManager';
 import { EncounterCoordinator } from '../systems/EncounterCoordinator';
 import { AmbientWildlifeSystem } from '../systems/AmbientWildlifeSystem';
+import {PirateFlagshipArt} from '../systems/PirateFlagshipArt';
+import {FLAGSHIP,FLAGSHIP_CONTENT,flagshipFootprint,flagshipWalkable,flagshipNavigation,onFlagshipDeck,onFlagshipBoarding,isFlagshipCombatant} from '../../data/pirateFlagship';
 import {tidewatchGullHabitat} from '../systems/wildlifeCover';
 import { resolveQuestTarget, questBearing } from '../systems/questNavigation';
 import { artScale, artFrameSize, worldPropOrigin } from '../../data/art';
@@ -87,6 +89,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private enemySounds!:EnemySoundSystem;
   private worldSprites!:WorldSpriteSystem;
   private wildlife!:AmbientWildlifeSystem;
+  private flagshipArt!:PirateFlagshipArt;
   private volcanicTremor!:VolcanicTremor;
   private volcanicShake!:VolcanicCameraShake;
   private readonly onVolcanicRumble=(seconds:number,intensity:number)=>this.volcanicShake.setRumble(seconds,intensity);
@@ -107,6 +110,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private spawnAttempts = 0;
   private nextRoadBanditsAt=0;
   private readonly encounters=new EncounterCoordinator();
+  private readonly shipPaths=new WeakMap<Enemy,{until:number;target:Vec2;point:Vec2}>();
   private focused = true;
   private wasBlocked = false;
   private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue' | 'journal'>();
@@ -218,6 +222,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       coastalSite:point=>this.coastalBirdSite(point),
     },this.groundShadows);
     this.worldSprites=new WorldSpriteSystem(this,this.treeBodies,this.groundShadows,this.wildlife);
+    this.flagshipArt=new PirateFlagshipArt(this,this.treeBodies);
     this.traffic=new WorldTrafficSystem(this,this.worldGenerator,this.groundShadows);
     this.passage=new ShipPassageSystem(this,this.worldGenerator,this.traffic);
     this.enemySounds=new EnemySoundSystem(this);
@@ -243,6 +248,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     // People aren't immovable street barriers. Their patrols still avoid props.
     this.physics.add.collider(this.creatureBodies, this.buildings);
     this.physics.add.collider(this.creatureBodies, this.treeBodies);
+    this.physics.add.collider(this.creatureBodies,this.creatureBodies,undefined,(a,b)=>
+      a instanceof Enemy&&b instanceof Enemy&&['cutlass-pirate','salt-king'].includes(a.definition.id)
+        &&['cutlass-pirate','salt-king'].includes(b.definition.id));
     this.physics.add.collider(this.npcBodies, this.buildings);
     this.physics.add.collider(this.npcBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.npcBodies);
@@ -259,9 +267,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.contentManager = new ContentChunkManager(WORLD_CONTENT, logical, {
       initialState: initialContentState,
       canActivate: (definition, runtime) => definition.kind !== 'creature' || this.isEnemyTerritory(runtime.x,runtime.y)
+        && (definition.enemyId!=='rindass-orc-raider'||creatureFitsHabitat(ENEMY_BY_ID[definition.enemyId],this.habitatAt(runtime.x,runtime.y)))
         && this.encounterCapacity(definition.bossId ? 'boss' : 'restore') > 0,
       canActivateGroup: members => members.length <= this.encounterCapacity('restore')
         && members.every(({ state }) => this.canEnemyOccupy(state.x,state.y)),
+      canRespawn: definition => definition.id!=='boss:salt-king'&&!definition.id.startsWith('pirate:flagship:crew:')
+        ||!onFlagshipBoarding(this.player.x,this.player.y)&&Math.hypot(this.player.x-FLAGSHIP.topLeft.x-530,this.player.y-FLAGSHIP.topLeft.y-900)>1200,
       create: (definition, runtime) => this.createContentActor(definition, runtime),
       position: actor => actor,
       capture: (definition, actor) => ({ x: actor.x, y: actor.y,
@@ -411,6 +422,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.waterSurface.update(uiBlocked?0:delta);
     this.traffic.update(uiBlocked?0:delta);
     this.wildlife.update(delta,this.player,this.dayNight.getHour(),uiBlocked);
+    this.flagshipArt.update(uiBlocked?0:delta);
     this.groundShadows.update(uiBlocked?0:delta,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);
     this.drawQuestGuide(uiBlocked);
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
@@ -533,7 +545,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   playEnemyAttackFoley(definition:EnemyDefinition,x:number,y:number,phase:'windup'|'impact'){
-    if(phase==='windup'&&(definition.id==='road-bandit'||definition.id==='bandit-captain'||definition.id==='salt-king'))
+    if(phase==='windup'&&(definition.id==='road-bandit'||definition.id==='cutlass-pirate'||definition.id==='bandit-captain'||definition.id==='salt-king'))
       this.playAudio('sfx-sword-whoosh',.2,Phaser.Math.FloatBetween(.9,1.08));
     if(phase==='impact'&&Math.hypot(this.player.x-x,this.player.y-y)<360)
       this.playAudio(definition.combatStyle==='troll'||definition.combatStyle==='dragon'
@@ -653,16 +665,21 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   spawnEnemy(enemyId: string, x: number, y: number, eventSpawn = false, summoner?: Enemy, encounterCap?: number) {
+    // Region-aware gateway also covers legacy event callers and road ambushes.
+    if(enemyId==='road-bandit'&&this.worldGenerator.getRegionAt(x,y)==='portquill')enemyId='cutlass-pirate';
     const definition = ENEMY_BY_ID[enemyId];
     if (!definition || definition.boss) return false;
     const bossSummon = Boolean(summoner && this.enemies.has(summoner) && summoner.active && summoner.hp > 0
       && summoner.definition.boss && summoner.definition.summonEnemyId === enemyId);
     if (summoner && !bossSummon) return false;
+    const shipSummon=bossSummon&&summoner?.instanceId==='boss:salt-king';
     if (!bossSummon) for (const enemy of this.enemies)
       if (enemy.active && enemy.hp > 0 && Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<250) return false;
     const capacity = Math.min(this.encounterCapacity(bossSummon ? 'summon' : 'spawn', encounterCap),
       MAX_PERSISTENT_SPAWNS - this.contentManager.getSpawnCount());
     const validPoint = (px: number, py: number) => !inDragonArena(px,py,240) && this.canEnemyOccupy(px,py)
+      &&(shipSummon?onFlagshipDeck(px,py)&&flagshipWalkable(px,py)
+        &&![...this.enemies].some(e=>e.active&&e.hp>0&&Math.hypot(e.x-px,e.y-py)<40):!onFlagshipBoarding(px,py))
       && creatureFitsHabitat(definition, this.habitatAt(px,py), bossSummon)
       && (bossSummon || Math.hypot(px-this.player.x,py-this.player.y)>=250)
       && (!summoner || Math.hypot(px-summoner.x,py-summoner.y) <= 300);
@@ -683,6 +700,19 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       if(points.length<goal)return false; // Admit the planned pack, or none of it.
       if(!this.contentManager.addEncounter(points.map(world=>({enemyId,world})),eventSpawn,capacity,{wolfPack:true}))return false;
+    }else if(enemyId==='cutlass-pirate'&&!bossSummon){
+      const goal=Math.min(capacity,3);if(goal<2)return false;
+      const rng=seededRandom('pirate-crew:'+this.contentManager.getNextSpawnSequence()),points:Vec2[]=[{x,y}];
+      for(let tries=0;tries<32&&points.length<goal;tries++){
+        const angle=rng()*Math.PI*2,distance=48+rng()*70;
+        const p={x:x+Math.cos(angle)*distance,y:y+Math.sin(angle)*distance};
+        if(validPoint(p.x,p.y)&&points.every(other=>Math.hypot(other.x-p.x,other.y-p.y)>=40))points.push(p);
+      }
+      if(points.length!==goal||!this.contentManager.addEncounter(points.map(world=>({enemyId,world})),eventSpawn,capacity))return false;
+    }else if(shipSummon){
+      if(!this.contentManager.addEncounter([{enemyId,world:{x,y}}],true,capacity,{leashRadius:1400}))return false;
+      // The saved encounter's fixed home is on deck; that identifies ship
+      // helpers after unloading/reloading without serializing a runtime flag.
     }else this.contentManager.addSpawn(enemyId,{x,y},eventSpawn);
     this.contentManager.update(this.player.x,this.player.y);
     useGameStore.getState().setContentWorld(this.contentManager.snapshot());
@@ -695,6 +725,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       enemy,this.player,time,spotted,targetAllowed);
   }
   encounterArrived(enemy:Enemy) { this.encounters.arrived(enemy.instanceId); }
+  /** Live bounded actor set; steering filters locally without allocating arrays. */
+  pirateSteeringActors():ReadonlySet<Enemy> { return this.enemies; }
   wolfPackLeader(id:string){return (this.contentManager.getWolfPackActors(id) as Enemy[])
     .find(enemy=>enemy.active&&enemy.hp>0&&enemy.wolfAlpha)??null;}
 
@@ -735,7 +767,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const idx=Math.floor(rng()*targets.length),target=targets.splice(idx,1)[0];
       if(!this.spawnEnemy('road-bandit',target.x,target.y,true))continue;
       // Sometimes a second highwayman follows, but never a wall of bandits.
-      if(rng()<.46&&this.enemies.size<11){
+      if(this.worldGenerator.getRegionAt(target.x,target.y)!=='portquill'&&rng()<.46&&this.enemies.size<11){
         const angle=rng()*Math.PI*2,off={x:target.x+Math.cos(angle)*45,y:target.y+Math.sin(angle)*45};
         if(this.worldGenerator.isRoad(off.x,off.y)&&this.canEnemyOccupy(off.x,off.y))
           this.spawnEnemy('road-bandit',off.x,off.y,true);
@@ -776,6 +808,14 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.contentManager.patchState(enemy.instanceId, { hp: 0, defeated: true,
       ...(boss?.respawns&&boss.respawnDelayMs?{respawnAt:Date.now()+boss.respawnDelayMs}:{}),
     });
+    if(enemy.instanceId.startsWith('pirate:flagship:crew:')){
+      const crew=FLAGSHIP_CONTENT.filter(d=>d.kind==='creature');
+      if(crew.every(d=>this.contentManager.getState(d.id)?.defeated)){
+        const respawnAt=Date.now()+20*60*1000;
+        for(const member of crew)this.contentManager.patchState(member.id,{respawnAt});
+        this.notify('The flagship crew is defeated. Replacements will not arrive while you remain aboard.');
+      }
+    }
     useGameStore.getState().recordEnemyDefeat(definition.id, definition.xp, gold, bossId, this.contentManager.snapshot());
     const gained=this.add.text(enemy.x,enemy.y-48,`+${definition.xp} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
     this.tweens.add({targets:gained,y:enemy.y-112,alpha:0,duration:1450,ease:'Sine.easeOut',onComplete:()=>gained.destroy()});
@@ -814,7 +854,19 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y)
     &&!(useGameStore.getState().storyFlags['oakmere-road-open']&&Math.hypot(x-TOWN_BY_ID.oakmere.world.x,y-TOWN_BY_ID.oakmere.world.y)<5000&&this.worldGenerator.isRoad(x,y,30))
     &&!WILDERNESS_SITES.some(s=>(s.style==='camp'||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
-  canEnemyOccupy(x: number, y: number) { return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y); }
+  canEnemyOccupy(x: number, y: number,enemy?:Enemy) {
+    if(enemy&&isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home)
+      &&(!onFlagshipDeck(x,y)||!flagshipWalkable(x,y,enemy.definition.bodyRadius??(enemy.definition.boss?24:11))))return false;
+    return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y);
+  }
+  enemyNavigationPoint(enemy:Enemy,target:Vec2):Vec2 {
+    if(!isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home))return target;
+    const cached=this.shipPaths.get(enemy);
+    if(cached&&this.time.now<cached.until&&Math.hypot(cached.target.x-target.x,cached.target.y-target.y)<48
+      &&Math.hypot(cached.point.x-enemy.x,cached.point.y-enemy.y)>24)return cached.point;
+    const point=flagshipNavigation(enemy,target);
+    this.shipPaths.set(enemy,{until:this.time.now+250,target:{...target},point});return point;
+  }
 
   private isBlockedByBuilding(x: number, y: number) {
     if(fortificationBlocksPoint(x,y,20))return true;
@@ -834,6 +886,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   hasClearPath(ax: number, ay: number, bx: number, by: number, exclude?: Phaser.GameObjects.GameObject) {
+    if(flagshipFootprint(ax,ay)||flagshipFootprint(bx,by)){
+      const steps=Math.max(1,Math.ceil(Math.hypot(bx-ax,by-ay)/16));
+      for(let i=0;i<=steps;i++)if(!this.worldGenerator.isWalkable(ax+(bx-ax)*i/steps,ay+(by-ay)*i/steps))return false;
+    }
     if(fortificationBlocksPath({x:ax,y:ay},{x:bx,y:by}))return false;
     const line = new Phaser.Geom.Line(ax, ay, bx, by);
     // Use Arcade's static spatial tree, then the original exact intersection.
@@ -1011,6 +1067,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if (definition.tint !== undefined) actor.setTint(definition.tint);
       this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase,
         definition.rotation,definition.anchor);
+      if(texture==='pirate_flagship')this.flagshipArt.attach(actor);
       if (definition.label) {
         const caption = this.add.text(x, y + 14, definition.label, {
           fontFamily: 'Georgia, serif', fontSize: '10px', color: '#e7d7ad', stroke: '#211b12', strokeThickness: 3,
@@ -1207,6 +1264,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private enforceLandCollision() {
     if (this.worldGenerator.isWalkable(this.player.x, this.player.y)
+      &&(!(flagshipFootprint(this.lastSafe.x,this.lastSafe.y)||flagshipFootprint(this.player.x,this.player.y))
+        ||this.hasClearPath(this.lastSafe.x,this.lastSafe.y,this.player.x,this.player.y))
       && !fortificationBlocksPath(this.lastSafe,this.player,12)
       && !this.worldSprites.blocksPath(this.lastSafe,this.player)) {
       this.lastSafe = { x: this.player.x, y: this.player.y };
@@ -1270,6 +1329,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.treeSway?.destroy();
     this.waterSurface?.destroy();
     this.worldSprites?.destroy();
+    this.flagshipArt?.destroy();
   }
 
   private wildlifeRouteClear(from:Vec2,to:Vec2){

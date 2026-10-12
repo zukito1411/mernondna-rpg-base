@@ -11,11 +11,13 @@ import { ACTIVE_SKILLS } from '../../data/activeSkills';
 import { PlayerSkillSystem } from '../systems/PlayerSkillSystem';
 import { RecoverySystem } from '../systems/RecoverySystem';
 import { approachVelocity, strideRate } from '../systems/locomotion';
+import {localPlayCheatsEnabled} from '../../utils/localPlayCheats';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly moveSpeed = 165;
   readonly skills:PlayerSkillSystem;
   readonly recovery=new RecoverySystem();
+  readonly unlimitedVitals=localPlayCheatsEnabled();
   hp: number;
   maxHp: number;
   stamina: number;
@@ -48,9 +50,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setCollideWorldBounds(true);
 
     const state = useGameStore.getState();
-    this.hp = state.hp;
+    this.hp = this.unlimitedVitals?state.maxHp:state.hp;
     this.maxHp = state.maxHp;
-    this.stamina = state.stamina;
+    this.stamina = this.unlimitedVitals?state.maxStamina:state.stamina;
     this.maxStamina = state.maxStamina;
     this.skills = new PlayerSkillSystem(scene,this);
 
@@ -71,6 +73,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const progression = progressionStats(state.attributes, state.learnedSkills);
     this.maxHp = progression.maxHp;
     this.maxStamina = progression.maxStamina;
+    if(this.unlimitedVitals){this.hp=this.maxHp;this.stamina=this.maxStamina;this.sprintExhausted=false;}
     this.skills.update(delta);
 
     let x = (this.keys.right.isDown ? 1 : 0) - (this.keys.left.isDown ? 1 : 0) + mobileInput.moveX;
@@ -87,10 +90,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileDash = mobileInput.consume('dash');
     const dashPressed = this.consumeAction('dash') || mobileDash;
-    if (dashPressed && !this.skills.isCasting && time >= this.nextDashAt && this.stamina >= 16) {
+    if (dashPressed && !this.skills.isCasting && time >= this.nextDashAt && this.spendStamina(16)) {
       this.nextDashAt = time + 850;
       this.dashUntil = time + 165;
-      this.stamina -= 16;
       this.dashDirection.copy(this.lastDirection);
       this.nextDashTrailAt = time;
       scene.recordTraining('drill-dash');
@@ -111,7 +113,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     let sprinting = sprintHeld && !this.sprintExhausted && !this.skills.isCasting &&
       !dashing && movement.lengthSq() > .01 && this.stamina > 0;
-    if (sprinting) {
+    if (sprinting&&!this.unlimitedVitals) {
       this.stamina = Math.max(0, this.stamina - delta * 0.022);
       if (this.stamina === 0) {
         this.sprintExhausted = true;
@@ -157,9 +159,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (attackPressed && !this.skills.isCasting && time >= this.nextAttackAt) {
       const weapon = scene.getEquippedWeapon();
       const cooldown = weapon.cooldownMs * progression.cooldownMultiplier;
-      if (this.stamina >= weapon.staminaCost) {
+      if (this.spendStamina(weapon.staminaCost)) {
         this.nextAttackAt = time + cooldown;
-        this.stamina = Math.max(0, this.stamina - weapon.staminaCost);
         scene.playSwordSwing();
         scene.performPlayerAttack(this, this.lastDirection, weapon);
         if (weapon.kind === 'sword' || weapon.kind === 'greatsword') this.playSwordVisual(cooldown);
@@ -174,10 +175,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  spendStamina(amount:number):boolean {
+    if(this.unlimitedVitals){this.stamina=this.maxStamina;return true;}
+    if(this.stamina<amount)return false;
+    this.stamina=Math.max(0,this.stamina-amount);return true;
+  }
+
   takeDamage(amount: number) {
     const scene = this.scene as WorldScene;
     this.recovery.interrupt();
-    this.hp = Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills).incomingDamageMultiplier));
+    this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills).incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);
     scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });

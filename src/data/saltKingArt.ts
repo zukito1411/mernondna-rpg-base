@@ -2,6 +2,8 @@ import type {SpriteAnimation} from './animationPacks';
 export const SALT_KING_STATES=['attack','hurt','death'] as const;
 export const SALT_KING_TEXTURE='enemy_salt_king' as const;
 export const SALT_KING_WALK_TEXTURE='enemy_walk_salt_king' as const;
+export const SALT_KING_SIDE_PATH='assets/enemies/salt_king/walk-sides-v2.png';
+export const SALT_KING_GAIT_PATH='assets/enemies/salt_king/walk-gait-v3.png';
 export const saltKingArtPath=(state:'walk'|typeof SALT_KING_STATES[number])=>`assets/enemies/salt_king/${state}.png`;
 export const SALT_KING_ANIMATIONS:SpriteAnimation[]=[
  {key:'enemy:6:idle',texture:SALT_KING_WALK_TEXTURE,frames:[10],frameRate:1,repeat:-1},

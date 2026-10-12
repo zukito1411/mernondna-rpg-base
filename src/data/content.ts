@@ -19,6 +19,7 @@ import {isTreeArt} from './treeArt';
 import {DRAGON_LAIR_CONTENT} from './dragonLair';
 import {LAVA_FLOW} from './worldLandscape';
 import {PORTS} from './ports';
+import {FLAGSHIP_CONTENT,shipPoint} from './pirateFlagship';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for(const port of PORTS)WORLD_CONTENT.push({id:'port:'+port.id,kind:'interactable',world:port.quay,
@@ -163,6 +164,15 @@ WORLD_CONTENT.push(
 const varrSite=WORLD_CONTENT.find(d=>d.id==='boss:captain-varr')!.world;
 const watchtower=WORLD_CONTENT.find(d=>d.id==='prop:east-watchtower')!;
 watchtower.world={x:varrSite.x,y:varrSite.y-110};
+// Krag's Iron-Tusk warband holds two persistent Rindass wilderness encounters;
+// ambient raiders also roam valid dryland/highland outside protected settlements.
+for(const siteId of ['clan-road-muster','southern-caravan-rest'] as const){
+  const site=WILDERNESS_SITES.find(entry=>entry.id===siteId);
+  if(!site)throw new Error(`Missing authored Rindass warband site: ${siteId}`);
+  for(const [slot,[dx,dy]] of [[0,[0,0]],[1,[66,-28]],[2,[-62,-38]]] as const)
+    WORLD_CONTENT.push({id:`creature:krag-warband:${siteId}:${slot}`,kind:'creature',enemyId:'rindass-orc-raider',
+      world:{x:site.world.x+dx,y:site.world.y+dy},eventSpawn:true,encounterId:`krag-warband:${siteId}`});
+}
 // Preserve the existing Oakmere shrine ID and the capital's shrine building ID.
 // Every other settlement gets an accessible shrine beside its central street.
 for (const shrine of TOWN_SHRINES) {
@@ -259,6 +269,13 @@ for(const site of WILDERNESS_SITES){
     scale:site.style==='ruin'?.8:.65,solid:site.style==='ruin'});
 }
 WORLD_CONTENT.push(...ROYAL_FORTIFICATION_PROPS,...SETTLEMENT_DEFENSE_PROPS,...DRAGON_LAIR_CONTENT);
+WORLD_CONTENT.push(...FLAGSHIP_CONTENT,{id:'loot:pirate-flagship:cargo',kind:'loot-container',world:shipPoint(535,920),
+  texture:'others',frame:9,scale:.45,solid:false,name:'Captured cargo chest',rewardGold:35,
+  description:'The crew kept a share of its stolen cargo here. You recover thirty-five coins.',repeatText:'The stolen cargo chest is empty.'});
+WORLD_CONTENT.push({id:'sign:pirate-flagship',kind:'interactable',world:shipPoint(1060,855),texture:'world_assets',
+  frame:PROPS.sign,scale:.6,solid:false,name:'Outlaw anchorage',
+  description:'The Salt King’s flagship is moored west of this shore. Cross the eastern gangplank on foot; armed deckhands guard the cargo. The harbor ferry remains at Tidewatch’s civilian quay.',
+  repeatText:'The pirate flagship lies west across the wooden gangplank. The Salt King commands his crew from the aft deck.'});
 const elarion=TOWN_BY_ID.elarion;
 WORLD_CONTENT.push({id:'landmark:elarion-tree-of-life',kind:'prop',
   world:{x:elarion.world.x+540,y:elarion.world.y-1050},texture:'elarion_tree',frame:0,scale:.8,solid:true,

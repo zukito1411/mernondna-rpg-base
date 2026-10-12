@@ -13,6 +13,8 @@ import type { ContentState, ContentWorldState, CreatureContentDefinition, Encoun
 import { BASE_ATTRIBUTES, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
+import {WorldGenerator} from '../game/systems/WorldGenerator';
+import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -49,6 +51,7 @@ function validateContent(value: unknown): ContentWorldState | null {
   if (!record(value) || !record(value.states) || !record(value.spawns)
     || !numberIn(value.nextSpawnSequence) || !Number.isInteger(value.nextSpawnSequence)) return null;
   const spawns: Record<string, CreatureContentDefinition> = {};
+  const geography=new WorldGenerator();
   const slots = new Map<string, Set<number>>();
   const groupHomes = new Map<string, {x:number;y:number;radius:number}>();
   for (const [id, d] of Object.entries(value.spawns)) {
@@ -82,7 +85,9 @@ function validateContent(value: unknown): ContentWorldState | null {
       parsedBehavior={home:{x:behavior.home.x,y:behavior.home.y},station:{x:behavior.station.x,y:behavior.station.y},
         leashRadius:behavior.leashRadius,role:behavior.role as EncounterRole,slot:behavior.slot};
     }
-    spawns[id] = { id, kind: 'creature', enemyId: d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn,
+    // Convert legacy coastal bandits without new IDs or resetting damage/deaths.
+    const pirate=d.enemyId==='road-bandit'&&geography.getRegionAt(d.world.x,d.world.y)==='portquill';
+    spawns[id] = { id, kind: 'creature', enemyId: pirate?'cutlass-pirate':d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn,
       ...(parsedBehavior?{encounterBehavior:parsedBehavior}:{}),
       ...(typeof d.encounterId === 'string'?{encounterId:d.encounterId}:{}),
       ...(typeof d.wolfPackId === 'string'?{wolfPackId:d.wolfPackId}:{}),
@@ -105,9 +110,15 @@ function validateContent(value: unknown): ContentWorldState | null {
       || (s.hp !== undefined && (definition.kind !== 'creature' || !numberIn(s.hp, 0, ENEMY_BY_ID[definition.enemyId].hp*8)))
       || (s.hpMax!==undefined&&(definition.kind!=='creature'||!numberIn(s.hpMax,1,ENEMY_BY_ID[definition.enemyId].hp*8)))
       || (s.respawnAt!==undefined && (!numberIn(s.respawnAt)||!Number.isInteger(s.respawnAt)||s.defeated!==true
-        ||definition.kind!=='creature'||!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs)))
+        ||definition.kind!=='creature'||!definition.id.startsWith('pirate:flagship:crew:')&&!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs)))
       || (s.hp === 0 && s.defeated !== true)) return null;
-    states[id] = { x: s.x, y: s.y,
+    // Salt King moved from the inland/shore camps onto his flagship.
+    // Repair legacy/off-deck positions only; retain valid deck movement, wounds,
+    // defeat state and the exact existing respawn deadline.
+    const relocatedSaltKing=definition.kind==='creature'&&definition.bossId==='salt-king'
+      &&(!onFlagshipDeck(s.x,s.y)||!flagshipWalkable(s.x,s.y,24));
+    const position=relocatedSaltKing?definition.world:{x:s.x,y:s.y};
+    states[id] = { x: position.x, y: position.y,
       ...(typeof s.hp === 'number' ? { hp: s.hp } : {}), ...(typeof s.trust === 'number' ? { trust: s.trust } : {}),
       ...(typeof s.hpMax==='number'?{hpMax:s.hpMax}:{}),
       ...(typeof s.defeated === 'boolean' ? { defeated: s.defeated } : {}), ...(typeof s.used === 'boolean' ? { used: s.used } : {}),

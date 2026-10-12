@@ -27,7 +27,7 @@ const routes:Array<[string,string,string,number,WildernessSite['style'],string]>
 ];
 export const WILDERNESS_SITES:WildernessSite[]=routes.map(([id,name,road,fraction,style,description])=>({id,name,world:roadPoint(road,fraction),style,description}));
 for(const [townId,id,name,description] of [
-  ['tidewatch','salt-bay-outlook','Portquill Bay','A black sail circles beyond the harbor mouth. The Salt King’s cave lies beneath the cliffs, where the waves never break.'],
+  ['tidewatch','salt-bay-outlook','Portquill Bay','A black pennant flies beyond the harbor mouth. Follow the eastern shoreline south from this outlook, then cross the gangplank to confront the Salt King aboard his flagship.'],
   ['skallheim','ice-bay-outlook','Frost Harbor','The wyrm’s tracks lead from the frozen sea toward the beacon. Whatever drove it from the ice is still out there.'],
 ] as const){const t=TOWN_BY_ID[townId].world;WILDERNESS_SITES.push({id,name,description,style:'overlook',world:{x:t.x+1900,y:t.y+1700}});}
 const dark=TOWN_BY_ID.blackspire.world;

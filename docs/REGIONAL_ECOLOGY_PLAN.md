@@ -452,6 +452,123 @@ push, production/APK build or release was requested/performed.
   tests/browser/wildlifeGroups.spec.ts` — **2 passed**, 1.1 minutes total.
 - No build, commit or push performed. Next milestone remains deferred.
 
+### Salt King shoreline relocation — 2026-10-12 (source only)
+
+- User explicitly changed the earlier cave-location constraint: place him near
+  the shoreline in preparation for a later pirate ship. Moved his authored
+  territory to Tidewatch's eastern harbor-mouth shore at town offset
+  (+2450,+2400), outside settlement defenses. The existing harbor-bank formula
+  places the water edge at x+1880 there, leaving 570 units of dry sand to the
+  boss center. Future ship/boarding content remains unimplemented.
+- Retained boss/content/quest IDs, combat, rewards, defeat and respawn behavior.
+  Existing story/cinematic/outlook guidance now directs players south along
+  the eastern shore to his sea-cave stores, preserving the stolen-seal story.
+  Quest/map targets already derive from authored/persisted creature positions.
+- Save parsing relocates Salt King records outside the new territory's 900-unit
+  neighborhood without changing health, defeat, quest progress or respawn
+  deadlines; nearby saved movement remains intact. No broad save reset.
+- This supersedes the earlier inland-location preservation instruction, not
+  the deferred M03 pirate crew/art milestone. No ship or new cave interior added.
+- Source reviewed only: no tests, typecheck, build, game launch, commit or push.
+  Actual shoreline fight/navigation and old-save migration need authorized
+  runtime verification. Relevant files: `enemies.ts`, `save.ts`, `mainStory.ts`,
+  `cinematics.ts`, `wildernessSites.ts`.
+
+### Combined pirate family M03/M09/M10 — 2026-10-12 (source implementation)
+
+- User changed workflow to complete related task families together. Implemented
+  cutlass pirate art/combat, all Portquill bandit conversion channels and saved
+  spawn conversion; a source-measured walkable flagship, gangplank/mast navigation,
+  five persistent crew, cargo, safe delayed replenishment and layered final art.
+- Base `bba9019`; preserved pre-existing shoreline/story/save edits. No new
+  framework, disconnected scene, general water walking or civilian port changes.
+- M10 uses cutlass-only crew: M07 harpoons/M08 boatswains are not complete and
+  were not implicitly added. Salt King remains on his eastern shoreline.
+- Image-generation skill influenced full-pose art, transparent source handling,
+  non-destructive ship correction and geometry fitted to actual source pixels.
+  See `PIRATE_FLAGSHIP.md` for assets/prompt briefs and implementation details.
+- No tests/typechecks/builds/game launches/commits/pushes. These are implemented
+  source slices, **not 100% runtime-accepted milestones**. All new rendered,
+  boarding/save/collision/performance checks remain pending explicit permission.
+- Next smallest target: focused combined pirate/boarding acceptance and fixes
+  before claiming completion or expanding to ranged/heavy crew. Existing unrelated
+  failures remain untouched. Usage readings unknown.
+- Re-read `PIRATE_FLAGSHIP.md`, `pirateFlagship.ts`, `PirateFlagshipArt.ts`,
+  `PirateArt.ts`, `WorldGenerator.ts`, relevant `WorldScene`/`Enemy` adapters,
+  `ContentChunkManager.ts` and `save.ts` on resume.
+
+### Boarding correction and local unlimited vitals — 2026-10-12
+
+- User reported blocked boarding. Source inspection found the entrance sign's
+  art-forced solid footing directly in the approach, a narrow boarding strip and
+  a two-source-pixel centered-art offset. Moved the sign off the route, matched
+  boarding bounds to visible boards and aligned the ship origin with its layout.
+  Existing sign persistence and deck/rail/mast/water restrictions remain.
+- Added development-only unlimited HP/stamina with finite normal-max values;
+  localhost/private-IPv4 Vite play includes PC/mobile parity. Release builds are
+  unaffected. Sprint/dash/attack/skill costs share the local bypass; level/cooldown
+  rules and hit feedback remain. Normal e2e combat remains the default.
+- No tests, typecheck, game launch or builds; reported boarding issue is addressed
+  in source, not yet runtime-confirmed. See `PIRATE_FLAGSHIP.md` for local toggles
+  and the remaining combined M03/M09/M10 acceptance checks. No commit/push.
+
+### Salt King aboard the flagship — 2026-10-12 (source only)
+
+- User explicitly moved the captain aboard, superseding the earlier shore/cave
+  placement constraint. Boss home is source deck point (410,910), on the aft
+  fighting deck. Existing boss/content/quest identity, rewards and timing remain.
+- Captain and deck-home summons use ship confinement, larger boss foot clearance,
+  cached mast routing and pirate/captain separation. Validated Salt King helpers
+  are the only new dynamic spawns admitted on deck; their saved encounter homes
+  retain ship behavior on reload. Global regional-spawn exclusion remains.
+- Save parsing repairs off-deck/unsafe captain positions without resetting
+  damage, defeat, respawn deadline or quest progress. Valid deck movement remains.
+  Captain respawn now shares the offboard/away safety gate with cleared crew.
+- Updated quest, dialogue, cinematic, outlook and sign directions to the
+  flagship. No ship sailing, interior, ranged/heavy crew or new boss art added.
+- No tests, typecheck, build, game launch, commit or push. Refresh an existing
+  session to apply saved-position migration. Full ship/boss acceptance remains
+  pending the user's authorization. See `PIRATE_FLAGSHIP.md`.
+
+### Pirate-family side-walk checkpoint (2026-10-12)
+
+- Source/art follow-up: new complete Salt King and cutlass crew side-walk boards,
+  clearer contact/passing/lift poses, shared right-facing cycles mirrored left.
+  Fixed neutral-body scale; up/down and combat artwork unchanged.
+- Created `walk-sides-v2.png` in both enemy folders. Crew's incorrect final
+  sword-hand pose is excluded. See `PIRATE_FLAGSHIP.md` for prompt/provenance,
+  atlas bounds and manual checks.
+- No tests, typecheck, build, game launch, commit or push. User will manually
+  verify this visual change; overall M03/M09/M10 acceptance remains pending.
+- Next: review the user's manual result before starting another milestone.
+
+### Pirate-family gait/strike refinement checkpoint (2026-10-12)
+
+- Added complete six-pose `walk-gait-v3.png` sheets for captain/crew and explicit
+  half-stride ordering, weighted holds and deterministic independent crew phases.
+- Split pirate/captain attacks into timed windup and strike/recovery clips using
+  existing gameplay timers. Up/down, damage, cooldowns and body radii unchanged.
+- Source reviewed and final source images inspected; no tests/typecheck/build,
+  game launch, commit or push. Previous quick test result predates this change.
+- Manual gait/attack acceptance remains pending. Details, paths and prompt set
+  in `PIRATE_FLAGSHIP.md`; do not mark the whole pirate milestone accepted yet.
+
+### Pirate crowd/locomotion checkpoint (2026-10-12)
+
+- Removed crew standing poses from moving up/down loops. Crew sides now use
+  original modest steps rather than exaggerated generated lifts; generated crew
+  sheets remain on disk but are not loaded. Captain artwork remains unchanged.
+- Pirate/captain chase uses spaced attack approaches and local ally-aware heading
+  probes; physical collisions, ship confinement and intentional attack pauses
+  remain. Brief movement-state hysteresis reduces walk/idle flicker.
+- Source review only; no tests, typecheck, build, launch, commit or push. Manual
+  acceptance/performance pending; see latest `PIRATE_FLAGSHIP.md` section.
+
+Latest follow-up: restored the six-pose crew side gait from `walk-gait-v3.png`
+after the original modest side frames looked too static. The side cycle uses
+contact/down/passing phases for both leg leads and excludes idle. No tests,
+typecheck, build or launch. Manual visual confirmation remains pending.
+
 Before ending each future session, replace/append a short checkpoint using this template:
 
 ```text
@@ -473,3 +590,23 @@ Relevant files to re-read:
 Keep the handoff with the milestone's changes before an authorized commit; the resulting commit hash can be reported after committing and recovered from Git next session. No extra commit is needed just to insert that commit's own hash into its contents. On resume, inspect the checkpoint and intervening changes, then continue the recorded next slice instead of regenerating approved assets or restarting completed audits.
 
 The original plan-only update created no game code or assets. The M01a checkpoint above records the subsequent authorized source-only implementation. Future requests control validation, remaining implementation, commits, pushes and builds.
+
+### M04 implementation checkpoint (2026-10-12)
+
+- Added a complete Rindass melee orc asset family: four directional neutral
+  poses, six authored alternating-foot steps per direction, and six-frame
+  attack, hurt, and death sequences. The neutral frames are excluded from the
+  locomotion loops; full-body frames share a fixed scale and ground alignment.
+- Added one persistent three-raider group at each of the Shared Well and Empty
+  Caravan Shelter wilderness sites. The family has no ambient spawn weight, so
+  it remains tied to Krag's warband and does not populate friendly settlements.
+  Friendly orcan NPC definitions and Krag's existing boss/summon setup are
+  unchanged.
+- Source and sprite-board review only. No tests, typecheck, build, or game launch
+  were run under the standing no-test rule; runtime gait, combat, pack spacing,
+  and habitat acceptance remain unverified. Asset layout and generation notes
+  are recorded in `RINDASS_ORC_RAIDER_ART.md`.
+- Working-tree checkpoint: M04 implementation is local and uncommitted; usage
+  readings unavailable. Remaining work is the requested targeted/manual
+  acceptance before marking M04 verified. Next milestone after acceptance: M05
+  bounded enemy projectile infrastructure.

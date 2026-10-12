@@ -1,9 +1,11 @@
 import manifests from 'virtual:mernondna-art-packs';
 import {BANDIT_COMBAT_ART,BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
 import {SALT_KING_ANIMATIONS} from './saltKingArt';
+import {PIRATE_COMBAT_ANIMATIONS} from './pirateArt';
 const hero = manifests['characters/leigneron'], priestess = manifests['npcs/shrine_priestess'];
 const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_bandit'], boar = manifests['enemies/boarfiend'], wraith = manifests['enemies/marsh_wraith'];
 const troll=manifests['enemies/troll'],dragon=manifests['enemies/dragon'];
+const orcRaider=manifests['enemies/rindass_orc_raider'];
 
 export interface PackClip {
   png:string; webp?:string; frames:number; frameRate:number; repeat:number;
@@ -26,11 +28,11 @@ export interface SpriteAnimation {
   key:string; texture:string; frames:number[]; frameRate:number; repeat:number;
   frameDurations?:readonly number[];
 }
-export const SPRITE_PACKS:readonly PackManifest[] = [hero,priestess,wolf,bandit,boar,wraith,troll,dragon];
+export const SPRITE_PACKS:readonly PackManifest[] = [hero,priestess,wolf,bandit,boar,wraith,troll,dragon,orcRaider];
 export const DIRECTION_CLIPS = ['walk_down','walk_left','walk_right','walk_up'] as const;
 export const ENEMY_STATES = ['idle','walk','attack','hurt','death'] as const;
 export type EnemyAnimationState = typeof ENEMY_STATES[number];
-export const ENEMY_PACKS:readonly PackManifest[] = [wolf,bandit,boar,wraith,troll,dragon];
+export const ENEMY_PACKS:readonly PackManifest[] = [wolf,bandit,boar,wraith,troll,dragon,orcRaider];
 const LEGACY_ENEMY_PACKS=ENEMY_PACKS.slice(0,4);
 export const HERO_PACK:PackManifest = hero;
 export const SHRINE_PACK:PackManifest = priestess;
@@ -102,6 +104,14 @@ export const TROLL_IMPACT_SOURCES:SpriteSource[]=Array.from({length:4},(_,i):Spr
 }));
 ENEMY_ANIMATIONS.push({key:'effect-troll-impact',texture:'effect_troll_impact',frames:[0,1,2,3],frameRate:12,repeat:0});
 ENEMY_ANIMATIONS.push(...SALT_KING_ANIMATIONS);
+ENEMY_ANIMATIONS.push(...PIRATE_COMBAT_ANIMATIONS);
+ENEMY_ANIMATIONS.push(
+  {key:'enemy:8:idle',texture:'enemy_walk_orc_raider',frames:[0],frameRate:1,repeat:-1},
+  {key:'enemy:8:walk',texture:'enemy_walk_orc_raider',frames:[1,2,3,4,5,6],frameRate:orcRaider.animations.walk_down.frameRate,repeat:-1},
+  {key:'enemy:8:attack',texture:'enemy_orc_raider',frames:[0,1,2,3,4,5],frameRate:orcRaider.animations.attack.frameRate,repeat:orcRaider.animations.attack.repeat},
+  {key:'enemy:8:hurt',texture:'enemy_orc_raider',frames:[6,7,8,9,10,11],frameRate:orcRaider.animations.hurt.frameRate,repeat:orcRaider.animations.hurt.repeat},
+  {key:'enemy:8:death',texture:'enemy_orc_raider',frames:[12,13,14,15,16,17],frameRate:orcRaider.animations.death.frameRate,repeat:orcRaider.animations.death.repeat},
+);
 export function enemyAnimation(species:number, state:EnemyAnimationState) {
   const animation = ENEMY_ANIMATIONS.find(a => a.key === `enemy:${species}:${state}`);
   if (!animation) throw new Error(`No enemy animation for ${species}/${state}`);

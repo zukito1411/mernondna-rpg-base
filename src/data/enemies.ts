@@ -1,5 +1,6 @@
 import type { BossDefinition, EnemyDefinition } from '../game/types';
 import { TOWN_BY_ID } from './towns';
+import {SALT_KING_DECK_HOME} from './pirateFlagship';
 import {DRAGON_LAIR,DRAGON_BOSS_ID,DRAGON_RETURN_MS} from './dragonLair';
 
 export const ENEMIES: EnemyDefinition[] = [
@@ -9,7 +10,20 @@ export const ENEMIES: EnemyDefinition[] = [
   },
   {
     id: 'road-bandit', name: 'Road Bandit', spriteFrame: 1, hp: 62, damage: 9, moveSpeed: 82, aggroRange: 250, attackRange: 58, attackCooldownMs: 900,
-    xp: 18, goldMin: 3, goldMax: 9, regionWeights: { trandum: 5, nardorous: 2, portquill: 4, druganwoods: 2 },
+    xp: 18, goldMin: 3, goldMax: 9, regionWeights: { trandum: 5, nardorous: 2, druganwoods: 2 },
+  },
+  {
+    id:'cutlass-pirate',name:'Cutlass Deckhand',spriteFrame:7,spriteTexture:'enemy_cutlass_pirate',
+    hp:62,damage:9,moveSpeed:82,aggroRange:250,attackRange:58,attackCooldownMs:1100,
+    attackWindupMs:300,attackRecoveryMs:550,xp:18,goldMin:3,goldMax:9,regionWeights:{portquill:5},
+  },
+  {
+    id:'rindass-orc-raider',name:'Rindass Warband Raider',spriteFrame:8,spriteTexture:'enemy_orc_raider',
+    appearanceMultiplier:1.08,bodyRadius:15,hp:112,damage:14,moveSpeed:76,aggroRange:245,attackRange:64,
+    attackCooldownMs:1250,attackWindupMs:480,attackRecoveryMs:620,xp:30,goldMin:2,goldMax:6,
+    // A common Rindass wilderness threat; placement still requires dryland or
+    // highland and the scene rejects settlement, farmland and blocked tiles.
+    regionWeights:{rindass:5},
   },
   {
     id: 'rindass-boar', name: 'Wild Boar', spriteFrame: 2, hp: 75, damage: 11, moveSpeed: 88, aggroRange: 180, attackRange: 58, attackCooldownMs: 1100,
@@ -52,7 +66,7 @@ export const ENEMIES: EnemyDefinition[] = [
   {
     id: 'salt-king', name: 'The Salt King', spriteFrame: 6, spriteTexture:'enemy_salt_king', hp: 380, damage: 23, moveSpeed: 72, aggroRange: 340, attackRange: 78, attackCooldownMs: 1550,
     xp: 200, goldMin: 34, goldMax: 58, boss: true, attackWindupMs: 620, attackRecoveryMs: 980,
-    summonEnemyId: 'road-bandit', summonCount: 2, summonCooldownMs: 18500, regionWeights: { portquill: 5 },
+    summonEnemyId: 'cutlass-pirate', summonCount: 2, summonCooldownMs: 18500, regionWeights: { portquill: 5 },
   },
   {
     id: 'frost-wyrm', name: 'The Frost Wyrm', spriteFrame: 0, hp: 440, damage: 28, moveSpeed: 86, aggroRange: 360, attackRange: 82, attackCooldownMs: 1800,
@@ -108,8 +122,8 @@ export const BOSSES: BossDefinition[] = [
   },
   {
     id: 'salt-king', enemyId: 'salt-king', name: 'The Salt King', regionId: 'portquill',
-    world: { x: TOWN_BY_ID.tidewatch.world.x + 850, y: TOWN_BY_ID.tidewatch.world.y - 650 },
-    lore: 'A ruthless sea-lord who has turned the harbor lanes into a toll road for his crew.', respawns: true, respawnDelayMs: 20*60*1000,
+    world: {...SALT_KING_DECK_HOME},
+    lore: 'A ruthless sea-lord commanding his moored flagship from its aft fighting deck, guarding stolen crown cargo beyond Tidewatch’s harbor mouth.', respawns: true, respawnDelayMs: 20*60*1000,
     attackStyle: 'melee',
   },
   {

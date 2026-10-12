@@ -7,6 +7,7 @@ import { registerNpcWalkSources } from './npcWalkArt';
 import {DIRECTIONAL_ENEMY_ART} from './directionalEnemyArt';
 import {BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
 import {SALT_KING_TEXTURE} from './saltKingArt';
+import {PIRATE_TEXTURE,PIRATE_PATH} from './pirateArt';
 import {GUARD_MARCH_ART,type GuardMarchTexture} from './guardMarchArt';
 
 import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
@@ -14,8 +15,8 @@ import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
-type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | typeof NPC_IDLE_ART[number]['walk'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
-export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|typeof SALT_KING_TEXTURE|GuardMarchTexture|'port_dock';
+type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'enemy_orc_raider' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | typeof NPC_IDLE_ART[number]['walk'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|typeof SALT_KING_TEXTURE|GuardMarchTexture|'port_dock'|'pirate_flagship'|typeof PIRATE_TEXTURE;
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
@@ -278,9 +279,10 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
 
 const directionalSheets:ArtSheet[]=DIRECTIONAL_ENEMY_ART.map(a=>({
- key:a.walkTexture,path:a.species===6?'assets/enemies/salt_king/walk.png':`assets/enemies/directional/${a.id}.png`,columns:20,atlasColumns:5,
+ key:a.walkTexture,path:a.sourcePath??(a.species===6?'assets/enemies/salt_king/walk.png':`assets/enemies/directional/${a.id}.png`),
+ columns:a.frameCount??(a.species===6?27:20),atlasColumns:a.species===8?6:5,
  frameWidth:a.frameWidth,frameHeight:a.frameHeight,density:2,blackBackground:false,
- names:Array.from({length:20},(_,i)=>`${a.id}:directional:${i}`),
+ names:Array.from({length:a.frameCount??(a.species===6?27:20)},(_,i)=>`${a.id}:directional:${i}`),
 }));
 const npcDirectionalIdleSheets:ArtSheet[]=NPC_IDLE_ART.flatMap(entry=>{
  const walk=ART_SHEETS.find(sheet=>sheet.key===entry.walk);
@@ -294,9 +296,15 @@ const banditCombatSheet:ArtSheet={key:BANDIT_COMBAT_TEXTURE,path:'assets/enemies
 const saltKingCombatSheet:ArtSheet={...banditCombatSheet,key:SALT_KING_TEXTURE,path:'assets/enemies/salt_king/attack.png',
  frameWidth:160,frameHeight:112,
  names:Array.from({length:18},(_,i)=>'salt-king-combat:'+i)};
+const orcRaiderCombatSheet:ArtSheet={...banditCombatSheet,key:'enemy_orc_raider',path:'assets/enemies/rindass_orc_raider/actions.png',
+ frameWidth:160,frameHeight:128,names:Array.from({length:18},(_,i)=>'rindass-orc-raider-combat:'+i)};
 const guardMarchSheets:ArtSheet[]=GUARD_MARCH_ART.map(art=>({key:art.texture,path:art.path,columns:24,atlasColumns:6,
  density:2,frameWidth:128,frameHeight:144,blackBackground:false,names:poseNames}));
-export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet,saltKingCombatSheet,...guardMarchSheets].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
+const pirateSheet:ArtSheet={key:PIRATE_TEXTURE,path:PIRATE_PATH,columns:49,atlasColumns:6,
+  frameWidth:160,frameHeight:112,density:2,blackBackground:false,names:Array.from({length:49},(_,i)=>'cutlass-pirate:'+i)};
+const flagshipSheet:ArtSheet={key:'pirate_flagship',path:'assets/vehicles/pirate_flagship/ship-boardable.png',columns:1,atlasColumns:1,
+  frameWidth:1024,frameHeight:1536,density:1,blackBackground:false,names:['moored-pirate-flagship']};
+export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet,saltKingCombatSheet,orcRaiderCombatSheet,pirateSheet,flagshipSheet,...guardMarchSheets].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
 
 export function artScale(key: ArtTextureKey) { return 1 / ART_BY_KEY[key].density; }
 
@@ -366,6 +374,7 @@ export function worldPropOrigin(key:ArtTextureKey,frame:number,anchor:'center'|'
 
   if(anchor==='bottom') return {x:.5,y:1};
   if(key==='flower_fence')return {x:.5,y:.5};
+  if(key==='pirate_flagship')return {x:.5,y:.5}; // Exact measured source/layout alignment.
 
   const sheet=ART_BY_KEY[key],point=sheet.groundPoints?.[frame],region=sheet.regions?.[frame];
 

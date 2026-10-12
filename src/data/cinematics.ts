@@ -34,7 +34,7 @@ const regions=[
  ['starhold','starhold-quartermaster','The pass carries winter supplies. Find the beacon and learn what drove Stonejaw onto the road.','With the pass open, supplies can move again. The beacon fragment joins the evidence for Renna.'],
  ['redmesa','redmesa-beastmaster','The clans need their wells. Read the marks at the muster before confronting the chieftain who seized them.','The wells are free. Tracks at the old road connect their seizure to the broken seals.'],
  ['deepford','deepford-runesmith','The roots have closed a working route. Inspect the watch stone before entering the deep wood.','The rune belonged to a seal beneath the forest. Bring its pattern to Renna with the other fragments.'],
- ['tidewatch','tidewatch-harbor-master','The coast keeps the island fed. Inspect the outlook and find the mark carried into the Salt King’s cave.','The recovered mark links the cave to the crown road. The shrine remembers your help.'],
+ ['tidewatch','tidewatch-harbor-master','The coast keeps the island fed. Inspect the outlook, then follow the eastern shore south and board the Salt King’s flagship by its gangplank.','The recovered cargo mark links the flagship to the crown road. The shrine remembers your help.'],
  ['skallheim','skallheim-hunter','The wyrm’s descent threatens the fishing households. Read the old beacon before approaching the cliffs.','The shard beneath its scales is another broken seal. The shrine is attuned in thanks.'],
  ['blackspire','blackspire-forgemaster','The vents threaten the furnace road. Inspect the watch stones before facing the Seer; the dragon’s ward is a separate danger.','The forge fragment proves the seal was opened before you arrived. Bring this evidence back to Renna.'],
 ];

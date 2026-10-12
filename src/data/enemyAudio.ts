@@ -2,7 +2,7 @@ import type {EnemyDefinition} from '../game/types';
 export type EnemySoundCue='attack'|'growl'|'hurt'|'death';
 export type EnemyVoice='wolf'|'human'|'boar'|'wraith'|'troll'|'wyrm'|'dragon';
 const voices:Record<string,EnemyVoice>={
- 'gray-wolf':'wolf','road-bandit':'human','bandit-captain':'human','salt-king':'human',
+ 'gray-wolf':'wolf','road-bandit':'human','cutlass-pirate':'human','bandit-captain':'human','salt-king':'human',
  'rindass-boar':'boar','redmesa-chieftain':'boar','marsh-wraith':'wraith',
  'moonlit-warden':'wraith','rootfather':'wraith','ashen-seer':'wraith',
  'cave-troll':'troll','stonejaw-troll':'troll','frost-wyrm':'wyrm','ash-dragon':'dragon',

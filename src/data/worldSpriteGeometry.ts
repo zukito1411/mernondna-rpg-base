@@ -56,6 +56,7 @@ const others:WorldSpriteProfile[]=[
   profile(base(.12,.81,.87,.98)),
 ];
 export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpriteProfile|undefined {
+  if(texture==='pirate_flagship')return floor;
   if(texture==='darkav_props')return frame===0?profile(base(.25,.80,.78,.98)):
     frame===3?buildings[4]:profile(base(.06,.62,.95,.98));
   if(texture==='darkav_volcano')return profile([[.49,.22],[.70,.43],[.89,.64],[.98,.82],[.87,.97],[.15,.98],[.025,.82],[.07,.62],[.29,.40]],.975);

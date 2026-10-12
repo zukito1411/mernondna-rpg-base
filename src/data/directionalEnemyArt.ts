@@ -1,15 +1,17 @@
 export const ACTOR_DIRECTIONS=['down','left','right','up'] as const;
 export type ActorDirection=typeof ACTOR_DIRECTIONS[number];
-/** One neutral pose plus four real steps per direction. Boss variants retain
- * their existing species art and appearance multiplier. */
+/** Directional families declare their complete per-facing source stride.
+ * Boss variants retain their existing species art and appearance multiplier. */
 export const DIRECTIONAL_ENEMY_ART=[
- {species:0,id:'gray-wolf',texture:'enemies',walkTexture:'enemy_walk_wolf',frameWidth:128,frameHeight:112},
- {species:1,id:'road-bandit',texture:'enemies',walkTexture:'enemy_walk_bandit',frameWidth:128,frameHeight:112},
- {species:2,id:'boarfiend',texture:'enemies',walkTexture:'enemy_walk_boar',frameWidth:144,frameHeight:112},
- {species:3,id:'marsh-wraith',texture:'enemies',walkTexture:'enemy_walk_wraith',frameWidth:144,frameHeight:128},
- {species:4,id:'cave-troll',texture:'enemy_troll',walkTexture:'enemy_walk_troll',frameWidth:240,frameHeight:160},
- {species:5,id:'ash-dragon',texture:'enemy_dragon',walkTexture:'enemy_walk_dragon',frameWidth:384,frameHeight:288},
- {species:6,id:'salt-king',texture:'enemy_salt_king',walkTexture:'enemy_walk_salt_king',frameWidth:128,frameHeight:112},
+ {species:0,id:'gray-wolf',texture:'enemies',walkTexture:'enemy_walk_wolf',sourcePath:'assets/enemies/directional/gray-wolf.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:128,frameHeight:112},
+ {species:1,id:'road-bandit',texture:'enemies',walkTexture:'enemy_walk_bandit',sourcePath:'assets/enemies/directional/road-bandit.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:128,frameHeight:112},
+ {species:2,id:'boarfiend',texture:'enemies',walkTexture:'enemy_walk_boar',sourcePath:'assets/enemies/directional/boarfiend.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:144,frameHeight:112},
+ {species:3,id:'marsh-wraith',texture:'enemies',walkTexture:'enemy_walk_wraith',sourcePath:'assets/enemies/directional/marsh-wraith.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:144,frameHeight:128},
+ {species:4,id:'cave-troll',texture:'enemy_troll',walkTexture:'enemy_walk_troll',sourcePath:'assets/enemies/directional/cave-troll.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:240,frameHeight:160},
+ {species:5,id:'ash-dragon',texture:'enemy_dragon',walkTexture:'enemy_walk_dragon',sourcePath:'assets/enemies/directional/ash-dragon.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:384,frameHeight:288},
+ {species:6,id:'salt-king',texture:'enemy_salt_king',walkTexture:'enemy_walk_salt_king',sourcePath:'assets/enemies/salt_king/walk.png',sourceColumns:5,framesPerDirection:5,frameCount:27,frameWidth:128,frameHeight:112},
+ {species:8,id:'rindass-orc-raider',texture:'enemy_orc_raider',walkTexture:'enemy_walk_orc_raider',
+  sourcePath:'assets/enemies/rindass_orc_raider/walk.png',sourceColumns:7,framesPerDirection:7,frameCount:28,frameWidth:160,frameHeight:128},
 ] as const;
 export function enemyLocomotionKey(species:number,state:'idle'|'walk',direction:ActorDirection){
  return `enemy:${species}:${state}:${direction}`;

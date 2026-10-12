@@ -14,6 +14,22 @@ story deltas are backward-compatible additions to the retained version-4 save.
 
 ## Goal
 
+### Portquill pirate/flagship source addition (2026-10-12)
+
+`pirateFlagship.ts` is the shared source-measured deck/gangplank/mast layout and
+small navigation graph. `WorldGenerator` grants traversal only on that boarding
+surface; `WorldScene` uses it for swept movement/LOS, crew confinement, cached
+steering and respawn safety. `PirateFlagshipArt` creates compact occlusion layers
+and releases layers/colliders with the streamed owner. The persistent five-member
+crew uses `ContentChunkManager` group admission and existing state fields.
+
+`PirateArt` isolates a full directional/combat family into a fixed-calibration
+atlas; the regional spawn gateway and save parser convert Portquill bandits while
+preserving other regions and saved damage/deaths. `canRespawn` is an optional host
+hook to defer a cleared crew's scheduled return while the player remains aboard.
+See `PIRATE_FLAGSHIP.md`: source integration is implemented, runtime acceptance
+and performance measurements remain pending explicit authorization.
+
 Mernodna should become a large continuous top-down action RPG playable on desktop and mobile from one TypeScript codebase.
 
 The game is deliberately split into four layers:

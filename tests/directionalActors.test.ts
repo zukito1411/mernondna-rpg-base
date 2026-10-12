@@ -6,6 +6,10 @@ import {NPC_IDLE_ART} from '../src/data/npcIdleArt';
 import {GUARD_MARCH_ART,GUARD_MARCH_FRAME_GUTTER,guardMarchFrameOrigin} from '../src/data/guardMarchArt';
 import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorTravelDirection,enemyLocomotionKey} from '../src/data/directionalEnemyArt';
 import {actorSpriteGridSubjects} from '../src/game/systems/spriteComponents';
+import {PIRATE_SPECIES,PIRATE_TEXTURE,PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../src/data/pirateArt';
+import {SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH} from '../src/data/saltKingArt';
+import {existsSync} from 'node:fs';
+import {resolve} from 'node:path';
 describe('complete actor walking coverage',()=>{
  it('gives every authored NPC its registered walk art or complete idle presentation',()=>{
   const families=new Map<string,number>();
@@ -55,12 +59,18 @@ describe('complete actor walking coverage',()=>{
   expect(below.y-first.y-frameHeight).toBe(GUARD_MARCH_FRAME_GUTTER*2);
  });
  it('covers every enemy and boss variant with a registered directional species',()=>{
+  // Crew poses are packed by preparePirateArt, not the shared walking loader.
+  const families=[...DIRECTIONAL_ENEMY_ART,{species:PIRATE_SPECIES,texture:PIRATE_TEXTURE}];
+  expect(ART_BY_KEY[PIRATE_TEXTURE].columns).toBe(49);
+  expect(ART_BY_KEY.enemy_walk_salt_king.columns).toBe(27);
+  for(const path of [PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH,SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH])
+   expect(existsSync(resolve('public',path)),path).toBe(true);
   for(const enemy of ENEMIES){
-   const family=DIRECTIONAL_ENEMY_ART.find(a=>a.species===enemy.spriteFrame);
+   const family=families.find(a=>a.species===enemy.spriteFrame);
    expect(family,enemy.id).toBeDefined();expect(family!.texture).toBe(enemy.spriteTexture??'enemies');
    expect(new Set(ACTOR_DIRECTIONS.map(d=>enemyLocomotionKey(enemy.spriteFrame,'walk',d))).size).toBe(4);
   }
-  console.log('Enemy walking audit',ENEMIES.length,'definitions',DIRECTIONAL_ENEMY_ART.length,'sprite families');
+  console.log('Enemy walking audit',ENEMIES.length,'definitions',families.length,'sprite families');
  });
  it('uses real velocity, keeps facing when stopped and avoids diagonal flicker',()=>{
   expect(actorTravelDirection(80,0,'down')).toBe('right');

@@ -10,6 +10,7 @@ import {REGION_SCENERY} from '../../data/regionScenery';
 import {treeScale, type TreeTexture} from '../../data/treeArt';
 import {artFrameSize, type ArtTextureKey} from '../../data/art';
 import {inDragonArena} from '../../data/dragonLair';
+import {flagshipFootprint} from '../../data/pirateFlagship';
 
 const standNoise=createNoise2D(seededRandom('mernondna:woodland-stands'));
 export interface SceneryReservation extends Vec2 {bounds?:Rect}
@@ -22,7 +23,7 @@ function clearSite(bounds:Rect,world:WorldGenerator,reserved:SceneryReservation[
   // Sample the middle too: a river can cross an otherwise dry rectangle.
   for(const x of [bounds.left,(bounds.left+bounds.right)/2,bounds.right])
     for(const y of [bounds.top,(bounds.top+bounds.bottom)/2,bounds.bottom])
-      if(settlementAt(x,y)||!world.isWalkable(x,y)||world.isRoad(x,y,gap))return false;
+      if(flagshipFootprint(x,y)||settlementAt(x,y)||!world.isWalkable(x,y)||world.isRoad(x,y,gap))return false;
   return true;
 }
 /** Deterministic stands, meadow openings and altitude breaks, not a uniform

@@ -11,7 +11,10 @@ import { approachVelocity, strideRate } from '../systems/locomotion';
 import {groundMarkerPosition} from '../systems/groundMarkers';
 import {DragonCombat} from '../systems/DragonCombat';
 import {actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../../data/directionalEnemyArt';
+import {pirateAttackPhase,piratePhaseDuration} from '../../data/pirateMotion';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
+
+const PIRATE_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
@@ -34,6 +37,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly healthBar: Phaser.GameObjects.Graphics;
   private readonly nameLabel: Phaser.GameObjects.Text;
   private visualUntil = 0;
+  private pirateWalkProgress = 0;
+  private pirateApproachSlot = -1;
+  private pirateSlotCheckAt = 0;
+  private pirateMoving = false;
+  private pirateStoppedAt: number | null = null;
   private nextGrowlAt=0;
   private leapVisual: Phaser.GameObjects.Sprite | null = null;
   private leapShadow: Phaser.GameObjects.Ellipse | null = null;
@@ -88,6 +96,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.hp=this.definition.hp;
     this.eventSpawn = eventSpawn;
     this.instanceId = instanceId;
+    // Separate seed: animation variation must not consume combat/wander RNG.
+    this.pirateWalkProgress=seededRandom(instanceId+':stride')();
     this.lastDamagedAt = scene.time.now;
     this.lastEngagedAt = scene.time.now;
     this.rng = seededRandom(instanceId);
@@ -154,7 +164,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    if (!scene.canEnemyOccupy(this.x,this.y)) {
+    if (!scene.canEnemyOccupy(this.x,this.y,this)) {
       body.reset(this.lastSafe.x,this.lastSafe.y);
       body.setVelocity(0,0); this.nextWanderAt = 0;
       this.updateVisual(time);
@@ -193,10 +203,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if(this.wolfPackId) {
         // Pack wolves spread around the player instead of all charging at one point.
         this.chaseAsPack(scene,player,time,delta,distance,body);
+      } else if(this.definition.id==='cutlass-pirate'||this.definition.id==='salt-king') {
+        this.chaseWithAllies(scene,player,time,delta,body);
       } else if (distance > approachRange) {
-        const ahead={x:this.x+this.facing.x*24,y:this.y+this.facing.y*24};
-        if(scene.canEnemyOccupy(ahead.x,ahead.y)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
-          body.setVelocity(approachVelocity(body.velocity.x,this.facing.x*this.definition.moveSpeed,delta,90),approachVelocity(body.velocity.y,this.facing.y*this.definition.moveSpeed,delta,90));
+        const waypoint=scene.enemyNavigationPoint(this,player),length=Math.max(1,Math.hypot(waypoint.x-this.x,waypoint.y-this.y));
+        const dx=(waypoint.x-this.x)/length,dy=(waypoint.y-this.y)/length;
+        const ahead={x:this.x+dx*24,y:this.y+dy*24};
+        if(scene.canEnemyOccupy(ahead.x,ahead.y,this)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
+          body.setVelocity(approachVelocity(body.velocity.x,dx*this.definition.moveSpeed,delta,90),approachVelocity(body.velocity.y,dy*this.definition.moveSpeed,delta,90));
         else {body.setVelocity(0,0);this.nextWanderAt=0;}
       }
       else body.setVelocity(0, 0);
@@ -223,7 +237,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.wander.set(Math.cos(angle) * speed, Math.sin(angle) * speed);
       }
       const speed=this.wander.length(),ahead={x:this.x+this.wander.x/Math.max(1,speed)*24,y:this.y+this.wander.y/Math.max(1,speed)*24};
-      if(scene.canEnemyOccupy(ahead.x,ahead.y)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
+      if(scene.canEnemyOccupy(ahead.x,ahead.y,this)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
         body.setVelocity(approachVelocity(body.velocity.x,this.wander.x,delta,120),approachVelocity(body.velocity.y,this.wander.y,delta,120));
       else {body.setVelocity(0,0);this.nextWanderAt=time+1000;this.wander.set(0,0);}
     }
@@ -233,18 +247,92 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.updateVisual(time);
   }
 
+  /** Reserve distinct attack approaches, then steer around nearby allied bodies.
+   * Physical collisions remain the final safeguard; locked attackers never move. */
+  private chaseWithAllies(scene:WorldScene,player:WorldScene['player'],time:number,
+    delta:number,body:Phaser.Physics.Arcade.Body) {
+    const actors=scene.pirateSteeringActors();
+    const radius=this.definition.bodyRadius??(this.definition.boss?24:11);
+    const ring=Math.max(30,this.definition.attackRange-8);
+    if(time>=this.pirateSlotCheckAt){
+      this.pirateSlotCheckAt=time+600;
+      let best=-1,bestScore=Infinity;
+      for(let slot=0;slot<8;slot++){
+        const angle=slot*Math.PI/4,x=player.x+Math.cos(angle)*ring,y=player.y+Math.sin(angle)*ring;
+        if(!scene.canEnemyOccupy(x,y,this)||!scene.hasClearPath(x,y,player.x,player.y))continue;
+        let score=(x-this.x)**2+(y-this.y)**2;
+        // Prefer an existing seat unless blocked or claimed by a nearby ally.
+        if(slot===this.pirateApproachSlot)score-=1600;
+        for(const other of actors){
+          if(other===this||!other.active||other.hp<=0
+            ||(other.definition.id!=='cutlass-pirate'&&other.definition.id!=='salt-king')
+            ||Math.hypot(other.x-player.x,other.y-player.y)>350)continue;
+          if(other.pirateApproachSlot===slot)score+=1000000;
+        }
+        if(score<bestScore){bestScore=score;best=slot;}
+      }
+      this.pirateApproachSlot=best;
+    }
+    const angle=this.pirateApproachSlot*Math.PI/4;
+    const target=this.pirateApproachSlot<0?player:
+      {x:player.x+Math.cos(angle)*ring,y:player.y+Math.sin(angle)*ring};
+    const waypoint=scene.enemyNavigationPoint(this,target);
+    let dx=waypoint.x-this.x,dy=waypoint.y-this.y;
+    const distance=Math.hypot(dx,dy);
+    if(distance<6){body.setVelocity(0,0);return;}
+    dx/=distance;dy/=distance;
+    const tangentX=-dy,tangentY=dx;
+    let lateral=0;
+    for(const other of actors){
+      if(other===this||!other.active||other.hp<=0
+        ||(other.definition.id!=='cutlass-pirate'&&other.definition.id!=='salt-king'))continue;
+      const otherBody=other.body as Phaser.Physics.Arcade.Body;
+      const rx=body.center.x-otherBody.center.x,ry=body.center.y-otherBody.center.y;
+      const gap=radius+(other.definition.bodyRadius??(other.definition.boss?24:11))+18;
+      const separation=Math.hypot(rx,ry);
+      if(separation>=gap)continue;
+      const side=rx*tangentX+ry*tangentY;
+      const sign=Math.abs(side)>.5?Math.sign(side):this.instanceId<other.instanceId?1:-1;
+      // Sideways avoidance doesn't cancel forward motion behind an attacker.
+      lateral+=sign*(gap-separation)/gap*1.8;
+    }
+    const heading=Math.atan2(dy+tangentY*lateral,dx+tangentX*lateral);
+    let steerX=0,steerY=0;
+    for(const offset of PIRATE_STEERING_OFFSETS){
+      const sx=Math.cos(heading+offset),sy=Math.sin(heading+offset);
+      const nextX=this.x+sx*24,nextY=this.y+sy*24;
+      if(!scene.canEnemyOccupy(nextX,nextY,this)||!scene.hasClearPath(this.x,this.y,nextX,nextY))continue;
+      let clear=true;
+      for(const other of actors){
+        if(other===this||!other.active||other.hp<=0
+          ||(other.definition.id!=='cutlass-pirate'&&other.definition.id!=='salt-king'))continue;
+        const otherBody=other.body as Phaser.Physics.Arcade.Body;
+        const current=Math.hypot(body.center.x-otherBody.center.x,body.center.y-otherBody.center.y);
+        const next=Math.hypot(body.center.x+sx*24-otherBody.center.x,body.center.y+sy*24-otherBody.center.y);
+        const gap=radius+(other.definition.bodyRadius??(other.definition.boss?24:11))+3;
+        // Permit escape from an existing overlap, never deepen it.
+        if(next<gap&&next<=current+1){clear=false;break;}
+      }
+      if(clear){steerX=sx;steerY=sy;break;}
+    }
+    const speed=Math.min(this.definition.moveSpeed,distance*6);
+    body.setVelocity(approachVelocity(body.velocity.x,steerX*speed,delta,90),
+      approachVelocity(body.velocity.y,steerY*speed,delta,90));
+  }
+
   private returnToEncounter(scene:WorldScene,body:Phaser.Physics.Arcade.Body,delta:number) {
     const station=this.encounterBehavior!.station,home=this.encounterBehavior!.home;
     const target=scene.canEnemyOccupy(station.x,station.y)?station:home;
     if (Math.hypot(target.x-this.x,target.y-this.y)<=40) {
       body.setVelocity(0,0);scene.encounterArrived(this);return;
     }
-    const angle=Math.atan2(target.y-this.y,target.x-this.x);
+    const waypoint=scene.enemyNavigationPoint(this,target);
+    const angle=Math.atan2(waypoint.y-this.y,waypoint.x-this.x);
     let vx=0,vy=0;
     // Bounded local steering, never teleport or cross a blocked foundation.
     for(const offset of [0,-.6,.6,-1.2,1.2]) {
       const dx=Math.cos(angle+offset),dy=Math.sin(angle+offset),x=this.x+dx*24,y=this.y+dy*24;
-      if(scene.canEnemyOccupy(x,y)&&scene.hasClearPath(this.x,this.y,x,y)) {
+      if(scene.canEnemyOccupy(x,y,this)&&scene.hasClearPath(this.x,this.y,x,y)) {
         vx=dx*this.definition.moveSpeed*.75;vy=dy*this.definition.moveSpeed*.75;break;
       }
     }
@@ -337,7 +425,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.playMonsterAttackFoley('windup');
     this.nextGrowlAt=time+2800;
     this.playAction('attack');
-    this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery);
+    const windupClip=pirateAttackPhase(this.definition.spriteFrame,'windup');
+    const recoveryClip=pirateAttackPhase(this.definition.spriteFrame,'recovery');
+    if(windupClip){
+      this.anims.play(windupClip.key);
+      this.anims.timeScale=piratePhaseDuration(windupClip)/Math.max(1,windup);
+    }else this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery);
     if(this.definition.combatStyle==='troll')this.anims.timeScale=(attackAnimation.frames.length-1)*1000/(attackAnimation.frameRate*windup);
     this.visualUntil=time+windup+recovery;
     if (attackStyle === 'pounce' && this.definition.spriteFrame === 0) this.playWolfLeap(attackAnimation);
@@ -348,6 +441,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if (epoch!==this.attackEpoch || !this.active || !player.active || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
       if (this.encounterBehavior && scene.encounterDecision(this,scene.time.now,false,scene.isEnemyTerritory(player.x,player.y))!=='pursue') {
         this.interruptAttack();return;
+      }
+      if(recoveryClip){
+        this.anims.play(recoveryClip.key);
+        this.anims.timeScale=piratePhaseDuration(recoveryClip)/Math.max(1,recovery);
       }
       if(this.definition.combatStyle==='troll'){
         const impact=scene.add.sprite(this.x,this.y,'effect_troll_impact',0).setOrigin(.5,actorArtLayout('effect_troll_impact').originY)
@@ -400,8 +497,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private updateVisual(time:number) {
     if (time < this.visualUntil) return;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    this.playLocomotion(body.velocity.lengthSq()>9?'walk':'idle');
-    this.anims.timeScale=body.velocity.lengthSq()>9?strideRate(body.velocity.length(),this.definition.moveSpeed):1;
+    const speed=body.velocity.length();
+    let moving=speed>3;
+    if(this.definition.id==='cutlass-pirate'||this.definition.id==='salt-king'){
+      if(speed>=8){this.pirateMoving=true;this.pirateStoppedAt=null;}
+      else if(speed<2){
+        this.pirateStoppedAt??=time;
+        if(time-this.pirateStoppedAt>=90)this.pirateMoving=false;
+      }else this.pirateStoppedAt=null;
+      moving=this.pirateMoving;
+    }
+    this.playLocomotion(moving?'walk':'idle');
+    this.anims.timeScale=moving?strideRate(speed,this.definition.moveSpeed):1;
   }
 
   playLocomotion(state:'idle'|'walk'){
@@ -409,10 +516,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(state==='walk')this.visualDirection=actorTravelDirection(body.velocity.x,body.velocity.y,this.visualDirection);
     const key=enemyLocomotionKey(this.definition.spriteFrame,state,this.visualDirection);
     const progress=this.anims.currentAnim?.key.includes(':walk:')?this.anims.getProgress():0;
+    const crew=this.definition.id==='cutlass-pirate';
+    if(crew&&this.anims.currentAnim?.key.includes(':walk:'))this.pirateWalkProgress=progress;
     const changed=this.anims.currentAnim?.key!==key;
     this.useVisualTexture(this.scene.anims.get(key).frames[0].textureKey as ArtTextureKey);
-    this.setFlipX(this.texture.key===(this.definition.spriteTexture??'enemies')&&this.visualDirection==='left').anims.play(key,true);
+    const mirroredSide=this.definition.id==='salt-king'||this.definition.id==='cutlass-pirate';
+    this.setFlipX(this.visualDirection==='left'&&(mirroredSide||this.texture.key===(this.definition.spriteTexture??'enemies'))).anims.play(key,true);
     if(changed&&state==='walk'&&progress>0)this.anims.setProgress(progress);
+    else if(changed&&state==='walk'&&crew&&(this.visualDirection==='left'||this.visualDirection==='right'))
+      this.anims.setProgress(this.pirateWalkProgress);
   }
 
   /** Different canvas padding must not move the collision feet or hit circle. */

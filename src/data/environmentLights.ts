@@ -31,6 +31,9 @@ const centers:Partial<Record<ArtTextureKey,number[][][]>>={
   royal_walls:[[],[],[],[],[[1144,714,1],[1302,714,1]]],
 };
 export function environmentLightPoints(texture:ArtTextureKey,frame:number):Light[] {
+  if(texture==='pirate_flagship')return [[184,1238],[632,1238],[265,1280],[552,1280],[410,1475]].map(([x,y])=>({
+    x:x-512,y:y-1536,radius:85,fire:false,mask:18,
+  }));
   const region=ART_BY_KEY[texture].regions?.[frame];if(!region) return [];
   const fit=artFrameSize(texture,frame).width/region[2];
   return (centers[texture]?.[frame]??[]).map(([x,y,fire])=>({

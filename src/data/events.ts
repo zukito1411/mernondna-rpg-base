@@ -2,9 +2,11 @@ import type { DynamicEventDefinition } from '../game/types';
 
 export const DYNAMIC_EVENTS: DynamicEventDefinition[] = [
   {
-    id: 'road-ambush', name: 'Road Ambush', regions: ['trandum', 'portquill', 'nardorous'], enemyId: 'road-bandit', enemyCount: 3,
+    id: 'road-ambush', name: 'Road Ambush', regions: ['trandum', 'nardorous'], enemyId: 'road-bandit', enemyCount: 3,
     headline: 'Bandits on the road', description: 'A small outlaw group has moved to cut travelers off from the nearest settlement.'
   },
+  {id:'pirate-ambush',name:'Pirate Shore Patrol',regions:['portquill'],enemyId:'cutlass-pirate',enemyCount:1,
+    headline:'Pirates on the coast',description:'A cutlass crew has left its anchorage to intercept travelers.'},
   {
     id: 'hungry-pack', name: 'Hungry Wolf Pack', regions: ['trandum', 'narenthil', 'druganwoods'], minHour: 18, maxHour: 6, enemyId: 'gray-wolf', enemyCount: 4,
     headline: 'Howls nearby', description: 'A hungry pack has begun ranging close to the road after dark.'

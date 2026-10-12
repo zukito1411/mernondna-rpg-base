@@ -24,6 +24,7 @@ export interface EncounterSpawnMember { enemyId: string; world: Vec2; role?: Enc
 export interface ContentHost<Actor> {
   initialState(definition: ContentDefinition): ContentState;
   canActivate?(definition: ContentDefinition, state: ContentState): boolean;
+  canRespawn?(definition:ContentDefinition):boolean;
   /** Check the complete pending group against shared capacity before creating
    * any of its actors. Existing active members already consume their slots. */
   canActivateGroup?(members: readonly CreatureActivation[]): boolean;
@@ -80,6 +81,7 @@ export class ContentChunkManager<Actor> {
       const state=this.states.get(id),definition=this.definitions.get(id);
       if(!state||!definition||state.respawnAt===undefined){this.returns.delete(id);continue;}
       if(state.respawnAt>now)continue;
+      if(this.host.canRespawn&&!this.host.canRespawn(definition))continue;
       const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined};
       this.states.set(id,restored);this.index(id,contentChunkKey(restored.x,restored.y));
       this.returns.delete(id);changed=true;

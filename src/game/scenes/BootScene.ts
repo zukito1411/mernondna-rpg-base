@@ -19,7 +19,12 @@ import {prepareGuardMarchArt} from '../systems/GuardMarchArt';
 import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
 import {prepareSaltKingArt} from '../systems/SaltKingArt';
-import {SALT_KING_STATES,saltKingArtPath} from '../../data/saltKingArt';
+import {preparePirateArt} from '../systems/PirateArt';
+import {prepareOrcRaiderCombatArt} from '../systems/OrcRaiderArt';
+import {FLAGSHIP_ART_PATH,preparePirateFlagshipArt} from '../systems/PirateFlagshipArt';
+import {PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../../data/pirateArt';
+import {PIRATE_ATTACK_PHASES} from '../../data/pirateMotion';
+import {SALT_KING_STATES,SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH,saltKingArtPath} from '../../data/saltKingArt';
 import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
 import {ATTACK_WARNING_TEXTURE,registerAttackWarningFrames} from '../systems/attackWarning';
 import {RABBIT_PATH,RABBIT_SOURCE,prepareRabbitArt} from '../systems/RabbitArt';
@@ -136,11 +141,19 @@ export class BootScene extends Phaser.Scene {
     this.load.image(SQUIRREL_SOURCE,SQUIRREL_PATH);
     this.load.image(BIRD_SOURCE,BIRD_PATH);
     this.load.image(GULL_SOURCE,GULL_PATH);
+    this.load.image('pirate-source',PIRATE_PATH);
+    this.load.image('pirate-side-source',PIRATE_SIDE_PATH);
+    this.load.image('pirate-gait-source',PIRATE_GAIT_PATH);
+    this.load.image('salt-king-source:side',SALT_KING_SIDE_PATH);
+    this.load.image('salt-king-source:gait',SALT_KING_GAIT_PATH);
+    this.load.image('flagship-source',FLAGSHIP_ART_PATH);
     for(const [kind,art] of Object.entries(VEHICLE_ART))this.load.image('vehicle-source:'+kind,art.path);
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
     for(const art of GUARD_MARCH_ART)this.load.image('guard-march-source:'+art.walk,art.path);
-    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6))this.load.image('directional-source:'+art.id,'assets/enemies/directional/'+art.id+'.png');
+    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6))
+      this.load.image('directional-source:'+art.id,art.sourcePath??'assets/enemies/directional/'+art.id+'.png');
+    this.load.image('rindass-orc-raider:actions','assets/enemies/rindass_orc_raider/actions.png');
     for(const state of ['walk',...SALT_KING_STATES] as const)this.load.image('salt-king-source:'+state,saltKingArtPath(state));
     for(const art of BANDIT_COMBAT_ART)this.load.image('bandit-combat-source:'+art.state,banditCombatPath(art.state));
     for(const art of REFINED_ENEMY_ART)for(const state of REFINED_ENEMY_STATES)
@@ -367,10 +380,13 @@ export class BootScene extends Phaser.Scene {
     prepareSquirrelArt(this);
     prepareWoodlandBirdArt(this);
     prepareCoastalGullArt(this);
+    prepareOrcRaiderCombatArt(this);
     prepareRefinedEnemyArt(this);
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
     prepareBanditCombatArt(this);
     const saltKingAnimations=prepareSaltKingArt(this);
+    const pirateAnimations=preparePirateArt(this);
+    preparePirateFlagshipArt(this);
     const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
     const guardMarchAnimations=prepareGuardMarchArt(this);
     prepareScorchedArt(this);
@@ -385,6 +401,8 @@ export class BootScene extends Phaser.Scene {
       ...ENEMY_ANIMATIONS,
       ...directionalEnemyAnimations,
       ...saltKingAnimations,
+      ...pirateAnimations,
+      ...PIRATE_ATTACK_PHASES,
       ...PLAYER_ATTACK_ANIMATIONS,
       ...PLAYER_EFFECT_ANIMATIONS,
       ...PLAYER_SKILL_ANIMATIONS

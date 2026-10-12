@@ -32,7 +32,7 @@ export const QUESTS: QuestDefinition[] = [
       { id: 'stonejaw', type: 'kill', targetId: 'stonejaw-troll', bossId: 'stonejaw-troll', amount: 1, text: 'Defeat Stonejaw in Nardorous.' },
       { id: 'iron-tusk', type: 'kill', targetId: 'redmesa-chieftain', bossId: 'iron-tusk', amount: 1, text: 'Defeat Krag the Iron-Tusk in Rindass.' },
       { id: 'rootfather', type: 'kill', targetId: 'rootfather', bossId: 'rootfather', amount: 1, text: 'Defeat the Rootfather in Druganwoods.' },
-      { id: 'salt-king', type: 'kill', targetId: 'salt-king', bossId: 'salt-king', amount: 1, text: 'Defeat the Salt King in Portquill.' },
+      { id: 'salt-king', type: 'kill', targetId: 'salt-king', bossId: 'salt-king', amount: 1, text: 'Defeat the Salt King aboard his flagship south of Tidewatch.' },
       { id: 'frost-wyrm', type: 'kill', targetId: 'frost-wyrm', bossId: 'frost-wyrm', amount: 1, text: 'Defeat the Frost Wyrm in the Frostlands.' },
       { id: 'ashen-seer', type: 'kill', targetId: 'ashen-seer', bossId: 'ashen-seer', amount: 1, text: 'Defeat the Ashen Seer in Darkav.' },
       { id: 'return-aldren-after-regions', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Return to Aldren in Oakmere.' },

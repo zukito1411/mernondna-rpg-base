@@ -37,11 +37,10 @@ export class PlayerSkillSystem {
       this.scene.notify(`${skill.name} is recovering (${Math.ceil(this.cooldowns[id] / 1000)}s).`);
       return false;
     }
-    if (this.player.stamina < skill.staminaCost) {
+    if (!this.player.spendStamina(skill.staminaCost)) {
       this.scene.notify(`${skill.name} needs ${skill.staminaCost} stamina.`);
       return false;
     }
-    this.player.stamina -= skill.staminaCost;
     const stats=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     this.cooldowns[id] = Math.round(skill.cooldownMs*stats.cooldownMultiplier);
     if (id !== 'crown-rally' || this.player.hp >= this.player.maxHp) {

@@ -28,13 +28,16 @@ export function hostileCapacity(live: number, source: EncounterAdmission, pendin
 export function creatureFitsHabitat(enemy: EnemyDefinition, habitat: CreatureHabitat, bossSummon = false) {
   if (habitat.region === 'dead-sea' || ['water', 'lava', 'farmland'].includes(habitat.terrain)) return false;
   if (bossSummon) return true;
+  if(enemy.id==='rindass-orc-raider')
+    return habitat.region==='rindass'&&['dryland','highland'].includes(habitat.biome);
   if (enemy.boss || (enemy.regionWeights[habitat.region] ?? 0) <= 0) return false;
   switch (enemy.id) {
     case 'gray-wolf': return ['forest', 'meadow', 'highland', 'snowfield'].includes(habitat.biome);
     case 'rindass-boar': return ['forest', 'meadow', 'highland', 'dryland'].includes(habitat.biome);
     case 'marsh-wraith': return habitat.biome === 'wetland';
     case 'cave-troll': return habitat.biome !== 'coast';
-    case 'road-bandit': return true;
+    case 'road-bandit': return habitat.region!=='portquill';
+    case 'cutlass-pirate': return habitat.region==='portquill'&&['coast','forest','meadow'].includes(habitat.biome);
     default: return false; // New families require an explicit habitat rule.
   }
 }

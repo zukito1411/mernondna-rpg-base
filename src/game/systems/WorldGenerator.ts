@@ -13,6 +13,7 @@ import { fortificationBlocksPoint } from '../../data/fortifications';
 import {lakeAt,lakeShoreDistance} from '../../data/landscapeFeatures';
 import {dragonLairTerrain,onDragonTrail} from '../../data/dragonLair';
 import {ASHEN_DOCK_ROAD,onPortDeck} from '../../data/ports';
+import {onFlagshipBoarding,flagshipWalkable} from '../../data/pirateFlagship';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
 
@@ -93,6 +94,7 @@ export class WorldGenerator {
   }
 
   getTerrainAt(worldX: number, worldY: number): TerrainKind {
+    if(onFlagshipBoarding(worldX,worldY))return 'dirt';
     const regionId = this.getRegionAt(worldX, worldY);
     if (regionId === 'dead-sea') return 'water';
     if (onHighmereRiver(worldX,worldY)) return onHighmereBridge(worldX,worldY) ? 'stone' : 'water';
@@ -134,6 +136,7 @@ export class WorldGenerator {
   }
 
   isWalkable(worldX: number, worldY: number) {
+    if(onFlagshipBoarding(worldX,worldY))return flagshipWalkable(worldX,worldY);
     return Number.isFinite(worldX) && Number.isFinite(worldY) && worldX >= 0 && worldY >= 0
       && worldX < WORLD_WIDTH && worldY < WORLD_HEIGHT && (onPortDeck(worldX,worldY)||!['water','lava'].includes(this.getTerrainAt(worldX, worldY)))
       && !fortificationBlocksPoint(worldX,worldY);
