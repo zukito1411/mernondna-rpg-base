@@ -85,6 +85,16 @@ Keep quests data-driven and objective-based, but do not make every narrative pro
 
 The Oakmere streaming slice includes a one-time supply cache, berry patch, road marker and sealed cellar site. The cellar is a persistent entrance record only; dungeon interiors are not implemented. NPC daily routines, social graphs, settlement economy and ecology remain later milestones.
 
+### Encounter groups (M02)
+
+Creature definitions may carry `encounterId` and `encounterBehavior`. Behavior stores a shared `home`, an individual `station`, `leashRadius` (256–1600 world units), stable `slot` (0–15), and `role` (`leader`, `melee`, `flanker`, `ranged`, `heavy`). Stations must be within 40% of the home leash. New batches require separate, collision-radius-aware positions and full available capacity before registering any records; wolves remain 4–6 members with one alpha. Roles describe group assignments, not newly implemented ranged attacks or replacement artwork.
+
+Existing `wolfPackId`/`wolfAlpha` remain authoritative for wolf AI, stats and visuals. Alpha-first/instance-ID ordering assigns stable hunting slots. Optional behavior extends save version 5 without changing its storage key or requiring old saves to contain it. Legacy groups receive persistent homes/stations from repaired logical positions once; IDs, damage, deaths and rewards are retained. Malformed duplicate legacy alpha flags are reduced to one deterministic alpha without deleting records. Save validation rejects invalid coordinates/radii/roles, duplicate slots or contradictory group homes.
+
+Shared alerts last 5.5 seconds and reach at most 510 world units within that group, not the whole region. Default home leash is 900, with idle roaming bounded to 40% of it. Leaving allowed territory/home bounds clears pursuit and returns survivors to their individual stations using bounded collision/path-checked steering; arriving within 40 units permits normal activity again. Queued attacks are cancelled on disengagement and rechecked at impact. Runtime alerts/retreat timers are never serialized and are cleaned on last-member unload/death or scene shutdown. No teleportation, health reset or reward reset is used to return a group. Authored bosses and ungrouped creatures retain their existing independent combat.
+
+Ordinary encounters cannot appear within 250 units of the player or be added during immediate melee. Boss-owned reinforcements preserve their explicit summon exception, while still obeying the shared actor budget, land/geometry and protected-settlement rules.
+
 Settlement shrines are defined in `src/data/townShrines.ts`. An interactable's
 `townShrineId` connects it to a settlement and its safe arrival point. Interacting
 attunes that shrine and opens travel to other attuned destinations. Oakmere's

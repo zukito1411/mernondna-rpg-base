@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { BossDefinition, EnemyDefinition } from '../types';
+import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier } from '../../data/enemies';
 import { areaMonsterLevel,scaledEnemy } from '../../data/enemyTiers';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -19,6 +19,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly eventSpawn: boolean;
   readonly wolfPackId: string | null;
   readonly wolfAlpha: boolean;
+  readonly encounterKey: string | null;
+  readonly encounterBehavior: EncounterBehavior | undefined;
   readonly level:number;
   readonly instanceId: string;
   private nextAttackAt = 0;
@@ -66,7 +68,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string,
-    eventSpawn = false, wolfPackId: string | null = null, wolfAlpha = false) {
+    eventSpawn = false, wolfPackId: string | null = null, wolfAlpha = false,
+    encounterId: string | null = null, encounterBehavior?: EncounterBehavior) {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
@@ -76,6 +79,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const base=scaledEnemy(definition,this.level);
     this.wolfAlpha=definition.id==='gray-wolf' && wolfAlpha;
     this.wolfPackId=definition.id==='gray-wolf' ? wolfPackId : null;
+    this.encounterKey=definition.boss ? null : this.wolfPackId ? `wolf:${this.wolfPackId}`
+      : encounterId ? `encounter:${encounterId}` : null;
+    this.encounterBehavior = this.encounterKey ? encounterBehavior : undefined;
     this.definition=this.wolfAlpha ? {...base,name:'Alpha Wolf',
       hp:Math.round(base.hp*1.35),damage:Math.round(base.damage*1.12),
       xp:Math.round(base.xp*1.5),goldMax:Math.ceil(base.goldMax*1.25)} : base;
@@ -124,7 +130,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Recover only after leaving combat, never during a chase or attack.
     // Paused scenes do not tick updateEnemy, so this is active-play time only.
     const playerDistance = Phaser.Math.Distance.Between(this.x,this.y,player.x,player.y);
-    const pursuing = playerDistance <= this.definition.aggroRange && scene.isEnemyTerritory(player.x,player.y);
+    const territory=scene.isEnemyTerritory(player.x,player.y);
+    const spotted=playerDistance<=this.definition.aggroRange&&territory;
+    const encounterMode=this.encounterBehavior&&this.hp>0 ? scene.encounterDecision(this,time,spotted,territory) : null;
+    const pursuing = encounterMode ? encounterMode==='pursue' : spotted;
     if (pursuing) this.lastEngagedAt = time;
     if (this.hp>0 && this.hp<this.definition.hp && !pursuing
       && playerDistance>this.definition.aggroRange*1.2
@@ -152,6 +161,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    if (encounterMode && encounterMode !== 'pursue' && (this.attackTelegraph || this.leapVisual)) {
+      this.interruptAttack();
+      if (!this.isStaggered) { this.lockedUntil=time;this.visualUntil=0; }
+    }
+    if (encounterMode==='return') {
+      if (this.attackTelegraph || this.leapVisual || time < this.lockedUntil) {
+        this.interruptAttack();
+        if (!this.isStaggered) { this.lockedUntil=time; this.visualUntil=0; }
+      }
+      if(this.isStaggered)body.setVelocity(0,0);
+      else this.returnToEncounter(scene,body,delta);
+      this.setDepth(this.y);this.lastSafe={x:this.x,y:this.y};this.updateVisual(time);return;
+    }
     if(this.isStaggered){body.setVelocity(0,0);this.setDepth(this.y);this.updateVisual(time);return;}
     if (time < this.lockedUntil) {
       body.setVelocity(0, 0);
@@ -161,11 +183,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    const territory=scene.isEnemyTerritory(player.x,player.y);
-    const spotted=distance<=this.definition.aggroRange&&territory;
-    if(spotted&&this.wolfPackId)scene.alertWolfPack(this.wolfPackId,time);
-    const packAlerted=Boolean(this.wolfPackId&&scene.isWolfPackAlerted(this.wolfPackId,time)&&distance<510);
-    if((spotted||packAlerted)&&territory) {
+    if(pursuing&&territory) {
       if(time>=this.nextGrowlAt&&distance>Math.max(100,this.definition.attackRange)){
         scene.playEnemyVocal(this.definition,this.instanceId,'growl',this.x,this.y);
         this.nextGrowlAt=time+3600+this.rng()*2800;
@@ -215,6 +233,24 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.updateVisual(time);
   }
 
+  private returnToEncounter(scene:WorldScene,body:Phaser.Physics.Arcade.Body,delta:number) {
+    const station=this.encounterBehavior!.station,home=this.encounterBehavior!.home;
+    const target=scene.canEnemyOccupy(station.x,station.y)?station:home;
+    if (Math.hypot(target.x-this.x,target.y-this.y)<=40) {
+      body.setVelocity(0,0);scene.encounterArrived(this);return;
+    }
+    const angle=Math.atan2(target.y-this.y,target.x-this.x);
+    let vx=0,vy=0;
+    // Bounded local steering, never teleport or cross a blocked foundation.
+    for(const offset of [0,-.6,.6,-1.2,1.2]) {
+      const dx=Math.cos(angle+offset),dy=Math.sin(angle+offset),x=this.x+dx*24,y=this.y+dy*24;
+      if(scene.canEnemyOccupy(x,y)&&scene.hasClearPath(this.x,this.y,x,y)) {
+        vx=dx*this.definition.moveSpeed*.75;vy=dy*this.definition.moveSpeed*.75;break;
+      }
+    }
+    body.setVelocity(approachVelocity(body.velocity.x,vx,delta,90),approachVelocity(body.velocity.y,vy,delta,90));
+  }
+
   /** Flank using persistent angular slots and short-range ally repulsion.
    * Wolves approach from different sides and lunge in overlapping, staggered
    * windows. Path checks still prevent movement through scenery/buildings. */
@@ -224,7 +260,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(this.wolfFlankSlot===null){
       // Alpha presses from the front; siblings occupy alternating flanks/rear.
       const ordinal=members.findIndex(member=>member.instanceId===this.instanceId);
-      this.wolfFlankSlot=this.wolfAlpha?0:Math.max(1,ordinal);
+      this.wolfFlankSlot=this.encounterBehavior?.slot ?? (this.wolfAlpha?0:Math.max(1,ordinal));
       const leader=members.find(member=>member.wolfAlpha)??this;
       this.wolfHuntBearing=Math.atan2(leader.y-player.y,leader.x-player.x);
     }
@@ -310,6 +346,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.attackTelegraph?.destroy();
       this.attackTelegraph = null;
       if (epoch!==this.attackEpoch || !this.active || !player.active || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
+      if (this.encounterBehavior && scene.encounterDecision(this,scene.time.now,false,scene.isEnemyTerritory(player.x,player.y))!=='pursue') {
+        this.interruptAttack();return;
+      }
       if(this.definition.combatStyle==='troll'){
         const impact=scene.add.sprite(this.x,this.y,'effect_troll_impact',0).setOrigin(.5,actorArtLayout('effect_troll_impact').originY)
           .setScale(artScale('effect_troll_impact')*radius/40).setDepth(this.y+1).play('effect-troll-impact');
@@ -350,7 +389,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const summonCount=summon==='gray-wolf'?1:(this.definition.summonCount??1);
     for (let i = 0; i < summonCount; i++) {
       const angle = Math.PI * 2 * i / summonCount + this.rng() * .3;
-      if (scene.spawnEnemy(summon, this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110, true)) {
+      if (scene.spawnEnemy(summon, this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110, true, this)) {
         spawned++;
         scene.playEffect('teleport', this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110);
       }

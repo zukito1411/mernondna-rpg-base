@@ -9,7 +9,7 @@ import { advanceQuests } from '../game/systems/questProgress';
 import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
-import type { ContentState, ContentWorldState, CreatureContentDefinition } from '../game/types';
+import type { ContentState, ContentWorldState, CreatureContentDefinition, EncounterBehavior, EncounterRole } from '../game/types';
 import { BASE_ATTRIBUTES, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
@@ -49,15 +49,42 @@ function validateContent(value: unknown): ContentWorldState | null {
   if (!record(value) || !record(value.states) || !record(value.spawns)
     || !numberIn(value.nextSpawnSequence) || !Number.isInteger(value.nextSpawnSequence)) return null;
   const spawns: Record<string, CreatureContentDefinition> = {};
+  const slots = new Map<string, Set<number>>();
+  const groupHomes = new Map<string, {x:number;y:number;radius:number}>();
   for (const [id, d] of Object.entries(value.spawns)) {
     if (!record(d) || d.kind !== 'creature' || d.id !== id || !/^spawn:\d+$/.test(id)
       || Number(id.slice(6)) >= value.nextSpawnSequence || typeof d.enemyId !== 'string'
       || !Object.hasOwn(ENEMY_BY_ID, d.enemyId) || ENEMY_BY_ID[d.enemyId].boss
       || !record(d.world) || !numberIn(d.world.x, 0, WORLD_WIDTH - 1) || !numberIn(d.world.y, 0, WORLD_HEIGHT - 1)
       || typeof d.eventSpawn !== 'boolean'
+      || (d.encounterId !== undefined && (typeof d.encounterId !== 'string'
+        || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,99}$/.test(d.encounterId)
+        || (d.wolfPackId !== undefined && d.encounterId !== d.wolfPackId)))
       || (d.wolfPackId !== undefined && (d.enemyId !== 'gray-wolf' || typeof d.wolfPackId !== 'string' || d.wolfPackId.length > 100))
       || (d.wolfAlpha !== undefined && (d.enemyId !== 'gray-wolf' || typeof d.wolfAlpha !== 'boolean'))) return null;
+    const behavior = d.encounterBehavior;
+    let parsedBehavior: EncounterBehavior | undefined;
+    if (behavior !== undefined) {
+      if (!record(behavior) || !record(behavior.home) || !record(behavior.station) || (!d.encounterId && !d.wolfPackId)
+        || !numberIn(behavior.home.x,0,WORLD_WIDTH-1) || !numberIn(behavior.home.y,0,WORLD_HEIGHT-1)
+        || !numberIn(behavior.station.x,0,WORLD_WIDTH-1) || !numberIn(behavior.station.y,0,WORLD_HEIGHT-1)
+        || !numberIn(behavior.leashRadius,256,1600) || !numberIn(behavior.slot,0,15) || !Number.isInteger(behavior.slot)
+        || typeof behavior.role !== 'string' || !['leader','melee','flanker','ranged','heavy'].includes(behavior.role)
+        || Math.hypot(behavior.station.x-behavior.home.x,behavior.station.y-behavior.home.y)>behavior.leashRadius*.4
+        || d.wolfPackId && (behavior.role !== (d.wolfAlpha?'leader':'flanker') || (d.wolfAlpha ? behavior.slot!==0 : behavior.slot===0))) return null;
+      const key=d.wolfPackId?`wolf:${d.wolfPackId}`:`encounter:${d.encounterId}`;
+      const occupied=slots.get(key)??new Set<number>();
+      if(occupied.has(behavior.slot))return null;
+      occupied.add(behavior.slot);slots.set(key,occupied);
+      const home=groupHomes.get(key);
+      if(home&&(home.x!==behavior.home.x||home.y!==behavior.home.y||home.radius!==behavior.leashRadius))return null;
+      groupHomes.set(key,{x:behavior.home.x,y:behavior.home.y,radius:behavior.leashRadius});
+      parsedBehavior={home:{x:behavior.home.x,y:behavior.home.y},station:{x:behavior.station.x,y:behavior.station.y},
+        leashRadius:behavior.leashRadius,role:behavior.role as EncounterRole,slot:behavior.slot};
+    }
     spawns[id] = { id, kind: 'creature', enemyId: d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn,
+      ...(parsedBehavior?{encounterBehavior:parsedBehavior}:{}),
+      ...(typeof d.encounterId === 'string'?{encounterId:d.encounterId}:{}),
       ...(typeof d.wolfPackId === 'string'?{wolfPackId:d.wolfPackId}:{}),
       ...(typeof d.wolfAlpha === 'boolean'?{wolfAlpha:d.wolfAlpha}:{}) };
   }

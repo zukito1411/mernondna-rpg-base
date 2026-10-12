@@ -5,6 +5,7 @@ import {segmentTouchesRect} from '../../data/settlementGeometry';
 import {isTreeArt} from '../../data/treeArt';
 import type {Vec2} from '../types';
 import type {GroundShadowSystem} from './GroundShadowSystem';
+import type {AmbientWildlifeSystem} from './AmbientWildlifeSystem';
 
 type WorldActor=Phaser.GameObjects.Image|Phaser.GameObjects.Sprite;
 interface VisibleArt {left:number;top:number;width:number;height:number}
@@ -15,7 +16,8 @@ export const WORLD_SPRITE_OWNER='worldSpriteOwner';
  * Render bounds, physical contour and draw order are deliberately separate. */
 export class WorldSpriteSystem {
   private readonly owned=new Map<WorldActor,Phaser.GameObjects.Rectangle[]>();
-  constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup,private readonly shadows?:GroundShadowSystem){}
+  constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup,
+    private readonly shadows?:GroundShadowSystem,private readonly wildlife?:AmbientWildlifeSystem){}
   register(actor:WorldActor,texture:ArtTextureKey,frame:number,scale:number,solid:boolean,fallback?:{width:number;height:number},center=false){
     const sheet=ART_BY_KEY[texture],metadata=(actor.frame.customData??{}) as PreparedArt;
     const visible=metadata.visibleBounds??{left:0,top:0,width:sheet.frameWidth,height:sheet.frameHeight};
@@ -70,6 +72,7 @@ export class WorldSpriteSystem {
       }
     }
     this.owned.set(actor,owned);
+    this.wildlife?.register(actor,texture,frame,point(.5,1),visible.width*scale,visible.height*scale);
     actor.once('destroy',()=>this.release(actor));
   }
   private release(actor:WorldActor){

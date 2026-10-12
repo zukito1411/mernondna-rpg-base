@@ -22,6 +22,10 @@ import {prepareSaltKingArt} from '../systems/SaltKingArt';
 import {SALT_KING_STATES,saltKingArtPath} from '../../data/saltKingArt';
 import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
 import {ATTACK_WARNING_TEXTURE,registerAttackWarningFrames} from '../systems/attackWarning';
+import {RABBIT_PATH,RABBIT_SOURCE,prepareRabbitArt} from '../systems/RabbitArt';
+import {SQUIRREL_PATH,SQUIRREL_SOURCE,prepareSquirrelArt} from '../systems/SquirrelArt';
+import {BIRD_PATH,BIRD_SOURCE,prepareWoodlandBirdArt} from '../systems/WoodlandBirdArt';
+import {GULL_PATH,GULL_SOURCE,prepareCoastalGullArt} from '../systems/CoastalGullArt';
 
 const AUDIO_ASSETS = [
   ['sfx-blade-draw', 'assets/audio/drawKnife1.ogg'],
@@ -128,6 +132,10 @@ export class BootScene extends Phaser.Scene {
     });
     for (const [key, path] of AUDIO_ASSETS) this.load.audio(key, path);
     this.load.image(ATTACK_WARNING_TEXTURE,'assets/ui/actions/attack_warning.png');
+    this.load.image(RABBIT_SOURCE,RABBIT_PATH);
+    this.load.image(SQUIRREL_SOURCE,SQUIRREL_PATH);
+    this.load.image(BIRD_SOURCE,BIRD_PATH);
+    this.load.image(GULL_SOURCE,GULL_PATH);
     for(const [kind,art] of Object.entries(VEHICLE_ART))this.load.image('vehicle-source:'+kind,art.path);
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
@@ -355,6 +363,10 @@ export class BootScene extends Phaser.Scene {
     }
 
     pixels.clear();
+    prepareRabbitArt(this);
+    prepareSquirrelArt(this);
+    prepareWoodlandBirdArt(this);
+    prepareCoastalGullArt(this);
     prepareRefinedEnemyArt(this);
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
     prepareBanditCombatArt(this);

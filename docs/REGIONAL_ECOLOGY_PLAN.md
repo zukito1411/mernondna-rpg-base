@@ -1,6 +1,6 @@
 # Regional monsters, pirate ship and ambient wildlife — implementation plan
 
-Planning only, based on the current repository on 11 October 2026. The user uses ChatGPT Plus and intends to start after a full usage reset, complete tested milestones, commit them when requested, and resume after later resets. This turn authorizes updating the plan only. Resume from this document after the reset and recheck the working tree before implementation.
+Originally planned from the repository on 11 October 2026. The user uses ChatGPT Plus and intends to complete tested milestones, commit them when requested, and resume after later resets. Current implementation/verification status is recorded in the resume checkpoint below. Recheck the working tree on resume; the original plan-only authorization does not describe subsequent implementation requests.
 
 ## Intended result
 
@@ -173,15 +173,284 @@ The regional residency/loading work described in the performance gates must be i
 ## Definition of a completed milestone
 
 - The exact feature slice works in the game or is a verified self-contained foundation with future content disabled. No new enabled family is missing required states.
-- Application/test type checks and relevant meaningful unit/browser checks pass. Asset slices require actual rendered inspection of locomotion and combat; integration slices require navigation and save checks. Keep unrelated pre-existing failures separate from new regressions.
-- Relevant performance comparisons stay within the baseline budget, with stable actor/projectile/audio counts and no repeated steady-state atlas uploads. Later content cannot skip this check simply because the shared infrastructure passed earlier.
+- Apply the user's impact-based verification policy: low/no-impact work may finish with documented source review and skipped execution. Combat/save/spawning work needs focused affected checks; do not automatically rerun the full suite. Asset slices require actual rendered inspection of that family's locomotion/combat; integration checks target affected navigation/save behavior. Keep unrelated pre-existing failures separate from new regressions.
+- Run performance comparisons when the milestone materially changes rendering, asset residency or runtime workload, or diagnostics suggest a regression. Preserve bounded actor/projectile/audio counts and avoid recurring atlas uploads; use the smallest useful affected scenario rather than automatically repeating the all-region baseline. Added families cannot rely solely on an earlier infrastructure pass.
 - Review the diff for unrelated user changes, temporary outputs and accidental alterations to approved sprites. Retain generated source boards and prompt/provenance documentation only for the accepted assets.
 - Update this plan's checkpoint with what is complete, evidence, unresolved work and the precise next slice. A large milestone name is not sufficient evidence that every submilestone is finished.
 - If committing is authorized for the implementation task, create the milestone commit with the proposed scope. Push only when authorized; record the resulting commit and any automatic workflow in the user-facing handoff. An authorized push to `main` invokes the existing APK workflow, so it is also a release/build checkpoint to monitor. Do not manually build or publish additional APKs without the requested authorization.
 
 ## Resume checkpoint
 
-Current status: **planning only; no implementation milestone started**. Next target: **M01 — baseline, habitat rules and shared budgets**. The plan file is currently local/uncommitted.
+Current status: **M01 and M02 complete within their defined foundation scopes**. M01 evidence/limitations: [M01 validation record](M01_ECOLOGY_VALIDATION.md). M02 uses focused risk-based verification below, not another full profiling pass.
+
+- Date/base: 12 October 2026, `27e8807` (`cleaning`). The user subsequently authorized milestone-completion tests/runtime checks. Source and validation changes only; no commit, push, production/APK build or release requested/performed. Complete the implementation, execute/fix the current milestone's checks, and hand off that milestone before moving on; avoid repeating tiny unverified slices.
+- Candidate-location habitat rules now govern new ambient/event/road spawns and each new wolf-pack member. Ambient species weights and density follow the candidate's region/biome. Native region weights, water/lava/farmland exclusions, protected settlements, existing geometry and the dragon arena remain enforced. Existing authored/saved creature records are retained rather than deleted by the new habitat rules.
+- Shared admission limits every activated hostile, including authored bosses, to 16. New encounters leave space for nearby pending bosses and their reinforcement allowance (up to six for a wolf pack). Explicit live-boss summon requests retain the existing non-native helper exceptions; generic events cannot claim summon privileges. No reservation is held for distant or defeated bosses awaiting return.
+- Wolf placement admits all planned points or none; encounter IDs now use the saved monotonic spawn sequence rather than the record count, avoiding reuse after defeated-record pruning. Existing pack combat and approved art are unchanged.
+- M01b: new encounters now budget nearby inactive undefeated creature records as committed slots, preventing additional records from overbooking the local queue. The query visits only local chunk buckets at admission time, excludes active actors and separately reserved bosses, and uses indexed persistent locations. Candidate density caps include the queued records too. Restoration does not count those records twice, so capacity can still be filled by existing creatures.
+- M02 preparation (continued source-only at the user's request): wolf membership is indexed at registration and cleaned when defeated records are pruned. A host group-admission callback checks the full pending survivor count against the shared restore budget before creating any actors; blocked or distant pending survivors defer that group. Existing active members count normally, casualties stay defeated, and no distant pack members are forcibly loaded. Constructor failure rolls back already returned actors without deleting their logical records. Hosts without the optional callback retain their previous individual activation behavior.
+- Further M02 source preparation: optional `encounterId` now survives version-5 save parsing; IDs are bounded identifiers and cannot contradict an accompanying wolf-pack ID. No save-key/version change or destructive migration. Generic non-wolf records can use the existing group-admission path, but no new encounter content is enabled. Legacy wolf IDs remain authoritative, even with mixed old/new records, and group-key namespaces prevent accidental wolf/non-wolf merging. Authored bosses remain independently admitted. New wolves include both identity fields; existing wolf leader/member queries now use indexed active actors, retaining alpha/instance-ID ordering and combat behavior.
+- Batch source preparation: `ContentChunkManager.addEncounter` now accepts a complete logical encounter and caller-supplied shared capacity. It rejects insufficient capacity, empty/oversized batches, invalid/non-finite/out-of-world positions, unknown enemies, authored boss species, incomplete new wolf packs, persistent-cap overflow and exhausted sequence IDs. Accepted batches generate one monotonic encounter ID; wolf batches retain 4–6 members and one alpha. Every initializer is resolved before registration so an initializer exception leaves no new records/indices or consumed IDs. It creates no actors, does not replace scene habitat checks and still prunes eligible old defeated records when checking persistence capacity. WorldScene now uses this API for new wolves. Generic mixed-species batches are foundation capability only, not new enabled content.
+- Individual active members still unload normally when leaving the streamed neighborhood; rejoining pending members are admitted together. A fully pending pack spanning beyond the neighborhood can intentionally remain absent until all pending survivors are local. No new family has been enabled.
+- Restored creatures share the hard cap and leave room for pending bosses, but are not deleted to enforce reinforcement headroom. Crowded legacy saves can therefore temporarily prevent reinforcements. Queued counting is deliberately conservative: blocked local records still own a slot rather than being silently discarded.
+- Executed focused habitat/admission, content-streaming, save, group and batch tests: **40 passed**. Added/executed `ecologyWorldRules.test.ts`: **3 passed**, covering all settlement centers/parcels, repaired authored encounters, a 1,200-point survey spanning all nine regions, and explicit narrow lava channels. Typechecking exposed/fixed the new habitat object-widening error with an explicit `CreatureHabitat` return type; final `npm run test:types` passed.
+- Final full `npm test`: **141 passed, 25 failed** (166 total). An isolated unchanged base worktree produced **117 passed, the same 25 failed** (142 total), with identical failed names. No M01-added test failures remain. Existing failures span art/atlas, raw placement, settlement, quest/progression and PWA expectations; they are recorded, not all dismissed as harmless or rewritten to obtain a green suite.
+- Relevant browser checks: **9 passed**: six existing light/fog/shadow/water checks plus runtime exclusions/boss/minion/hard-cap/save checks and desktop/touch day/afternoon/night baseline comparisons. Shared admission stopped normal spawns at 14 with Varr present, admitted two summons to 16, blocked overflow and activated a deferred boss after a slot was freed. Rejections spent no records; saves retained defeat state and version 5.
+- Captured before/after frame median/p95/p99/max, texture-size estimates/counts, bodies, resident AI-update calls, uploads/draws and reported JS heap on Windows Headless Chrome 155/SwiftShader. Desktop 1280×720 DPR1 and touch 844×390 DPR2 both passed the declared median/p95 comparison tolerances; six repeated round trips settled to unchanged counts/texture estimates. Corrected the profiling fixture to drain Arcade's normal postUpdate destruction queue during synchronous paused travel and disabled screencast tracing overhead. The superseded traced attempt was not counted as passed evidence.
+- Approved art/effects/graphics quality unchanged. The existing texture footprint is large (~720 MiB desktop/~703 MiB touch by estimate), and headless tail spikes remain disclosed. This is not physical Android validation or a guarantee of smooth phone performance; M22 and later residency work remain necessary. Detailed evidence/commands and baseline limitations are in `M01_ECOLOGY_VALIDATION.md`; ignored JSON/screenshots remain under `test-results/m01-*`.
+- Usage: user reported 89% at start; whether this means consumed/remaining is unknown. Checkpoint/finish readings unknown. Working changes intentionally remain local/uncommitted.
+- Remaining M01 scoped work: none. Preserve the separately identified existing suite failures and physical-device limitations; do not imply the entire repository is green or M02 complete.
+- M02 completed on 12 October 2026, same uncommitted base: generalized per-group alerts/cleanup; persisted home/station/leash/roles and stable flank slots; legacy normalization, including deterministic duplicate-alpha repair; radius-aware batch spacing; collision-aware return movement; disengagement/impact attack cancellation; no mid-melee/immediate-range ordinary spawns. Existing wolf alpha stats, model scale, flank/lunge math, stagger/Flurry behavior, save identities and defeat state remain intact. Group pursuit now deliberately has a 900-unit default home leash, a 510-unit shared response range and a 5.5-second alert lifetime. Generic ranged/heavy roles are assignments for later families, not premature ranged-combat activation. Bosses and ungrouped creatures keep independent combat.
+- M02 impact assessment: combat/AI/save changes warrant focused checks. **47 targeted unit tests across six files passed**, plus typechecking; **one real-engine browser check passed** for sibling alert pursuit, queued attack cancellation, home return, immediate-spawn rejection, profile stability through unloading/reloading, retained casualties and one alpha. No full-suite rerun, baseline worktree, broad render/performance pass or asset generation. M01's 25 known baseline failures remain separate and were not reclassified as fixed. Local steering is intentionally bounded, not global pathfinding; obstructed routes stop/retry rather than crossing scenery or teleporting.
+- Verification policy updated by the user: assess each milestone's impact. Low/no-impact changes may use source review and skip test execution; document the choice. Combat, save, movement or spawning changes use narrowly affected unit/runtime checks. New art requires focused rendered acceptance; broad profiling/full-suite runs are reserved for a demonstrated need, not automatic milestone rituals. Builds/APKs, commits and pushes still need explicit requests. Finish one milestone per work session, then hand off.
+- Priority changed by the user: **M11 rabbits, then M12 squirrels, M13a woodland birds and M13b coastal gulls**. M03 remains deferred, not completed. Preserve the Salt King's cave location and all existing combat/save work.
+- M11 implementation on 12 October 2026, same local base: `AmbientWildlifeSystem` now receives actual visible tree/shrub bounds through the common `WorldSpriteSystem` registration path, including authored and wilderness scenery. Loaded cover is indexed in 512-unit cells and removed with its scenery. Four reusable ground sprites share the six-slot wildlife budget; two bird slots remain reserved rather than allocating unused visuals. Rabbits have no physics bodies, enemy admission slots, logical content records, health, loot, rewards or new audio/lights.
+- Rabbit events: one entry opportunity per 220-unit source ring, 25% chance, daylight 06:30–18:30, eligible meadow/forest habitats in temperate regions. Select loaded cover 200–500 units away and a collision/terrain-checked route before revealing anything. Only one placement attempt per scan and at most twelve route probes; successful events are separated by 8–15 seconds and both covers rest for 45–90 seconds. Roads, settlement courts, farms, water/lava, foundations, fortifications and nearby NPCs are excluded. There is no open-field/random-coordinate spawn fallback.
+- Pooled rabbits emerge under foliage, use full-body hopping poses and hide in destination cover. Shared source-space fit and per-direction grounded references preserve airborne lift without resizing each pose; west mirrors east. Fixed 26-unit neutral height and contact-only shadows. Source art generated using the image-generation skill is retained at `public/assets/wildlife/rabbit/`, with prompts/provenance in its README. Boot packs eighteen poses into a 576×288 atlas (~0.63 MiB RGBA) and releases the source texture. Explicit source rectangles preserve the extended side-hop artwork instead of cropping it at assumed grid boundaries.
+- Wildlife scans every 125 ms, moves each frame, pauses with menus/dialogue/cinematics, releases on cover unload, shrine travel, sea passage, hidden tabs and scene shutdown. A blocked path permits one checked return toward source cover; otherwise the rabbit waits and can be released offscreen, never teleports through scenery or fades in open ground. Loading only the rabbit family avoids preloading the remaining planned wildlife families.
+- **M11 acceptance is pending, not 100% verified.** The user's latest pasted AGENTS instructions prohibit tests, time-consuming validation/builds and game launches unless explicitly requested. Only source/diff review and static image inspection were performed; no test files were added/edited for M11, no game/browser launched, no typecheck/build/test suite executed, no commit/push/release. Source artwork is inspected, but GPU crops, visual cover transitions, trigger frequency, real-engine movement and actual performance have not been validated. Do not claim this milestone's rendered/performance acceptance passed or roll the earlier M01/M02 evidence forward as rabbit evidence.
+- The user requested the next implementation slice without authorizing execution checks: **M12 squirrel implementation added on 12 October 2026**, same local/uncommitted base. M11's deferred acceptance is still pending; continuing source work does not retroactively mark it verified.
+- M12 reuses the exact four ground visual slots, cover index, entry rolls, cooldowns, route-probe budget and scene lifecycle. It does not create a second animal population or consume reserved bird slots. Forest tree entries in Trandum/Narenthil/Druganwoods can select a squirrel (45% of otherwise eligible tree events); shrub and meadow entries retain rabbits. Both endpoints must be loaded trees with prepared wood/leaf layers and suitable dimensions. Both native forest endpoints and the entire ground route are checked before emergence.
+- Squirrels run through directional full-body poses at 160 units/second. A short checked route around the destination's root contour reaches the front of the trunk; only then does a visual climb rise along its bark using mounting, alternating gripping paws and a tucked hiding pose. The squirrel sorts between the static wood and swaying leaf layers, so canopy pixels occlude it rather than placing it above the forest. Contact shadows are disabled during climbing and restored when a pooled slot is reused; ordinary actor/scenery shadow defaults remain unchanged. Player/enemy walkability and collision were not relaxed.
+- M12 art: built-in image generation, identity prototype and a 24-pose board retained at `public/assets/wildlife/squirrel/`; exact prompts/provenance in its README. `SquirrelArt.ts` uses explicit isolated rectangles because source row spacing is irregular. Shared calibration preserves full-body proportions across run/climb states; climbing anchors follow rear paw contacts, not hanging tail bounds. Fixed 32-unit neutral silhouette including the tail, with a smaller body than a rabbit. Runtime atlas 768×512 (~1.5 MiB RGBA); source texture released after boot preparation. Existing approved art preserved.
+- **M12 runtime/art acceptance remains pending.** Source/diff review and static asset inspection only; no test files changed for this milestone, test suites/typechecking/builds not run, no game/browser launches, profiling, commits, pushes or releases. Real-engine crop registration, run/climb transitions, canopy layering, route admission frequency and physical-device performance have not been verified. Four-ground/two-reserved-bird limits and bounded work are design constraints, not measured performance evidence.
+- **M13a woodland bird implementation added on 12 October 2026**, same local/uncommitted base, following the user's next-slice request. `WoodlandBirdSystem` uses the parent wildlife cover index, clock, pause/cleanup and shared event spacing. It allocates only the two previously reserved bird slots, retaining the four-ground/six-total cap. Birds have no physics, saved records, rewards, individual audio or lights. Existing ambient bird/wind/night sound remains untouched.
+- Woodland robins occur only beside eligible forest/meadow trees in Trandum/Narenthil/Druganwoods during daylight. A 12% new-ring-entry opportunity, 18–30-second bird-event gap, existing shared 8–15-second emergence spacing and cover cooldown/occupancy prevent every tree spawning a bird. Placement checks visit bounded indexed cells, with at most four ground-site probes per check. The approach ring adapts to the camera, capped at 1,100 units, to retain offscreen resting opportunities on PC and mobile without requesting unloaded trees.
+- Resting birds are created outside an 80-unit visible margin, either feeding on checked clear woodland ground or perched on the oak's authored exposed right fork. Other tree artwork offers ground feeding until suitable branch anchors are authored; no arbitrary floating canopy perches. Rest lasts 12–20 seconds, with occasional full feeding poses. Approaching within 150 units, rest expiration or nightfall triggers a committed away-from-player takeoff, acceleration, tracked altitude and real raised/mid/lowered-wing animation. Foot contact shadows apply only while feeding; perches/flight suppress them. Flights end beyond a 160-unit camera margin rather than a visible timed fade; shared travel/hidden-tab/cover-unload/shutdown cleanup still applies.
+- M13a art: the built-in image-generation skill produced an identity prototype and eighteen full-body directional perch/feed/takeoff/flight poses, retained at `public/assets/wildlife/woodland-bird/` with exact prompts/provenance in its README. `WoodlandBirdArt.ts` reuses whole-subject segmentation before packing, preserving raised wing tips and isolating neighboring pixels across approximate source cells. A common body fit, authored torso centers and fixed per-direction ground references prevent wing bounding boxes independently shrinking or shifting the body. Neutral height 14 units; padded runtime atlas 768×384 (~1.125 MiB RGBA); source texture released after boot preparation. No existing approved artwork replaced.
+- **M13a acceptance remains pending**, alongside M11/M12: source/diff review and static source-art inspection only. No tests/typechecks/builds, browser/game launches, profiling, commits/pushes/releases or test-file edits for this slice. GPU segmentation/crops, foot registration, branch placement, wingbeat/takeoff continuity, event frequency and real-device performance have not been verified. Bounded actor/work/texture design is not measured performance evidence.
+- **M13b coastal gull implementation added on 12 October 2026**, same local/uncommitted base. The existing bird system now selects robin/gull presentation per habitat while retaining exactly two bird slots and four ground slots. No second bird population, general physics bodies, saved records, individual sounds/lights, extra source timers or global collision exceptions. Existing robin cadence, size and woodland admission are preserved.
+- Loaded Portquill coastal vegetation/rocks and its pier register shore-only anchors through the existing world-sprite lifecycle/index. Ground animals cannot use shore anchors. Gulls require the actual candidate's Portquill/coast habitat and a dry sand/stone/grass/dirt footprint, clear scenery/fortifications, no road, deck, close NPC, landing or moored boat. At most four resting-site probes per scan. A bounded radial water query (eight bearings, four distances up to 384 units) establishes an actual nearby shoreline/open-water bearing; biome labels alone cannot admit inland gulls. Existing player/enemy walkability and protected settlements remain unchanged.
+- Gull behavior: offscreen shore feeding or perching on a source-inspected pier side-post cap, 18% eligible-entry chance under shared cooldown/event limits, 16–26-second resting interval and 190-unit startle distance. The pier's dry upper-side feeding check is separate from its elevated cap; ropes, gangplanks and the whole opaque image are not treated as resting decks. Larger 26-unit neutral gull bodies, 440-ms takeoff, slower 140-ms wing phases and brief horizontal-wing glides distinguish them from 14-unit robins. Flight favors nearby open water while retaining an away-from-player component, tracks altitude, suppresses contact shadows aloft and releases beyond the visible margin. All earlier pause/travel/unload/hidden-tab/shutdown cleanup applies.
+- M13b art: generated with the built-in image-generation skill; prototype, eighteen full-body directional standing/feed/takeoff/wingbeat poses and exact prompts retained at `public/assets/wildlife/coastal-gull/`. `CoastalGullArt.ts` supplies gull-specific torso registration to the shared isolated-subject atlas preparer; a single fit preserves body proportions across extended wings. Runtime atlas 768×384 (~1.125 MiB RGBA); source texture released after boot preparation. Only the requested wildlife families are loaded; no future monster roster was preloaded or existing approved artwork replaced.
+- **M13b acceptance remains pending**, as do M11/M12/M13a runtime checks. Source/diff review and static art inspection only. No tests/typechecking/builds, game/browser launches, profiling, commits/pushes/releases or test-file changes for this slice. Actual Portquill shore/pier admission frequency, GPU subject isolation/crops, body/foot/cap registration, launch/glide transitions and mobile performance are unverified. Six bounded actors and compact atlases are implementation constraints, not measured performance claims.
+- The user-prioritized **M11/M12/M13a/M13b source slices are implemented, not 100% runtime-accepted**. When testing is explicitly authorized, use a focused wildlife pass rather than automatically repeating the full suite/all-region profiling. Next development milestone in the original remaining sequence is **M03 cutlass pirate family and Portquill conversion**, preserving the Salt King's cave/story/save identity and following the current no-test rule unless changed. Previous unrelated changes, known baseline failures and physical Android limitations remain preserved; usage readings unknown.
+
+### Wildlife frequency adjustment — 12 October 2026
+
+The user asked for commonly visible birds/squirrels and an 80% rabbit appearance
+chance. This supersedes the earlier deliberately rare wildlife tuning above.
+
+- `wildlifeTuning.ts` centralizes the live settings: **80% independent rabbit
+  eligibility roll per suitable cover entry**, 90% squirrel opportunity at native
+  forest trees and 90% bird refill opportunity in suitable habitats. Placement,
+  cooldown, loaded cover and free slots still govern actual appearances; these
+  are not guarantees that every visit produces an animal. Successful rabbit rolls
+  remain pending within the entry ring if a squirrel goes first or the route is
+  temporarily unavailable. Failed/cooldown/full-pool entries are not silently
+  discarded before their eligibility roll.
+- Ground events now have a 2–4-second gap; source/destination cover rests for
+  12–20 seconds. Squirrels get bounded repeat opportunities near their trees
+  while the player remains nearby, with a 3-second per-cover retry delay and the
+  existing one-search/twelve-route-probe limit. Successful rabbit/squirrel
+  opportunities alternate where possible instead of one family monopolizing
+  the four ground slots. Rabbit rolls remain per-entry, not continuous re-rolls
+  until success; pending opportunities clear on departure/unload/travel.
+- Birds refill independently every 4–7 seconds, so ground activity no longer
+  starves their slots. Nearby visible resting sites are preferred. A bird aimed
+  at an onscreen checked perch/feeding spot flies in from beyond the camera edge,
+  uses wingbeats and a landing transition, then rests/feeds for 45–75 seconds
+  unless approached. Existing offscreen resting opportunities remain supported.
+  This makes birds observable without forcing constant travel and avoids visibly
+  popping birds into open ground. Arrival can be startled into departure from
+  its current position without teleporting. Refill searches run only with a free
+  slot and a due timer; unsuccessful searches retry after one second, with at
+  most four probes and three-second per-cover retries.
+- **Caps unchanged: four ground animals and two birds, six total.** No new
+  artwork, GPU atlases, bodies, lights, individual sounds, saved records or
+  unbounded timers. Native habitats, daylight, route/shore/NPC/deck safety and
+  menu/cinematic/travel/unload/hidden-tab cleanup remain enforced. Common means
+  common in an appropriate habitat, not woodland wildlife on barren lava/open sea.
+- Source review only. No tests, typechecking/builds, game/browser launches or
+  profiling performed under the user's strict rule. Arrival/landing continuity,
+  actual sightings and increased active-pool workload remain unverified; this
+  adjustment does not change the previous runtime-acceptance status.
+
+### Small wildlife groups — 12 October 2026
+
+At the user's request, birds and squirrels may now appear in social pairs.
+This is ambient grouping, not an assertion that every real species is always
+social, and it does not reuse hostile pack AI.
+
+- `wildlifeTuning.ts` gives eligible squirrel/bird events an 80% companion
+  opportunity, conditional on free existing slots and safe placement. Solitary
+  sightings remain valid if a group cannot be admitted. Rabbit appearance
+  tuning remains 80%, unchanged. **Four ground slots/two bird slots/six total
+  remain the limits**; no larger pool, new art, bodies, saved records or audio.
+- Squirrel pairs share a source tree and runtime group ID. A companion reserves
+  an existing slot, waits 650 ms hidden in cover, then performs its own bounded
+  route search on a later scan to a distinct loaded tree. This spreads admission
+  work across scans instead of doubling the route search in the leader's frame.
+  Failed geometry, a returning/released leader or unloading cancels the reserved
+  companion. The follower yields near its leader; source emergence, runs and
+  climbs remain independently animated and ground-safe.
+- Bird pairs use independently checked resting spots rather than two birds on
+  the same branch/post. Feeding companions are spaced 36 units for robins and
+  64 for gulls; native habitat, shore/route checks and player distance apply to
+  the companion too. The companion consumes the existing four-probe budget.
+  Fly-ins share an entry edge with wing-safe lateral spacing and a 300-ms delay.
+  Startling either bird alerts its partner, which follows after 180 ms with the
+  same departure bearing. Delays use active updates, not asynchronous timers;
+  a delayed arrival's current airborne position is preserved on early takeoff.
+- Group identities, pending admission and staggered departures are cleared on
+  release/travel/hidden tabs/cover unload/shutdown and never serialized. Existing
+  menu/cinematic pause handling applies. Membership scans are over the four/two
+  pooled slots, not over all world actors.
+- Source review only; no tests, typechecks/builds, game/browser launches or
+  profiling. Group spacing, route separation, flock arrivals/startles and active
+  workload remain unverified in-engine. Earlier wildlife acceptance is still
+  pending; there is no new performance or real-device claim.
+
+### Focused wildlife verification — 12 October 2026
+
+The user explicitly authorized a narrowly scoped test pass before considering
+a commit and reported a manual run without encountered problems. No commit,
+push, production/APK build or release was requested/performed.
+
+- Group presentation clarification: current groups coordinate emergence,
+  movement, arrival and departure. They **do not have a deliberate face-to-face
+  idle/socializing state**. Verification did not add or claim that behavior.
+- `npm test -- tests/contentStreaming.test.ts tests/save.test.ts
+  tests/encounterAdmission.test.ts tests/encounterGroups.test.ts`: **38 passed**.
+  These target existing streaming/save/admission/group behavior, not the full
+  repository suite. Previously documented unrelated failures were not rerun
+  or reclassified as fixed.
+- `npm run test:types`: **passed** after removing a redundant `climate_props`
+  comparison already excluded by the earlier wildlife registration guard.
+  The focused browser spec is also included in the final passing typecheck.
+- `npx playwright test tests/browser/wildlifeGroups.spec.ts`: **1 passed**
+  (Windows desktop Chrome/SwiftShader). The real Phaser engine boots/prepares
+  all wildlife art. Controlled habitat/route fixtures verify squirrel slot
+  reservation, staggered pairs and distinct destination trees; robin/gull
+  pairs, spaced fly-ins/landing and shared startled departure; pause/unload/
+  reset cleanup; rejected route admission; exactly six production pool slots;
+  no additional physics bodies/saved records and no retained fixture displays.
+  Fixture admission uses controlled safety callbacks, not an all-region
+  survey of production navigation or natural appearance frequency.
+- First browser attempt exposed fixture mistakes: a 125-ms supplied update is
+  capped to 100 ms, so it cannot alone trigger the 125-ms scan; the initial bird
+  fixture placed its feeding point inside the intentional 220-unit player
+  exclusion. Corrected those fixtures without relaxing production admission
+  or changing the expected pair assertions; the final browser run passed.
+- Prepared bounds for all 78 wildlife frames remain inside their GPU cells.
+  Rendered the existing rabbit/squirrel/robin/gull atlases at their actual
+  game-scale calibration and inspected `test-results/wildlife-acceptance.png`;
+  no visible frame clipping/neighbor contamination identified in the gallery.
+  Some gallery cells are covered by the existing HUD, so this is not exhaustive
+  unobstructed frame-by-frame animation acceptance. No page errors observed.
+- `git diff --check`: passed (only existing Windows line-ending notices).
+  Test artifacts remain ignored. New focused spec and the one type fix remain
+  local with the earlier implementation changes. No full suite, broad profiling,
+  extra baseline worktree, mobile browser run or physical Android validation.
+- No blocker identified in these focused checks. This is **not** a blanket
+  whole-repository/Android release sign-off: natural regional admission rates,
+  full cover/branch/climb presentation during exploration, mobile performance
+  and deliberate face-to-face socializing remain outside this pass. Preserve
+  those limitations when deciding the final commit scope.
+
+### Face-to-face wildlife follow-up — 2026-10-12 (source only)
+
+- Squirrel pairs can approach two separated, route-checked clearing positions,
+  pause facing each other for 2.8 seconds, then continue to their independently
+  admitted trees. A rejected meeting detour preserves their ordinary movement.
+  Waiting is bounded; player proximity, route obstruction or a missing partner
+  cancels the pause. No teleporting or new actors/physics bodies.
+- Ground-resting robin/gull pairs face one another during periodic 2.8-second
+  social pauses, retaining their existing feeding poses and staged departure.
+  Mixed branch/ground pairs remain perching/feeding rather than facing through
+  tree trunks. Open ground/coastal admission is checked before each opportunity.
+- Existing frame rows, mirrored west-facing artwork, sizes, active-play clock,
+  pool limits and unload/reset cleanup are preserved. No new raster assets.
+- No tests, type checks, builds or game launches performed for this follow-up,
+  per the current request. The earlier passing checks above predate these new
+  social states; rendered social behavior is not yet verified. No commit/push.
+- Next smallest target: manually observe paired facing and resumed movement;
+  execute focused social-state checks only when requested.
+- Relevant files: `AmbientWildlifeSystem.ts`, `WoodlandBirdSystem.ts`,
+  `wildlifeTuning.ts`. Existing unrelated local changes remain untouched.
+
+### Tree-side squirrels and settlement birds — 2026-10-12 (source only)
+
+- Squirrel meetings now use separated spots beside the source tree's roots,
+  under its crown rather than midway across a clearing. Root contours and all
+  added approach/exit segments still require admission; unsafe meetings are
+  skipped. Meadow/highland groves in the existing native regions are eligible.
+- Bird ground admission now permits walkable roads and settlement paving,
+  plus nearby open ground around loaded trees/shrubs. Separate footprint checks
+  reject scenery, fortifications, water/lava and occupied NPC positions without
+  relaxing rabbit/squirrel route admission. Coastal gulls may rest on roads too.
+- Added inspected roof perches to cottage/inn/smithy and selected capital civic,
+  residential/service building art. Perches use visible bounds and retain owner
+  depth; roof birds have no ground shadow and fly in/out normally. Unsupported
+  roofs are not guessed. Existing oak branch and coastal pier perches remain.
+- Existing wildlife pools/cadence, regional species rules, paired social pauses
+  and chunk-owner destruction cleanup remain. No new artwork, timers or bodies.
+- No tests, typechecks, builds or game launches run; runtime appearance and
+  performance of these additions remain unverified. No commit/push performed.
+- Next smallest target: manually observe roof landing/layering, paved-road
+  feeding and tree-side squirrel pairs; focused checks only on request.
+
+### Authorized focused wildlife verification — 2026-10-12
+
+- `npm run test:types`: passed after the final focused-spec edits.
+- `npx playwright test tests/browser/wildlifeGroups.spec.ts`: 1 passed
+  (40.7 seconds total on the final run). Extended the existing single real-engine
+  check: squirrel facing/pause/resume; robin/gull facing and shared departure;
+  inspected roof landing and owner unload; paved-ground pairs/social pauses;
+  pause/reset, six-slot cap, no added bodies/saved records, fixture cleanup and
+  prepared frame containment. No production source changes needed in this pass.
+- Two initial attempts exposed fixture assumptions, not production defects:
+  squirrel meeting positions entered the deliberate 110-unit player buffer;
+  a temporary bird pause was checked after it had ended. Moved the source within
+  valid entry/meeting bounds and observed social state during the update loop.
+  Kept production safety checks and expected facing assertions intact.
+- Fixtures control habitat and placement callbacks; this verifies runtime state
+  transitions/registration, not every production road, roof or region's visual
+  layout. Earlier unrelated suite failures remain outside this focused run.
+  No full suite, build, physical mobile run, commit or push performed.
+
+### Tidewatch sea gull flybys — 2026-10-12 (source only)
+
+- Added daylight aerial gull opportunities around Tidewatch's sea frontage,
+  independent of dry cover/perch admission. Three bounded camera-relative
+  corridor candidates sample actual water on both separated flock tracks.
+  No suitable water corridor means no aerial spawn; existing coastal resting
+  behavior remains available.
+- Reuses existing gull wingbeat/glide frames and calibrated size. Gulls enter
+  from beyond the camera, cross the sea with matching flock headings and
+  72-unit separation, then release offscreen. Temporary flight owners have no
+  scenery, physics, persistence or saved content; existing pause/travel/reset
+  cleanup and the shared two-bird/six-wildlife cap remain unchanged.
+- No tests, typecheck, builds, game launches, commit or push for this follow-up.
+  The earlier passing wildlife check predates this new flyby path. Manual
+  Tidewatch sea-front observation remains outstanding.
+- This concludes the requested wildlife additions for this session; defer
+  the next ecology milestone until the user's next request.
+
+### Tidewatch visibility correction — 2026-10-12
+
+- Diagnosed overly restrictive habitat/admission: inland Tidewatch homes were
+  outside the coast biome, coastal rooftops were not registered, and flybys
+  demanded an entirely water-covered camera corridor. That excluded ordinary
+  housing/shoreline views despite the harbor nearby.
+- Tidewatch's housing wards now count as local gull habitat. Compatible roofs
+  register correctly; dry feeding sites can find actual nearby harbor water
+  farther inland. Ground collision/landing exclusions remain intact.
+- Harbor-water-anchored flyovers may cross houses/shoreline at altitude. Refills
+  use 1–2 active-play seconds, alternate aerial/resting opportunities and avoid
+  filling both slots with long-lived resting birds. Flights enter 140 units
+  beyond the camera instead of relying on a water-only screen. The existing
+  two-bird/six-wildlife cap and daylight hours remain; no global density increase.
+- Authorized verification: TypeScript passed; focused real-engine Tidewatch
+  check passed with actual streamed roof anchors and production callbacks at
+  housing, bay and sea camera positions. Each showed recurring visible gull
+  flights over 15 seconds of controlled active-play updates, plus reset cleanup
+  and rejection outside Tidewatch. No fake habitat/terrain callbacks in this
+  check. This is state/visibility verification, not mobile profiling or complete
+  visual acceptance of every roof. Existing wildlife regression also passed:
+  `npx playwright test tests/browser/tidewatchGulls.spec.ts
+  tests/browser/wildlifeGroups.spec.ts` — **2 passed**, 1.1 minutes total.
+- No build, commit or push performed. Next milestone remains deferred.
 
 Before ending each future session, replace/append a short checkpoint using this template:
 
@@ -203,4 +472,4 @@ Relevant files to re-read:
 
 Keep the handoff with the milestone's changes before an authorized commit; the resulting commit hash can be reported after committing and recovered from Git next session. No extra commit is needed just to insert that commit's own hash into its contents. On resume, inspect the checkpoint and intervening changes, then continue the recorded next slice instead of regenerating approved assets or restarting completed audits.
 
-This update creates no game code, assets, build, commit or push. Future implementation requests control those actions for the chosen milestone.
+The original plan-only update created no game code or assets. The M01a checkpoint above records the subsequent authorized source-only implementation. Future requests control validation, remaining implementation, commits, pushes and builds.

@@ -7,7 +7,7 @@ import {getGraphicEffects} from './graphicsEffects';
 
 type Actor=Phaser.GameObjects.Sprite|Phaser.GameObjects.Image;
 export interface ShadowOptions {projection?:number;contactScale?:number;contactHeight?:number;contactOffset?:number;groundOffsetY?:number}
-interface Caster extends ShadowOptions {actor:Actor;texture?:string;frame?:string|number}
+interface Caster extends ShadowOptions {actor:Actor;texture?:string;frame?:string|number;enabled?:boolean}
 interface Layer {texture:Phaser.Textures.CanvasTexture;image:Phaser.GameObjects.Image}
 const OVERSCAN=96;
 
@@ -68,6 +68,13 @@ export class GroundShadowSystem {
   actor.once('destroy',()=>{
    this.casters.delete(actor);this.scenery.delete(caster);this.moving.delete(caster);this.staticDirty=true;
   });
+ }
+ /** Climbers/airborne decorations can suppress ground contact without
+  * allocating another caster or changing ordinary actor shadow defaults. */
+ setEnabled(actor:Actor,enabled:boolean){
+  const caster=this.casters.get(actor);if(!caster||caster.enabled===enabled)return;
+  caster.enabled=enabled;this.actorStamp=null;
+  if(this.scenery.has(caster))this.staticDirty=true;
  }
  update(delta:number,hour:number,cloudCover=0,windStrength=.18){
   this.drawMs+=delta;this.staticScanMs+=delta;
@@ -131,7 +138,7 @@ export class GroundShadowSystem {
  private visible(casters:Set<Caster>,width:number,height:number,castX:number,castY:number){
   const result:Array<{caster:Caster;frame:Phaser.Textures.Frame}>=[];
   for(const caster of casters){
-   const {actor,texture,frame:fixedFrame}=caster;if(!actor.active||!actor.visible||actor.alpha<.05)continue;
+   const {actor,texture,frame:fixedFrame}=caster;if(caster.enabled===false||!actor.active||!actor.visible||actor.alpha<.05)continue;
    const frame=texture?this.scene.textures.getFrame(texture,fixedFrame):actor.frame;if(!frame)continue;
    const w=frame.cutWidth*Math.abs(actor.scaleX),h=frame.cutHeight*Math.abs(actor.scaleY);
    const reach=w+h*Math.abs(castX)*(caster.projection??1),down=h*castY*(caster.projection??1)+w;

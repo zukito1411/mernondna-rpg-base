@@ -12,6 +12,58 @@ beforeEach(() => {
   useGameStore.getState().resetGame();
 });
 describe('local saves', () => {
+  it('retains bounded encounter stations/roles and rejects malformed or duplicate slots',()=>{
+    const behavior={home:{x:35000,y:39000},station:{x:35000,y:39000},leashRadius:900,role:'leader' as const,slot:0};
+    useGameStore.getState().setContentWorld({nextSpawnSequence:2,states:{},spawns:{
+      'spawn:0':{id:'spawn:0',kind:'creature',enemyId:'road-bandit',world:behavior.home,eventSpawn:false,
+        encounterId:'encounter:0',encounterBehavior:behavior},
+      'spawn:1':{id:'spawn:1',kind:'creature',enemyId:'road-bandit',world:behavior.home,eventSpawn:false,
+        encounterId:'encounter:0',encounterBehavior:{...behavior,role:'melee',slot:1}},
+    }});
+    saveGame();const data=JSON.parse(values.get(SAVE_KEY)!);
+    expect(parseSave(JSON.stringify(data))?.state.worldContent.spawns['spawn:0'].encounterBehavior).toEqual(behavior);
+    data.state.worldContent.spawns['spawn:1'].encounterBehavior.slot=0;
+    expect(parseSave(JSON.stringify(data))).toBeNull();
+    data.state.worldContent.spawns['spawn:1'].encounterBehavior.slot=1;
+    data.state.worldContent.spawns['spawn:1'].encounterBehavior.leashRadius=Infinity;
+    expect(parseSave(JSON.stringify(data))).toBeNull();
+  });
+  it('round-trips optional encounter identities without changing the save version or wolf roles', () => {
+    useGameStore.getState().setContentWorld({ nextSpawnSequence: 2, states: {}, spawns: {
+      'spawn:0': { id: 'spawn:0', kind: 'creature', enemyId: 'gray-wolf', world: { x: 35000, y: 39000 },
+        eventSpawn: false, encounterId: 'wolf-pack:0', wolfPackId: 'wolf-pack:0', wolfAlpha: true },
+      'spawn:1': { id: 'spawn:1', kind: 'creature', enemyId: 'road-bandit', world: { x: 35100, y: 39000 },
+        eventSpawn: true, encounterId: 'encounter:1' },
+    } });
+    expect(saveGame()).toBe(true);
+    const data = JSON.parse(values.get(SAVE_KEY)!);
+    expect(data.version).toBe(5);
+    useGameStore.getState().resetGame();
+    expect(loadGame()).toBe(true);
+    expect(useGameStore.getState().worldContent.spawns['spawn:0']).toMatchObject({
+      encounterId: 'wolf-pack:0', wolfPackId: 'wolf-pack:0', wolfAlpha: true,
+    });
+    expect(useGameStore.getState().worldContent.spawns['spawn:1'].encounterId).toBe('encounter:1');
+    delete data.state.worldContent.spawns['spawn:0'].encounterId;
+    delete data.state.worldContent.spawns['spawn:1'].encounterId;
+    const legacy = parseSave(JSON.stringify(data));
+    expect(legacy?.state.worldContent.spawns['spawn:0'].wolfPackId).toBe('wolf-pack:0');
+    expect(legacy?.state.worldContent.spawns['spawn:1'].encounterId).toBeUndefined();
+  });
+
+  it('rejects malformed encounter identities and contradictory wolf metadata', () => {
+    useGameStore.getState().setContentWorld({ nextSpawnSequence: 1, states: {}, spawns: {
+      'spawn:0': { id: 'spawn:0', kind: 'creature', enemyId: 'gray-wolf', world: { x: 35000, y: 39000 },
+        eventSpawn: false, wolfPackId: 'wolf-pack:0', wolfAlpha: true },
+    } });
+    expect(saveGame()).toBe(true);
+    const data = JSON.parse(values.get(SAVE_KEY)!);
+    for (const invalid of ['', 'bad id', 'x'.repeat(101), 42, 'wolf-pack:1']) {
+      data.state.worldContent.spawns['spawn:0'].encounterId = invalid;
+      expect(parseSave(JSON.stringify(data))).toBeNull();
+    }
+  });
+
   it('retires obsolete walls without discarding progress or shrine unlocks',()=>{
     useGameStore.getState().hydrate({gold:95,unlockedTownShrines:['oakmere']});saveGame();
     const data=JSON.parse(values.get(SAVE_KEY)!);

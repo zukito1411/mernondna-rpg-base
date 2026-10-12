@@ -30,6 +30,33 @@ function fixture(saved = empty(), budget = Infinity) {
 }
 
 describe('content streaming', () => {
+  it('counts only nearby inactive undefeated creatures for new encounter admission', () => {
+    const { manager } = fixture(empty(), 0);
+    const nearby = manager.addSpawn('wolf', point(4), false);
+    const defeated = manager.addSpawn('wolf', point(4), false);
+    manager.patchState(defeated, { hp: 0, defeated: true });
+    manager.addSpawn('wolf', point(20), false);
+    // One authored wolf plus one dynamic wolf; scenery/NPCs are not hostiles.
+    expect(manager.getPendingCreatureCount(point(4).x, point(4).y)).toBe(2);
+    manager.update(point(4).x, point(4).y);
+    expect(manager.getPendingCreatureCount(point(4).x, point(4).y)).toBe(2);
+    manager.patchState(nearby, { x: point(20).x, y: point(20).y });
+    expect(manager.getPendingCreatureCount(point(4).x, point(4).y)).toBe(1);
+    expect(manager.getPendingCreatureCount(point(20).x, point(20).y)).toBe(2);
+  });
+
+  it('does not count active creatures or separately reserved bosses as queued wildlife', () => {
+    const saved = empty();
+    saved.spawns['boss:fixture'] = { id: 'boss:fixture', kind: 'creature', enemyId: 'wolf',
+      bossId: 'fixture', world: point(4) };
+    const { manager } = fixture(saved);
+    expect(manager.getPendingCreatureCount(point(4).x, point(4).y)).toBe(1);
+    manager.update(point(4).x, point(4).y);
+    expect(manager.getPendingCreatureCount(point(4).x, point(4).y)).toBe(0);
+    manager.update(point(20).x, point(20).y);
+    expect(manager.getPendingCreatureCount(point(4).x, point(4).y)).toBe(1);
+  });
+
   it('uses a clipped terrain neighborhood at world edges', () => {
     expect(chunkNeighborhood(1, 1).size).toBe(4);
     expect(chunkNeighborhood(WORLD_WIDTH - 1, WORLD_HEIGHT - 1).size).toBe(4);
