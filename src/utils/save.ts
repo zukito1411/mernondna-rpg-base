@@ -1,5 +1,5 @@
 import { useGameStore, type GameState } from '../store/gameStore';
-import { BOSSES, ENEMY_BY_ID } from '../data/enemies';
+import { BOSSES, ENEMY_BY_ID,isWolfFamily } from '../data/enemies';
 import { QUESTS } from '../data/quests';
 import { REGIONS } from '../data/regions';
 import { TOWN_BY_ID } from '../data/towns';
@@ -63,8 +63,8 @@ function validateContent(value: unknown): ContentWorldState | null {
       || (d.encounterId !== undefined && (typeof d.encounterId !== 'string'
         || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,99}$/.test(d.encounterId)
         || (d.wolfPackId !== undefined && d.encounterId !== d.wolfPackId)))
-      || (d.wolfPackId !== undefined && (d.enemyId !== 'gray-wolf' || typeof d.wolfPackId !== 'string' || d.wolfPackId.length > 100))
-      || (d.wolfAlpha !== undefined && (d.enemyId !== 'gray-wolf' || typeof d.wolfAlpha !== 'boolean'))) return null;
+      || (d.wolfPackId !== undefined && (!isWolfFamily(d.enemyId) || typeof d.wolfPackId !== 'string' || d.wolfPackId.length > 100))
+      || (d.wolfAlpha !== undefined && (!isWolfFamily(d.enemyId) || typeof d.wolfAlpha !== 'boolean'))) return null;
     const behavior = d.encounterBehavior;
     let parsedBehavior: EncounterBehavior | undefined;
     if (behavior !== undefined) {
@@ -87,7 +87,9 @@ function validateContent(value: unknown): ContentWorldState | null {
     }
     // Convert legacy coastal bandits without new IDs or resetting damage/deaths.
     const pirate=d.enemyId==='road-bandit'&&geography.getRegionAt(d.world.x,d.world.y)==='portquill';
-    spawns[id] = { id, kind: 'creature', enemyId: pirate?'cutlass-pirate':d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn,
+    const home=parsedBehavior?.home??{x:d.world.x,y:d.world.y};
+    const frostWolf=d.enemyId==='gray-wolf'&&geography.getRegionAt(home.x,home.y)==='frostlands';
+    spawns[id] = { id, kind: 'creature', enemyId: pirate?'cutlass-pirate':frostWolf?'frost-wolf':d.enemyId, world: { x: d.world.x, y: d.world.y }, eventSpawn: d.eventSpawn,
       ...(parsedBehavior?{encounterBehavior:parsedBehavior}:{}),
       ...(typeof d.encounterId === 'string'?{encounterId:d.encounterId}:{}),
       ...(typeof d.wolfPackId === 'string'?{wolfPackId:d.wolfPackId}:{}),

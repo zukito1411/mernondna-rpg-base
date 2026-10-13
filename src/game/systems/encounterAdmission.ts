@@ -28,16 +28,24 @@ export function hostileCapacity(live: number, source: EncounterAdmission, pendin
 export function creatureFitsHabitat(enemy: EnemyDefinition, habitat: CreatureHabitat, bossSummon = false) {
   if (habitat.region === 'dead-sea' || ['water', 'lava', 'farmland'].includes(habitat.terrain)) return false;
   if (bossSummon) return true;
-  if(enemy.id==='rindass-orc-raider')
-    return habitat.region==='rindass'&&['dryland','highland'].includes(habitat.biome);
+  if(enemy.id==='rindass-orc-raider'||enemy.id==='rindass-orc-spearman')
+    return habitat.region==='rindass'&&['dryland','highland','meadow','coast'].includes(habitat.biome);
+  // Heavy pirates are admitted as crew members, without an independent weight.
+  if(enemy.id==='pirate-boatswain')return habitat.region==='portquill'&&['coast','forest','meadow'].includes(habitat.biome);
+  if(enemy.id==='goblin-stone-slinger')return true; // Crew-only; all suitable land.
   if (enemy.boss || (enemy.regionWeights[habitat.region] ?? 0) <= 0) return false;
   switch (enemy.id) {
+    case 'hedge-goblin': return true;
+    case 'blighted-thornling': return true; // Scene requires actual trees or blight.
+    case 'grove-spider': return habitat.biome==='forest';
+    case 'frost-wolf': return ['forest','highland','snowfield'].includes(habitat.biome);
     case 'gray-wolf': return ['forest', 'meadow', 'highland', 'snowfield'].includes(habitat.biome);
     case 'rindass-boar': return ['forest', 'meadow', 'highland', 'dryland'].includes(habitat.biome);
     case 'marsh-wraith': return habitat.biome === 'wetland';
     case 'cave-troll': return habitat.biome !== 'coast';
     case 'road-bandit': return habitat.region!=='portquill';
-    case 'cutlass-pirate': return habitat.region==='portquill'&&['coast','forest','meadow'].includes(habitat.biome);
+    case 'cutlass-pirate':
+      return habitat.region==='portquill'&&['coast','forest','meadow'].includes(habitat.biome);
     default: return false; // New families require an explicit habitat rule.
   }
 }
@@ -49,5 +57,6 @@ export function creatureHabitatWeight(enemy: EnemyDefinition, habitat: CreatureH
   const upland = enemy.id === 'cave-troll' && habitat.biome === 'highland';
   const snow = enemy.id === 'gray-wolf' && habitat.biome === 'snowfield';
   return (enemy.regionWeights[habitat.region] ?? 0)
+    + (enemy.id==='grove-spider'&&night?8:0)
     + (preferred ? night ? 5 : 3 : upland ? night ? 2 : 1 : snow ? night ? 3 : 1 : 0);
 }

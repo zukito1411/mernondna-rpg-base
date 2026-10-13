@@ -2,8 +2,10 @@ import type {EnemyDefinition} from '../game/types';
 export type EnemySoundCue='attack'|'growl'|'hurt'|'death';
 export type EnemyVoice='wolf'|'human'|'boar'|'wraith'|'troll'|'wyrm'|'dragon';
 const voices:Record<string,EnemyVoice>={
- 'gray-wolf':'wolf','road-bandit':'human','cutlass-pirate':'human','bandit-captain':'human','salt-king':'human',
- 'rindass-boar':'boar','redmesa-chieftain':'boar','marsh-wraith':'wraith',
+ 'hedge-goblin':'human',
+ 'goblin-stone-slinger':'human','blighted-thornling':'wraith','grove-spider':'wraith',
+ 'gray-wolf':'wolf','frost-wolf':'wolf','road-bandit':'human','cutlass-pirate':'human','pirate-boatswain':'human','bandit-captain':'human','salt-king':'human',
+ 'rindass-boar':'boar','redmesa-chieftain':'human','marsh-wraith':'wraith',
  'moonlit-warden':'wraith','rootfather':'wraith','ashen-seer':'wraith',
  'cave-troll':'troll','stonejaw-troll':'troll','frost-wyrm':'wyrm','ash-dragon':'dragon',
 };
@@ -23,5 +25,5 @@ export function enemyAudioCue(enemy:EnemyDefinition,cue:EnemySoundCue){
  return {key:`sfx-enemy-${voice}-${cue}`,gain:gains[voice][cue],
   // The six-second dragon attack must not outlast the windup and next attack.
   maxDuration:voice==='dragon'?(cue==='attack'?1.5:cue==='growl'?2.4:1.2):1.6,
-  rate:voice==='dragon'?1:enemy.boss?.96:1};
+  rate:voice==='dragon'?1:['hedge-goblin','goblin-stone-slinger'].includes(enemy.id)?1.25:enemy.id==='blighted-thornling'?.85:enemy.id==='pirate-boatswain'?.9:enemy.boss?.96:1};
 }

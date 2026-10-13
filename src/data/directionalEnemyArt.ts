@@ -12,6 +12,8 @@ export const DIRECTIONAL_ENEMY_ART=[
  {species:6,id:'salt-king',texture:'enemy_salt_king',walkTexture:'enemy_walk_salt_king',sourcePath:'assets/enemies/salt_king/walk.png',sourceColumns:5,framesPerDirection:5,frameCount:27,frameWidth:128,frameHeight:112},
  {species:8,id:'rindass-orc-raider',texture:'enemy_orc_raider',walkTexture:'enemy_walk_orc_raider',
   sourcePath:'assets/enemies/rindass_orc_raider/walk.png',sourceColumns:7,framesPerDirection:7,frameCount:28,frameWidth:160,frameHeight:128},
+ {species:9,id:'rindass-orc-spearman',texture:'enemy_orc_spearman',walkTexture:'enemy_walk_orc_spearman',
+  sourcePath:'assets/enemies/rindass_orc_range/walk.png',sourceColumns:7,framesPerDirection:7,frameCount:28,frameWidth:160,frameHeight:128},
 ] as const;
 export function enemyLocomotionKey(species:number,state:'idle'|'walk',direction:ActorDirection){
  return `enemy:${species}:${state}:${direction}`;

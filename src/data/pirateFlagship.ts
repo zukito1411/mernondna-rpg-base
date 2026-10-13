@@ -76,8 +76,8 @@ export function flagshipNavigation(from:Vec2,target:Vec2):Vec2{
 export const FLAGSHIP_CONTENT:ContentDefinition[]=[{id:FLAGSHIP.id,kind:'prop',texture:'pirate_flagship',frame:0,
   world:shipPoint(512,768),scale:FLAGSHIP.scale,anchor:'center',solid:false,streamRadiusChunks:2,label:'The Salt King’s Flagship'},
   ...[[310,860],[535,860],[310,700],[535,700],[410,380]].map(([x,y],slot):ContentDefinition=>({
-    id:`pirate:flagship:crew:${slot}`,kind:'creature',enemyId:'cutlass-pirate',world:shipPoint(x,y),
+    id:`pirate:flagship:crew:${slot}`,kind:'creature',enemyId:slot===1||slot===3?'pirate-boatswain':'cutlass-pirate',world:shipPoint(x,y),
     encounterId:'pirate-flagship',encounterBehavior:{home:shipPoint(410,720),station:shipPoint(x,y),
-      leashRadius:1400,role:slot===0?'leader':'melee',slot},
+      leashRadius:1400,role:slot===1||slot===3?'heavy':slot===0?'leader':'melee',slot},
   })),
 ];

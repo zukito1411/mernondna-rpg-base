@@ -1,7 +1,7 @@
 import type { ContentDefinition, ContentState, ContentWorldState, CreatureContentDefinition, EncounterRole, Vec2 } from '../types';
 import { chunkNeighborhood, contentChunkKey } from './chunkNeighborhood';
 import {CHUNK_SIZE,STREAM_RADIUS,WORLD_WIDTH,WORLD_HEIGHT} from '../../data/world';
-import {ENEMY_BY_ID} from '../../data/enemies';
+import {ENEMY_BY_ID,isWolfFamily} from '../../data/enemies';
 import {MAX_LIVE_HOSTILES,MAX_PERSISTENT_SPAWNS} from './encounterAdmission';
 import {NPC_BY_ID} from '../../data/npcs';
 import {npcMayPatrol} from './npcPlacement';
@@ -155,7 +155,7 @@ export class ContentChunkManager<Actor> {
     const leashRadius = options.leashRadius ?? 900;
     if (!Number.isFinite(leashRadius) || leashRadius < 256 || leashRadius > 1600) return null;
     if (options.wolfPack && (members.length < 4 || members.length > 6
-      || members.some(member => member.enemyId !== 'gray-wolf'))) return null;
+      || members.some(member => !isWolfFamily(member.enemyId)||member.enemyId!==members[0].enemyId))) return null;
     for (const [i,{ enemyId, world, role }] of members.entries()) {
       const enemy = Object.hasOwn(ENEMY_BY_ID, enemyId) ? ENEMY_BY_ID[enemyId] : undefined;
       if (!enemy || enemy.boss || !Number.isFinite(world.x) || !Number.isFinite(world.y)
@@ -236,6 +236,10 @@ export class ContentChunkManager<Actor> {
   private pruneDefeatedSpawns(){
     for(const id of [...this.spawns.keys()]){
       if(!this.states.get(id)?.defeated || this.active.has(id))continue;
+      const savedGroup=creatureGroupKey(this.spawns.get(id)!);
+      // Keep casualty slots while any packmate survives. Otherwise reload
+      // migrations cannot distinguish an old small group from a wounded pack.
+      if(savedGroup&&[...(this.creatureGroups.get(savedGroup)??[])].some(member=>!this.states.get(member)?.defeated))continue;
       const bucketKey=this.locations.get(id);
       if(bucketKey){const bucket=this.buckets.get(bucketKey);bucket?.delete(id);if(bucket?.size===0)this.buckets.delete(bucketKey);}
       const groupKey = creatureGroupKey(this.spawns.get(id)!);

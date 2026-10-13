@@ -20,6 +20,11 @@ import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
 import {prepareSaltKingArt} from '../systems/SaltKingArt';
 import {preparePirateArt} from '../systems/PirateArt';
+import {BOATSWAIN_ART,BOATSWAIN_GAIT_ART} from '../../data/boatswainArt';
+import {prepareBoatswainArt} from '../systems/BoatswainArt';
+import {GOBLIN_ART} from '../../data/goblinArt';
+import {prepareGoblinArt} from '../systems/GoblinArt';
+import {M14_ART} from '../../data/m14Art';
 import {prepareOrcRaiderCombatArt} from '../systems/OrcRaiderArt';
 import {FLAGSHIP_ART_PATH,preparePirateFlagshipArt} from '../systems/PirateFlagshipArt';
 import {PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../../data/pirateArt';
@@ -144,6 +149,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('pirate-source',PIRATE_PATH);
     this.load.image('pirate-side-source',PIRATE_SIDE_PATH);
     this.load.image('pirate-gait-source',PIRATE_GAIT_PATH);
+    for(const [kind,art] of Object.entries(BOATSWAIN_ART))this.load.image('boatswain-source:'+kind,art.path);
+    for(const [kind,art] of Object.entries(BOATSWAIN_GAIT_ART))this.load.image('boatswain-gait-source:'+kind,art.path);
+    for(const [kind,art] of Object.entries(GOBLIN_ART))this.load.image('goblin-source:'+kind,art.path);
     this.load.image('salt-king-source:side',SALT_KING_SIDE_PATH);
     this.load.image('salt-king-source:gait',SALT_KING_GAIT_PATH);
     this.load.image('flagship-source',FLAGSHIP_ART_PATH);
@@ -387,6 +395,8 @@ export class BootScene extends Phaser.Scene {
     prepareBanditCombatArt(this);
     const saltKingAnimations=prepareSaltKingArt(this);
     const pirateAnimations=preparePirateArt(this);
+    prepareBoatswainArt(this);
+    prepareGoblinArt(this);
     preparePirateFlagshipArt(this);
     const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
     const guardMarchAnimations=prepareGuardMarchArt(this);
@@ -399,7 +409,7 @@ export class BootScene extends Phaser.Scene {
       ...NPC_ANIMATIONS.filter(a=>!GUARD_MARCH_ART.some(g=>a.key.startsWith(g.walk+'-')&&!a.key.endsWith('-idle'))),
       ...guardMarchAnimations,
       ...directionalNpcIdles,
-      ...ENEMY_ANIMATIONS,
+      ...ENEMY_ANIMATIONS.filter(a=>!M14_ART.some(spec=>spec.texture===a.texture)),
       ...directionalEnemyAnimations,
       ...saltKingAnimations,
       ...pirateAnimations,

@@ -46,6 +46,11 @@ interface GroundAnimal {
  * Four ground slots plus two shared bird slots keep the six-actor limit. */
 export class AmbientWildlifeSystem {
   private readonly covers=new WildlifeCoverIndex();
+  private readonly treePoints=new WildlifeCoverIndex();
+  /** Bounded spatial lookup of streamed scenery, not a global tree scan. */
+  hasTreeNear(point:Vec2,radius=350):boolean{
+    return this.treePoints.nearby(point,radius).length>0;
+  }
   private readonly animals:GroundAnimal[]=[];
   private readonly birds:WoodlandBirdSystem;
   private inside=new Set<number>();
@@ -90,6 +95,13 @@ export class AmbientWildlifeSystem {
       ||texture==='world_assets'&&frame===2
       ||texture==='woodland_props'&&[0,8,9].includes(frame)
       ||texture==='flora'&&frame===9;
+    // Include native/dried trees even where ambient woodland fauna is absent.
+    // This index shares scenery lifetime but never adds wildlife spawn sites.
+    if(tree&&!this.destroyed&&Math.abs(actor.rotation)<=.01){
+      const id=++this.sequence;
+      this.treePoints.add({id,...bottom,width,height,depth:actor.depth,kind:'tree',climbable:false,cooldownUntil:0});
+      actor.once('destroy',()=>this.treePoints.remove(id));
+    }
     if(this.destroyed||Math.abs(actor.rotation)>.01||texture==='climate_props'||!tree&&!shrub&&!coastalArt&&!roofPoint)return;
     const habitat=this.host.habitat(bottom);
     const shore=(habitat.region==='portquill'&&habitat.biome==='coast'||tidewatchGullHabitat(bottom,habitat.region))
@@ -394,5 +406,5 @@ export class AmbientWildlifeSystem {
   destroy(){if(this.destroyed)return;this.destroyed=true;this.reset();
     document.removeEventListener('visibilitychange',this.onVisibility);
     this.birds.destroy();
-    for(const animal of this.animals)animal.sprite.destroy();this.animals.length=0;this.covers.clear();}
+    for(const animal of this.animals)animal.sprite.destroy();this.animals.length=0;this.covers.clear();this.treePoints.clear();}
 }

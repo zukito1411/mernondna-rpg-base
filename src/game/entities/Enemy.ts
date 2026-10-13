@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
-import { BOSS_BY_ID, enemyAppearanceMultiplier } from '../../data/enemies';
-import { areaMonsterLevel,scaledEnemy } from '../../data/enemyTiers';
+import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
+import { enemyLevelAt,scaledEnemy } from '../../data/enemyTiers';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
 import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize,type ArtTextureKey } from '../../data/art';
@@ -12,9 +12,10 @@ import {groundMarkerPosition} from '../systems/groundMarkers';
 import {DragonCombat} from '../systems/DragonCombat';
 import {actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../../data/directionalEnemyArt';
 import {pirateAttackPhase,piratePhaseDuration} from '../../data/pirateMotion';
+import {isPirateEnemy} from '../../data/pirateArt';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
 
-const PIRATE_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
+const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly definition: EnemyDefinition;
@@ -38,8 +39,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly nameLabel: Phaser.GameObjects.Text;
   private visualUntil = 0;
   private pirateWalkProgress = 0;
-  private pirateApproachSlot = -1;
-  private pirateSlotCheckAt = 0;
+  private approachSlot = -1;
+  private slotCheckAt = 0;
   private pirateMoving = false;
   private pirateStoppedAt: number | null = null;
   private nextGrowlAt=0;
@@ -68,7 +69,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
   get isStaggered(){return this.flurrySuppressed||this.scene.time.now<this.hitStunUntil;}
   get facingLeft(){return this.visualDirection==='left';}
+  get isRangedAttacker(){return this.definition.combatStyle==='spear-thrower'||this.definition.combatStyle==='stone-thrower';}
+  private get directionalCombat(){return this.isRangedAttacker||this.definition.combatStyle==='boatswain'||['hedge-goblin','blighted-thornling','grove-spider','redmesa-chieftain','rootfather','frost-wyrm','ashen-seer'].includes(this.definition.id);}
   playMonsterVocal(cue:'attack'|'growl'|'hurt'|'death'){
+    // No borrowed mammal/ghost voice for a chitin creature. Its attack still
+    // uses the existing restrained swish/impact effects.
+    if(this.definition.id==='grove-spider')return;
     (this.scene as WorldScene).playEnemyVocal(this.definition,this.instanceId,cue,this.x,this.y);
   }
   playMonsterAttackFoley(phase:'windup'|'impact'){
@@ -82,15 +88,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
     this.boss = instanceId.startsWith('boss:') ? BOSS_BY_ID[instanceId.slice(5)] : undefined;
-    const zone=(scene as WorldScene).getRegionAtPosition(x,y);
-    this.level=areaMonsterLevel(x,y,zone)+(this.boss?10:0);
+    this.wolfAlpha=isWolfFamily(definition.id) && wolfAlpha;
+    // A pack's members share its danger tier even when roaming across borders
+    // or being restored on opposite sides of a settlement's tier boundary.
+    const levelHome=encounterBehavior?.home??{x,y};
+    const zone=(scene as WorldScene).getRegionAtPosition(levelHome.x,levelHome.y);
+    this.level=enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
     const base=scaledEnemy(definition,this.level);
-    this.wolfAlpha=definition.id==='gray-wolf' && wolfAlpha;
-    this.wolfPackId=definition.id==='gray-wolf' ? wolfPackId : null;
+    this.wolfPackId=isWolfFamily(definition.id) ? wolfPackId : null;
     this.encounterKey=definition.boss ? null : this.wolfPackId ? `wolf:${this.wolfPackId}`
       : encounterId ? `encounter:${encounterId}` : null;
     this.encounterBehavior = this.encounterKey ? encounterBehavior : undefined;
-    this.definition=this.wolfAlpha ? {...base,name:'Alpha Wolf',
+    this.definition=this.wolfAlpha ? {...base,name:definition.id==='frost-wolf'?'Frost Alpha Wolf':'Alpha Wolf',
       hp:Math.round(base.hp*1.35),damage:Math.round(base.damage*1.12),
       xp:Math.round(base.xp*1.5),goldMax:Math.ceil(base.goldMax*1.25)} : base;
     this.hp=this.definition.hp;
@@ -116,6 +125,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     body.setCollideWorldBounds(true);
     this.setDepth(y);
     this.anims.play(idle.key);
+    if(definition.spriteTint!==undefined)this.setTint(definition.spriteTint);
     this.healthBar = scene.add.graphics().setName(`enemy-health:${instanceId}`);
     this.nameLabel = scene.add.text(x, y - 40, `Lv.${this.level} ${this.boss?.name ?? this.definition.name}`, {
       fontFamily: 'Georgia, serif', fontSize: definition.boss ? '12px' : '9px',
@@ -127,7 +137,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       const state=useGameStore.getState();if(!state.panel&&!state.dialogue&&!state.cinematic)scene.targeting.select(this);
     });
     this.once('destroy', () => {
-      this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
+      this.interruptAttack();this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
       (this.scene as WorldScene).forgetEnemySound(this.instanceId);
       this.dragonCombat?.destroy();
     });
@@ -198,22 +208,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         scene.playEnemyVocal(this.definition,this.instanceId,'growl',this.x,this.y);
         this.nextGrowlAt=time+3600+this.rng()*2800;
       }
-      const approachRange = Math.max(30, this.definition.attackRange - 16);
       this.facing.set(player.x - this.x, player.y - this.y).normalize();
       if(this.wolfPackId) {
         // Pack wolves spread around the player instead of all charging at one point.
         this.chaseAsPack(scene,player,time,delta,distance,body);
-      } else if(this.definition.id==='cutlass-pirate'||this.definition.id==='salt-king') {
+      } else {
         this.chaseWithAllies(scene,player,time,delta,body);
-      } else if (distance > approachRange) {
-        const waypoint=scene.enemyNavigationPoint(this,player),length=Math.max(1,Math.hypot(waypoint.x-this.x,waypoint.y-this.y));
-        const dx=(waypoint.x-this.x)/length,dy=(waypoint.y-this.y)/length;
-        const ahead={x:this.x+dx*24,y:this.y+dy*24};
-        if(scene.canEnemyOccupy(ahead.x,ahead.y,this)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
-          body.setVelocity(approachVelocity(body.velocity.x,dx*this.definition.moveSpeed,delta,90),approachVelocity(body.velocity.y,dy*this.definition.moveSpeed,delta,90));
-        else {body.setVelocity(0,0);this.nextWanderAt=0;}
       }
-      else body.setVelocity(0, 0);
       if(Math.abs(this.facing.x)>.2)this.setFlipX(this.facing.x<0);
       this.updateBossSkill(scene, time);
       if (distance <= Math.max(this.definition.attackRange, this.definition.attackRadius ?? 0) && time >= this.nextAttackAt
@@ -221,10 +222,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.beginAttack(scene, player, time);
       }
     } else {
-      // Idle pack members keep roughly with the alpha, rather than scattering.
-      const alpha=this.wolfPackId&&!this.wolfAlpha?scene.wolfPackLeader(this.wolfPackId):null;
+      // Field encounter groups stay together while roaming, like wolf siblings.
+      // Authored ship posts/reinforcements keep their separate deck routines.
+      const patrolLeader=this.encounterKey&&!this.wolfPackId?scene.enemyPatrolLeader(this):null;
+      const alpha=this.wolfPackId&&!this.wolfAlpha?scene.wolfPackLeader(this.wolfPackId)
+        :patrolLeader!==this?patrolLeader:null;
       const alphaDistance=alpha?Math.hypot(alpha.x-this.x,alpha.y-this.y):0;
-      if(alpha&&alphaDistance>108&&alphaDistance<540){
+      if(alpha&&alphaDistance>108&&alphaDistance<(this.wolfPackId?540:900)){
         this.wander.set((alpha.x-this.x)/alphaDistance*this.definition.moveSpeed*.68,
           (alpha.y-this.y)/alphaDistance*this.definition.moveSpeed*.68);
         this.nextWanderAt=time+850;
@@ -241,7 +245,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         body.setVelocity(approachVelocity(body.velocity.x,this.wander.x,delta,120),approachVelocity(body.velocity.y,this.wander.y,delta,120));
       else {body.setVelocity(0,0);this.nextWanderAt=time+1000;this.wander.set(0,0);}
     }
-    if (Math.abs(body.velocity.x)>Math.max(2,Math.abs(body.velocity.y)*.3)) this.setFlipX(body.velocity.x<0);
+    if(!this.directionalCombat&&Math.abs(body.velocity.x)>Math.max(2,Math.abs(body.velocity.y)*.3)) this.setFlipX(body.velocity.x<0);
     this.setDepth(this.y);
     this.lastSafe = { x:this.x,y:this.y };
     this.updateVisual(time);
@@ -251,46 +255,55 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
    * Physical collisions remain the final safeguard; locked attackers never move. */
   private chaseWithAllies(scene:WorldScene,player:WorldScene['player'],time:number,
     delta:number,body:Phaser.Physics.Arcade.Body) {
-    const actors=scene.pirateSteeringActors();
+    const actors=scene.enemySteeringActors();
     const radius=this.definition.bodyRadius??(this.definition.boss?24:11);
-    const ring=Math.max(30,this.definition.attackRange-8);
-    if(time>=this.pirateSlotCheckAt){
-      this.pirateSlotCheckAt=time+600;
+    // Melee attackers reserve different approaches; throwers use a separate
+    // outer ring so they retain standoff/retreat rather than joining the pile.
+    const ranged=this.isRangedAttacker;
+    const ring=ranged?280:Math.max(30,this.definition.attackRange-8);
+    if(time>=this.slotCheckAt){
+      this.slotCheckAt=time+600;
       let best=-1,bestScore=Infinity;
       for(let slot=0;slot<8;slot++){
         const angle=slot*Math.PI/4,x=player.x+Math.cos(angle)*ring,y=player.y+Math.sin(angle)*ring;
         if(!scene.canEnemyOccupy(x,y,this)||!scene.hasClearPath(x,y,player.x,player.y))continue;
         let score=(x-this.x)**2+(y-this.y)**2;
         // Prefer an existing seat unless blocked or claimed by a nearby ally.
-        if(slot===this.pirateApproachSlot)score-=1600;
+        if(slot===this.approachSlot)score-=1600;
         for(const other of actors){
           if(other===this||!other.active||other.hp<=0
-            ||(other.definition.id!=='cutlass-pirate'&&other.definition.id!=='salt-king')
-            ||Math.hypot(other.x-player.x,other.y-player.y)>350)continue;
-          if(other.pirateApproachSlot===slot)score+=1000000;
+            ||!other.canBeTargeted
+            ||other.isRangedAttacker!==ranged
+            ||Math.hypot(other.x-player.x,other.y-player.y)>ring+300)continue;
+          if(other.approachSlot===slot)score+=1000000;
         }
         if(score<bestScore){bestScore=score;best=slot;}
       }
-      this.pirateApproachSlot=best;
+      this.approachSlot=best;
     }
-    const angle=this.pirateApproachSlot*Math.PI/4;
-    const target=this.pirateApproachSlot<0?player:
+    const angle=this.approachSlot*Math.PI/4;
+    const target=this.approachSlot<0?player:
       {x:player.x+Math.cos(angle)*ring,y:player.y+Math.sin(angle)*ring};
     const waypoint=scene.enemyNavigationPoint(this,target);
     let dx=waypoint.x-this.x,dy=waypoint.y-this.y;
     const distance=Math.hypot(dx,dy);
-    if(distance<6){body.setVelocity(0,0);return;}
-    dx/=distance;dy/=distance;
+    if(distance<1){
+      // At a claimed station we must still be able to escape an overlap.
+      dx=this.x-player.x;dy=this.y-player.y;
+      const length=Math.max(1,Math.hypot(dx,dy));dx/=length;dy/=length;
+      if(dx===0&&dy===0){dx=Math.cos(angle);dy=Math.sin(angle);}
+    }else{dx/=distance;dy/=distance;}
     const tangentX=-dy,tangentY=dx;
-    let lateral=0;
+    let lateral=0,crowded=false;
     for(const other of actors){
       if(other===this||!other.active||other.hp<=0
-        ||(other.definition.id!=='cutlass-pirate'&&other.definition.id!=='salt-king'))continue;
+        ||!other.canBeTargeted)continue;
       const otherBody=other.body as Phaser.Physics.Arcade.Body;
       const rx=body.center.x-otherBody.center.x,ry=body.center.y-otherBody.center.y;
       const gap=radius+(other.definition.bodyRadius??(other.definition.boss?24:11))+18;
       const separation=Math.hypot(rx,ry);
       if(separation>=gap)continue;
+      crowded=true;
       const side=rx*tangentX+ry*tangentY;
       const sign=Math.abs(side)>.5?Math.sign(side):this.instanceId<other.instanceId?1:-1;
       // Sideways avoidance doesn't cancel forward motion behind an attacker.
@@ -298,14 +311,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     const heading=Math.atan2(dy+tangentY*lateral,dx+tangentX*lateral);
     let steerX=0,steerY=0;
-    for(const offset of PIRATE_STEERING_OFFSETS){
+    if(distance<6&&!crowded){body.setVelocity(0,0);return;}
+    for(const offset of ALLY_STEERING_OFFSETS){
       const sx=Math.cos(heading+offset),sy=Math.sin(heading+offset);
       const nextX=this.x+sx*24,nextY=this.y+sy*24;
       if(!scene.canEnemyOccupy(nextX,nextY,this)||!scene.hasClearPath(this.x,this.y,nextX,nextY))continue;
       let clear=true;
       for(const other of actors){
         if(other===this||!other.active||other.hp<=0
-          ||(other.definition.id!=='cutlass-pirate'&&other.definition.id!=='salt-king'))continue;
+          ||!other.canBeTargeted)continue;
         const otherBody=other.body as Phaser.Physics.Arcade.Body;
         const current=Math.hypot(body.center.x-otherBody.center.x,body.center.y-otherBody.center.y);
         const next=Math.hypot(body.center.x+sx*24-otherBody.center.x,body.center.y+sy*24-otherBody.center.y);
@@ -315,7 +329,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
       if(clear){steerX=sx;steerY=sy;break;}
     }
-    const speed=Math.min(this.definition.moveSpeed,distance*6);
+    const speed=Math.min(this.definition.moveSpeed,Math.max(distance,crowded?12:0)*6);
     body.setVelocity(approachVelocity(body.velocity.x,steerX*speed,delta,90),
       approachVelocity(body.velocity.y,steerY*speed,delta,90));
   }
@@ -373,11 +387,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     // Lightweight pairwise separation. No physics collision solver or per-frame
     // tween allocations: even six wolves stay within the existing enemy cap.
-    for(const other of members){
-      if(other===this)continue;
+    for(const other of scene.enemySteeringActors()){
+      if(other===this||!other.active||other.hp<=0||!other.canBeTargeted)continue;
       let dx=this.x-other.x,dy=this.y-other.y;
       let dist=Math.hypot(dx,dy);
-      const minGap=(this.wolfAlpha||other.wolfAlpha)?75:62;
+      const minGap=other.wolfPackId?(this.wolfAlpha||other.wolfAlpha)?75:62
+        :(this.definition.bodyRadius??11)+(other.definition.bodyRadius??(other.definition.boss?24:11))+18;
       if(dist>=minGap)continue;
       if(dist<.1){const a=(slot+1)*2.4;dx=Math.cos(a);dy=Math.sin(a);dist=1;}
       const repel=(minGap-dist)/minGap*145;
@@ -405,7 +420,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const windup = this.definition.attackWindupMs ?? 220;
     const recovery = this.definition.attackRecoveryMs ?? 320;
     const radius = this.definition.attackRadius ?? this.definition.attackRange;
-    const attackStyle = this.definition.combatStyle==='troll'?'slam':this.boss?.attackStyle ?? (this.definition.id === 'gray-wolf' ? 'pounce' : 'melee');
+    const ranged=this.isRangedAttacker;
+    const attackAim={x:player.x,y:player.y};
+    if(this.directionalCombat)this.visualDirection=actorTravelDirection(player.x-this.x,player.y-this.y,this.visualDirection);
+    const attackStyle = ranged?'melee':this.definition.combatStyle==='troll'?'slam':this.boss?.attackStyle ?? (isWolfFamily(this.definition.id) ? 'pounce' : 'melee');
     this.lockedUntil = time + windup + recovery;
     this.nextAttackAt = this.lockedUntil + this.definition.attackCooldownMs;
     this.attackTelegraph?.destroy();
@@ -415,11 +433,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackTelegraphStartedAt=time;
     this.attackTelegraphWindup=windup;
     const layout=enemyAttackWarningLayout(attackStyle,radius,this.attackTelegraphAngle);
-    this.attackTelegraph = scene.add.image(this.x,this.y,ATTACK_WARNING_TEXTURE,layout.frame)
+    this.attackTelegraph=null;
+    if(!ranged)this.attackTelegraph=scene.add.image(this.x,this.y,ATTACK_WARNING_TEXTURE,layout.frame)
       .setOrigin(layout.originX,.5).setDisplaySize(layout.width,layout.height).setRotation(layout.rotation).setAlpha(.24)
       .setDepth(Math.min(this.y,player.y)-2)
       .setName(`attack-telegraph:${this.instanceId}`);
-    const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack');
+    const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack',this.directionalCombat?this.visualDirection:undefined);
     const epoch=++this.attackEpoch;
     this.playMonsterVocal('attack');
     this.playMonsterAttackFoley('windup');
@@ -445,6 +464,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if(recoveryClip){
         this.anims.play(recoveryClip.key);
         this.anims.timeScale=piratePhaseDuration(recoveryClip)/Math.max(1,recovery);
+      }
+      if(ranged){
+        scene.fireOrcSpear(this,attackAim);
+        scene.playAudio('sfx-sword-whoosh',.2,1.35);
+        return;
       }
       if(this.definition.combatStyle==='troll'){
         const impact=scene.add.sprite(this.x,this.y,'effect_troll_impact',0).setOrigin(.5,actorArtLayout('effect_troll_impact').originY)
@@ -483,12 +507,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.nextSpecialAt = time + (this.definition.summonCooldownMs ?? 20000);
     let spawned = 0;
     // One wolf-summon call already creates a full pack; avoid summoning 2–3 packs at once.
-    const summonCount=summon==='gray-wolf'?1:(this.definition.summonCount??1);
+    const flagship=this.instanceId==='boss:salt-king'&&summon==='cutlass-pirate';
+    // Both gateways admit a whole family atomically, not one call per member.
+    const summonCount=isWolfFamily(summon)||flagship?1:(this.definition.summonCount??1);
     for (let i = 0; i < summonCount; i++) {
       const angle = Math.PI * 2 * i / summonCount + this.rng() * .3;
-      if (scene.spawnEnemy(summon, this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110, true, this)) {
-        spawned++;
-        scene.playEffect('teleport', this.x + Math.cos(angle) * 110, this.y + Math.sin(angle) * 110);
+      for(let attempt=0;attempt<(flagship?8:1);attempt++){
+        const bearing=angle+attempt*Math.PI/4;
+        const x=this.x+Math.cos(bearing)*110,y=this.y+Math.sin(bearing)*110;
+        // The ship gateway checks deck, cover, existing bodies and capacity.
+        // A blocked first candidate must not silently remove the heavy role.
+        if(!scene.spawnEnemy(summon,x,y,true,this))continue;
+        spawned+=flagship?3:1;scene.playEffect('teleport',x,y);break;
       }
     }
     if (spawned) scene.notify(`${this.boss?.name ?? this.definition.name} calls reinforcements!`);
@@ -499,7 +529,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const body = this.body as Phaser.Physics.Arcade.Body;
     const speed=body.velocity.length();
     let moving=speed>3;
-    if(this.definition.id==='cutlass-pirate'||this.definition.id==='salt-king'){
+    if(isPirateEnemy(this.definition.id)||this.definition.boss){
       if(speed>=8){this.pirateMoving=true;this.pirateStoppedAt=null;}
       else if(speed<2){
         this.pirateStoppedAt??=time;
@@ -521,7 +551,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const changed=this.anims.currentAnim?.key!==key;
     this.useVisualTexture(this.scene.anims.get(key).frames[0].textureKey as ArtTextureKey);
     const mirroredSide=this.definition.id==='salt-king'||this.definition.id==='cutlass-pirate';
-    this.setFlipX(this.visualDirection==='left'&&(mirroredSide||this.texture.key===(this.definition.spriteTexture??'enemies'))).anims.play(key,true);
+    this.setFlipX(!this.directionalCombat&&this.visualDirection==='left'&&(mirroredSide||this.texture.key===(this.definition.spriteTexture??'enemies'))).anims.play(key,true);
     if(changed&&state==='walk'&&progress>0)this.anims.setProgress(progress);
     else if(changed&&state==='walk'&&crew&&(this.visualDirection==='left'||this.visualDirection==='right'))
       this.anims.setProgress(this.pirateWalkProgress);
@@ -540,9 +570,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   private playAction(state:EnemyAnimationState) {
-    const animation = enemyAnimation(this.definition.spriteFrame,state);
+    const directional=this.directionalCombat;
+    const animation = enemyAnimation(this.definition.spriteFrame,state,directional?this.visualDirection:undefined);
     this.useVisualTexture(animation.texture as ArtTextureKey);
-    this.setFlipX(state==='attack'?this.facing.x<0:this.facingLeft);
+    this.setFlipX(directional?false:state==='attack'?this.facing.x<0:this.facingLeft);
     this.visualUntil = this.scene.time.now + animationDuration(animation);
     this.anims.play(animation.key);
     this.anims.timeScale=1;
@@ -557,6 +588,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.leapVisual = scene.add.sprite(this.x, this.y, this.texture.key, this.frame.name)
       .setOrigin(this.originX, this.originY).setScale(this.scaleX, this.scaleY)
       .setFlipX(this.flipX).setDepth(this.y + 1).setName(`wolf-leap:${this.instanceId}`);
+    if(this.definition.spriteTint!==undefined)this.leapVisual.setTint(this.definition.spriteTint);
     this.setAlpha(0);
     this.leapVisual.play(animation.key);
     this.leapVisual.anims.timeScale=this.anims.timeScale;
@@ -582,9 +614,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   createDeathVisual() {
-    const animation = enemyAnimation(this.definition.spriteFrame,'death');
+    const directional=this.directionalCombat;
+    const animation = enemyAnimation(this.definition.spriteFrame,'death',directional?this.visualDirection:undefined);
     const effect = this.scene.add.sprite(this.x,this.y,animation.texture,animation.frames[0]).setScale(this.scaleX,this.scaleY)
-      .setOrigin(.5,actorArtLayout(animation.texture as ArtTextureKey).originY).setFlipX(this.visualDirection==='left'||this.flipX).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
+      .setOrigin(.5,actorArtLayout(animation.texture as ArtTextureKey).originY).setFlipX(!directional&&(this.visualDirection==='left'||this.flipX)).setDepth(this.depth).setName(`enemy-death:${this.instanceId}`);
+    if(this.definition.spriteTint!==undefined)effect.setTint(this.definition.spriteTint);
     effect.play(animation.key);
     effect.once(Phaser.Animations.Events.ANIMATION_COMPLETE,() => effect.destroy());
     this.scene.time.delayedCall(animationDuration(animation) + 200,() => { if (effect.active) effect.destroy(); });
@@ -607,10 +641,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private stagger(forced:boolean){
     const now=this.scene.time.now;
     if(!forced&&now<this.staggerImmuneUntil)return false;
-    const duration=animationDuration(enemyAnimation(this.definition.spriteFrame,'hurt'));
+    const directional=this.directionalCombat;
+    const duration=animationDuration(enemyAnimation(this.definition.spriteFrame,'hurt',directional?this.visualDirection:undefined));
     this.hitStunUntil=now+duration;
     // A full hurt pose is followed by a real opportunity to retaliate.
-    this.staggerImmuneUntil=this.hitStunUntil+(this.boss?1500:1000);
+    this.staggerImmuneUntil=this.hitStunUntil+(this.definition.combatStyle==='boatswain'?1800:this.boss?1500:1000);
     this.lockedUntil=this.hitStunUntil;
     this.nextAttackAt=Math.max(this.nextAttackAt,this.hitStunUntil+150);
     this.interruptAttack();
@@ -639,7 +674,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.dragonCombat?0:knockback.y*force);
     }
     this.setTintFill(0xffffff);
-    this.scene.time.delayedCall(70, () => { if (this.active) this.clearTint(); });
+    this.scene.time.delayedCall(70, () => { if (this.active) {this.clearTint();if(this.definition.spriteTint!==undefined)this.setTint(this.definition.spriteTint);} });
     if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
   }
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}

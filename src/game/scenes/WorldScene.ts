@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
+import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID,isWolfFamily } from '../../data/enemies';
 import { areaMonsterLevel, BOSS_RESPAWN_MS } from '../../data/enemyTiers';
 import {restoredEnemyHealth} from '../systems/enemyHealth';
 import {authoredRoofs} from '../systems/authoredRoofs';
@@ -35,6 +35,10 @@ import {tidewatchGullHabitat} from '../systems/wildlifeCover';
 import { resolveQuestTarget, questBearing } from '../systems/questNavigation';
 import { artScale, artFrameSize, worldPropOrigin } from '../../data/art';
 import { repairCreaturePlacements } from '../systems/creaturePlacement';
+import {normalizePirateCrews} from '../systems/pirateCrewMigration';
+import {normalizeGoblinCrews} from '../systems/goblinCrewMigration';
+import {M14ArtResidency} from '../systems/M14ArtResidency';
+import {M14_ART} from '../../data/m14Art';
 import { progressionStats, playerDamageGrowth } from '../../data/progression';
 import { localSettlementTravelEnabled } from '../../utils/localSettlementTravel';
 import type { ActiveSkillDefinition } from '../../data/activeSkills';
@@ -50,8 +54,10 @@ import {TreeSwaySystem} from '../systems/TreeSwaySystem';
 import {WaterSurfaceSystem} from '../systems/WaterSurfaceSystem';
 import {GroundShadowSystem} from '../systems/GroundShadowSystem';
 import {WorldTrafficSystem} from '../systems/WorldTrafficSystem';
+import {SpearProjectileSystem} from '../systems/SpearProjectileSystem';
 import {ShipPassageSystem} from '../systems/ShipPassageSystem';
 import {EnemySoundSystem,type EnemySoundCue} from '../systems/EnemySoundSystem';
+import {isPirateEnemy} from '../../data/pirateArt';
 import {WorldSpriteSystem,WORLD_SPRITE_OWNER} from '../systems/WorldSpriteSystem';
 import {VolcanicTremor} from '../systems/VolcanicTremor';
 import {VolcanicCameraShake} from '../systems/VolcanicCameraShake';
@@ -85,6 +91,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private waterSurface!:WaterSurfaceSystem;
   private groundShadows!:GroundShadowSystem;
   private traffic!:WorldTrafficSystem;
+  private spearProjectiles!:SpearProjectileSystem;
+  private m14Art!:M14ArtResidency;
   private passage!:ShipPassageSystem;
   private enemySounds!:EnemySoundSystem;
   private worldSprites!:WorldSpriteSystem;
@@ -197,6 +205,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    this.spearProjectiles=new SpearProjectileSystem(this);
+    this.m14Art=new M14ArtResidency(this,id=>{
+      for(const enemy of this.enemies)if(enemy.active&&enemy.definition.id===id)return true;
+      return false;
+    },message=>this.notify(message));
     this.cameras.main.shakeEffect.destroy();
     this.volcanicShake=new VolcanicCameraShake(this.cameras.main);
     this.cameras.main.shakeEffect=this.volcanicShake;
@@ -248,9 +261,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     // People aren't immovable street barriers. Their patrols still avoid props.
     this.physics.add.collider(this.creatureBodies, this.buildings);
     this.physics.add.collider(this.creatureBodies, this.treeBodies);
+    // Ground enemies cannot occupy the same feet position. Wolves retain their
+    // approved soft pack separation; dragon flight uses its own movement system.
     this.physics.add.collider(this.creatureBodies,this.creatureBodies,undefined,(a,b)=>
-      a instanceof Enemy&&b instanceof Enemy&&['cutlass-pirate','salt-king'].includes(a.definition.id)
-        &&['cutlass-pirate','salt-king'].includes(b.definition.id));
+      a instanceof Enemy&&b instanceof Enemy&&a.hp>0&&b.hp>0
+      &&a.definition.combatStyle!=='dragon'&&b.definition.combatStyle!=='dragon'
+      &&!(a.wolfPackId&&b.wolfPackId));
     this.physics.add.collider(this.npcBodies, this.buildings);
     this.physics.add.collider(this.npcBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.npcBodies);
@@ -263,12 +279,36 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         ...initialContentState(definition),hp:0,defeated:true,respawnAt:Date.now()+BOSS_RESPAWN_MS,
       };
     }
+    // Migrate only surviving camp actors still at the old marker positions.
+    // Keep health/defeat history and actors that have already wandered away.
+    for(const siteId of ['clan-road-muster','southern-caravan-rest']){
+      const site=WILDERNESS_SITES.find(s=>s.id===siteId)!;
+      for(const definition of WORLD_CONTENT){
+        if(!definition.id.startsWith(`creature:krag-warband:${siteId}:`))continue;
+        const saved=logical.states[definition.id];
+        if(saved&&!saved.defeated&&Math.hypot(saved.x-site.world.x,saved.y-site.world.y)<100)
+          logical.states[definition.id]={...saved,...definition.world};
+      }
+    }
     logical = repairCreaturePlacements(WORLD_CONTENT,logical,this.worldGenerator);
+    logical=normalizePirateCrews(logical,this.worldGenerator,(x,y)=>this.canEnemyOccupy(x,y));
+    logical=normalizeGoblinCrews(logical,this.worldGenerator,(x,y)=>this.canEnemyOccupy(x,y)
+      &&creatureFitsHabitat(ENEMY_BY_ID['goblin-stone-slinger'],this.habitatAt(x,y)));
     this.contentManager = new ContentChunkManager(WORLD_CONTENT, logical, {
       initialState: initialContentState,
-      canActivate: (definition, runtime) => definition.kind !== 'creature' || this.isEnemyTerritory(runtime.x,runtime.y)
-        && (definition.enemyId!=='rindass-orc-raider'||creatureFitsHabitat(ENEMY_BY_ID[definition.enemyId],this.habitatAt(runtime.x,runtime.y)))
-        && this.encounterCapacity(definition.bossId ? 'boss' : 'restore') > 0,
+      canActivate: (definition, runtime) => {
+        if(definition.kind!=='creature')return true;
+        const m14=!ENEMY_BY_ID[definition.enemyId].boss&&(definition.enemyId==='hedge-goblin'||M14_ART.some(spec=>spec.id===definition.enemyId));
+        // A native pack may chase briefly beyond its home habitat. Restoring
+        // its surviving actors must not strand them dormant on a meadow edge.
+        const habitatPoint=m14?definition.encounterBehavior?.home??runtime:runtime;
+        return this.isEnemyTerritory(runtime.x,runtime.y)
+          &&(!m14&&!['rindass-orc-raider','rindass-orc-spearman'].includes(definition.enemyId)
+            ||creatureFitsHabitat(ENEMY_BY_ID[definition.enemyId],this.habitatAt(habitatPoint.x,habitatPoint.y)))
+          &&this.m14LocationAllowed(definition.enemyId,habitatPoint.x,habitatPoint.y)
+          &&this.m14Art.ensure(definition.enemyId)
+          &&this.encounterCapacity(definition.bossId?'boss':'restore')>0;
+      },
       canActivateGroup: members => members.length <= this.encounterCapacity('restore')
         && members.every(({ state }) => this.canEnemyOccupy(state.x,state.y)),
       canRespawn: definition => definition.id!=='boss:salt-king'&&!definition.id.startsWith('pirate:flagship:crew:')
@@ -332,6 +372,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       !this.focused||Boolean(travelStore.panel||travelStore.dialogue||travelStore.cinematic||this.passage.active||this.cinematicDirector.active),
       this.onVolcanicRumble,this.onVolcanicSilence,!travelStore.weatherAudio);
     if(this.passage.active){
+      this.spearProjectiles.clear();
       this.wildlife.reset();
       const paused=!this.focused||Boolean(travelStore.panel);this.physics.world.pause();this.player.discardActions();
       this.dayNight.setFirefliesEnabled(false);
@@ -383,6 +424,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       for (const enemy of this.enemies) {
         if (enemy.active) enemy.updateEnemy(time,delta);
       }
+      this.spearProjectiles.update(delta);
       const body=this.player.body as Phaser.Physics.Arcade.Body;
       let threatened=false;
       for(const enemy of this.enemies){
@@ -428,6 +470,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     for (const enemy of this.enemies) enemy.updatePresentation(this.player.x, this.player.y,uiBlocked);
 
     const regionId = this.worldGenerator.getRegionAt(this.player.x, this.player.y);
+    this.m14Art.update(delta,regionId);
     if (!uiBlocked) this.eventDirector.update(delta, regionId, this.dayNight.getHour(), this.player.x, this.player.y);
 
     if (!uiBlocked) this.spawnAccumulator += Math.min(delta,250);
@@ -436,7 +479,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const biome=this.worldGenerator.getBiomeAt(this.player.x,this.player.y);
       const hour=this.dayNight.getHour();
       const night=hour>=18||hour<6;
-      const wilderness=['forest','wetland','highland','snowfield','volcanic'].includes(biome);
+      const wilderness=['forest','wetland','highland','snowfield','volcanic','dryland'].includes(biome);
       // Higher wilderness activity after sunset, without per-frame terrain scans.
       this.nextAmbientIntervalMs=wilderness?(night?5900:8500):(night?7600:11000);
       if(!this.trySpawnRoadBandits())this.trySpawnAmbientEnemy(regionId);
@@ -530,6 +573,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.sound.play(key,{volume,rate});
   }
 
+  fireOrcSpear(source:Enemy,target:Vec2){
+    const state=useGameStore.getState();
+    if(this.passage?.active||this.cinematicDirector?.active||!this.focused||state.panel||state.dialogue||state.cinematic)return false;
+    return this.spearProjectiles.fire(source,target);
+  }
+  forgetOrcSpears(instanceId:string){this.spearProjectiles?.forgetSource(instanceId);}
+
   playEnemyAudio(key:string,volume:number,rate:number,pan:number){
     if(!useGameStore.getState().weatherAudio||this.sound.locked||!this.cache.audio.exists(key))return;
     this.sound.play(key,{volume,rate,pan});
@@ -545,10 +595,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   playEnemyAttackFoley(definition:EnemyDefinition,x:number,y:number,phase:'windup'|'impact'){
-    if(phase==='windup'&&(definition.id==='road-bandit'||definition.id==='cutlass-pirate'||definition.id==='bandit-captain'||definition.id==='salt-king'))
+    if(phase==='windup'&&definition.combatStyle==='boatswain')this.playEnemySoundAt('sfx-sword-whoosh',x,y,.22,.75);
+    if(phase==='windup'&&(definition.id==='road-bandit'||definition.id==='cutlass-pirate'||definition.id==='hedge-goblin'||definition.id==='bandit-captain'||definition.id==='salt-king'||definition.id==='redmesa-chieftain'))
       this.playAudio('sfx-sword-whoosh',.2,Phaser.Math.FloatBetween(.9,1.08));
     if(phase==='impact'&&Math.hypot(this.player.x-x,this.player.y-y)<360)
-      this.playAudio(definition.combatStyle==='troll'||definition.combatStyle==='dragon'
+      this.playAudio(definition.combatStyle==='troll'||definition.combatStyle==='dragon'||definition.combatStyle==='boatswain'||definition.id==='rootfather'
         ?'sfx-impact-heavy-1':'sfx-impact-2',.24,Phaser.Math.FloatBetween(.94,1.06));
   }
 
@@ -651,7 +702,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         || (actor ? actor.hp <= 0 : state?.defeated)) continue;
       if (!actor) pendingBosses++;
       const definition = ENEMY_BY_ID[boss.enemyId];
-      if (definition?.summonEnemyId) summonReserve += definition.summonEnemyId === 'gray-wolf'
+      if (definition?.summonEnemyId) summonReserve += isWolfFamily(definition.summonEnemyId)
         ? 6 : definition.summonCount ?? 1;
     }
     const queued = source === 'spawn' || source === 'summon'
@@ -667,24 +718,71 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   spawnEnemy(enemyId: string, x: number, y: number, eventSpawn = false, summoner?: Enemy, encounterCap?: number) {
     // Region-aware gateway also covers legacy event callers and road ambushes.
     if(enemyId==='road-bandit'&&this.worldGenerator.getRegionAt(x,y)==='portquill')enemyId='cutlass-pirate';
+    // A non-event spearman request still means a full 2+1 patrol, never a
+    // lone ranged actor outside the ambient admission pipeline.
+    if(enemyId==='rindass-orc-spearman'&&!eventSpawn&&!summoner)enemyId='rindass-orc-raider';
+    if(enemyId==='goblin-stone-slinger')enemyId='hedge-goblin';
     const definition = ENEMY_BY_ID[enemyId];
     if (!definition || definition.boss) return false;
+    if(!this.m14Art.ensure(enemyId)||enemyId==='hedge-goblin'&&!this.m14Art.ensure('goblin-stone-slinger'))return false;
     const bossSummon = Boolean(summoner && this.enemies.has(summoner) && summoner.active && summoner.hp > 0
-      && summoner.definition.boss && summoner.definition.summonEnemyId === enemyId);
+      && summoner.definition.boss && (summoner.definition.summonEnemyId === enemyId
+        ||summoner.instanceId==='boss:salt-king'&&summoner.definition.summonEnemyId==='cutlass-pirate'
+          &&enemyId==='pirate-boatswain'));
     if (summoner && !bossSummon) return false;
     const shipSummon=bossSummon&&summoner?.instanceId==='boss:salt-king';
     if (!bossSummon) for (const enemy of this.enemies)
       if (enemy.active && enemy.hp > 0 && Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<250) return false;
     const capacity = Math.min(this.encounterCapacity(bossSummon ? 'summon' : 'spawn', encounterCap),
       MAX_PERSISTENT_SPAWNS - this.contentManager.getSpawnCount());
-    const validPoint = (px: number, py: number) => !inDragonArena(px,py,240) && this.canEnemyOccupy(px,py)
-      &&(shipSummon?onFlagshipDeck(px,py)&&flagshipWalkable(px,py)
+    const validPoint = (px: number, py: number,candidateDefinition:EnemyDefinition=definition) => !inDragonArena(px,py,240) && this.canEnemyOccupy(px,py)
+      &&(shipSummon?onFlagshipDeck(px,py)&&flagshipWalkable(px,py,candidateDefinition.bodyRadius??11)
         &&![...this.enemies].some(e=>e.active&&e.hp>0&&Math.hypot(e.x-px,e.y-py)<40):!onFlagshipBoarding(px,py))
-      && creatureFitsHabitat(definition, this.habitatAt(px,py), bossSummon)
+      && creatureFitsHabitat(candidateDefinition, this.habitatAt(px,py), bossSummon)
+      &&this.m14LocationAllowed(candidateDefinition.id,px,py)
       && (bossSummon || Math.hypot(px-this.player.x,py-this.player.y)>=250)
       && (!summoner || Math.hypot(px-summoner.x,py-summoner.y) <= 300);
     if (capacity < 1 || !validPoint(x,y)) return false;
-    if(enemyId==='gray-wolf') {
+    if(enemyId==='rindass-orc-raider'&&!eventSpawn&&!bossSummon){
+      if(capacity<3)return false;
+      const toward=Math.atan2(this.player.y-y,this.player.x-x),sideX=-Math.sin(toward),sideY=Math.cos(toward);
+      const points=[
+        {enemyId:'rindass-orc-raider',world:{x:x+Math.cos(toward)*38+sideX*30,y:y+Math.sin(toward)*38+sideY*30},role:'leader' as const},
+        {enemyId:'rindass-orc-raider',world:{x:x+Math.cos(toward)*38-sideX*30,y:y+Math.sin(toward)*38-sideY*30},role:'melee' as const},
+        {enemyId:'rindass-orc-spearman',world:{x:x-Math.cos(toward)*82,y:y-Math.sin(toward)*82},role:'ranged' as const},
+      ];
+      if(points.some(member=>!validPoint(member.world.x,member.world.y,ENEMY_BY_ID[member.enemyId])))return false;
+      if(!this.contentManager.addEncounter(points,false,capacity,{leashRadius:900}))return false;
+      this.contentManager.update(this.player.x,this.player.y);
+      useGameStore.getState().setContentWorld(this.contentManager.snapshot());
+      return true;
+    }
+    if(enemyId==='hedge-goblin'){
+      if(capacity<3)return false;
+      const rng=seededRandom('goblin-pack:'+this.contentManager.getNextSpawnSequence());
+      const goal=3,points:Vec2[]=[{x,y}];
+      for(let tries=0;tries<32&&points.length<goal;tries++){
+        const angle=rng()*Math.PI*2,distance=48+rng()*70;
+        const p={x:x+Math.cos(angle)*distance,y:y+Math.sin(angle)*distance};
+        if(validPoint(p.x,p.y)&&points.every(q=>Math.hypot(p.x-q.x,p.y-q.y)>=40))points.push(p);
+      }
+      const members=points.map((world,slot)=>({enemyId:slot===2?'goblin-stone-slinger':enemyId,world,
+        role:slot===2?'ranged' as const:slot===0?'leader' as const:'melee' as const}));
+      if(points.length!==goal||members.some(m=>!validPoint(m.world.x,m.world.y,ENEMY_BY_ID[m.enemyId]))
+        ||!this.contentManager.addEncounter(members,eventSpawn,capacity,{leashRadius:700}))return false;
+    }else if(enemyId==='blighted-thornling'||enemyId==='grove-spider'){
+      if(capacity<2)return false;
+      const rng=seededRandom(`grove-pack:${enemyId}:${this.contentManager.getNextSpawnSequence()}`);
+      const hour=this.dayNight.getHour(),night=hour<6||hour>=18;
+      const goal=Math.min(capacity,enemyId==='grove-spider'?(night?3:2)+Math.floor(rng()*2):2+Math.floor(rng()*3)),points:Vec2[]=[{x,y}];
+      for(let tries=0;tries<40&&points.length<goal;tries++){
+        const angle=rng()*Math.PI*2,radius=55+rng()*100;
+        const p={x:x+Math.cos(angle)*radius,y:y+Math.sin(angle)*radius};
+        if(validPoint(p.x,p.y)&&points.every(q=>Math.hypot(p.x-q.x,p.y-q.y)>=46))points.push(p);
+      }
+      if(points.length!==goal||!this.contentManager.addEncounter(points.map((world,slot)=>({enemyId,world,
+        role:slot===0?'leader' as const:'melee' as const})),eventSpawn,capacity,{leashRadius:700}))return false;
+    }else if(isWolfFamily(enemyId)) {
       // A wolf encounter is always an entire 4–6-member hunting pack.
       if(capacity<4)return false;
       const seed=this.contentManager.getNextSpawnSequence();
@@ -700,19 +798,22 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       if(points.length<goal)return false; // Admit the planned pack, or none of it.
       if(!this.contentManager.addEncounter(points.map(world=>({enemyId,world})),eventSpawn,capacity,{wolfPack:true}))return false;
-    }else if(enemyId==='cutlass-pirate'&&!bossSummon){
-      const goal=Math.min(capacity,3);if(goal<2)return false;
+    }else if((enemyId==='cutlass-pirate'||enemyId==='pirate-boatswain')&&(!bossSummon||shipSummon)){
+      const goal=3;if(capacity<goal)return false;
       const rng=seededRandom('pirate-crew:'+this.contentManager.getNextSpawnSequence()),points:Vec2[]=[{x,y}];
       for(let tries=0;tries<32&&points.length<goal;tries++){
         const angle=rng()*Math.PI*2,distance=48+rng()*70;
         const p={x:x+Math.cos(angle)*distance,y:y+Math.sin(angle)*distance};
         if(validPoint(p.x,p.y)&&points.every(other=>Math.hypot(other.x-p.x,other.y-p.y)>=40))points.push(p);
       }
-      if(points.length!==goal||!this.contentManager.addEncounter(points.map(world=>({enemyId,world})),eventSpawn,capacity))return false;
-    }else if(shipSummon){
-      if(!this.contentManager.addEncounter([{enemyId,world:{x,y}}],true,capacity,{leashRadius:1400}))return false;
-      // The saved encounter's fixed home is on deck; that identifies ship
-      // helpers after unloading/reloading without serializing a runtime flag.
+      const members=points.map((world,slot)=>{
+        const heavy=slot===2;
+        return {enemyId:heavy?'pirate-boatswain':'cutlass-pirate',world,
+          role:(heavy?'heavy':slot===0?'leader':'melee') as 'heavy'|'leader'|'melee'};
+      });
+      if(points.length!==goal||members.some(member=>!validPoint(member.world.x,member.world.y,ENEMY_BY_ID[member.enemyId]))
+        ||!this.contentManager.addEncounter(members,eventSpawn,capacity,
+          {leashRadius:shipSummon?1400:900}))return false;
     }else this.contentManager.addSpawn(enemyId,{x,y},eventSpawn);
     this.contentManager.update(this.player.x,this.player.y);
     useGameStore.getState().setContentWorld(this.contentManager.snapshot());
@@ -726,7 +827,16 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   encounterArrived(enemy:Enemy) { this.encounters.arrived(enemy.instanceId); }
   /** Live bounded actor set; steering filters locally without allocating arrays. */
-  pirateSteeringActors():ReadonlySet<Enemy> { return this.enemies; }
+  enemySteeringActors():ReadonlySet<Enemy> { return this.enemies; }
+  enemyPatrolLeader(enemy:Enemy):Enemy|null {
+    if(!enemy.encounterKey||!enemy.encounterBehavior||enemy.encounterBehavior.leashRadius>900)return null;
+    let leader:Enemy|null=null;
+    for(const member of this.enemies){
+      if(!member.active||member.hp<=0||member.encounterKey!==enemy.encounterKey||!member.encounterBehavior)continue;
+      if(!leader||member.encounterBehavior.slot<leader.encounterBehavior!.slot)leader=member;
+    }
+    return leader;
+  }
   wolfPackLeader(id:string){return (this.contentManager.getWolfPackActors(id) as Enemy[])
     .find(enemy=>enemy.active&&enemy.hp>0&&enemy.wolfAlpha)??null;}
 
@@ -799,6 +909,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   handleEnemyDefeated(enemy: Enemy) {
+    this.forgetOrcSpears(enemy.instanceId);
     const definition = enemy.definition;
     const rng = seededRandom(`${enemy.instanceId}:loot`);
     const gold = definition.goldMin + Math.floor(rng() * (definition.goldMax - definition.goldMin + 1));
@@ -831,6 +942,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   respawnPlayer() {
     const home = TOWN_BY_ID[LEIGNERON.homeTownId].world;
+    this.spearProjectiles.clear();
     useGameStore.getState().showToast('Leigneron collapses and wakes in Oakmere.');
     this.player.restoreAt(home.x, home.y + 80);
     this.playEffect('teleport', this.player.x, this.player.y);
@@ -853,7 +965,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   isWalkable(x: number, y: number) { return this.worldGenerator.isWalkable(x, y); }
   isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y)
     &&!(useGameStore.getState().storyFlags['oakmere-road-open']&&Math.hypot(x-TOWN_BY_ID.oakmere.world.x,y-TOWN_BY_ID.oakmere.world.y)<5000&&this.worldGenerator.isRoad(x,y,30))
-    &&!WILDERNESS_SITES.some(s=>(s.style==='camp'||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
+    &&!WILDERNESS_SITES.some(s=>((s.style==='camp'&&!s.hostile)||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
   canEnemyOccupy(x: number, y: number,enemy?:Enemy) {
     if(enemy&&isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home)
       &&(!onFlagshipDeck(x,y)||!flagshipWalkable(x,y,enemy.definition.bodyRadius??(enemy.definition.boss?24:11))))return false;
@@ -1116,7 +1228,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private destroyContentActor(actor: ContentActor) {
-    if (actor instanceof Enemy) this.enemies.delete(actor);
+    if (actor instanceof Enemy) {this.enemies.delete(actor);this.forgetOrcSpears(actor.instanceId);}
     if (actor instanceof Npc) {
       const i = this.npcs.indexOf(actor); if (i >= 0) this.npcs.splice(i, 1);
     }
@@ -1208,6 +1320,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.notify('This shrine arrival is obstructed. Try again shortly.');
       return;
     }
+    this.spearProjectiles.clear();
     this.playEffect('teleport',departure.x,departure.y);
     (this.player.body as Phaser.Physics.Arcade.Body).reset(landing.x,landing.y);
     this.player.lastDirection.set(0,1);
@@ -1226,7 +1339,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const biome=this.worldGenerator.getBiomeAt(this.player.x,this.player.y);
     const hour=this.dayNight.getHour(),night=hour>=18||hour<6;
     const forest=biome==='forest',swamp=biome==='wetland';
-    const wild=forest||swamp||biome==='highland'||biome==='snowfield'||biome==='volcanic';
+    const wild=forest||swamp||biome==='highland'||biome==='snowfield'||biome==='volcanic'||biome==='dryland';
     if(this.encounterCapacity('spawn')<1)return;
     // Do not materialize fresh enemies in the middle of an ongoing melee.
     if([...this.enemies].some(e=>e.active&&e.hp>0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<250))return;
@@ -1246,13 +1359,18 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       // Selection and density follow the actual candidate, not the player's
       // side of a region/biome border. Each pack member is checked again.
       const habitat=this.habitatAt(px,py);
-      const candidateWild=['forest','wetland','highland','snowfield','volcanic'].includes(habitat.biome);
+      const candidateWild=['forest','wetland','highland','snowfield','volcanic','dryland'].includes(habitat.biome);
       const candidateCap=candidateWild?(night?12:9):(night?10:7);
       const available=this.encounterCapacity('spawn',candidateCap);
       if(available<1)continue;
       const weights:string[]=[];
       for(const enemy of ENEMIES){
-        if(enemy.id==='gray-wolf'&&available<4)continue;
+        if(isWolfFamily(enemy.id)&&available<4)continue;
+        if(enemy.id==='rindass-orc-raider'&&available<3)continue;
+        if(enemy.id==='cutlass-pirate'&&available<3)continue;
+        if(enemy.id==='hedge-goblin'&&available<3)continue;
+        if(['blighted-thornling','grove-spider'].includes(enemy.id)&&available<2)continue;
+        if(!this.m14LocationAllowed(enemy.id,px,py))continue;
         const weight=creatureHabitatWeight(enemy,habitat,night);
         for(let i=0;i<weight;i++)weights.push(enemy.id);
       }
@@ -1260,6 +1378,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const id=weights[Math.floor(rng()*weights.length)];
       if(this.spawnEnemy(id,px,py,false,undefined,candidateCap))return;
     }
+  }
+
+  private m14LocationAllowed(id:string,x:number,y:number):boolean {
+    if(id==='blighted-thornling')return this.wildlife.hasTreeNear({x,y})||WILDERNESS_SITES.some(s=>
+      ['greenward-ruin','moon-pilgrim-grove'].includes(s.id)&&Math.hypot(x-s.world.x,y-s.world.y)<1300);
+    if(id==='grove-spider')return this.worldGenerator.getBiomeAt(x,y)==='forest'&&!this.worldGenerator.isRoad(x,y,100);
+    return true;
   }
 
   private enforceLandCollision() {
@@ -1305,6 +1430,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   shutdown() {
+    this.spearProjectiles?.clear();
     this.wildlife?.destroy();
     this.encounters.clear();
     this.volcanicTremor?.destroy();
@@ -1324,6 +1450,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.weather?.destroy();
     this.cinematicDirector?.destroy();
     this.contentManager?.destroy();
+    this.m14Art?.destroy();
     this.questGuide?.destroy();
     this.chunkManager?.destroy();
     this.treeSway?.destroy();

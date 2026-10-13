@@ -169,9 +169,53 @@ watchtower.world={x:varrSite.x,y:varrSite.y-110};
 for(const siteId of ['clan-road-muster','southern-caravan-rest'] as const){
   const site=WILDERNESS_SITES.find(entry=>entry.id===siteId);
   if(!site)throw new Error(`Missing authored Rindass warband site: ${siteId}`);
-  for(const [slot,[dx,dy]] of [[0,[0,0]],[1,[66,-28]],[2,[-62,-38]]] as const)
+  // Stand in the clearing, not on the discovery marker or ruined foundation.
+  for(const [slot,[dx,dy]] of [[0,[120,180]],[1,[186,152]],[2,[58,142]]] as const)
     WORLD_CONTENT.push({id:`creature:krag-warband:${siteId}:${slot}`,kind:'creature',enemyId:'rindass-orc-raider',
       world:{x:site.world.x+dx,y:site.world.y+dy},eventSpawn:true,encounterId:`krag-warband:${siteId}`});
+}
+// Visible, persistent field patrols outside Red Mesa's protected perimeter.
+// These use the existing streaming/encounter ledger rather than requiring a
+// lucky ambient roll. Each new patrol is two melee fighters and one thrower.
+const redmesa=TOWN_BY_ID.redmesa.world;
+// Scavengers gather by abandoned freight, never in the working farm/town.
+// Keep them beyond the civilian camp's 300-unit protected rest radius.
+const goblinStore=WILDERNESS_SITES.find(s=>s.id==='crown-freight-camp')!;
+const goblinHome={x:goblinStore.world.x+500,y:goblinStore.world.y+300};
+for(const [slot,dx,dy] of [[0,0,0],[1,68,28],[2,-62,38]] as const){
+  const world={x:goblinHome.x+dx,y:goblinHome.y+dy};
+  WORLD_CONTENT.push({id:`creature:hedge-goblins:freight:${slot}`,kind:'creature',enemyId:slot===2?'goblin-stone-slinger':'hedge-goblin',world,eventSpawn:true,
+    encounterId:'hedge-goblins:freight',encounterBehavior:{home:{...goblinHome},station:{...world},leashRadius:700,
+      slot,role:slot===2?'ranged':slot===0?'leader':'melee'}});
+}
+// Diseased roots and shaded nests are authored wilderness encounters, not
+// hostile residents of healthy elven streets/gardens.
+for(const [siteId,enemyId,dx,dy] of [
+  ['greenward-ruin','blighted-thornling',620,400],
+  ['moon-pilgrim-grove','blighted-thornling',500,-550],
+  ['moon-pilgrim-grove','grove-spider',-580,630],
+] as const){
+  const site=WILDERNESS_SITES.find(s=>s.id===siteId)!;
+  const home={x:site.world.x+dx,y:site.world.y+dy};
+  for(const [slot,ox,oy] of [[0,0,0],[1,80,25],[2,-75,40]] as const){
+    const world={x:home.x+ox,y:home.y+oy};
+    WORLD_CONTENT.push({id:`creature:${enemyId}:${siteId}:${slot}`,kind:'creature',enemyId,world,eventSpawn:true,
+      encounterId:`${enemyId}:${siteId}`,encounterBehavior:{home:{...home},station:{...world},leashRadius:700,
+        slot,role:slot===0?'leader':'melee'}});
+  }
+}
+// North/south courts end at +/-1560; east/west flanks extend much farther.
+// Do not mistake the rectangular town bounds for the actual defended area.
+for(const [side,dx,dy] of [['north',700,-2200],['south',-700,2200]] as const){
+  const home={x:redmesa.x+dx,y:redmesa.y+dy};
+  for(const [slot,ox,oy] of [[0,0,0],[1,68,34],[2,-72,46]] as const){
+    const world={x:home.x+ox,y:home.y+oy};
+    WORLD_CONTENT.push({id:`creature:krag-warband:redmesa-${side}:${slot}`,kind:'creature',
+      enemyId:slot===2?'rindass-orc-spearman':'rindass-orc-raider',world,eventSpawn:true,
+      encounterId:`krag-warband:redmesa-${side}`,
+      encounterBehavior:{home:{...home},station:{...world},leashRadius:900,slot,
+        role:slot===2?'ranged':slot===0?'leader':'melee'}});
+  }
 }
 // Preserve the existing Oakmere shrine ID and the capital's shrine building ID.
 // Every other settlement gets an accessible shrine beside its central street.

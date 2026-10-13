@@ -2,10 +2,14 @@ import manifests from 'virtual:mernondna-art-packs';
 import {BANDIT_COMBAT_ART,BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
 import {SALT_KING_ANIMATIONS} from './saltKingArt';
 import {PIRATE_COMBAT_ANIMATIONS} from './pirateArt';
+import {BOATSWAIN_ANIMATIONS} from './boatswainArt';
+import {GOBLIN_ANIMATIONS} from './goblinArt';
+import {M14_ANIMATIONS} from './m14Art';
 const hero = manifests['characters/leigneron'], priestess = manifests['npcs/shrine_priestess'];
 const wolf = manifests['enemies/gray_wolf'], bandit = manifests['enemies/road_bandit'], boar = manifests['enemies/boarfiend'], wraith = manifests['enemies/marsh_wraith'];
 const troll=manifests['enemies/troll'],dragon=manifests['enemies/dragon'];
 const orcRaider=manifests['enemies/rindass_orc_raider'];
+const orcSpearman=manifests['enemies/rindass_orc_range'];
 
 export interface PackClip {
   png:string; webp?:string; frames:number; frameRate:number; repeat:number;
@@ -28,11 +32,11 @@ export interface SpriteAnimation {
   key:string; texture:string; frames:number[]; frameRate:number; repeat:number;
   frameDurations?:readonly number[];
 }
-export const SPRITE_PACKS:readonly PackManifest[] = [hero,priestess,wolf,bandit,boar,wraith,troll,dragon,orcRaider];
+export const SPRITE_PACKS:readonly PackManifest[] = [hero,priestess,wolf,bandit,boar,wraith,troll,dragon,orcRaider,orcSpearman];
 export const DIRECTION_CLIPS = ['walk_down','walk_left','walk_right','walk_up'] as const;
 export const ENEMY_STATES = ['idle','walk','attack','hurt','death'] as const;
 export type EnemyAnimationState = typeof ENEMY_STATES[number];
-export const ENEMY_PACKS:readonly PackManifest[] = [wolf,bandit,boar,wraith,troll,dragon,orcRaider];
+export const ENEMY_PACKS:readonly PackManifest[] = [wolf,bandit,boar,wraith,troll,dragon,orcRaider,orcSpearman];
 const LEGACY_ENEMY_PACKS=ENEMY_PACKS.slice(0,4);
 export const HERO_PACK:PackManifest = hero;
 export const SHRINE_PACK:PackManifest = priestess;
@@ -105,6 +109,34 @@ export const TROLL_IMPACT_SOURCES:SpriteSource[]=Array.from({length:4},(_,i):Spr
 ENEMY_ANIMATIONS.push({key:'effect-troll-impact',texture:'effect_troll_impact',frames:[0,1,2,3],frameRate:12,repeat:0});
 ENEMY_ANIMATIONS.push(...SALT_KING_ANIMATIONS);
 ENEMY_ANIMATIONS.push(...PIRATE_COMBAT_ANIMATIONS);
+ENEMY_ANIMATIONS.push(...BOATSWAIN_ANIMATIONS);
+ENEMY_ANIMATIONS.push(...GOBLIN_ANIMATIONS);
+ENEMY_ANIMATIONS.push(...M14_ANIMATIONS);
+const SPEARMAN_DIRECTIONS=['down','left','right','up'] as const;
+export const ORC_SPEARMAN_IDLE_SOURCES=SPEARMAN_DIRECTIONS.flatMap(direction=>clipSources(orcSpearman,'idle_'+direction));
+export const ORC_SPEARMAN_ATTACK_SOURCES=SPEARMAN_DIRECTIONS.flatMap(direction=>clipSources(orcSpearman,'attack_'+direction));
+export const ORC_SPEARMAN_STATE_SOURCES=SPEARMAN_DIRECTIONS.flatMap(direction=>[
+  ...clipSources(orcSpearman,'hurt_'+direction),...clipSources(orcSpearman,'death_'+direction),
+]);
+ENEMY_ANIMATIONS.push(
+  {key:'enemy:9:idle',texture:'enemy_orc_spearman',frames:[0],frameRate:1,repeat:-1},
+  {key:'enemy:9:walk',texture:'enemy_walk_orc_spearman',frames:[1,2,3,4,5,6],frameRate:orcSpearman.animations.walk_down.frameRate,repeat:-1},
+);
+for(const [directionIndex,direction] of SPEARMAN_DIRECTIONS.entries()){
+  const attackFrames=Array.from({length:6},(_,i)=>directionIndex*6+i);
+  const hurtFrames=Array.from({length:3},(_,i)=>directionIndex*6+i);
+  const deathFrames=Array.from({length:3},(_,i)=>directionIndex*6+3+i);
+  ENEMY_ANIMATIONS.push(
+    {key:`enemy:9:attack:${direction}`,texture:'enemy_orc_spearman_actions',frames:[attackFrames[0],attackFrames[0],attackFrames[0],attackFrames[1],attackFrames[1],attackFrames[2],...attackFrames.slice(3)],frameRate:orcSpearman.animations['attack_'+direction].frameRate,repeat:0},
+    {key:`enemy:9:hurt:${direction}`,texture:'enemy_orc_spearman_states',frames:hurtFrames,frameRate:orcSpearman.animations['hurt_'+direction].frameRate,repeat:0},
+    {key:`enemy:9:death:${direction}`,texture:'enemy_orc_spearman_states',frames:deathFrames,frameRate:orcSpearman.animations['death_'+direction].frameRate,repeat:0},
+  );
+}
+ENEMY_ANIMATIONS.push(
+  {key:'enemy:9:attack',texture:'enemy_orc_spearman_actions',frames:[0,0,0,1,1,2,3,4,5],frameRate:orcSpearman.animations.attack_down.frameRate,repeat:0},
+  {key:'enemy:9:hurt',texture:'enemy_orc_spearman_states',frames:[0,1,2],frameRate:orcSpearman.animations.hurt_down.frameRate,repeat:0},
+  {key:'enemy:9:death',texture:'enemy_orc_spearman_states',frames:[3,4,5],frameRate:orcSpearman.animations.death_down.frameRate,repeat:0},
+);
 ENEMY_ANIMATIONS.push(
   {key:'enemy:8:idle',texture:'enemy_walk_orc_raider',frames:[0],frameRate:1,repeat:-1},
   {key:'enemy:8:walk',texture:'enemy_walk_orc_raider',frames:[1,2,3,4,5,6],frameRate:orcRaider.animations.walk_down.frameRate,repeat:-1},
@@ -112,8 +144,9 @@ ENEMY_ANIMATIONS.push(
   {key:'enemy:8:hurt',texture:'enemy_orc_raider',frames:[6,7,8,9,10,11],frameRate:orcRaider.animations.hurt.frameRate,repeat:orcRaider.animations.hurt.repeat},
   {key:'enemy:8:death',texture:'enemy_orc_raider',frames:[12,13,14,15,16,17],frameRate:orcRaider.animations.death.frameRate,repeat:orcRaider.animations.death.repeat},
 );
-export function enemyAnimation(species:number, state:EnemyAnimationState) {
-  const animation = ENEMY_ANIMATIONS.find(a => a.key === `enemy:${species}:${state}`);
+export function enemyAnimation(species:number, state:EnemyAnimationState, direction?:typeof SPEARMAN_DIRECTIONS[number]) {
+  const animation = (direction&&ENEMY_ANIMATIONS.find(a=>a.key===`enemy:${species}:${state}:${direction}`))
+    ?? ENEMY_ANIMATIONS.find(a => a.key === `enemy:${species}:${state}`);
   if (!animation) throw new Error(`No enemy animation for ${species}/${state}`);
   return animation;
 }

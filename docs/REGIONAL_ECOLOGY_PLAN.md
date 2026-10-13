@@ -87,7 +87,7 @@ Use a separate lightweight `AmbientWildlifeSystem`; decorative animals have no c
 | Rootfather | Planned replacement, confirm full rendered review | Current blue skeletal wraith poorly communicates the rooted mine guardian described by the story. Proposed complete root-and-stone guardian, preserving existing boss/quest identity. |
 | Salt King | Keep | The newly generated pirate captain already fits Portquill. Change crew/summons rather than regenerating his model. |
 | Frost Wyrm | Replace | Currently a gray wolf, while story dialogue explicitly refers to scales. Use a scaled ground-dwelling ice wyrm with appropriate lunge poses; no flight sequence unless the encounter design actually needs flight. |
-| Ashen Seer | Keep | Hooded spectral oracle fits wraith-binding volcanic lore. Review restrained ash/ember presentation if needed; no new full body by default. |
+| Ashen Seer | Replace (user-requested distinction) | Previously shared Moonlit Warden's blue wraith model. Dedicated obsidian-masked, ash-robed ember oracle now preserves the volcanic wraith-binding lore and existing encounter identity. Source implemented; rendered acceptance pending. See `ASHEN_SEER_ART.md`. |
 | Varkhul | Keep | Approved ember dragon already fits Darkav. Preserve ground/flight size, breath, attacking model and retreat behavior. |
 
 Validate changed boss body dimensions, attacks, warning area and collision footprint together. Preserve stable IDs, defeat progression, respawn timers and cutscenes. Krag's warband summons can become appropriate orc raiders; Rootfather's existing spirit summons still make sense; Frost Wyrm helpers should be native Frostlands creatures.
@@ -149,7 +149,7 @@ Each row is a work package with a proposed commit title. It is not a fixed usage
 | M04 | New art family | Complete one melee orc raider family and admit small hostile Rindass packs near appropriate camps/wells. | Smooth complete footwork/combat, hostile faction limited to Krag's warband, friendly orcan NPCs untouched, pack spacing and habitat checks pass. `Add Rindass melee orc raiders` |
 | M05 | Foundation/code | Implement pooled enemy projectiles and a proper spear projectile asset, swept obstacle/player collision, finite lifetime, attack cancellation and sound hooks. Future throwers remain disabled until their complete family is ready. | Projectile cap, thin-wall collision, committed aim, no homing, pause/unload/death cleanup and no accumulating callbacks. `Add bounded enemy projectile infrastructure` |
 | M06 | New art family | Complete the spear-throwing orc family; activate ranged behavior and mixed melee/ranged Rindass packs. | Spear release matches the hand/frame, windup/recovery is readable, close-range behavior and obstacles work, stagger and the full Crescent Flurry window are tested. `Add spear-throwing orcs and mixed warbands` |
-| M07 | New art family | Complete one pirate harpoon thrower family, reuse M05 projectiles, add ranged pirate crew compositions. | Release/impact registration, deck-ready leashes, sensible ranged spacing, audio and sprite checks. `Add pirate harpoon throwers` |
+| M07 | Dropped by user | Pirate harpoon throwers are removed from the plan. Pirate crews use melee roles. | No implementation planned. |
 | M08 | New art family | Complete one heavy boatswain family and tune the mixed pirate crew under the shared budget. | Stable body/weapon size in all states, clear heavy-attack warnings, no repeated stunlock or overlapping crew. `Add heavy pirate boatswains` |
 | M09 | Integration/performance | Map the moored flagship encounter footprint, gangplank, deck boundaries, cover and navigation using existing validated actors in a disabled review encounter. Keep temporary geometry out of enabled gameplay. | Player and crew can enter/exit, remain inside the deck, respect rails/mast and cannot cross surrounding water; civilian docks and travel remain safe. `Add validated pirate flagship deck geometry` |
 | M10 | New art / integration | Create final ship layers at real player/crew scale, replace the review presentation, enable 4–6-member crew encounters and add restrained ship/water motion and shadows. Split M10a art/M10b activation if needed. | Rendered boarding/combat/depth checks, no outside-hull player, no foot drift, fair ranged positions, save/respawn, day/night water performance and existing voyages pass. `Add boardable Portquill pirate flagship` |
@@ -166,7 +166,7 @@ Each row is a work package with a proposed commit title. It is not a fixed usage
 | M21 | Integration/performance | Run all-region end-to-end source, save, combat, rendered art and performance regression comparisons. Repair issues within scope; hold back any family that exceeds the budget. | Comparable day/afternoon/night scenes, max packs/crew/wildlife/projectiles, repeated streaming/boarding and stable memory. Preserve graphics. `Validate and optimize regional ecology expansion` |
 | M22 | Device validation | When APK creation is explicitly requested, validate the integrated game on Android, including afternoon/night, ship combat, wildlife and extended travel. Record device/settings and measurements. | No justified phone-performance claim without measurements. Fix demonstrated regressions and perform only the requested build/publication actions. `Validate regional ecology performance on Android` |
 
-Dependencies: M01/M02 precede new pack admission; M05 precedes spear/harpoon combat; M07/M08/M09 precede full flagship activation; M11 precedes other wildlife. Remaining regional families can be reordered after the core milestone checks pass, but keep one family per asset slice. Boss art does not block the initial pirate/orc/wildlife milestones.
+Dependencies: M01/M02 precede new pack admission; M05 precedes orc spear combat; M09 supplies flagship navigation, M10 its presentation, and M08 adds the heavy melee crew role to the existing ship. M07 is dropped. M11 precedes other wildlife. Remaining regional families can be reordered after the core milestone checks pass, but keep one family per asset slice. Boss art does not block the initial pirate/orc/wildlife milestones.
 
 The regional residency/loading work described in the performance gates must be in place before the expanded roster exceeds the measured startup/GPU budget. Schedule a separate code-only submilestone at that point rather than quietly preloading every new family or hiding the cost by reducing artwork quality.
 
@@ -591,6 +591,177 @@ Keep the handoff with the milestone's changes before an authorized commit; the r
 
 The original plan-only update created no game code or assets. The M01a checkpoint above records the subsequent authorized source-only implementation. Future requests control validation, remaining implementation, commits, pushes and builds.
 
+### M14a–d combined implementation checkpoint (2026-10-13)
+
+The user requested the remaining M14 family in one batch, superseding the
+previous one-family-per-session pacing. All four M14 families now have source
+implementations; none is claimed runtime-approved without manual acceptance.
+
+- M14b: complete directional goblin stone-slinger artwork, actual stone sprite,
+  shared bounded projectile combat, mixed two-melee/one-ranged goblin groups,
+  authored freight encounter upgrade and surviving saved-group migration.
+- M14c: complete directional blighted thornling artwork and two-to-four-member
+  groups restricted to corrupted Greenward/pilgrim sites, not healthy gardens.
+- M14d: complete directional grove spider artwork, anatomy-guided eight-leg
+  refinement, readable bite windup/recovery, shaded-forest groups away from
+  roads/towns, and a persistent pilgrim-clearing nest. No invented poison/web
+  obstruction subsystem or boss-model replacements.
+- Shared group spacing, alerts, home leashes, stat growth, targeting, collision,
+  save and chunk streaming are retained. Dead member records survive pruning
+  until the whole group is defeated, preserving casualty/composition history.
+- Spears and stones share the same eight-flight pool and clear on source
+  defeat/unload/travel/shutdown. Corrected release-position aiming; existing
+  spear speed/range/lifetime are unchanged. New stones are finite non-homing
+  shots using scaled damage, not decorative lines or generic circles.
+- Added serial on-demand atlas loading for M14b–d with two-family residency,
+  live-actor protection, corpse grace, source release and shutdown cleanup.
+  No permanent boot preload of all three new family atlases. Resource estimates,
+  selected PNGs, exact built-in image-generation prompts and acceptance limits
+  are documented in `M14_CREATURE_ART.md`.
+- No tests, type checks, builds or game launches ran. Rendered gait/registration,
+  projectile behavior, save/resume, residency transitions and actual device
+  performance remain pending authorized/manual verification. Next family is
+  M15a–c: stone crawler, rootgnawer and marsh crawler.
+
+### M14a hedge goblin implementation checkpoint (2026-10-13)
+
+- Added the Trandum hedge goblin scavenger with matching painted artwork and
+  complete directional idle, four-phase walking, dagger attack, hurt and death
+  poses. The left-facing profile mirrors whole right-facing poses. Corrected
+  repeated front contacts and a clipped back-facing fallen pose using separately
+  generated complete figures, not stitched limbs. Assets, exact prompts and
+  source-registration notes are documented in `HEDGE_GOBLIN_ART.md`.
+- Added persistent three-goblin scavengers beside abandoned crown freight,
+  beyond the safe camp radius, plus atomic two/three-member ambient groups at
+  Trandum woodland/margins or near that abandoned store. Native habitat,
+  settlement/farmland/water/lava exclusion, scenery clearance, encounter budgets,
+  saved damage/defeats and chunk streaming use the existing implementations.
+- Goblins use shared approach spacing/collision and group alerts/leashes.
+  Generalized the bounded idle patrol-following helper so short-leash groups
+  remain together; wolves retain their approved pack behavior and the ship's
+  posted actors retain separate routines. Reused quieter distance-gated human
+  vocal assets at a higher playback pitch and existing dagger/impact cues.
+- Base stats: 54 HP, 8 damage, 85 movement, 16 XP; existing regional scaling
+  applies. Attack windup/recovery is 320/480 ms with matching impact playback.
+  Goblin stone-slingers remain disabled/unimplemented until M14b.
+- Source implementation complete, not runtime-approved. No tests, builds,
+  type checks or game launches ran. The single 44-frame density-2 atlas costs
+  10.5 MiB raw; source textures are released. Actual performance, all-facing
+  GPU/body/foot/weapon registration and save/combat behavior remain for manual
+  acceptance. Next family: M14b goblin stone-slinger.
+
+### Legacy single-pirate correction (2026-10-13)
+
+- Corrected the saved-crew migration's exclusion of pirates with no encounter
+  ID. Surviving legacy singleton deckhands/coastal bandits now receive a stable
+  encounter ID and two safely placed companions, forming the same two-deckhand,
+  one-boatswain composition as new patrols. All additions are staged before
+  committing IDs/records: unsafe placement or insufficient persistent capacity
+  leaves the original record untouched instead of creating an incomplete crew.
+- Retained original actor IDs, saved damage and defeated states. Grouped lone
+  survivors are not replenished, because previous companions may have been
+  killed and their corpses pruned. Ship encounters remain separate.
+- Existing shared admission activates pending group members atomically; new
+  pirate patrols already reject fewer than three available hostile slots.
+- Field patrol followers now keep near their living lowest-slot leader during
+  idle roaming rather than independently drifting across their whole leash.
+  Wolf behavior and the ship's posted crew/deck routines are unchanged.
+- Source review only; no tests, builds, type checks or game launches ran.
+
+### Enemy tier and elite threat tuning (2026-10-13)
+
+- Audited damage delivery: ordinary attacks, pooled spears and dragon damage
+  already consume the actor's scaled definition, not a shared fixed damage.
+  Player defense/rally modifiers and local unlimited-health cheats still apply.
+- Increased per-level growth above the existing level-5 baseline: HP +16%
+  and damage +8.5% of base per level, replacing +11% / +3.5%. Existing XP
+  scaling remains +13% per level, so durability and attack threat now grow
+  faster than XP reward. No new per-frame scaling or player-level rubber banding.
+- Boatswains, ranged orcs and alpha wolves now receive +5 levels above their
+  regular pack members. Bosses retain +10. Encounter home determines the
+  shared area tier, preventing wandering/restoration from changing members'
+  relative levels. Alpha wolves retain their existing extra stat multipliers.
+- Raised spear-orc baseline HP/damage from 88/12 to 120/16 and XP from 28 to
+  35, making the higher-level ranged role genuinely stronger than melee orcs.
+  Boatswains already have stronger baseline stats than deckhands.
+- Updated saved pirate composition migration to use the same elite level rule.
+  Existing HP/max-HP restoration preserves saved damage fractions; casualties
+  remain defeated. Legacy saves without maxima retain their recorded raw HP.
+- Source inspection only; no tests, builds, type checks or game launches ran.
+  Gameplay difficulty is not claimed runtime-balanced without manual review.
+
+### Mandatory mixed pirate patrols (2026-10-13)
+
+- Regular pirate groups now require exactly three actors: two cutlass deckhands
+  and one boatswain. Removed the capacity fallback that created deckhand pairs;
+  insufficient capacity/clear positions reject the entire new patrol. Ambient
+  selection skips pirate patrols when fewer than three slots are available.
+- Salt King reinforcements now use the same atomic three-member composition,
+  with a single group request and three reserved summon slots. This supersedes
+  the prior two-member reinforcement correction below. The authored flagship
+  retains its existing five-member complement (three deckhands/two heavies).
+- At scene creation, saved off-ship two/three-member pirate groups are upgraded
+  to this composition. Existing IDs, damage fractions, casualties and timers
+  remain; a surviving old pair gains its missing third member only when a safe
+  nearby native position and persistent-record capacity exist. Cleared pairs,
+  unsafe placements and singleton ship reinforcements are left untouched.
+- New group admission still respects the global hostile cap, boss reservations,
+  protected settlements, scenery, habitat, and ship rail/cover boundaries.
+- Source review only; no tests, builds, type checks or game launches ran.
+
+### Boatswain spawn-path correction (2026-10-13)
+
+- The authored flagship already assigns crew slots 1 and 3 to boatswains, but
+  Salt King reinforcement requests were exclusively cutlass deckhands. Each
+  reinforcement wave now requests a boatswain first, then a deckhand, keeping
+  the existing count, shared budget and on-deck restrictions. Up to eight
+  nearby deck candidates are tried per member to avoid losing that role to a
+  single blocked rail/body position. Other bosses' summon behavior is unchanged.
+- Removed direct boatswain-to-deckhand coercion. Direct boatswain requests now
+  form a mixed crew led by a heavy, while ordinary three-member coastal crews
+  retain their existing two-deckhand/one-heavy composition.
+- Existing crew IDs, defeated states, timers and player saves are not reset.
+  Already-defeated authored boatswains remain absent until the crew's normal
+  replacement cycle; reinforcements provide an additional live spawn path.
+- Source and supplied sprite inspection only. No tests, builds or game launches
+  ran; live actor counts/save contents and rendered visibility are unverified.
+
+### Shared ground-enemy chase spacing (2026-10-13)
+
+- Orcs and other non-wolf ground enemies now use the pirate approach-slot and
+  local ally-avoidance logic instead of converging directly on the player.
+  Nearby live enemies of every family participate in avoidance. Spear throwers
+  reserve positions on a separate 280-unit ring, retaining ranged standoff.
+- Extended the existing pirate collision safeguard to other living ground
+  enemies, including roaming/returning actors. Wolf-to-wolf collisions remain
+  disabled to preserve approved pack movement; dragon movement/flight remains
+  under its dedicated combat controller.
+- Preserved wolf hunting lanes and staggered attack windows, extending their
+  soft repulsion to nearby enemies outside their own pack. Attack locks,
+  recovery pauses, movement speeds, scenery checks and hostile limits remain.
+- Source inspection only; no tests, builds, type checks or runtime checks ran.
+  Crowd behavior and rendered spacing remain pending manual acceptance.
+
+### Rindass orc visibility correction (2026-10-13)
+
+- Fixed an admission contradiction: the abandoned Southern Caravan Shelter
+  contained an authored warband but the universal safe-camp radius prevented
+  its actors from activating. Only this occupied shelter is marked hostile;
+  civilian camps and protected settlement areas remain safe.
+- Moved the two existing warbands into their sites' clearings, away from the
+  discovery markers/ruined foundation. Living saved actors still on the old
+  marker are relocated without resetting HP, rewards or defeated records.
+- Added two persistent Red Mesa field patrols, north and south of the actual
+  six-sided defended perimeter. Each contains two melee orcs and one ranged
+  orc and uses existing chunk streaming, group admission and save persistence.
+- Orc habitat now includes Rindass meadow/coastal ground (still excluding
+  water, lava, farmland and protected settlements). Dryland uses wilderness
+  spawn cadence/chance/density; ambient selection skips a three-orc family
+  when fewer than three admission slots remain. The global 16-hostile cap
+  and boss reservations are unchanged.
+- Source review only. No tests, builds, type checks or game launches requested
+  or performed; rendered appearance and actual traversal need manual review.
+
 ### M04 implementation checkpoint (2026-10-12)
 
 - Added a complete Rindass melee orc asset family: four directional neutral
@@ -598,15 +769,135 @@ The original plan-only update created no game code or assets. The M01a checkpoin
   attack, hurt, and death sequences. The neutral frames are excluded from the
   locomotion loops; full-body frames share a fixed scale and ground alignment.
 - Added one persistent three-raider group at each of the Shared Well and Empty
-  Caravan Shelter wilderness sites. The family has no ambient spawn weight, so
-  it remains tied to Krag's warband and does not populate friendly settlements.
-  Friendly orcan NPC definitions and Krag's existing boss/summon setup are
-  unchanged.
+  Caravan Shelter wilderness sites. The family also has a Rindass ambient
+  weight, constrained to dryland/highland wilderness outside settlements;
+  friendly orcan NPC definitions and Krag's existing boss/summon setup remain
+  unchanged. Random ambient raider admissions use the 2-melee/1-ranged
+  formation once M06 is active.
 - Source and sprite-board review only. No tests, typecheck, build, or game launch
   were run under the standing no-test rule; runtime gait, combat, pack spacing,
   and habitat acceptance remain unverified. Asset layout and generation notes
-  are recorded in `RINDASS_ORC_RAIDER_ART.md`.
-- Working-tree checkpoint: M04 implementation is local and uncommitted; usage
-  readings unavailable. Remaining work is the requested targeted/manual
-  acceptance before marking M04 verified. Next milestone after acceptance: M05
-  bounded enemy projectile infrastructure.
+  are recorded in `RINDASS_ORC_RAIDER_ART.md`. M04 implementation is complete;
+  the requested manual acceptance remains with the user.
+
+### M05/M06 implementation checkpoint (2026-10-13)
+
+- Registered the saved Rindass spear-thrower assets and directional idle/walk,
+  attack, hurt, and death clips. The authored attack holds the wind-up poses so
+  projectile release aligns with the throwing motion; directional side poses
+  are not mirrored.
+- Added an eight-shot pooled projectile system with release-time committed aim,
+  swept player/scenery checks, terrain stopping, finite lifetime/range, and
+  cleanup on source defeat/unload, travel, and scene shutdown. UI/dialogue/
+  cinematic pauses do not advance shots. The spear thrower maintains a ranged
+  standoff and only fires through a clear line.
+- Random ambient Rindass raider spawns validate and commit complete encounters
+  atomically: exactly two melee raiders and one spear thrower, each
+  individually checked for region/biome, walkability, settlement/building
+  clearance, player spacing, and group spacing. Capacity shortfalls reject the
+  whole encounter. Authored M04 camp patrols and other event-spawn patrols keep
+  their existing persistent identities/compositions; spearmen have no
+  independent ambient weight.
+- Source review only. No tests, build, typecheck, or game launch were run at the
+  user's request. Runtime projectile registration/impact and the art in motion
+  remain for the user's manual acceptance. M04 is implemented but not claimed
+  runtime-verified; M05 and M06 source implementation is complete, pending that
+  same manual acceptance.
+
+### M08 implementation checkpoint (2026-10-13)
+
+- Added a heavy pirate boatswain matching the approved cutlass crew's painted
+  style. Three saved PNGs provide 28 directional idle/walking poses, 24
+  directional mallet-attack poses, and 24 directional hurt/death poses. Source
+  alpha/subject review found all expected complete figures. Neutral poses stay
+  out of walking loops; side facings use their own authored poses.
+- The dedicated atlas isolates complete connected subjects across approximate
+  source grid seams, calibrates body size once per facing/state against a
+  standing pose, and anchors raised/low mallets independently of boot soles.
+  Its 76 frames occupy one 2048x2560 RGBA texture (20 MiB before driver
+  overhead); source textures are released after atlas preparation. This is a
+  source resource calculation, not a measured mobile-performance claim.
+- Boatswains have slower movement, greater health/damage, a 700ms frontal
+  windup matching the impact frame, 700ms recovery, and longer ordinary stagger
+  immunity. Crescent Flurry still forces the existing full suppression window.
+  They use human vocals and heavy impact audio, existing warning artwork,
+  pirate ally steering, collision, deck navigation, leashes, and cleanup.
+- The flagship keeps five crew members: three cutlass deckhands and two
+  boatswains. Original crew IDs, positions, defeat/respawn ledgers, and saved
+  health ratios are preserved. New three-member Portquill crews contain two
+  cutlass pirates and one heavy; crews admitted with only two available slots
+  remain cutlass pairs. Heavies do not receive a separate ambient spawn weight.
+- Source implementation is complete; no tests, typecheck, build, browser/game
+  launch, commit, or push were performed. Rendered body/weapon registration,
+  gait, telegraph reach, deck crowding, Flurry behavior, and performance remain
+  for authorized/manual review. Artwork and exact built-in generation prompts
+  are recorded in `BOATSWAIN_ART.md`. Next unfinished family: M14a hedge goblin;
+  M09/M10 and M11-M13 already have implementation checkpoints above.
+
+### M08 gait correction (2026-10-13)
+
+- The user rejected the original walking animation. The original sheet's pose
+  variety did not establish a coherent support/passing cycle; its six-frame
+  loops are superseded rather than described as accepted.
+- Added `walk-side-v2.png` and `walk-vertical-v2.png` using complete full-body
+  generation with an explicit hip/knee/ankle guide. Selected only contact and
+  lifted passing poses: side source 0,2,3,5; down contacts from the original
+  source plus new passing poses 2/3; up source 4,6,5,7. Rejected duplicate lead
+  contacts and a side pose that changes the mallet hand.
+- All facings now play four poses at 7fps with the existing speed adjustment
+  and phase-preserving direction changes. Side walking is mirrored from one
+  canonical cycle during atlas preparation. Idle/combat poses and their
+  registration remain unchanged. Reused existing locomotion cells, keeping
+  the same 76-slot / 20-MiB atlas; new source textures are released after use.
+- Source art/code review only; no tests, typecheck, build, browser/game launch,
+  commit or push. Actual rendered gait and transitions remain unverified.
+  This correction is pending the user's manual appearance acceptance.
+
+### M18-M20 boss-family implementation checkpoint (2026-10-13)
+
+- Krag now uses a complete armored orc chieftain instead of the boar model,
+  directional melee/windup/hurt/death poses and orc-raider reinforcements.
+  Dedicated whole side contact/passing sources alternate the supporting leg;
+  duplicated generated lead-foot poses are excluded. Stable `iron-tusk` boss
+  and `redmesa-chieftain` enemy IDs remain unchanged.
+- Frost Wyrm now has a scaled, four-legged, wingless ice body with a grounded
+  lunge. Native frost wolves reuse approved wolf anatomy and coordinated pack
+  behavior; frost alpha wolves retain the five-level elite rule. Save loading
+  preserves IDs, wounds and pack state when upgrading old Frostlands wolves.
+- Source review confirmed Rootfather's blue skeletal-wraith silhouette did
+  not communicate the mine/root guardian. Implemented a complete root-and-stone
+  replacement with amber core, rooted gait, warned slam and full hurt/death
+  poses. Its existing marsh-wraith summons and quest identity are retained.
+  This source decision does not substitute for the plan's rendered review.
+- All bosses are 12% larger with proportional collision radii, reach and
+  warning footprints. No other boss artwork, health, damage, reward, timer,
+  quest ID or cinematic hook was replaced. Dragon ground/flight share the
+  same new appearance multiplier.
+- Reused the on-demand art loader: two ambient family atlases plus one boss
+  atlas maximum, boss queue priority, no eviction of live textures, released
+  source images. The 16-hostile and 512-persistent-spawn ceilings are unchanged.
+- Source implementation of M18, M19 and M20 is complete; rendered acceptance
+  remains pending. No tests, typecheck, build or game launch were run.
+  Assets, prompts and registration limitations: `BOSS_REPLACEMENT_ART.md`.
+  Subsequent all-boss source review and updated one-board walking assets:
+  `BOSS_ANIMATION_REVIEW.md`. No claim of perfect/rendered gait acceptance.
+
+### M14 habitat expansion (2026-10-13)
+
+- Goblin encounters are uncommon wilderness trios in all eight land regions:
+  two hedge-goblin melee scavengers plus one stone slinger. They are not town
+  residents and do not spawn inside protected settlements, farms, sea or lava.
+  Every member must pass occupancy and spacing checks before atomic admission.
+- Grove spiders inhabit forests in any region, away from roads. Night adds
+  eight selection-weight units and targets 3-4 members rather than daytime
+  2-3, subject to existing density/reservation caps. Night uses the same 18:00
+  to 06:00 clock boundary as ambient encounter admission.
+- Thornlings may inhabit ordinary land within 350 world units of actual
+  loaded trees as well as the existing Narenthil blight sites. A separate
+  bounded scenery tree index includes regional/dried trees without introducing
+  woodland wildlife into inappropriate biomes; entries leave with their trees.
+- Broadened old goblin-crew upgrades beyond Trandum while preserving casualties
+  and health. Habitat changes affect new admission; they do not refill defeated
+  packs or remove persistent encounter identities.
+- Source review only; user manual exploration and rendered review remain the
+  acceptance path. No tests or builds were executed.

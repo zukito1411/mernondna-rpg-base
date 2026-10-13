@@ -17,10 +17,19 @@ export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
  // Far from a settlement, use the region's consistent wilderness difficulty.
  return nearby&&nearby.distance<15000&&index>=0?5+Math.floor(index/2)*5:REGION_FALLBACK[regionId];
 }
+/** One shared level rule for live actors and saved crew upgrades. Elite roles
+ * are always five levels above regular members from the same encounter home. */
+export function enemyLevelAt(definition:EnemyDefinition,x:number,y:number,regionId:RegionId,wolfAlpha=false):number {
+ const elite=definition.id==='pirate-boatswain'||definition.id==='rindass-orc-spearman'
+   ||['gray-wolf','frost-wolf'].includes(definition.id)&&wolfAlpha;
+ return areaMonsterLevel(x,y,regionId)+(definition.boss?10:elite?5:0);
+}
 export function scaledEnemy(definition:EnemyDefinition,level:number):EnemyDefinition {
  const steps=Math.max(0,level-5),boss=Boolean(definition.boss);
- // Higher-level enemies have noticeably more health, but damage rises more slowly.
- const hpScale=1+steps*.11,damageScale=1+steps*.035;
+ // Durability and threat rise faster than XP rewards: high-tier targets are
+ // not merely larger XP bags with nearly starter-tier attacks. Level 5 stays
+ // at the authored baseline; species/elite differences remain intact.
+ const hpScale=1+steps*.16,damageScale=1+steps*.085;
  const xpScale=(1+steps*.13)*(boss?1.5:1);
  return {...definition,hp:Math.round(definition.hp*hpScale),damage:Math.max(1,Math.round(definition.damage*damageScale)),
   xp:Math.max(1,Math.round(definition.xp*xpScale))};

@@ -94,10 +94,11 @@ export interface EnemyDefinition {
   id: string;
   name: string;
   spriteFrame: number;
-  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king'|'enemy_cutlass_pirate'|'enemy_orc_raider';
+  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king'|'enemy_cutlass_pirate'|'enemy_orc_raider'|'enemy_orc_spearman'|'enemy_pirate_boatswain'|'enemy_hedge_goblin'|'enemy_goblin_slinger'|'enemy_thornling'|'enemy_grove_spider'|'enemy_krag_chieftain'|'enemy_frost_wyrm'|'enemy_rootfather'|'enemy_ashen_seer';
+  spriteTint?:number;
   appearanceMultiplier?:number;
   bodyRadius?:number;
-  combatStyle?:'troll'|'dragon';
+  combatStyle?:'troll'|'dragon'|'spear-thrower'|'stone-thrower'|'boatswain';
   hp: number;
   damage: number;
   moveSpeed: number;
