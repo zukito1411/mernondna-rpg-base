@@ -82,43 +82,43 @@ export const ENEMIES: EnemyDefinition[] = [
   {
     id: 'bandit-captain', name: 'Captain Varr', spriteFrame: 1, hp: 210, damage: 18, moveSpeed: 84, aggroRange: 320, attackRange: 68, attackCooldownMs: 760,
     xp: 110, goldMin: 30, goldMax: 48, boss: true, attackWindupMs: 540, attackRecoveryMs: 900,
-    summonEnemyId: 'road-bandit', summonCount: 2, summonCooldownMs: 18000, regionWeights: { trandum: 5 },
+    summonEnemyId: 'road-bandit', summonComposition: [{enemyId:'road-bandit',count:2,role:'melee'}], summonCooldownMs: 18000, regionWeights: { trandum: 5 },
   },
   {
     id: 'moonlit-warden', name: 'Moonlit Warden', spriteFrame: 3, hp: 360, damage: 22, moveSpeed: 62, aggroRange: 330, attackRange: 76, attackCooldownMs: 1700,
     xp: 190, goldMin: 26, goldMax: 44, boss: true, attackWindupMs: 780, attackRecoveryMs: 1100,
-    summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 20000, attackRadius: 88, regionWeights: { narenthil: 5 },
+    summonEnemyId: 'gray-wolf', summonComposition: [{enemyId:'blighted-thornling',count:2,role:'melee'},{enemyId:'grove-spider',count:1,role:'flanker'}], summonCooldownMs: 20000, attackRadius: 88, regionWeights: { narenthil: 5 },
   },
   {
     id: 'stonejaw-troll', name: 'Stonejaw', spriteFrame: 4,spriteTexture:'enemy_troll',appearanceMultiplier:1.9,bodyRadius:32,combatStyle:'troll',hp: 420, damage: 27, moveSpeed: 52, aggroRange: 330, attackRange: 120, attackCooldownMs: 1900,
     xp: 220, goldMin: 35, goldMax: 55, boss: true, attackWindupMs: 900, attackRecoveryMs: 1250,
-    summonEnemyId: 'gray-wolf', summonCount: 2, summonCooldownMs: 21000,
+    summonEnemyId: 'gray-wolf', summonComposition: [{enemyId:'hedge-goblin',count:2,role:'melee'},{enemyId:'goblin-stone-slinger',count:1,role:'ranged'}], summonCooldownMs: 21000,
     attackRadius: 112, regionWeights: { nardorous: 5, druganwoods: 4 },
   },
   {
     id: 'redmesa-chieftain', name: 'Krag the Iron-Tusk', spriteFrame:15,spriteTexture:'enemy_krag_chieftain',appearanceMultiplier:1,bodyRadius:25,hp: 390, damage: 25, moveSpeed: 76, aggroRange: 340, attackRange:92, attackCooldownMs: 1650,
     xp: 205, goldMin: 30, goldMax: 52, boss: true, attackWindupMs: 640, attackRecoveryMs: 1050,
-    summonEnemyId: 'rindass-orc-raider', summonCount: 2, summonCooldownMs: 19000, attackRadius: 92, regionWeights: { rindass: 5 },
+    summonEnemyId: 'rindass-orc-raider', summonComposition: [{enemyId:'rindass-orc-raider',count:2,role:'melee'},{enemyId:'rindass-orc-spearman',count:1,role:'ranged'}], summonCooldownMs: 19000, attackRadius: 92, regionWeights: { rindass: 5 },
   },
   {
     id: 'rootfather', name: 'The Rootfather', spriteFrame:17,spriteTexture:'enemy_rootfather',appearanceMultiplier:1,bodyRadius:32,hp: 410, damage: 24, moveSpeed: 48, aggroRange: 320, attackRange:104, attackCooldownMs: 1900,
     xp: 215, goldMin: 32, goldMax: 54, boss: true, attackWindupMs: 880, attackRecoveryMs: 1300,
-    summonEnemyId: 'marsh-wraith', summonCount: 1, summonCooldownMs: 22000, attackRadius: 104, regionWeights: { druganwoods: 5 },
+    summonEnemyId: 'marsh-wraith', summonComposition: [{enemyId:'blighted-thornling',count:3,role:'melee'}], summonCooldownMs: 22000, attackRadius: 104, regionWeights: { druganwoods: 5 },
   },
   {
     id: 'salt-king', name: 'The Salt King', spriteFrame: 6, spriteTexture:'enemy_salt_king', hp: 380, damage: 23, moveSpeed: 72, aggroRange: 340, attackRange: 78, attackCooldownMs: 1550,
     xp: 200, goldMin: 34, goldMax: 58, boss: true, attackWindupMs: 620, attackRecoveryMs: 980,
-    summonEnemyId: 'cutlass-pirate', summonCount: 3, summonCooldownMs: 18500, regionWeights: { portquill: 5 },
+    summonEnemyId: 'cutlass-pirate', summonComposition: [{enemyId:'cutlass-pirate',count:2,role:'melee'},{enemyId:'pirate-boatswain',count:1,role:'heavy'}], summonCooldownMs: 18500, regionWeights: { portquill: 5 },
   },
   {
     id: 'frost-wyrm', name: 'The Frost Wyrm', spriteFrame:16,spriteTexture:'enemy_frost_wyrm',appearanceMultiplier:1,bodyRadius:32,hp: 440, damage: 28, moveSpeed: 86, aggroRange: 360, attackRange:110, attackCooldownMs: 1800,
     xp: 235, goldMin: 36, goldMax: 60, boss: true, attackWindupMs: 720, attackRecoveryMs: 1150,
-    summonEnemyId: 'frost-wolf', summonCount: 2, summonCooldownMs: 19500, attackRadius:110, regionWeights: { frostlands: 5 },
+    summonEnemyId: 'frost-wolf', summonComposition: [{enemyId:'frost-wolf',count:2,role:'flanker'}], summonCooldownMs: 19500, attackRadius:110, regionWeights: { frostlands: 5 },
   },
   {
     id: 'ashen-seer', name: 'The Ashen Seer', spriteFrame:18,spriteTexture:'enemy_ashen_seer',appearanceMultiplier:1,bodyRadius:24,hp: 460, damage: 30, moveSpeed: 56, aggroRange: 360, attackRange: 88, attackCooldownMs: 2000,
     xp: 260, goldMin: 42, goldMax: 68, boss: true, attackWindupMs: 980, attackRecoveryMs: 1400,
-    summonEnemyId: 'marsh-wraith', summonCount: 2, summonCooldownMs: 21000, attackRadius: 120, regionWeights: { darkav: 5 },
+    summonEnemyId: 'marsh-wraith', summonComposition: [{enemyId:'marsh-wraith',count:2,role:'melee'}], summonCooldownMs: 21000, attackRadius: 120, regionWeights: { darkav: 5 },
   },
 ];
 

@@ -1,0 +1,294 @@
+{
+  "version": 1,
+  "status": "source-art-only",
+  "runtimeRegistered": false,
+  "artDirection": "Painted outlined elevated top-down Mernodna; flat floor patches and cutaway indoor furnishing",
+  "sourceLayout": {
+    "columns": 6,
+    "rows": 4,
+    "nominalCellSize": [
+      256,
+      256
+    ],
+    "cropStatus": "Approximate generated layout; visible subject bounds and floor inner crops must be measured before runtime use"
+  },
+  "slots": [
+    {
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "role": "floor_primary",
+      "requiresInnerTextureCrop": true
+    },
+    {
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "role": "floor_secondary",
+      "requiresInnerTextureCrop": true
+    },
+    {
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "role": "wall_north"
+    },
+    {
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "role": "wall_side"
+    },
+    {
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "role": "doorway_open"
+    },
+    {
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "role": "window"
+    },
+    {
+      "index": 6,
+      "row": 1,
+      "column": 0,
+      "role": "bed"
+    },
+    {
+      "index": 7,
+      "row": 1,
+      "column": 1,
+      "role": "wardrobe"
+    },
+    {
+      "index": 8,
+      "row": 1,
+      "column": 2,
+      "role": "bookcase"
+    },
+    {
+      "index": 9,
+      "row": 1,
+      "column": 3,
+      "role": "chest"
+    },
+    {
+      "index": 10,
+      "row": 1,
+      "column": 4,
+      "role": "dining_table"
+    },
+    {
+      "index": 11,
+      "row": 1,
+      "column": 5,
+      "role": "bench"
+    },
+    {
+      "index": 12,
+      "row": 2,
+      "column": 0,
+      "role": "chair"
+    },
+    {
+      "index": 13,
+      "row": 2,
+      "column": 1,
+      "role": "counter"
+    },
+    {
+      "index": 14,
+      "row": 2,
+      "column": 2,
+      "role": "hearth"
+    },
+    {
+      "index": 15,
+      "row": 2,
+      "column": 3,
+      "role": "rug"
+    },
+    {
+      "index": 16,
+      "row": 2,
+      "column": 4,
+      "role": "planter"
+    },
+    {
+      "index": 17,
+      "row": 2,
+      "column": 5,
+      "role": "barrel"
+    },
+    {
+      "index": 18,
+      "row": 3,
+      "column": 0,
+      "role": "pantry_shelf"
+    },
+    {
+      "index": 19,
+      "row": 3,
+      "column": 1,
+      "role": "lantern"
+    },
+    {
+      "index": 20,
+      "row": 3,
+      "column": 2,
+      "role": "stairs"
+    },
+    {
+      "index": 21,
+      "row": 3,
+      "column": 3,
+      "role": "partition_arch"
+    },
+    {
+      "index": 22,
+      "row": 3,
+      "column": 4,
+      "role": "workstation"
+    },
+    {
+      "index": 23,
+      "row": 3,
+      "column": 5,
+      "role": "regional_signature"
+    }
+  ],
+  "kits": [
+    {
+      "id": "trandum_rustic",
+      "name": "Trandum rustic homes and inns",
+      "source": "assets/interiors/trandum_rustic/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "trandum",
+      "suggestedSettlements": [
+        "oakmere",
+        "willowcross",
+        "cibar-plains"
+      ],
+      "signature": "provisions cabinet"
+    },
+    {
+      "id": "highmere_noble",
+      "name": "Highmere noble/castle",
+      "source": "assets/interiors/highmere_noble/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "trandum",
+      "suggestedSettlements": [
+        "highmere"
+      ],
+      "signature": "blue-and-gold royal throne"
+    },
+    {
+      "id": "narenthil_elven",
+      "name": "Narenthil majestic elven",
+      "source": "assets/interiors/narenthil_elven/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "narenthil",
+      "suggestedSettlements": [
+        "elarion",
+        "moonfall"
+      ],
+      "signature": "moonwell basin"
+    },
+    {
+      "id": "nardorous_alpine",
+      "name": "Nardorous alpine citadel",
+      "source": "assets/interiors/nardorous_alpine/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "nardorous",
+      "suggestedSettlements": [
+        "starhold"
+      ],
+      "signature": "mountain oath pedestal"
+    },
+    {
+      "id": "rindass_orcan",
+      "name": "Rindass orcan clan halls",
+      "source": "assets/interiors/rindass_orcan/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "rindass",
+      "suggestedSettlements": [
+        "redmesa"
+      ],
+      "signature": "orc chieftain seat"
+    },
+    {
+      "id": "druganwoods_dwarven",
+      "name": "Druganwoods dwarven river halls",
+      "source": "assets/interiors/druganwoods_dwarven/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "druganwoods",
+      "suggestedSettlements": [
+        "deepford"
+      ],
+      "signature": "rune forge"
+    },
+    {
+      "id": "portquill_maritime",
+      "name": "Portquill maritime taverns",
+      "source": "assets/interiors/portquill_maritime/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "portquill",
+      "suggestedSettlements": [
+        "tidewatch"
+      ],
+      "signature": "fishing-net rack"
+    },
+    {
+      "id": "frostlands_longhouse",
+      "name": "Frostlands warm longhouses",
+      "source": "assets/interiors/frostlands_longhouse/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "frostlands",
+      "suggestedSettlements": [
+        "skallheim"
+      ],
+      "signature": "longhouse high seat"
+    },
+    {
+      "id": "darkav_obsidian",
+      "name": "Darkav obsidian citadel",
+      "source": "assets/interiors/darkav_obsidian/kit.png",
+      "imageSize": [
+        1536,
+        1024
+      ],
+      "region": "darkav",
+      "suggestedSettlements": [
+        "blackspire"
+      ],
+      "signature": "obsidian brazier"
+    }
+  ]
+}

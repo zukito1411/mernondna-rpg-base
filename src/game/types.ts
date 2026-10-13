@@ -111,6 +111,7 @@ export interface EnemyDefinition {
   boss?: boolean;
   summonEnemyId?: string;
   summonCount?: number;
+  summonComposition?: Array<{ enemyId: string; count: number; role: EncounterRole }>;
   summonCooldownMs?: number;
   attackWindupMs?: number;
   attackRecoveryMs?: number;
@@ -220,6 +221,8 @@ export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition
 export interface ContentState extends Vec2 {
   hp?: number; hpMax?:number; defeated?: boolean; used?: boolean; trust?: number;
   respawnAt?:number;
+  /** Empty members means a cleared wave, with its post-defeat UTC deadline. */
+  summonWave?: { encounterId: string; members: string[]; nextAt: number };
 }
 export interface ContentWorldState {
   states: Record<string, ContentState>;

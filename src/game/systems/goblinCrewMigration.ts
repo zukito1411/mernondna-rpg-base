@@ -7,7 +7,9 @@ export function normalizeGoblinCrews(world:ContentWorldState,geography:WorldGene
   safe:(x:number,y:number)=>boolean):ContentWorldState {
   const result={...world,spawns:{...world.spawns},states:{...world.states}};
   const groups=new Map<string,CreatureContentDefinition[]>();
+  const summons=new Set(Object.values(world.states).flatMap(s=>s.summonWave?.members??[]));
   for(const member of Object.values(result.spawns)){
+    if(summons.has(member.id))continue;
     if(!member.encounterId||!['hedge-goblin','goblin-stone-slinger'].includes(member.enemyId))continue;
     const group=groups.get(member.encounterId)??[];group.push(member);groups.set(member.encounterId,group);
   }

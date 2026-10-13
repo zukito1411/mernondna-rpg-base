@@ -12,7 +12,9 @@ export function normalizePirateCrews(world:ContentWorldState,geography:WorldGene
   canOccupy:(x:number,y:number)=>boolean):ContentWorldState {
   const result={...world,spawns:{...world.spawns},states:{...world.states}};
   const groups=new Map<string,CreatureContentDefinition[]>();
+  const summons=new Set(Object.values(world.states).flatMap(s=>s.summonWave?.members??[]));
   for(const member of Object.values(result.spawns)){
+    if(summons.has(member.id))continue;
     if(!['cutlass-pirate','pirate-boatswain','road-bandit'].includes(member.enemyId)
       ||onFlagshipBoarding(member.world.x,member.world.y)
       ||member.encounterBehavior&&onFlagshipBoarding(member.encounterBehavior.home.x,member.encounterBehavior.home.y))continue;

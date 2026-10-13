@@ -120,12 +120,32 @@ function validateContent(value: unknown): ContentWorldState | null {
     const relocatedSaltKing=definition.kind==='creature'&&definition.bossId==='salt-king'
       &&(!onFlagshipDeck(s.x,s.y)||!flagshipWalkable(s.x,s.y,24));
     const position=relocatedSaltKing?definition.world:{x:s.x,y:s.y};
+    let summonWave:ContentState['summonWave'];
+    if(s.summonWave!==undefined){
+      const wave=s.summonWave;
+      if(definition.kind!=='creature'||!definition.bossId||!ENEMY_BY_ID[definition.enemyId].summonComposition
+        ||!record(wave)||typeof wave.encounterId!=='string'
+        ||!wave.encounterId.startsWith(`boss-wave:${definition.bossId}:`)
+        ||!/^boss-wave:[a-zA-Z0-9:_-]{1,90}$/.test(wave.encounterId)
+        ||!strings(wave.members)||wave.members.length>512||new Set(wave.members).size!==wave.members.length
+        ||!wave.members.every(member=>Object.hasOwn(spawns,member)&&spawns[member].eventSpawn===true)
+        ||!numberIn(wave.nextAt)||!Number.isInteger(wave.nextAt)
+        ||wave.members.length>0&&wave.nextAt!==0
+        ||!wave.encounterId.endsWith(':legacy')&&wave.members.some(member=>spawns[member].encounterId!==wave.encounterId))return null;
+      summonWave={encounterId:wave.encounterId,members:[...wave.members],nextAt:wave.nextAt};
+    }
     states[id] = { x: position.x, y: position.y,
       ...(typeof s.hp === 'number' ? { hp: s.hp } : {}), ...(typeof s.trust === 'number' ? { trust: s.trust } : {}),
       ...(typeof s.hpMax==='number'?{hpMax:s.hpMax}:{}),
       ...(typeof s.defeated === 'boolean' ? { defeated: s.defeated } : {}), ...(typeof s.used === 'boolean' ? { used: s.used } : {}),
       ...(typeof s.respawnAt==='number'?{respawnAt:s.respawnAt}:{}),
+      ...(summonWave?{summonWave}:{}),
     };
+  }
+  const owners=new Set<string>();
+  for(const state of Object.values(states))for(const member of state.summonWave?.members??[]){
+    if(owners.has(member))return null;
+    owners.add(member);
   }
   return { states, spawns, nextSpawnSequence: value.nextSpawnSequence };
 }

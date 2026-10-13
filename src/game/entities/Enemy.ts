@@ -497,31 +497,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   private updateBossSkill(scene: WorldScene, time: number) {
-    const summon = this.definition.summonEnemyId;
-    if (!summon) return;
-    if (this.nextSpecialAt === 0) {
-      this.nextSpecialAt = time + 3500;
-      return;
-    }
-    if (time < this.nextSpecialAt) return;
-    this.nextSpecialAt = time + (this.definition.summonCooldownMs ?? 20000);
-    let spawned = 0;
-    // One wolf-summon call already creates a full pack; avoid summoning 2–3 packs at once.
-    const flagship=this.instanceId==='boss:salt-king'&&summon==='cutlass-pirate';
-    // Both gateways admit a whole family atomically, not one call per member.
-    const summonCount=isWolfFamily(summon)||flagship?1:(this.definition.summonCount??1);
-    for (let i = 0; i < summonCount; i++) {
-      const angle = Math.PI * 2 * i / summonCount + this.rng() * .3;
-      for(let attempt=0;attempt<(flagship?8:1);attempt++){
-        const bearing=angle+attempt*Math.PI/4;
-        const x=this.x+Math.cos(bearing)*110,y=this.y+Math.sin(bearing)*110;
-        // The ship gateway checks deck, cover, existing bodies and capacity.
-        // A blocked first candidate must not silently remove the heavy role.
-        if(!scene.spawnEnemy(summon,x,y,true,this))continue;
-        spawned+=flagship?3:1;scene.playEffect('teleport',x,y);break;
-      }
-    }
-    if (spawned) scene.notify(`${this.boss?.name ?? this.definition.name} calls reinforcements!`);
+    if (!this.definition.summonComposition?.length || time < this.nextSpecialAt) return;
+    // Bounded retries only. The saved logical wave owns the initial delay,
+    // survivor gate and post-final-defeat cooldown, not this disposable actor.
+    this.nextSpecialAt=time+750;
+    scene.tryBossSummonWave(this);
   }
 
   private updateVisual(time:number) {

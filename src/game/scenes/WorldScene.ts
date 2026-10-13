@@ -26,7 +26,7 @@ import { ChunkManager } from '../systems/ChunkManager';
 import { DayNightSystem } from '../systems/DayNightSystem';
 import { EventDirector, type EventDirectorHost } from '../systems/EventDirector';
 import { WorldGenerator } from '../systems/WorldGenerator';
-import { ContentChunkManager } from '../systems/ContentChunkManager';
+import { ContentChunkManager, restoreLegacySummonWaves, type EncounterSpawnMember } from '../systems/ContentChunkManager';
 import { EncounterCoordinator } from '../systems/EncounterCoordinator';
 import { AmbientWildlifeSystem } from '../systems/AmbientWildlifeSystem';
 import {PirateFlagshipArt} from '../systems/PirateFlagshipArt';
@@ -290,6 +290,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
           logical.states[definition.id]={...saved,...definition.world};
       }
     }
+    logical = restoreLegacySummonWaves(WORLD_CONTENT,logical);
     logical = repairCreaturePlacements(WORLD_CONTENT,logical,this.worldGenerator);
     logical=normalizePirateCrews(logical,this.worldGenerator,(x,y)=>this.canEnemyOccupy(x,y));
     logical=normalizeGoblinCrews(logical,this.worldGenerator,(x,y)=>this.canEnemyOccupy(x,y)
@@ -302,10 +303,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         // A native pack may chase briefly beyond its home habitat. Restoring
         // its surviving actors must not strand them dormant on a meadow edge.
         const habitatPoint=m14?definition.encounterBehavior?.home??runtime:runtime;
+        const summon=Boolean(this.contentManager.getSummonOwner(definition.id));
         return this.isEnemyTerritory(runtime.x,runtime.y)
-          &&(!m14&&!['rindass-orc-raider','rindass-orc-spearman'].includes(definition.enemyId)
+          &&(summon||!m14&&!['rindass-orc-raider','rindass-orc-spearman'].includes(definition.enemyId)
             ||creatureFitsHabitat(ENEMY_BY_ID[definition.enemyId],this.habitatAt(habitatPoint.x,habitatPoint.y)))
-          &&this.m14LocationAllowed(definition.enemyId,habitatPoint.x,habitatPoint.y)
+          &&(summon||this.m14LocationAllowed(definition.enemyId,habitatPoint.x,habitatPoint.y))
           &&this.m14Art.ensure(definition.enemyId)
           &&this.encounterCapacity(definition.bossId?'boss':'restore')>0;
       },
@@ -702,8 +704,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         || (actor ? actor.hp <= 0 : state?.defeated)) continue;
       if (!actor) pendingBosses++;
       const definition = ENEMY_BY_ID[boss.enemyId];
-      if (definition?.summonEnemyId) summonReserve += isWolfFamily(definition.summonEnemyId)
-        ? 6 : definition.summonCount ?? 1;
+      if (!this.contentManager.hasUnfinishedSummons(boss.id))
+        summonReserve += definition?.summonComposition?.reduce((sum,m)=>sum+m.count,0)??0;
     }
     const queued = source === 'spawn' || source === 'summon'
       ? this.contentManager.getPendingCreatureCount(this.player.x, this.player.y) : 0;
@@ -715,35 +717,80 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       terrain: this.worldGenerator.getTerrainAt(x,y) };
   }
 
+  /** Dedicated boss admission: never pass through ambient pack expansion. */
+  tryBossSummonWave(boss:Enemy) {
+    const composition=boss.definition.summonComposition;
+    if(!composition?.length||!boss.active||boss.hp<=0||!this.enemies.has(boss)
+      ||!this.player.active||this.player.hp<=0||!this.isEnemyTerritory(this.player.x,this.player.y)
+      ||Math.hypot(boss.x-this.player.x,boss.y-this.player.y)>boss.definition.aggroRange)return;
+    const now=Date.now();
+    if(!this.contentManager.bossWaveReady(boss.instanceId,now))return;
+    const count=composition.reduce((sum,m)=>sum+m.count,0);
+    const capacity=Math.min(this.encounterCapacity('summon'),MAX_PERSISTENT_SPAWNS-this.contentManager.getSpawnCount());
+    if(count>capacity)return;
+    let ready=true;
+    for(const member of composition)if(!this.m14Art.ensure(member.enemyId))ready=false;
+    if(!ready)return;
+    const ship=boss.instanceId==='boss:salt-king';
+    const toward=Math.atan2(this.player.y-boss.y,this.player.x-boss.x);
+    const members:EncounterSpawnMember[]=[];
+    for(const part of composition)for(let i=0;i<part.count;i++){
+      const enemy=ENEMY_BY_ID[part.enemyId],radius=enemy.bodyRadius??11;
+      let point:Vec2|undefined;
+      const bearing=toward+(part.role==='ranged'?Math.PI:members.length*Math.PI*2/count);
+      for(let attempt=0;attempt<24;attempt++){
+        const angle=bearing+(attempt%8)*Math.PI/4,distance=110+Math.floor(attempt/8)*50;
+        const p={x:boss.x+Math.cos(angle)*distance,y:boss.y+Math.sin(angle)*distance};
+        if(members.length&&Math.hypot(p.x-members[0].world.x,p.y-members[0].world.y)>(ship?1400:900)*.4)continue;
+        if(Math.hypot(p.x-this.player.x,p.y-this.player.y)<Math.max(70,radius+30)
+          ||inDragonArena(p.x,p.y,240)||!this.canEnemyOccupy(p.x,p.y)
+          ||!this.hasClearPath(boss.x,boss.y,p.x,p.y)
+          ||(ship?!onFlagshipDeck(p.x,p.y)||!flagshipWalkable(p.x,p.y,radius)
+            :onFlagshipBoarding(p.x,p.y)||!creatureFitsHabitat(enemy,this.habitatAt(p.x,p.y),true)))continue;
+        if([0,1,2,3].some(side=>!this.canEnemyOccupy(p.x+Math.cos(side*Math.PI/2)*radius,p.y+Math.sin(side*Math.PI/2)*radius)))continue;
+        if(members.some(m=>Math.hypot(p.x-m.world.x,p.y-m.world.y)<Math.max(40,radius+(ENEMY_BY_ID[m.enemyId].bodyRadius??11)+8)))continue;
+        let blocked=false;
+        for(const other of this.enemies)if(other.active&&other.hp>0
+          &&Math.hypot(p.x-other.x,p.y-other.y)<Math.max(40,radius+(other.definition.bodyRadius??11)+8)){blocked=true;break;}
+        if(!blocked){point=p;break;}
+      }
+      if(!point)return;
+      members.push({enemyId:part.enemyId,world:point,role:part.role});
+    }
+    if(!this.contentManager.addEncounter(members,true,capacity,{bossOwner:boss.instanceId,leashRadius:ship?1400:900}))return;
+    this.contentManager.update(this.player.x,this.player.y);
+    useGameStore.getState().setContentWorld(this.contentManager.snapshot());
+    for(const member of members)this.playEffect('teleport',member.world.x,member.world.y);
+    this.notify(`${boss.boss?.name??boss.definition.name} calls reinforcements!`);
+  }
+
   spawnEnemy(enemyId: string, x: number, y: number, eventSpawn = false, summoner?: Enemy, encounterCap?: number) {
+    // Legacy callers cannot bypass the wave ledger or request partial minions.
+    if(summoner){
+      const sequence=this.contentManager.getNextSpawnSequence();
+      this.tryBossSummonWave(summoner);
+      return this.contentManager.getNextSpawnSequence()!==sequence;
+    }
     // Region-aware gateway also covers legacy event callers and road ambushes.
     if(enemyId==='road-bandit'&&this.worldGenerator.getRegionAt(x,y)==='portquill')enemyId='cutlass-pirate';
     // A non-event spearman request still means a full 2+1 patrol, never a
     // lone ranged actor outside the ambient admission pipeline.
-    if(enemyId==='rindass-orc-spearman'&&!eventSpawn&&!summoner)enemyId='rindass-orc-raider';
+    if(enemyId==='rindass-orc-spearman'&&!eventSpawn)enemyId='rindass-orc-raider';
     if(enemyId==='goblin-stone-slinger')enemyId='hedge-goblin';
     const definition = ENEMY_BY_ID[enemyId];
     if (!definition || definition.boss) return false;
     if(!this.m14Art.ensure(enemyId)||enemyId==='hedge-goblin'&&!this.m14Art.ensure('goblin-stone-slinger'))return false;
-    const bossSummon = Boolean(summoner && this.enemies.has(summoner) && summoner.active && summoner.hp > 0
-      && summoner.definition.boss && (summoner.definition.summonEnemyId === enemyId
-        ||summoner.instanceId==='boss:salt-king'&&summoner.definition.summonEnemyId==='cutlass-pirate'
-          &&enemyId==='pirate-boatswain'));
-    if (summoner && !bossSummon) return false;
-    const shipSummon=bossSummon&&summoner?.instanceId==='boss:salt-king';
-    if (!bossSummon) for (const enemy of this.enemies)
+    for (const enemy of this.enemies)
       if (enemy.active && enemy.hp > 0 && Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<250) return false;
-    const capacity = Math.min(this.encounterCapacity(bossSummon ? 'summon' : 'spawn', encounterCap),
+    const capacity = Math.min(this.encounterCapacity('spawn', encounterCap),
       MAX_PERSISTENT_SPAWNS - this.contentManager.getSpawnCount());
     const validPoint = (px: number, py: number,candidateDefinition:EnemyDefinition=definition) => !inDragonArena(px,py,240) && this.canEnemyOccupy(px,py)
-      &&(shipSummon?onFlagshipDeck(px,py)&&flagshipWalkable(px,py,candidateDefinition.bodyRadius??11)
-        &&![...this.enemies].some(e=>e.active&&e.hp>0&&Math.hypot(e.x-px,e.y-py)<40):!onFlagshipBoarding(px,py))
-      && creatureFitsHabitat(candidateDefinition, this.habitatAt(px,py), bossSummon)
+      &&!onFlagshipBoarding(px,py)
+      && creatureFitsHabitat(candidateDefinition, this.habitatAt(px,py))
       &&this.m14LocationAllowed(candidateDefinition.id,px,py)
-      && (bossSummon || Math.hypot(px-this.player.x,py-this.player.y)>=250)
-      && (!summoner || Math.hypot(px-summoner.x,py-summoner.y) <= 300);
+      && Math.hypot(px-this.player.x,py-this.player.y)>=250;
     if (capacity < 1 || !validPoint(x,y)) return false;
-    if(enemyId==='rindass-orc-raider'&&!eventSpawn&&!bossSummon){
+    if(enemyId==='rindass-orc-raider'&&!eventSpawn){
       if(capacity<3)return false;
       const toward=Math.atan2(this.player.y-y,this.player.x-x),sideX=-Math.sin(toward),sideY=Math.cos(toward);
       const points=[
@@ -798,7 +845,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       if(points.length<goal)return false; // Admit the planned pack, or none of it.
       if(!this.contentManager.addEncounter(points.map(world=>({enemyId,world})),eventSpawn,capacity,{wolfPack:true}))return false;
-    }else if((enemyId==='cutlass-pirate'||enemyId==='pirate-boatswain')&&(!bossSummon||shipSummon)){
+    }else if(enemyId==='cutlass-pirate'||enemyId==='pirate-boatswain'){
       const goal=3;if(capacity<goal)return false;
       const rng=seededRandom('pirate-crew:'+this.contentManager.getNextSpawnSequence()),points:Vec2[]=[{x,y}];
       for(let tries=0;tries<32&&points.length<goal;tries++){
@@ -813,7 +860,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       });
       if(points.length!==goal||members.some(member=>!validPoint(member.world.x,member.world.y,ENEMY_BY_ID[member.enemyId]))
         ||!this.contentManager.addEncounter(members,eventSpawn,capacity,
-          {leashRadius:shipSummon?1400:900}))return false;
+          {leashRadius:900}))return false;
     }else this.contentManager.addSpawn(enemyId,{x,y},eventSpawn);
     this.contentManager.update(this.player.x,this.player.y);
     useGameStore.getState().setContentWorld(this.contentManager.snapshot());
@@ -822,6 +869,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   encounterDecision(enemy:Enemy,time:number,spotted:boolean,targetAllowed:boolean) {
     if (!enemy.encounterKey || !enemy.encounterBehavior) return 'idle' as const;
+    const owner=this.contentManager.getSummonOwner(enemy.instanceId);
+    if(owner){
+      const boss=this.contentManager.getActor(owner) as Enemy|undefined;
+      if(!boss?.active||boss.hp<=0||this.player.hp<=0
+        ||Math.hypot(boss.x-this.player.x,boss.y-this.player.y)>boss.definition.aggroRange)return 'return' as const;
+      spotted=true;
+    }
     return this.encounters.decide(enemy.encounterKey,enemy.instanceId,enemy.encounterBehavior,
       enemy,this.player,time,spotted,targetAllowed);
   }

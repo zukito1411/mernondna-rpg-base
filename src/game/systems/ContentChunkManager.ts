@@ -6,6 +6,38 @@ import {MAX_LIVE_HOSTILES,MAX_PERSISTENT_SPAWNS} from './encounterAdmission';
 import {NPC_BY_ID} from '../../data/npcs';
 import {npcMayPatrol} from './npcPlacement';
 
+/** Old boss calls were event spawns without ownership. Adopt only matching
+ * event families near a uniquely identifiable wounded/defeated boss. Ordinary
+ * ambient records and authored creatures never participate in this migration. */
+export function restoreLegacySummonWaves(definitions: ContentDefinition[], world: ContentWorldState): ContentWorldState {
+  const result={...world,states:{...world.states}};
+  const bosses=definitions.filter((d):d is CreatureContentDefinition=>d.kind==='creature'&&Boolean(d.bossId)
+    &&Boolean(ENEMY_BY_ID[d.enemyId].summonComposition));
+  const groups=new Map<string,CreatureContentDefinition[]>();
+  for(const d of Object.values(world.spawns)){
+    if(!d.eventSpawn)continue;
+    const key=d.encounterId??d.wolfPackId??d.id;
+    const members=groups.get(key)??[];members.push(d);groups.set(key,members);
+  }
+  const owned=new Set(Object.values(world.states).flatMap(s=>s.summonWave?.members??[]));
+  for(const members of groups.values()){
+    if(members.some(m=>owned.has(m.id))||members.every(m=>world.states[m.id]?.defeated===true))continue;
+    const candidates=bosses.filter(b=>{
+      const state=world.states[b.id],enemy=ENEMY_BY_ID[b.enemyId];
+      if(!state||state.summonWave||state.hp===undefined||state.hp>=(state.hpMax??enemy.hp))return false;
+      return members.every(m=>m.enemyId===enemy.summonEnemyId
+        ||b.bossId==='salt-king'&&m.enemyId==='pirate-boatswain')
+        &&members.some(m=>Math.hypot(m.world.x-state.x,m.world.y-state.y)<=300);
+    });
+    if(candidates.length!==1)continue;
+    const boss=candidates[0],prior=result.states[boss.id].summonWave;
+    result.states[boss.id]={...result.states[boss.id],summonWave:{
+      encounterId:prior?.encounterId??`boss-wave:${boss.bossId}:legacy`,
+      members:[...(prior?.members??[]),...members.map(m=>m.id)],nextAt:0}};
+  }
+  return result;
+}
+
 function creatureGroupKey(definition: CreatureContentDefinition) {
   if (definition.bossId) return undefined; // Authored bosses keep independent admission.
   // Wolf AI retains its established identity, including mixed old/new records.
@@ -48,6 +80,7 @@ export class ContentChunkManager<Actor> {
   private wanted = new Set<string>();
   private centerKey = '';
   private nextSpawnSequence: number;
+  private readonly summonOwners = new Map<string,string>();
 
   constructor(definitions: ContentDefinition[], persisted: ContentWorldState, private readonly host: ContentHost<Actor>) {
     this.nextSpawnSequence = persisted.nextSpawnSequence;
@@ -69,6 +102,7 @@ export class ContentChunkManager<Actor> {
       this.register(definition); this.spawns.set(definition.id, definition);
     }
     this.normalizeEncounterBehavior();
+    for(const [id,state] of this.states)for(const member of state.summonWave?.members??[])this.summonOwners.set(member,id);
   }
 
   update(x: number, y: number): boolean {
@@ -82,7 +116,8 @@ export class ContentChunkManager<Actor> {
       if(!state||!definition||state.respawnAt===undefined){this.returns.delete(id);continue;}
       if(state.respawnAt>now)continue;
       if(this.host.canRespawn&&!this.host.canRespawn(definition))continue;
-      const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined};
+      const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined,
+        ...(definition.kind==='creature'&&definition.bossId&&!state.summonWave?.members.length?{summonWave:undefined}:{})};
       this.states.set(id,restored);this.index(id,contentChunkKey(restored.x,restored.y));
       this.returns.delete(id);changed=true;
     }
@@ -148,7 +183,7 @@ export class ContentChunkManager<Actor> {
    * habitat/geometry first. This commits a complete logical encounter without
    * creating actors or spending sequence IDs on a rejected batch. */
   addEncounter(members: readonly EncounterSpawnMember[], eventSpawn: boolean, availableSlots: number,
-    options: { wolfPack?: boolean; leashRadius?: number } = {}): string[] | null {
+    options: { wolfPack?: boolean; leashRadius?: number; bossOwner?: string } = {}): string[] | null {
     if (!members.length || members.length > MAX_LIVE_HOSTILES || !Number.isFinite(availableSlots)
       || members.length > availableSlots || !Number.isSafeInteger(this.nextSpawnSequence) || this.nextSpawnSequence < 0
       || this.nextSpawnSequence + members.length > Number.MAX_SAFE_INTEGER) return null;
@@ -170,7 +205,16 @@ export class ContentChunkManager<Actor> {
       }
     }
     if (this.getSpawnCount() + members.length > MAX_PERSISTENT_SPAWNS) return null;
-    const encounterId = `${options.wolfPack ? 'wolf-pack' : 'encounter'}:${this.nextSpawnSequence}`;
+    if(options.bossOwner){
+      const owner=this.definitions.get(options.bossOwner),state=this.getState(options.bossOwner);
+      if(owner?.kind!=='creature'||!owner.bossId||!state||state.defeated
+        ||!eventSpawn||!state.summonWave||state.summonWave.members.length||Date.now()<state.summonWave.nextAt)return null;
+      const composition=ENEMY_BY_ID[owner.enemyId].summonComposition;
+      if(!composition||composition.reduce((sum,m)=>sum+m.count,0)!==members.length
+        ||composition.some(part=>members.filter(m=>m.enemyId===part.enemyId&&m.role===part.role).length!==part.count))return null;
+    }
+    const encounterId = options.bossOwner ? `boss-wave:${options.bossOwner.slice(5)}:${this.nextSpawnSequence}`
+      : `${options.wolfPack ? 'wolf-pack' : 'encounter'}:${this.nextSpawnSequence}`;
     // Resolve every initial state before touching indices. An initializer
     // failure must not leave half a pack registered or consume its identities.
     const orderedIds = members.map((_, i) => `spawn:${this.nextSpawnSequence + i}`);
@@ -192,7 +236,25 @@ export class ContentChunkManager<Actor> {
       this.spawns.set(definition.id, definition);
     }
     this.nextSpawnSequence += staged.length;
+    if(options.bossOwner){
+      const ids=staged.map(s=>s.definition.id);
+      this.states.set(options.bossOwner,{...this.getState(options.bossOwner)!,summonWave:{encounterId,members:ids,nextAt:0}});
+      for(const id of ids)this.summonOwners.set(id,options.bossOwner);
+    }
     return staged.map(({ definition }) => definition.id);
+  }
+
+  getSummonOwner(id:string){return this.summonOwners.get(id);}
+  hasUnfinishedSummons(id:string){return Boolean(this.getState(id)?.summonWave?.members.length);}
+  /** Only called by an engaged, live boss. UTC deadlines survive scene reloads. */
+  bossWaveReady(id:string,now:number){
+    const state=this.getState(id);
+    if(!state||state.defeated)return false;
+    if(!state.summonWave){
+      this.states.set(id,{...state,summonWave:{encounterId:`boss-wave:${id.slice(5)}:initial`,members:[],nextAt:now+3500}});
+      return false;
+    }
+    return state.summonWave.members.length===0&&now>=state.summonWave.nextAt;
   }
 
   getState(id: string): ContentState | undefined {
@@ -236,6 +298,7 @@ export class ContentChunkManager<Actor> {
   private pruneDefeatedSpawns(){
     for(const id of [...this.spawns.keys()]){
       if(!this.states.get(id)?.defeated || this.active.has(id))continue;
+      if(this.summonOwners.has(id))continue; // Legacy singles also retain casualties until the whole wave clears.
       const savedGroup=creatureGroupKey(this.spawns.get(id)!);
       // Keep casualty slots while any packmate survives. Otherwise reload
       // migrations cannot distinguish an old small group from a wounded pack.
@@ -259,6 +322,18 @@ export class ContentChunkManager<Actor> {
     this.capture(id);
     const state = { ...this.getState(id)!, ...patch };
     this.states.set(id, state);
+    // An absent actor is never evidence of death. Completion requires explicit
+    // persistent defeat flags for every member, before corpse pruning occurs.
+    const owner=this.summonOwners.get(id);
+    if(patch.defeated===true&&owner){
+      const boss=this.getState(owner),wave=boss?.summonWave;
+      if(wave&&wave.members.every(member=>this.states.get(member)?.defeated===true)){
+        const definition=this.definitions.get(owner) as CreatureContentDefinition;
+        this.states.set(owner,{...boss!,summonWave:{...wave,members:[],
+          nextAt:Date.now()+(ENEMY_BY_ID[definition.enemyId].summonCooldownMs??20000)}});
+        for(const member of wave.members)this.summonOwners.delete(member);
+      }
+    }
     if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);else this.returns.delete(id);
     this.index(id, contentChunkKey(state.x, state.y));
     // A logical relocation disposes the old actor before it can overwrite the new position.
