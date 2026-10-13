@@ -8,6 +8,9 @@ import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorTravelDirection,enemyLocomot
 import {actorSpriteGridSubjects} from '../src/game/systems/spriteComponents';
 import {PIRATE_SPECIES,PIRATE_TEXTURE,PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../src/data/pirateArt';
 import {SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH} from '../src/data/saltKingArt';
+import {BOATSWAIN_SPECIES,BOATSWAIN_TEXTURE,BOATSWAIN_ANIMATIONS} from '../src/data/boatswainArt';
+import {GOBLIN_SPECIES,GOBLIN_TEXTURE,GOBLIN_ANIMATIONS} from '../src/data/goblinArt';
+import {M14_ART,M14_ANIMATIONS} from '../src/data/m14Art';
 import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 describe('complete actor walking coverage',()=>{
@@ -59,8 +62,11 @@ describe('complete actor walking coverage',()=>{
   expect(below.y-first.y-frameHeight).toBe(GUARD_MARCH_FRAME_GUTTER*2);
  });
  it('covers every enemy and boss variant with a registered directional species',()=>{
-  // Crew poses are packed by preparePirateArt, not the shared walking loader.
-  const families=[...DIRECTIONAL_ENEMY_ART,{species:PIRATE_SPECIES,texture:PIRATE_TEXTURE}];
+  // Dedicated and on-demand atlases are registered outside the legacy loader.
+  const families=[...DIRECTIONAL_ENEMY_ART,{species:PIRATE_SPECIES,texture:PIRATE_TEXTURE},
+   {species:BOATSWAIN_SPECIES,texture:BOATSWAIN_TEXTURE},
+   {species:GOBLIN_SPECIES,texture:GOBLIN_TEXTURE},...M14_ART];
+  const dedicatedClips=[...BOATSWAIN_ANIMATIONS,...GOBLIN_ANIMATIONS,...M14_ANIMATIONS];
   expect(ART_BY_KEY[PIRATE_TEXTURE].columns).toBe(49);
   expect(ART_BY_KEY.enemy_walk_salt_king.columns).toBe(27);
   for(const path of [PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH,SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH])
@@ -69,6 +75,16 @@ describe('complete actor walking coverage',()=>{
    const family=families.find(a=>a.species===enemy.spriteFrame);
    expect(family,enemy.id).toBeDefined();expect(family!.texture).toBe(enemy.spriteTexture??'enemies');
    expect(new Set(ACTOR_DIRECTIONS.map(d=>enemyLocomotionKey(enemy.spriteFrame,'walk',d))).size).toBe(4);
+   if(enemy.spriteFrame>=BOATSWAIN_SPECIES)for(const direction of ACTOR_DIRECTIONS){
+    for(const state of ['idle','walk','attack','hurt','death'] as const){
+     const key=`enemy:${enemy.spriteFrame}:${state}:${direction}`;
+     const clip=dedicatedClips.find(a=>a.key===key);
+     expect(clip,enemy.id+'/'+key).toBeDefined();
+     expect(clip!.texture).toBe(enemy.spriteTexture);
+     expect(clip!.frames.length).toBeGreaterThan(0);
+     expect(clip!.frames.every(frame=>Number.isInteger(frame)&&frame>=0&&frame<ART_BY_KEY[enemy.spriteTexture??'enemies'].columns)).toBe(true);
+    }
+   }
   }
   console.log('Enemy walking audit',ENEMIES.length,'definitions',families.length,'sprite families');
  });

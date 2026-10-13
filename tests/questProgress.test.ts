@@ -15,6 +15,23 @@ describe('The Broken Road', () => {
     s.startDialogue('aldren-vale'); s.endDialogue();
     s.recordEnemyDefeat('bandit-captain', 110, 30, 'captain-varr');
     expect(useGameStore.getState().xp).toBe(260);
+    expect(useGameStore.getState().gold).toBe(108);
+  });
+  it('rewards a genuinely returned boss once without paying its quest again', () => {
+    const s=useGameStore.getState();
+    s.startDialogue('aldren-vale');s.endDialogue();
+    s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr');
+    s.startDialogue('aldren-vale');s.endDialogue();
+    const returned={states:{'boss:captain-varr':{x:100,y:100,hp:210,defeated:false}},spawns:{},nextSpawnSequence:0};
+    const defeated={...returned,states:{'boss:captain-varr':{x:100,y:100,hp:0,defeated:true,respawnAt:Date.now()+20*60*1000}}};
+    s.setContentWorld(returned);
+    s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr',defeated);
+    expect(useGameStore.getState().xp).toBe(370);
+    expect(useGameStore.getState().gold).toBe(138);
+    expect(useGameStore.getState().quests['first-road'].status).toBe('completed');
+    s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr',defeated);
+    expect(useGameStore.getState().xp).toBe(370);
+    expect(useGameStore.getState().gold).toBe(138);
   });
   it('remembers Varr killed before the first Aldren conversation', () => {
     const s = useGameStore.getState();

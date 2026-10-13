@@ -2,7 +2,7 @@ import type {ContentWorldState,CreatureContentDefinition,Vec2} from '../types';
 import {ENEMY_BY_ID} from '../../data/enemies';
 import {enemyLevelAt,scaledEnemy} from '../../data/enemyTiers';
 import {onFlagshipBoarding} from '../../data/pirateFlagship';
-import {creatureFitsHabitat,MAX_PERSISTENT_SPAWNS} from './encounterAdmission';
+import {creatureFitsHabitat,MAX_PERSISTENT_SPAWNS,type CreatureHabitat} from './encounterAdmission';
 import {restoredEnemyHealth} from './enemyHealth';
 import type {WorldGenerator} from './WorldGenerator';
 
@@ -42,7 +42,7 @@ export function normalizePirateCrews(world:ContentWorldState,geography:WorldGene
       for(const radius of [70,110,150]){
         for(let i=0;i<8;i++){
           const p={x:origin.x+Math.cos(i*Math.PI/4)*radius,y:origin.y+Math.sin(i*Math.PI/4)*radius};
-          const habitat={region:geography.getRegionAt(p.x,p.y),biome:geography.getBiomeAt(p.x,p.y),terrain:geography.getTerrainAt(p.x,p.y)};
+          const habitat:CreatureHabitat={region:geography.getRegionAt(p.x,p.y),biome:geography.getBiomeAt(p.x,p.y),terrain:geography.getTerrainAt(p.x,p.y)};
           if(!onFlagshipBoarding(p.x,p.y)&&canOccupy(p.x,p.y)
             &&creatureFitsHabitat(ENEMY_BY_ID['pirate-boatswain'],habitat)
             &&Math.hypot(p.x-home.x,p.y-home.y)<=(anchor.encounterBehavior?.leashRadius??900)*.4

@@ -251,7 +251,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
   recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent) => set((state) => {
     const known=bossId&&state.defeatedBosses.includes(bossId);
-    if (known && !BOSS_BY_ID[bossId!]?.respawns) return {};
+    if(known){
+      const id=`boss:${bossId}`,previous=state.worldContent.states[id],defeated=worldContent?.states[id];
+      // Permanent quest history is not a repeat-battle reward token. A boss
+      // must actually return alive in the content ledger, then transition to
+      // defeated in the scene's snapshot. Replaying a death notification (or
+      // submitting the same defeated snapshot) cannot pay XP/gold again.
+      if(!BOSS_BY_ID[bossId!]?.respawns||!previous||previous.defeated||!(typeof previous.hp==='number'&&previous.hp>0)
+        ||!defeated?.defeated||defeated.hp!==0)return {};
+    }
     const defeatedBosses = bossId&&!known ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 },state.storyFlags);
     const progression = experienceProgress(state, xp + result.xp);
