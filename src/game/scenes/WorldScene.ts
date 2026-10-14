@@ -1172,6 +1172,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   syncState() {
     if (!this.player?.active) return;
+    this.player.syncInventoryVitals();
     this.reconcileStoryAffinity();
     const position=this.interiors?.safePosition??this.passage?.safePosition??this.player;
     const town = this.worldGenerator.getTownAt(position.x, position.y);

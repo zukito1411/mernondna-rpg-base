@@ -8,3 +8,6 @@ export function localPlayCheatsEnabled():boolean {
   if(query.get('localCheats')==='0')return false;
   return !query.has('e2e')||query.get('localCheats')==='1';
 }
+
+/** A compact label avoids stretching the mobile HUD with the test balance. */
+export function goldLabel(amount:number):string{return localPlayCheatsEnabled()?'∞':String(amount);}

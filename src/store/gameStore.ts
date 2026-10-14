@@ -7,12 +7,18 @@ import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
 import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
-import { BASE_ATTRIBUTES, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, xpTotalForLevel, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG} from '../data/campaign';
 import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
+import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
+import {BOSS_WEAPONS,POTIONS,merchantStock,itemName,type PotionId} from '../data/economy';
+import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
+import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
+
+const LOCAL_TEST_GOLD=1_000_000_000;
 
 type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'harbor' | null;
 
@@ -47,6 +53,15 @@ export interface GameState {
   gold: number;
   weaponId: string;
   inventory: string[];
+  consumables:Record<PotionId,number>;
+  vitalRevision:number;
+  learnedCombatArts:ActiveSkillId[];
+  skillSlots:(ActiveSkillId|null)[];
+  buyItem:(npcId:string,itemId:string)=>void;
+  equipWeapon:(id:string)=>void;
+  usePotion:(id:PotionId)=>void;
+  learnCombatArt:(id:ActiveSkillId)=>void;
+  setSkillSlot:(slot:number,id:ActiveSkillId|null)=>void;
   worldX: number;
   worldY: number;
   regionId: RegionId;
@@ -119,15 +134,17 @@ const baseState = () => ({
   maxHp: 100,
   stamina: 100,
   maxStamina: 100,
-  level: 1,
-  xp: 0,
+  level: localPlayCheatsEnabled()?MAX_PLAYER_LEVEL:1,
+  xp: localPlayCheatsEnabled()?xpTotalForLevel(MAX_PLAYER_LEVEL):0,
   attributes: { ...BASE_ATTRIBUTES },
-  statPoints: 0,
-  skillPoints: 0,
+  statPoints: localPlayCheatsEnabled()?(MAX_PLAYER_LEVEL-1)*3:0,
+  skillPoints: localPlayCheatsEnabled()?MAX_PLAYER_LEVEL-1:0,
   learnedSkills: [] as SkillId[],
-  gold: 18,
+  gold: localPlayCheatsEnabled()?LOCAL_TEST_GOLD:18,
   weaponId: LEIGNERON.starterWeaponId,
-  inventory: ['roadwarden-sword'],
+  inventory: localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],
+  consumables:{'healing-potion':2,'stamina-potion':1},vitalRevision:0,
+  learnedCombatArts:[] as ActiveSkillId[],skillSlots:[...DEFAULT_SKILL_SLOTS] as (ActiveSkillId|null)[],
   worldX: LEIGNERON.spawn.x,
   worldY: LEIGNERON.spawn.y,
   regionId: 'trandum' as RegionId,
@@ -154,7 +171,7 @@ const baseState = () => ({
 });
 
 function experienceProgress(state: GameState, xp: number) {
-  const totalXp = state.xp + xp;
+  const totalXp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + xp);
   const level = levelForExperience(totalXp);
   const levelsGained = Math.max(0, level - state.level);
   return {
@@ -168,6 +185,37 @@ function experienceProgress(state: GameState, xp: number) {
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
+  buyItem:(npcId,itemId)=>set(state=>{
+    const dialogue=state.dialogue,npc=NPC_BY_ID[npcId];
+    if(dialogue?.npcId!==npcId||!npc||state.cinematic||state.panel||dialogue.choices?.length
+      ||dialogue.lineIndex<(dialogue.lines??npc.dialogue).length-1)return {};
+    const offer=merchantStock(npcId).find(o=>o.id===itemId);
+    if(!offer||state.gold<offer.price||state.level<offer.minLevel)return {toast:'You need more gold or experience for that purchase.'};
+    if(WEAPON_BY_ID[itemId]){
+      if(state.inventory.includes(itemId))return {toast:'That blade is already in your bag.'};
+      return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,inventory:[...state.inventory,itemId],toast:`Purchased ${itemName(itemId)}. Equip it in your bag.`};
+    }
+    const id=itemId as PotionId;if(!POTIONS[id]||state.consumables[id]>=99)return {toast:'You cannot carry any more of that draught.'};
+    return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,consumables:{...state.consumables,[id]:state.consumables[id]+1},toast:`Purchased ${itemName(id)}.`};
+  }),
+  equipWeapon:id=>set(state=>state.panel==='inventory'&&!state.dialogue&&!state.cinematic&&!state.activeSkillStatus.casting&&state.inventory.includes(id)&&Object.hasOwn(WEAPON_BY_ID,id)
+    ?{weaponId:id,toast:`Equipped ${WEAPON_BY_ID[id].name}.`}:{}),
+  usePotion:id=>set(state=>{
+    const p=POTIONS[id];if((state.panel!==null&&state.panel!=='inventory')||state.dialogue||state.cinematic||!p||state.hp<=0||state.activeSkillStatus.casting||state.consumables[id]<=0)return {};
+    if((p.hp&&state.hp>=state.maxHp)||(p.stamina&&state.stamina>=state.maxStamina))return {toast:'No need to drink that yet.'};
+    return {hp:Math.min(state.maxHp,state.hp+p.hp),stamina:Math.min(state.maxStamina,state.stamina+p.stamina),
+      vitalRevision:state.vitalRevision+1,consumables:{...state.consumables,[id]:state.consumables[id]-1},toast:`Used ${p.name}.`};
+  }),
+  learnCombatArt:id=>set(state=>{
+    const s=ACTIVE_SKILL_BY_ID[id];if(!s?.learnCost||state.panel!=='character'||state.level<s.minLevel||state.skillPoints<s.learnCost||state.learnedCombatArts.includes(id))return {};
+    return {skillPoints:state.skillPoints-s.learnCost,learnedCombatArts:[...state.learnedCombatArts,id],toast:`Learned ${s.name}. Assign it to one of your four slots.`};
+  }),
+  setSkillSlot:(slot,id)=>set(state=>{
+    if(state.panel!=='character'||state.activeSkillStatus.casting||!Number.isInteger(slot)||slot<0||slot>3)return {};
+    if(id){const s=ACTIVE_SKILL_BY_ID[id];if(!s||state.level<s.minLevel||s.learnCost&&!state.learnedCombatArts.includes(id))return {};}
+    const slots=state.skillSlots.map(value=>id&&value===id?null:value);slots[slot]=id;
+    return {skillSlots:slots};
+  }),
   setVitals: (hp, stamina) => set({ hp, stamina }),
   damagePlayer: (amount) => set((state) => ({ hp: Math.max(0, state.hp - amount) })),
   setWorldStatus: (worldX, worldY, regionId, townId) => set({ worldX, worldY, regionId, townId }),
@@ -276,7 +324,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const defeatedBosses = bossId&&!known ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1,contentId },state.storyFlags,worldContent??state.worldContent);
     const progression = experienceProgress(state, xp + result.xp);
+    const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
+    const dropped=trophy&&Math.random()<.1?trophy:undefined;
+    const duplicate=dropped&&state.inventory.includes(dropped.id);
     return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,
+      ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
+        gold:state.gold+gold+result.gold+(duplicate?dropped.salvage:0),
+        toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${dropped.salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
       ...(worldContent ? { worldContent } : {}) };
   }),
@@ -299,6 +353,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   setNavigation: (navigation) => set({ navigation }),
   setActiveSkillStatus:(activeSkillStatus) => set({ activeSkillStatus }),
   setBossEncounter:(bossEncounter) => set({ bossEncounter }),
-  hydrate: (partial) => set(partial),
+  hydrate: (partial) => set(state=>{
+    const level=Math.min(MAX_PLAYER_LEVEL,partial.level??state.level);
+    const xp=Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),partial.xp??state.xp);
+    if(!localPlayCheatsEnabled())return {...partial,level,xp};
+    const gained=Math.max(0,MAX_PLAYER_LEVEL-level);
+    return {...partial,level:MAX_PLAYER_LEVEL,xp:xpTotalForLevel(MAX_PLAYER_LEVEL),
+      statPoints:(partial.statPoints??state.statPoints)+gained*3,
+      skillPoints:(partial.skillPoints??state.skillPoints)+gained,
+      gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id)};
+  }),
   resetGame: () => set(baseState()),
 }));

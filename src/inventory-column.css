@@ -10,3 +10,58 @@
   padding: clamp(12px, 1.3vw, 18px) !important;
   min-width: 0;
 }
+
+.item-icon {display:block;flex:0 0 54px;width:54px;height:54px;background-image:url('/assets/items/equipment-v1.png');background-size:400% 400%;background-repeat:no-repeat;}
+.generated-art-icon {display:block;width:100%;height:100%;background-image:url('/assets/effects/combat-arts-v1.png');background-size:400% 400%;background-repeat:no-repeat;}
+.item-row {display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #92764c44;min-width:0;}
+.item-row > div {flex:1;min-width:0;}
+.item-row strong,.item-row small {display:block;overflow-wrap:anywhere;}
+.item-row p {font-size:12px;margin:4px 0;}
+.item-row button {flex-shrink:0;}
+.inventory-panel .gear-grid article.item-row {background:none!important;background-image:none!important;box-shadow:none!important;border-radius:0!important;padding:10px 0!important;}
+.merchant-stock {flex:1 1 auto;min-height:90px;overflow-y:auto;overscroll-behavior:contain;padding:6px 0;}
+.dialogue-panel:has(.merchant-stock) {display:flex;flex-direction:column;max-height:calc(100dvh - 64px)!important;overflow:hidden!important;}
+.dialogue-panel:has(.merchant-stock) > :not(.merchant-stock) {flex-shrink:0;}
+.dialogue-panel .relationship-note {color:#644c2c!important;}
+.hud-layer .desktop-skill-name {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media(max-height:500px){.dialogue-panel:has(.merchant-stock){max-height:calc(100dvh - 40px)!important;}.dialogue-panel:has(.merchant-stock) .relationship-note{display:none;}.dialogue-panel:has(.merchant-stock) > p{margin:6px 0;}.merchant-stock h3{margin:6px 0;font-size:14px;}}
+.skill-loadout {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0;}
+.character-panel .combat-art-section,.character-panel .combat-loadout-note {grid-column:1/-1;}
+.character-panel .combat-loadout-note {margin:0 0 10px;font-size:12px;}
+.skill-loadout label {display:grid;gap:5px;min-width:0;}
+.skill-loadout select {width:100%;min-width:0;background:#221e15;color:#f4ddb0;padding:8px;border:1px solid #a18a58;border-radius:6px;}
+@media(max-width:650px){.skill-loadout{grid-template-columns:repeat(2,minmax(0,1fr));}.item-icon{flex-basis:42px;width:42px;height:42px;}.item-row{gap:7px;}}
+@media(max-width:480px) and (orientation:portrait) and (pointer:coarse){.mobile-controls .touch-button.sprint{bottom:180px;}}
+
+/* The free lane left of the skill cluster matches the marked mobile layout. */
+.mobile-controls .touch-button.interact {left:148px;top:0;}
+.touch-potions {position:absolute;left:0;bottom:6px;display:flex;gap:6px;pointer-events:none;}
+.mobile-controls .touch-potion {position:relative;width:44px;height:44px;min-width:0;min-height:0;padding:4px;pointer-events:auto;}
+.mobile-controls .touch-potion .item-icon {flex:0 0 auto;width:32px;height:32px;}
+.touch-potion-count {position:absolute;right:-2px;bottom:-2px;min-width:16px;padding:1px 3px;border:1px solid #bc9a58;border-radius:8px;background:#211b12;color:#ffe4b0;font-size:10px;line-height:1.1;text-align:center;}
+.mobile-controls .touch-potion:disabled {opacity:.55;}
+.mobile-controls .touch-button.sprint {left:104px;width:46px;height:46px;}
+.equipment-tabs{display:flex;gap:8px;flex-shrink:0;padding:5px 20px 10px;}
+.equipment-tabs button{flex:1;min-width:0;min-height:42px;padding:6px 9px;}
+.equipment-tabs button[aria-pressed="true"]{background:#5b3c1f!important;color:#fff0c5!important;box-shadow:inset 0 0 0 2px #bd965b;}
+.inventory-panel .equipment-body,.character-panel .character-body{display:block!important;min-height:0;flex:1;overflow-y:auto!important;overflow-x:hidden!important;padding:12px 22px!important;overscroll-behavior:contain;}
+.equipped-summary{display:flex;gap:14px;align-items:center;background:#97754a25;padding:12px;border-bottom:2px solid #9c784e55;margin-bottom:12px;}
+.equipped-summary div{display:grid;gap:4px;min-width:0;}.equipped-summary strong{font-size:18px;}.equipped-summary span{font-size:12px;}
+.equipment-help{font-size:12px;line-height:1.5;margin:8px 0 14px;}
+.equipment-search{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:13px;}
+.equipment-search input{flex:1;min-width:0;padding:9px;border:1px solid #94774b;border-radius:7px;background:#fff4d080;color:#422b15;}
+.weapon-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.inventory-panel .weapon-card{align-items:flex-start!important;padding:12px!important;gap:10px;border:1px solid #92754c55!important;background:#ac8b5430!important;border-radius:9px!important;}
+.inventory-panel .weapon-card.is-equipped{border:1px solid transparent!important;background:#66864a22!important;}
+.weapon-card .item-icon{width:64px;height:64px;flex-basis:64px;}.weapon-card button{align-self:center;min-height:42px;}
+.weapon-card details{margin-top:8px;font-size:12px;}.weapon-card summary{cursor:pointer;}.weapon-comparison{display:flex;gap:8px;align-items:center;margin:7px 0;}
+.weapon-comparison .stat-gain{color:#285522!important;font-weight:bold;}.weapon-comparison .stat-loss{color:#853e2e!important;font-weight:bold;}
+.potion-cards{max-width:800px;margin:auto;}.potion-card{min-height:78px;}.vital-summary{display:flex;gap:14px;flex-wrap:wrap;padding:12px;background:#94713a20;margin-bottom:15px;border-radius:8px;}.vital-summary span{display:grid;gap:4px;font-size:12px;}.vital-summary b{font-size:17px;}
+.loadout-card{background:#97754a25;border:1px solid #92764c55;border-radius:8px;padding:10px;}.loadout-card>span{font-size:12px;}.empty-art{height:48px;display:grid;place-items:center;}
+@media(max-width:760px){.weapon-cards{grid-template-columns:1fr;}.equipment-tabs{padding:5px 12px;gap:5px;}.equipment-tabs button{font-size:12px;}.inventory-panel .equipment-body,.character-panel .character-body{padding:10px 14px!important;}.weapon-card .item-icon{width:48px;height:48px;flex-basis:48px;}}
+@media(max-width:480px) and (orientation:portrait) and (pointer:coarse){
+  .mobile-controls .touch-potions{bottom:180px;}
+  .mobile-controls .touch-button.sprint{bottom:245px;}
+}
+.desktop-potion-slot .item-icon {width:100%;height:100%;margin:0;}
+.desktop-potion-count {position:absolute;right:2px;bottom:1px;padding:0 3px;background:#17120de6;border-radius:3px;font-size:12px;color:#fff1d4;}

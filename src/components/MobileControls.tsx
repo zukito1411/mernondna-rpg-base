@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { ACTIVE_SKILLS } from '../data/activeSkills';
-import { SKILL_ICON_PATHS } from '../data/skillIcons';
+import { slottedActiveSkills } from '../data/activeSkills';
+import {CombatArtIcon} from './CombatArtIcon';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
+import {ItemIcon} from './ItemIcon';
+import {POTIONS,type PotionId} from '../data/economy';
 
 export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
@@ -13,7 +15,10 @@ export function MobileControls() {
   const cinematic=useGameStore(s=>s.cinematic);
   const activeSkillStatus = useGameStore(s => s.activeSkillStatus);
   const level=useGameStore(s=>s.level);
+  const slots=useGameStore(s=>s.skillSlots);
   const interaction = useGameStore(s => s.navigation.interaction);
+  const potions=useGameStore(s=>s.consumables);
+  const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),stamina=useGameStore(s=>s.stamina),maxStamina=useGameStore(s=>s.maxStamina);
   const blocked = Boolean(panel || dialogue || cinematic);
   useEffect(() => {
     const reset = () => {
@@ -84,7 +89,15 @@ export function MobileControls() {
       </div>
 
       <div className="touch-actions">
-        {ACTIVE_SKILLS.map(skill => {
+        <div className="touch-potions" aria-label="Potion shortcuts">
+          {(['healing-potion','stamina-potion'] as PotionId[]).map(id=>{
+            const healing=id==='healing-potion',count=potions[id],full=healing?hp>=maxHp:stamina>=maxStamina;
+            return <button key={id} type="button" className={`touch-button touch-potion ${healing?'healing':'stamina'}`} aria-label={`${POTIONS[id].name}, ${count} remaining`} title={`${POTIONS[id].name} · ${count} remaining`} disabled={count<=0||full||Boolean(activeSkillStatus.casting)} onPointerDown={()=>mobileInput.press(healing?'healPotion':'staminaPotion')}>
+              <ItemIcon id={id}/><span className="touch-potion-count">{count}</span>
+            </button>;
+          })}
+        </div>
+        {slottedActiveSkills(slots).map(skill => {
           const locked=level<skill.minLevel;
           const remaining = activeSkillStatus.cooldowns[skill.id];
           const cooldown = remaining > 0;
@@ -103,7 +116,7 @@ export function MobileControls() {
               {cooldown && <span className="touch-cooldown-ring" style={{
                 background: `conic-gradient(rgba(12, 19, 23, .78) ${progress * 360}deg, transparent 0)`,
               }} />}
-              <span className="touch-skill-glyph"><img src={SKILL_ICON_PATHS[skill.id]} alt="" /></span>
+              <span className="touch-skill-glyph"><CombatArtIcon id={skill.id}/></span>
               <span className="touch-skill-slot">{skill.slot}</span>
             </button>
           );
@@ -112,7 +125,7 @@ export function MobileControls() {
           <span className="touch-glyph">E</span><small>Interact</small>
         </button>}
         <button type="button" aria-label="Attack" className="touch-button attack" onPointerDown={() => mobileInput.press('attack')}>
-          <span className="touch-glyph"><img src="/assets/ui/actions/attack.svg" alt="" /></span><small>Attack</small>
+          <span className="touch-glyph"><img src="/icons/basic_attack.png" alt="" /></span><small>Attack</small>
         </button>
         <button type="button" aria-label="Tap to dash, hold to sprint" title="Tap to dash · Hold to sprint" className="touch-button sprint"
           onPointerDown={(event) => {

@@ -1,17 +1,24 @@
-import { ACTIVE_SKILLS } from '../data/activeSkills';
-import { SKILL_ICON_PATHS } from '../data/skillIcons';
+import { slottedActiveSkills } from '../data/activeSkills';
+import {CombatArtIcon} from './CombatArtIcon';
+import {ItemIcon} from './ItemIcon';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 
-/** The same four combat arts as the mobile buttons; no duplicate cooldown state. */
+/** Four combat slots followed by fixed health/stamina shortcuts. */
 export function DesktopSkillBar() {
   const status=useGameStore(s=>s.activeSkillStatus);
   const stamina=useGameStore(s=>s.stamina);
   const level=useGameStore(s=>s.level);
   const blocked=useGameStore(s=>Boolean(s.panel||s.dialogue||s.cinematic));
+  const slots=useGameStore(s=>s.skillSlots);
+  const potions=useGameStore(s=>s.consumables);
+  const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),maxStamina=useGameStore(s=>s.maxStamina);
+  const skills=slottedActiveSkills(slots);
   if(blocked)return null;
   return <nav className="desktop-skillbar" aria-label="Combat arts and cooldowns">
-    {ACTIVE_SKILLS.map(skill=>{
+    {[1,2,3,4].map(slot=>{
+      const skill=skills.find(s=>s.slot===slot);
+      if(!skill)return <button type="button" key={`empty-${slot}`} className="desktop-skill-slot" disabled title="Choose a skill in Stats"><span className="desktop-skill-art"/><kbd>{slot}</kbd><span className="desktop-skill-name">Empty</span><span className="desktop-skill-state">Set in Stats</span></button>;
       const locked=level<skill.minLevel;
       const remaining=Math.max(0,status.cooldowns[skill.id]);
       const cooling=remaining>0;
@@ -25,7 +32,7 @@ export function DesktopSkillBar() {
         disabled={disabled}
         onClick={()=>mobileInput.press(skill.action)}>
         <span className="desktop-skill-art">
-          <img src={SKILL_ICON_PATHS[skill.id]} alt="" draggable={false}/>
+          <CombatArtIcon id={skill.id}/>
           {locked&&<span className="desktop-skill-shade" style={{height:'100%'}}/>}
           {cooling&&!locked&&<span className="desktop-skill-shade"
             style={{height:`${Math.min(100,remaining/skill.cooldownMs*100)}%`}} />}
@@ -37,6 +44,19 @@ export function DesktopSkillBar() {
         <span className="desktop-skill-name">{skill.name}</span>
         {!cooling&&!casting&&!locked&&<span className="desktop-skill-state">{insufficient?'Low stamina':'Ready'}</span>}
         {locked&&<span className="desktop-skill-state">Locked</span>}
+      </button>;
+    })}
+    {(['healing-potion','stamina-potion'] as const).map((id,index)=>{
+      const count=potions[id],full=index===0?hp>=maxHp:stamina>=maxStamina;
+      const label=index===0?'HP potion':'Stamina potion',key=index+5;
+      return <button type="button" key={id} className="desktop-skill-slot desktop-potion-slot"
+        disabled={count===0||full||status.casting!==null}
+        title={`${label} · key ${key} · ${count} bottles`}
+        aria-label={`${label}, key ${key}, ${count} bottles${full?', already full':''}`}
+        onClick={()=>mobileInput.press(index===0?'healPotion':'staminaPotion')}>
+        <span className="desktop-skill-art"><ItemIcon id={id}/><strong className="desktop-potion-count">{count}</strong></span>
+        <kbd>{key}</kbd><span className="desktop-skill-name">{label}</span>
+        <span className="desktop-skill-state">{count===0?'Empty':full?'Full':'Ready'}</span>
       </button>;
     })}
   </nav>;

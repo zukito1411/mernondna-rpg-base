@@ -9,8 +9,9 @@ import { mobileInput } from '../game/input';
 import { activeObjective } from '../game/systems/questNavigation';
 import { MiniMap } from './MiniMap';
 import { QuestCompass } from './QuestCompass';
-import { experienceWithinLevel } from '../data/progression';
+import { experienceWithinLevel,MAX_PLAYER_LEVEL } from '../data/progression';
 import {questObjectiveText} from '../game/systems/questDestinations';
+import {goldLabel} from '../utils/localPlayCheats';
 
 function barPercent(value: number, max: number) {
   return `${Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))}%`;
@@ -58,11 +59,11 @@ export function HUD() {
           <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
           <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
           <div className="meter"><div className="meter-fill stamina" style={{ width: barPercent(stamina, maxStamina) }} /></div>
-          <div className="xp-meter" role="progressbar" aria-label="Experience to next level" aria-valuemin={0} aria-valuemax={xpProgress.required} aria-valuenow={xpProgress.current}>
+          <div className="xp-meter" role="progressbar" aria-label={level>=MAX_PLAYER_LEVEL?'Maximum level':'Experience to next level'} aria-valuemin={0} aria-valuemax={xpProgress.required} aria-valuenow={xpProgress.current}>
             <div className="xp-meter-fill" style={{ width: barPercent(xpProgress.current, xpProgress.required) }} />
-            <span>{xpProgress.current} / {xpProgress.required} XP</span>
+            <span>{level>=MAX_PLAYER_LEVEL?'MAX LEVEL':`${xpProgress.current} / ${xpProgress.required} XP`}</span>
           </div>
-          <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{gold}g</span></div>
+          <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{goldLabel(gold)}g</span></div>
         </section>
 
         <section className="quest-card">

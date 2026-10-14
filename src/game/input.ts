@@ -1,5 +1,5 @@
 import type { ActiveSkillAction } from '../data/activeSkills';
-export type MobileAction = 'attack' | 'dash' | 'interact' | ActiveSkillAction;
+export type MobileAction = 'attack' | 'dash' | 'interact' | 'healPotion' | 'staminaPotion' | ActiveSkillAction;
 
 const mobile = {
   moveX: 0,
@@ -7,6 +7,7 @@ const mobile = {
   attack: false,
   dash: false,
   interact: false,
+  healPotion:false,staminaPotion:false,
   sprint: false,
   skill1:false,skill2:false,skill3:false,skill4:false,
 };
@@ -44,6 +45,7 @@ export const mobileInput = {
     mobile.attack = false;
     mobile.dash = false;
     mobile.interact = false;
+    mobile.healPotion=mobile.staminaPotion=false;
     mobile.sprint = false;
     mobile.skill1 = mobile.skill2 = mobile.skill3 = mobile.skill4 = false;
   },

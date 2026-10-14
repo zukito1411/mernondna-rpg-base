@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {EquippedSwordVisual} from '../systems/EquippedSwordVisual';
 import { mobileInput, type MobileAction } from '../input';
 import { useGameStore } from '../../store/gameStore';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -7,7 +8,7 @@ import { directionFrame } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
 import { animationDuration } from '../../data/animationPacks';
 import { progressionStats } from '../../data/progression';
-import { ACTIVE_SKILLS } from '../../data/activeSkills';
+import { slottedActiveSkills } from '../../data/activeSkills';
 import { PlayerSkillSystem } from '../systems/PlayerSkillSystem';
 import { RecoverySystem } from '../systems/RecoverySystem';
 import { approachVelocity, strideRate } from '../systems/locomotion';
@@ -33,6 +34,28 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private sprintExhausted = false;
   private readonly pressed = new Set<MobileAction>();
   private attackVisual:Phaser.GameObjects.Sprite | null = null;
+  private readonly swordVisual:EquippedSwordVisual;
+  private weaponDrawnRemaining=0;
+  // Arcade Physics applies its final displacement in POST_UPDATE, after the
+  // scene's updatePlayer call. Attach visual layers only once that is done.
+  private readonly syncSwordAfterPhysics=()=>{
+    if(!this.active)return;
+    this.setDepth(this.y);
+    if(this.attackVisual?.active)this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
+    this.updateSwordVisual();
+  };
+  private updateSwordVisual(){
+    if(this.skills.hidesWeapon){this.swordVisual.hide();return;}
+    const attacking=Boolean(this.attackVisual?.active)||this.skills.isCasting;
+    this.swordVisual.update(this.skills.weaponActor??this.attackVisual??this,
+      !attacking&&this.weaponDrawnRemaining===0,
+      this.lastDirection.y<0&&Math.abs(this.lastDirection.y)>=Math.abs(this.lastDirection.x));
+  }
+  private vitalRevision=useGameStore.getState().vitalRevision;
+  syncInventoryVitals(){
+    const state=useGameStore.getState();if(state.vitalRevision===this.vitalRevision)return;
+    this.hp=state.hp;this.stamina=state.stamina;this.vitalRevision=state.vitalRevision;
+  }
 
   constructor(scene: WorldScene, x: number, y: number) {
     super(scene, x, y, 'leigneron', 0);
@@ -41,7 +64,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setScale(artScale('leigneron')).setOrigin(.5, layout.originY);
     scene.physics.add.existing(this);
     this.setDepth(y);
-    this.once('destroy',() => { this.clearAttackVisual(); this.skills?.destroy(); });
+    this.swordVisual=new EquippedSwordVisual(scene);
+    // The physics plugin has already registered its POST_UPDATE listener.
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE,this.syncSwordAfterPhysics);
+    this.once('destroy',() => {
+      scene.events.off(Phaser.Scenes.Events.POST_UPDATE,this.syncSwordAfterPhysics);
+      this.clearAttackVisual();this.skills?.destroy();this.swordVisual.destroy();
+    });
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     const density = ART_BY_KEY.leigneron.density;
@@ -60,8 +89,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.keys = scene.input.keyboard.addKeys({
       up: 'W', down: 'S', left: 'A', right: 'D', sprint: 'SHIFT', dash: 'Q', attack: 'SPACE', interact: 'E',
       skill1:'ONE',skill2:'TWO',skill3:'THREE',skill4:'FOUR',
+      healPotion:'FIVE',staminaPotion:'SIX',
     }) as typeof this.keys;
-    for (const action of ['dash', 'attack', 'interact','skill1','skill2','skill3','skill4'] as const) {
+    for (const action of ['dash', 'attack', 'interact','skill1','skill2','skill3','skill4','healPotion','staminaPotion'] as const) {
       this.keys[action].setEmitOnRepeat(false).on('down', () => this.pressed.add(action));
     }
   }
@@ -71,15 +101,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const body = this.body as Phaser.Physics.Arcade.Body;
     const state = useGameStore.getState();
     const progression = progressionStats(state.attributes, state.learnedSkills);
+    this.syncInventoryVitals();
     this.maxHp = progression.maxHp;
     this.maxStamina = progression.maxStamina;
     if(this.unlimitedVitals){this.hp=this.maxHp;this.stamina=this.maxStamina;this.sprintExhausted=false;}
+    for(const [action,id] of [['healPotion','healing-potion'],['staminaPotion','stamina-potion']] as const){
+      const touch=mobileInput.consume(action),pressed=this.consumeAction(action)||touch;
+      if(pressed){state.setVitals(this.hp,this.stamina);state.usePotion(id);this.syncInventoryVitals();}
+    }
+    const castingAtFrameStart=this.skills.isCasting;
     this.skills.update(delta);
+    // Even the completion frame belongs to the cast. Held inputs resume on
+    // the next frame, without adding a walk/sprint displacement to the rush.
+    const movementLocked=castingAtFrameStart||this.skills.isCasting;
 
     let x = (this.keys.right.isDown ? 1 : 0) - (this.keys.left.isDown ? 1 : 0) + mobileInput.moveX;
     let y = (this.keys.down.isDown ? 1 : 0) - (this.keys.up.isDown ? 1 : 0) + mobileInput.moveY;
     const movement = new Phaser.Math.Vector2(x, y);
-    if (this.skills.isCasting) movement.set(0,0);
+    if (movementLocked) movement.set(0,0);
     if (movement.lengthSq() > 1) movement.normalize();
     x = movement.x;
     y = movement.y;
@@ -90,7 +129,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileDash = mobileInput.consume('dash');
     const dashPressed = this.consumeAction('dash') || mobileDash;
-    if (dashPressed && !this.skills.isCasting && time >= this.nextDashAt && this.spendStamina(16)) {
+    if (dashPressed && !movementLocked && time >= this.nextDashAt && this.spendStamina(16)) {
       this.nextDashAt = time + 850;
       this.dashUntil = time + 165;
       this.dashDirection.copy(this.lastDirection);
@@ -101,7 +140,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       scene.playAudio('sfx-dash',.32);
     }
 
-    const dashing = time < this.dashUntil;
+    const dashing = !movementLocked&&time < this.dashUntil;
     const sprintHeld = this.keys.sprint.isDown || mobileInput.sprint;
     // Exhaustion survives tiny refills and brief input changes. Recover a
     // useful reserve with sprint released before a new hold can start running.
@@ -111,7 +150,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.sprintExhausted = false;
     }
 
-    let sprinting = sprintHeld && !this.sprintExhausted && !this.skills.isCasting &&
+    let sprinting = sprintHeld && !this.sprintExhausted && !movementLocked &&
       !dashing && movement.lengthSq() > .01 && this.stamina > 0;
     if (sprinting&&!this.unlimitedVitals) {
       this.stamina = Math.max(0, this.stamina - delta * 0.022);
@@ -132,7 +171,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.sprintExhausted && !dashing && body.velocity.length() > walkSpeed) {
       body.velocity.setLength(walkSpeed);
     }
-    const lockedMotion=this.skills.isCasting||dashing;
+    const lockedMotion=movementLocked||dashing;
     body.setVelocity(lockedMotion?x*speed:approachVelocity(body.velocity.x,x*speed,delta,45),
       lockedMotion?y*speed:approachVelocity(body.velocity.y,y*speed,delta,45));
     if(!dashing&&movement.lengthSq()>.01&&body.velocity.length()>28&&time>=this.nextFootstepAt){
@@ -145,9 +184,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(this.y);
     if (this.attackVisual?.active) this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
 
-    for (const skill of ACTIVE_SKILLS) {
-      const touchPressed = mobileInput.consume(skill.action);
-      const pressed = this.consumeAction(skill.action) || touchPressed;
+    const equippedArts=slottedActiveSkills(state.skillSlots);
+    for (const action of ['skill1','skill2','skill3','skill4'] as const) {
+      const touchPressed = mobileInput.consume(action);
+      const pressed = this.consumeAction(action) || touchPressed;
+      const skill=equippedArts.find(s=>s.action===action);if(!skill)continue;
       if (pressed && !scene.inInterior && !this.skills.isCasting && time >= this.nextAttackAt && time >= this.dashUntil) {
         this.clearAttackVisual();
         if (this.skills.tryCast(skill.id)) this.nextAttackAt = time + skill.durationMs;
@@ -173,6 +214,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       if (this.skills.isCasting) scene.notify('Finish your combat art before interacting.');
       else scene.tryInteract(this.x, this.y);
     }
+    // Advance the combat-rest timer here; the post-physics listener renders
+    // the sword against the final body position and the current pose frame.
+    if(this.skills.isCasting||this.attackVisual?.active)this.weaponDrawnRemaining=5000;
+    else this.weaponDrawnRemaining=Math.max(0,this.weaponDrawnRemaining-Math.max(0,Math.min(delta,250)));
   }
 
   spendStamina(amount:number):boolean {
@@ -183,6 +228,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   takeDamage(amount: number) {
     const scene = this.scene as WorldScene;
+    if(amount>0)this.weaponDrawnRemaining=5000;
+    if(amount>0)this.skills.interruptRenewal();
     this.recovery.interrupt();
     this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills).incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
@@ -201,9 +248,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.hp = this.maxHp;
     this.stamina = this.maxStamina;
     (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+    this.weaponDrawnRemaining=0;
+    this.updateSwordVisual();
   }
 
   resetInput() {
+    // Menus must see current combat vitals, not the throttled HUD snapshot;
+    // otherwise drinking from Bag can heal from an older health value.
+    this.syncInventoryVitals();
+    useGameStore.getState().setVitals(this.hp,this.stamina);
     this.skills.cancelCast();
     this.clearAttackVisual();
     mobileInput.reset();
@@ -213,11 +266,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     this.anims.stop();
     this.pressed.clear();
+    this.updateSwordVisual();
   }
 
   discardActions() {
     this.pressed.clear();
-    for (const action of ['attack', 'dash', 'interact','skill1','skill2','skill3','skill4'] as const) mobileInput.consume(action);
+    for (const action of ['attack', 'dash', 'interact','skill1','skill2','skill3','skill4','healPotion','staminaPotion'] as const) mobileInput.consume(action);
   }
   private consumeAction(action: MobileAction) {
     const value = this.pressed.has(action);

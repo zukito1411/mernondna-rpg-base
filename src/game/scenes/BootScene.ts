@@ -1,4 +1,9 @@
 import Phaser from 'phaser';
+import {heroBodySource,heroGrip} from '../../data/modularHero';
+import {heroFrameData} from '../systems/heroFrameData';
+import {SWORD_SOURCE,prepareEquippedSwords} from '../systems/EquippedSwordVisual';
+import {COMBAT_EFFECT_TEXTURE,DISTINCT_EFFECT_TEXTURE,prepareCombatArtEffects,prepareSlashWeaponEffect} from '../systems/CombatArtEffects';
+import {applySkillWeaponPalette} from '../systems/WeaponSkillPalette';
 import {CITIZEN_SOURCES,prepareCitizenArt} from '../systems/RegionalCitizenArt';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIBLE_HEIGHT } from '../../data/art';
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
@@ -131,6 +136,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    this.load.image(SWORD_SOURCE,'assets/items/equipment-v1.png');
+    this.load.image(COMBAT_EFFECT_TEXTURE,'assets/effects/combat-arts-v1.png');
+    this.load.image(DISTINCT_EFFECT_TEXTURE,'assets/effects/distinct-combat-arts-v2.png');
     for(const source of CITIZEN_SOURCES)this.load.image(source.key,source.path);
     this.failures.length = 0;
     this.registry.set('loadingProgress',0);
@@ -179,7 +187,7 @@ export class BootScene extends Phaser.Scene {
         files.add(sheet.path);
       }
     }
-    for (const path of files) this.load.image(`source:${path}`, path);
+    for (const path of files) this.load.image(`source:${path}`, heroBodySource(path));
   }
 
   create() {
@@ -194,13 +202,17 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     registerAttackWarningFrames(this);
+    prepareCombatArtEffects(this);
+    prepareCombatArtEffects(this,DISTINCT_EFFECT_TEXTURE,'distinct-art-effect');
     prepareCitizenArt(this);
+    prepareEquippedSwords(this);
 
     prepareVehicleArt(this);
     prepareDragonBreathArt(this);
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
     const loaded = new Set<string>();
     const heroFits=new Map<string,number>();
+    const heroGrounds=new Map<string,number>();
     const drawEnemyPose=createSpriteCropper();
 
     for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
@@ -278,6 +290,10 @@ export class BootScene extends Phaser.Scene {
         const heroEnd = Math.floor(((frame % 6) + 1) * frameSource.width / 6);
         const cell = isHeroWalk && packed && wrongDimensions
           ? [heroStart, 0, heroEnd - heroStart, frameSource.height] as const
+          : sheet.key==='leigneron_attack'&&packed
+          ? [Math.max(0,packed.cell[0]-12),Math.max(0,packed.cell[1]-12),
+              Math.min(frameSource.width,packed.cell[0]+packed.cell[2]+12)-Math.max(0,packed.cell[0]-12),
+              Math.min(frameSource.height,packed.cell[1]+packed.cell[3]+12)-Math.max(0,packed.cell[1]-12)] as const
           : packed?.cell ?? sheet.regions?.[frame];
         const region = data && cell
           ? isHeroArt
@@ -293,8 +309,10 @@ export class BootScene extends Phaser.Scene {
 
         const size = artFrameSize(sheet.key, frame);
         if(isHeroArt && data && !heroFits.has(packed?.path??sheet.path)) {
-          const cells=packed?sheet.sources!.filter(s=>s.path===packed.path).map(s=>s.cell):sheet.regions!;
+          const cells=packed?sheet.sources!.filter(s=>s.path===packed.path).map((s,i)=>isHeroWalk&&wrongDimensions
+            ?[Math.floor(i%6*frameSource.width/6),0,Math.floor((i%6+1)*frameSource.width/6)-Math.floor(i%6*frameSource.width/6),frameSource.height] as const:s.cell):sheet.regions!;
           const bounds=cells.map(c=>heroVisibleBounds(data.data,data.width,c)).filter((r):r is readonly [number,number,number,number]=>Boolean(r));
+          if(isHeroWalk&&wrongDimensions&&!packed?.groundAnchor)heroGrounds.set(packed?.path??sheet.path,Math.max(...bounds.map(r=>r[1]+r[3])));
           // Registered clips can share the upright walking scale so a leaning
           // or airborne running pose does not grow to fill the same height.
           const registeredScale = packed?.groundAnchor ? packed.renderScale : undefined;
@@ -344,7 +362,7 @@ export class BootScene extends Phaser.Scene {
           // Don't reset the hero's vertical foot position from each cropped
           // silhouette. Use the source frame's fixed ground baseline instead.
           : isHeroArt && region && cell
-          ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - (cell[1] + cell[3])) * fit * sheet.density
+          ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - (heroGrounds.get(packed?.path??sheet.path)??(cell[1] + cell[3]))) * fit * sheet.density
           : isHeroArt
           ? y + height - 2 * sheet.density - drawHeight
           : packed?.anchor && region
@@ -369,6 +387,13 @@ export class BootScene extends Phaser.Scene {
         if(preparedFrame)preparedFrame.customData={visibleBounds:{left:(drawX-x)/sheet.density,top:(drawY-y)/sheet.density,width:drawWidth/sheet.density,height:drawHeight/sheet.density},
           sourceRegion:region?[...region]:undefined,sourceFit:regionFit,
           sourcePath:packed?.path??sheet.path,sourceImageSize:[frameSource.width,frameSource.height],fullSprite:true};
+        const registered=heroGrip(packed?.path??sheet.path,frame,frameSource.width,frameSource.height);
+        if(preparedFrame&&registered&&region)heroFrameData(preparedFrame).weaponGrip={
+          x:drawX-x+(registered.x-region[0])*regionFit*sheet.density,
+          y:drawY-y+(registered.y-region[1])*regionFit*sheet.density,
+          angle:registered.angle,behind:registered.behind,
+        };
+        if(preparedFrame&&registered)heroFrameData(preparedFrame).heroDensity=sheet.density;
       }
 
       if (sheet.blackBackground) {
@@ -384,6 +409,7 @@ export class BootScene extends Phaser.Scene {
       }
       texture.refresh();
       texture.setFilter(sheet.key==='enemies'||sheet.key.startsWith('enemy_')?Phaser.Textures.FilterMode.NEAREST:Phaser.Textures.FilterMode.LINEAR);
+      applySkillWeaponPalette(this,sheet.key,undefined,true);
       if(sheet.key!=='elarion_tree')prepareEnvironmentLightArt(this, sheet.key);
     }
 
@@ -432,6 +458,7 @@ export class BootScene extends Phaser.Scene {
         repeat
       });
     }
+    prepareSlashWeaponEffect(this);
     this.scene.start('world');
   }
 }

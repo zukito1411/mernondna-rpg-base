@@ -10,16 +10,18 @@ import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
 import type { ContentState, ContentWorldState, CreatureContentDefinition, EncounterBehavior, EncounterRole } from '../game/types';
-import { BASE_ATTRIBUTES, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES} from '../data/campaign';
+import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
+import {POTIONS,type PotionId} from '../data/economy';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
-export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'>;
+export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'>>;
 export interface SaveData { version: 5; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
 
 let syncSnapshot: (() => void) | undefined;
@@ -298,6 +300,17 @@ export function parseSave(raw: string): SaveData | null {
         if(objective.cinematicId)storyFlags['scene:'+objective.cinematicId]=true;
     }
     const state = s as unknown as SavedState;
+    // Additive equipment schema: old installations keep their four original
+    // arts and receive no repeat free items when these fields are absent.
+    const consumables=s.consumables===undefined?{'healing-potion':0,'stamina-potion':0}:s.consumables;
+    if(!record(consumables)||!Object.keys(POTIONS).every(id=>numberIn(consumables[id],0,99)&&Number.isInteger(consumables[id])))return null;
+    const learnedCombatArts=s.learnedCombatArts??[];
+    if(!strings(learnedCombatArts)||new Set(learnedCombatArts).size!==learnedCombatArts.length
+      ||!learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id)&&Boolean(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost)))return null;
+    const skillSlots=s.skillSlots===undefined?[...DEFAULT_SKILL_SLOTS]:s.skillSlots;
+    if(!Array.isArray(skillSlots)||skillSlots.length!==4||!skillSlots.every(id=>id===null||typeof id==='string'&&Object.hasOwn(ACTIVE_SKILL_BY_ID,id)
+      &&(!ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost||learnedCombatArts.includes(id)))
+      ||new Set(skillSlots.filter(Boolean)).size!==skillSlots.filter(Boolean).length)return null;
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
@@ -305,10 +318,10 @@ export function parseSave(raw: string): SaveData | null {
     // Existing progressed players don't get a new-game prologue on resume.
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
     const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);
-    const xp = state.xp + result.xp;
+    const xp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + result.xp);
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     return { version: 5, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state, worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
+      ...state,consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
       trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
@@ -347,6 +360,7 @@ export function saveGame(): boolean {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
+      consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
       day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,
       unlockedTownShrines:s.unlockedTownShrines,
@@ -378,6 +392,7 @@ export function loadGame(): boolean {
     useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
       learnedSkills: s.learnedSkills, gold: s.gold,
+      consumables:s.consumables??{'healing-potion':0,'stamina-potion':0},learnedCombatArts:s.learnedCombatArts??[],skillSlots:s.skillSlots??[...DEFAULT_SKILL_SLOTS],vitalRevision:0,
       weaponId: s.weaponId, inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
       townId: s.townId, day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,unlockedTownShrines:s.unlockedTownShrines,
@@ -391,6 +406,7 @@ export function watchProgressSaves() {
   return useGameStore.subscribe((s, previous) => {
     if (s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
+      || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots
       || s.xp !== previous.xp || s.gold !== previous.gold || s.attributes !== previous.attributes
       || s.statPoints !== previous.statPoints || s.skillPoints !== previous.skillPoints
       || s.learnedSkills !== previous.learnedSkills || s.worldContent !== previous.worldContent

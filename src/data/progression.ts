@@ -1,5 +1,6 @@
 export const XP_PER_LEVEL = 250; // Base requirement, retained for older callers.
 export const PLAYER_ACTOR_HEIGHT = 76;
+export const MAX_PLAYER_LEVEL = 50;
 export function xpNeededForLevel(level: number) { return XP_PER_LEVEL+25*Math.max(0,Math.floor(level)-1); }
 export function xpTotalForLevel(level: number) {
   const completed=Math.max(0,Math.floor(level)-1);
@@ -7,13 +8,13 @@ export function xpTotalForLevel(level: number) {
 }
 export function experienceWithinLevel(xp:number) {
   const level=levelForExperience(xp);
-  return {level, current:Math.max(0,xp-xpTotalForLevel(level)), required:xpNeededForLevel(level)};
+  return {level, current:level===MAX_PLAYER_LEVEL?1:Math.max(0,xp-xpTotalForLevel(level)), required:level===MAX_PLAYER_LEVEL?1:xpNeededForLevel(level)};
 }
 export function levelForExperience(xp: number) {
   if(!Number.isFinite(xp)||xp<=0)return 1;
-  // This is intentionally small (level 100 needs 146,250 XP); no approximation drift.
+  // Exact thresholds, with no growth beyond the player level cap.
   let level=1;
-  while(level<2000&&xp>=xpTotalForLevel(level+1))level++;
+  while(level<MAX_PLAYER_LEVEL&&xp>=xpTotalForLevel(level+1))level++;
   return level;
 }
 export function playerDamageGrowth(level:number){return 1+Math.min(.35,Math.max(0,level-5)*.018);}
