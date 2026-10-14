@@ -16,6 +16,12 @@
   labels approach distance explicitly. Mobile next-step text is bounded to two
   lines; street turns retain boat/bridge guidance instead of replacing it with
   a generic label. Existing full-journal destination details remain unchanged.
+- Mobile status/quest panels have bounded rows, shrinkable grid columns and
+  ellipsized long names/locations. Gameplay text uses 100% text-size adjustment
+  to avoid browser text inflation on rotation. Compact sizing now applies to
+  touch portrait and landscape, rather than falling back to desktop proportions
+  above the short-landscape breakpoint. The full quest text remains available
+  by tapping guidance to open the journal.
 
 No local tests, builds or game launches were performed. The requested push uses
 the existing GitHub Android build/release workflow; gameplay appearance and
