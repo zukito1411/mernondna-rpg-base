@@ -6,7 +6,7 @@ import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
 
 export function m14Sources(spec:M14ArtSpec){
   const files=[{kind:'walk',path:`assets/enemies/${spec.folder}/${spec.boss?'walk-v2':'walk'}.png`,columns:spec.boss?4:5,rows:3},
-    {kind:'actions',path:`assets/enemies/${spec.folder}/actions.png`,columns:6,rows:3}];
+    {kind:'actions',path:`assets/enemies/${spec.folder}/${spec.species===14?'actions-transparent-v2':'actions'}.png`,columns:6,rows:3}];
   if(spec.species===12)files.push({kind:'passing',path:`assets/enemies/${spec.folder}/passing.png`,columns:1,rows:1},
     {kind:'gait',path:`assets/enemies/${spec.folder}/gait-poses.png`,columns:4,rows:2},
     {kind:'stone',path:`assets/enemies/${spec.folder}/stone.png`,columns:1,rows:1});
@@ -21,7 +21,8 @@ export function prepareM14Art(scene:Phaser.Scene,spec:M14ArtSpec){
   for(const file of m14Sources(spec)){
     const source=scene.textures.get(file.key).getSourceImage() as HTMLImageElement;
     canvas.width=source.width;canvas.height=source.height;read.drawImage(source,0,0);
-    subjects[file.kind]=actorSpriteSubjects(read.getImageData(0,0,source.width,source.height).data,source.width,source.height,file.columns,file.rows);
+    const image=read.getImageData(0,0,source.width,source.height);
+    subjects[file.kind]=actorSpriteSubjects(image.data,source.width,source.height,file.columns,file.rows);
     for(const subject of subjects[file.kind])sources.set(subject,{sourcePath:file.path,sourceImageSize:[source.width,source.height]});
   }
   const sheet=ART_BY_KEY[spec.texture],columns=sheet.atlasColumns!,fw=sheet.frameWidth*sheet.density,fh=sheet.frameHeight*sheet.density;

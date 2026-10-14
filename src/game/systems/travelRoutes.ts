@@ -24,8 +24,8 @@ export function routePosition(route:TrafficRoute,elapsedMs:number){
   return {...point,distance,forward:outbound,dx:point.dx*(outbound?1:-1),dy:point.dy*(outbound?1:-1),moving:outbound?time<travel:time<travel*2+pause};
 }
 
-/** Sample an attached horse on the same measured path, not a flat offset that
- * can put its hooves in the water beside an arched bridge. */
+/** Sample the vehicle assembly's center along its measured route. Horse/cart
+ * joints are registered together in WorldTrafficSystem, not sampled apart. */
 export function routePointAtDistance(route:TrafficRoute,distance:number){
   distance=Math.max(0,Math.min(route.length,distance));
   let cumulative=routeLengths.get(route.points);
@@ -51,9 +51,11 @@ export function cartRoutes(world:WorldGenerator):TrafficRoute[]{
     for(let i=1;i<road.points.length;i++){
       const a=road.points[i-1],b=road.points[i],length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.ceil(length/16);
       if(length<.001)continue;
-      // Side-view hooves/wheels have a shallow ground footprint. An arbitrary
-      // 88px square rejected the actual narrow deck even though it fits them.
-      const clearance=Math.abs(b.x-a.x)>Math.abs(b.y-a.y)*1.15?12:44;
+      // Project the centered rigid train onto the road normal. Diagonals need
+      // extra lateral room; cardinal side views retain their shallow footprint.
+      const side=Math.abs(b.x-a.x)>Math.abs(b.y-a.y)*1.15;
+      const clearance=side?12+Math.abs(b.y-a.y)/length*81.5+Math.abs(b.x-a.x)/length*3
+        :44+Math.abs(b.x-a.x)/length*50;
       const nx=-(b.y-a.y)/length*clearance,ny=(b.x-a.x)/length*clearance;
       for(let s=i===1?0:1;s<=steps;s++){
         const p={x:a.x+(b.x-a.x)*s/steps,y:a.y+(b.y-a.y)*s/steps};
