@@ -133,7 +133,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly heldPanelKeys = new Set<string>();
   private questGuide!: Phaser.GameObjects.Graphics;
   private questTarget: QuestTarget | null = null;
-  private streetGuide:{key:string;point:{x:number;y:number}|undefined}|null=null;
+  private streetGuide:{key:string;path:Vec2[];retryAt:number}|null=null;
   private storyCampRetryAt=new Map<string,number>();
   activePlayMs=0;
   private cinematicDirector!:CinematicDirector;
@@ -1218,17 +1218,28 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(this.questTarget){
       const town=this.worldGenerator.getTownAt(this.player.x,this.player.y),goal=this.questTarget.waypoint??this.questTarget;
       if(town&&Math.hypot(goal.x-this.player.x,goal.y-this.player.y)<8000){
-        const key=`${town.id}:${this.questTarget.contentId}:${Math.round(goal.x/64)},${Math.round(goal.y/64)}:${Math.floor(this.player.x/160)},${Math.floor(this.player.y/160)}`;
-        if(this.streetGuide?.key!==key){
+        const key=`${town.id}:${this.questTarget.questId}:${this.questTarget.objectiveId}:${this.questTarget.contentId}:${Math.round(goal.x/64)},${Math.round(goal.y/64)}:${Math.floor(this.player.x/160)},${Math.floor(this.player.y/160)}`;
+        const first=this.streetGuide?.path[0];
+        if(!this.streetGuide||this.streetGuide.key!==key||(this.time.now>=this.streetGuide.retryAt
+          &&(!first||!this.canTraverseGround(this.player,first)))){
           const local=(p:{x:number;y:number})=>({x:p.x-town.world.x,y:p.y-town.world.y});
           const global=(p:{x:number;y:number})=>({x:p.x+town.world.x,y:p.y+town.world.y});
-          const path=npcStreetRoute(town.id,local(this.player),local(goal),(a,b)=>this.canNpcVisit(global(a),global(b)));
-          const next=path.map(global).find(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>100);
-          this.streetGuide={key,point:next};
+          // Player routes may pass behind roofs. NPC presentation clearance
+          // is not a movement boundary and must not reject such approaches.
+          const path=npcStreetRoute(town.id,local(this.player),local(goal),(a,b)=>this.canTraverseGround(global(a),global(b)));
+          this.streetGuide={key,path:path.map(global),retryAt:this.time.now+1000};
         }
-        const point=this.streetGuide?.point;
+        const path=this.streetGuide.path;
+        // The final contact may patrol within the same quantized cache cell.
+        if(path.length)path[path.length-1]={x:goal.x,y:goal.y};
+        // Advance even inside the same cache cell; never skip a corner until
+        // the next segment is actually traversable from the player's feet.
+        while(path.length>1&&Math.hypot(path[0].x-this.player.x,path[0].y-this.player.y)<100
+          &&this.canTraverseGround(this.player,path[1]))path.shift();
+        const point=path[0];
         if(point&&Math.hypot(point.x-goal.x,point.y-goal.y)>1)
-          this.questTarget={...this.questTarget,waypoint:{...point,label:'Follow the settlement streets to the next approach'}};
+          this.questTarget={...this.questTarget,waypoint:{...point,label:'Follow the settlement streets'
+            +(this.questTarget.waypoint?' — '+this.questTarget.waypoint.label:' to the destination')}};
       }
     }
     const markers: NavigationMarker[] = [];
@@ -1264,7 +1275,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,point.x,point.y);
       if (d < distance && this.hasClearPath(this.player.x,this.player.y,point.x,point.y,actor)) { distance = d; interaction = definition.name; }
     }
-    store.setNavigation({ heading: Math.atan2(this.player.lastDirection.x,-this.player.lastDirection.y), target: this.questTarget, markers, interaction });
+    store.setNavigation({ heading: Math.atan2(this.player.lastDirection.x,-this.player.lastDirection.y), target: this.questTarget,
+      playerPosition:{x:this.player.x,y:this.player.y},markers,interaction });
   }
 
   private drawQuestGuide(blocked: boolean) {
@@ -1274,7 +1286,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const live = target.type==='escort'?target:this.contentManager.getActor(target.contentId) ?? target;
     const approach=target.waypoint??live;
     const angle = questBearing(this.player,approach), dx = Math.sin(angle), dy = -Math.cos(angle);
-    if (Phaser.Math.Distance.Between(this.player.x,this.player.y,live.x,live.y) > 90) {
+    const approachDistance=Phaser.Math.Distance.Between(this.player.x,this.player.y,approach.x,approach.y);
+    const arrived=Phaser.Math.Distance.Between(this.player.x,this.player.y,live.x,live.y)<=72
+      &&this.hasClearPath(this.player.x,this.player.y,live.x,live.y,this.contentManager.getActor(target.contentId))
+      &&this.worldGenerator.isWalkablePath(this.player,live);
+    if (approachDistance>10&&!arrived) {
       const x = this.player.x + dx * 48, y = this.player.y + dy * 48;
       this.questGuide.lineStyle(2,0x34210d,.85).fillStyle(0xffd976,.95);
       this.questGuide.beginPath(); this.questGuide.moveTo(x + dx * 8,y + dy * 8);

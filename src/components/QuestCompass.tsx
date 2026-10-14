@@ -16,10 +16,14 @@ export function QuestCompass() {
       title="Open the journal for the full destination and travel directions"
       aria-label={`Open quest directions: ${target.label}`} onClick={()=>openPanel('journal')}
       onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPanel('journal');}}}>
-      <svg className="compass-arrow" viewBox="0 0 32 32" aria-hidden="true" style={{ transform: `rotate(${bearing}rad)` }}>
+      <svg className="compass-arrow" viewBox="0 0 32 32" aria-hidden="true" style={{ transform: `rotate(${bearing}rad)`, visibility:distance<=10?'hidden':'visible' }}>
         <path d="M16 3 26 26 16 21 6 26Z" />
       </svg>
-      <div><span className="quest-destination">{target.label}</span><small>{target.waypoint?.label}</small><small>{distance < 72 ? 'Nearby' : `${compassDirection(bearing)} · ${Math.max(1,Math.round(distance / TILE_SIZE))} paces`}</small></div>
+      <div><span className="quest-destination">{target.label}</span>
+        {target.waypoint&&<small className="quest-next-step">Next: {target.waypoint.label}</small>}
+        <small className="quest-step-distance">{distance < 72 ? target.waypoint?'Approach nearby':'Destination nearby'
+          : `${compassDirection(bearing)} · ${Math.max(1,Math.round(distance / TILE_SIZE))} paces${target.waypoint?' to next approach':''}`}</small>
+      </div>
     </div>
   );
 }

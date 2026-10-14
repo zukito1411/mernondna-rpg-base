@@ -800,6 +800,17 @@
     line-height: 1.2;
     white-space: nowrap;
   }
+  .hud-layer .quest-card .quest-guidance .quest-next-step {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
+  }
+  .hud-layer .quest-card .quest-guidance .quest-step-distance {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* LEIGHNERON_MOBILE_PARCHMENT_CENTERING_V1
