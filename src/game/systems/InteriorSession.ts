@@ -241,7 +241,7 @@ export class InteriorSession {
     if(!position)throw new Error('No clear interior workplace for resident');
     return position;
   }
-  private validFeet(x:number,y:number){
+  private validFeet(x:number,y:number,ignoreResident?:Npc){
     if(!this.plan)return false;
     const local={x:x-this.origin.x,y:y-this.origin.y};
     // Full 24x24 foot footprint, including corners at floor/corridor joins.
@@ -252,13 +252,14 @@ export class InteriorSession {
     const overlaps=(r:RoomRect)=>feet.x<r.x+r.width&&feet.x+feet.width>r.x
       &&feet.y<r.y+r.height&&feet.y+feet.height>r.y;
     return !this.wallSolids.some(overlaps)&&!this.plan.objects.some(o=>o.solid&&overlaps(o.solid))
-      &&!this.residents.some(n=>overlaps({x:n.x-this.origin.x-14,y:n.y-this.origin.y-24,width:28,height:24}));
+      &&!this.residents.some(n=>n!==ignoreResident&&overlaps({x:n.x-this.origin.x-14,y:n.y-this.origin.y-24,width:28,height:24}));
   }
   clearPath(a:Vec2,b:Vec2,skipResident?:Npc){
+    if(!this.validFeet(b.x,b.y,skipResident))return false;
     const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));
-    // Interaction ends at the near side of a resident's body, not inside it.
-    const stop=skipResident?Math.max(1,steps-Math.ceil(32/6)):steps;
-    for(let i=1;i<stop;i++)if(!this.validFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps))return false;
+    // Ignore only the person being spoken to, not intervening furniture, walls
+    // or other residents. Include the endpoint even for a sub-six-unit path.
+    for(let i=1;i<steps;i++)if(!this.validFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,skipResident))return false;
     return true;
   }
   private reachableResident(npc:Npc){return Math.hypot(npc.x-this.scene.player.x,npc.y-this.scene.player.y)<90
@@ -347,8 +348,7 @@ export class InteriorSession {
     for(const object of this.objects){this.scene.tweens.killTweensOf(object);object.destroy();}this.objects=[];this.residents=[];this.guide=null;
     this.floorMask?.destroy();this.floorMask=null;this.wallSolids=[];
     for(const saved of this.hidden){if(saved.object.scene)saved.object.cameraFilter=saved.filter;}this.hidden=[];
-    this.scene.player.resetInput();(this.scene.player.body as Phaser.Physics.Arcade.Body).reset(returnPoint.x,returnPoint.y);
-    this.scene.player.setDepth(returnPoint.y);
+    this.scene.player.resetInput();this.scene.restoreOutsidePosition(returnPoint);
     if(this.formerBounds)this.scene.cameras.main.setBounds(this.formerBounds.x,this.formerBounds.y,this.formerBounds.width,this.formerBounds.height);
     this.scene.cameras.main.centerOn(returnPoint.x,returnPoint.y);this.outside=null;this.formerBounds=null;
     this.releaseArt();this.scene.physics.world.resume();this.scene.syncState();

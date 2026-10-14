@@ -11,6 +11,7 @@ import type {TreeSwaySystem} from './TreeSwaySystem';
 import type {DayNightSystem} from './DayNightSystem';
 import {planLandmarkScenery} from './LandmarkScenery';
 import type {WorldSpriteSystem} from './WorldSpriteSystem';
+import {StaticBoundsIndex} from './StaticBoundsIndex';
 
 interface ChunkRuntime {
   image: Phaser.GameObjects.Image;
@@ -18,6 +19,8 @@ interface ChunkRuntime {
   shared?:boolean;
   scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite>;
 }
+const authoredReservations=new StaticBoundsIndex(WORLD_CONTENT.map(d=>({definition:d,
+  bounds:{left:d.world.x,right:d.world.x,top:d.world.y,bottom:d.world.y}})),CHUNK_SIZE);
 
 export class ChunkManager {
   private readonly scene: Phaser.Scene;
@@ -63,6 +66,12 @@ export class ChunkManager {
         if (!this.active.has(key)) {const [x,y]=key.split(':').map(Number);this.load(x,y);}
       }
     }else{
+      // The player's current chunk is safety-critical. Never leave its props
+      // pending behind offscreen bakes after a teleport or a fast boundary step.
+      const currentKey=centerX+':'+centerY;
+      if(wanted.has(currentKey)&&!this.active.has(currentKey)){
+        this.pendingChunks.delete(currentKey);this.load(centerX,centerY);this.lastChunkBakedAt=this.scene.time.now;
+      }
       for(const key of wanted)if(!this.active.has(key)&&!this.pendingChunks.has(key)){
         const [x,y]=key.split(':').map(Number);this.pendingChunks.set(key,{x,y});
       }
@@ -123,8 +132,9 @@ export class ChunkManager {
     const ctx = canvasTexture.getContext();
     this.baker.draw(ctx, this.world, chunkX, chunkY);
     const scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite> = [];
-    const sites = WORLD_CONTENT.filter(d => Math.abs(d.world.x - (chunkX + .5) * CHUNK_SIZE) < CHUNK_SIZE
-      && Math.abs(d.world.y - (chunkY + .5) * CHUNK_SIZE) < CHUNK_SIZE);
+    const cx=(chunkX+.5)*CHUNK_SIZE,cy=(chunkY+.5)*CHUNK_SIZE;
+    const sites=authoredReservations.query({left:cx-CHUNK_SIZE,right:cx+CHUNK_SIZE,top:cy-CHUNK_SIZE,bottom:cy+CHUNK_SIZE})
+      .map(item=>item.definition).filter(d=>Math.abs(d.world.x-cx)<CHUNK_SIZE&&Math.abs(d.world.y-cy)<CHUNK_SIZE);
     // Up to 36 mature trees, 40 habitat pieces and nearby bounded landmark
     // groups, all released with the chunk (including their leaf/light layers).
     // Authored/interactive settlement trees keep the persistent content ledger.

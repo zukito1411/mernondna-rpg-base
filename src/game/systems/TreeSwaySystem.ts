@@ -16,7 +16,8 @@ export class TreeSwaySystem {
     // The atlas cell dimensions are identical, so static bodies keep offsets.
     tree.setTexture(treeLayerKey(texture,'wood'),frame);
     const leaves=this.scene.add.image(tree.x,tree.y,treeLayerKey(texture,'leaves'),frame)
-      .setOrigin(tree.originX,tree.originY).setScale(tree.scaleX,tree.scaleY).setDepth(tree.depth+.01).setName('foliage:'+tree.name);
+      .setOrigin(tree.originX,tree.originY).setScale(tree.scaleX,tree.scaleY).setRotation(tree.rotation).setFlip(tree.flipX,tree.flipY)
+      .setDepth(tree.depth+.01).setName('foliage:'+tree.name);
     const entry={tree,leaves,phase:((tree.x*.013+tree.y*.021)%(Math.PI*2))};this.canopies.add(entry);
     tree.once('destroy',()=>{this.canopies.delete(entry);leaves.destroy();});
   }

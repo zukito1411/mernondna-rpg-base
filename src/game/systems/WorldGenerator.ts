@@ -1,5 +1,5 @@
 import { createNoise2D } from 'simplex-noise';
-import type { RegionId, TerrainKind } from '../types';
+import type { RegionId, TerrainKind, Vec2 } from '../types';
 import { REGIONS } from '../../data/regions';
 import { TOWN_BY_ID, TOWNS } from '../../data/towns';
 import { onRoadRoute,roadSurfaceAt } from '../../data/roadRoutes';
@@ -147,6 +147,18 @@ export class WorldGenerator {
     return Number.isFinite(worldX) && Number.isFinite(worldY) && worldX >= 0 && worldY >= 0
       && worldX < WORLD_WIDTH && worldY < WORLD_HEIGHT && (onPortDeck(worldX,worldY)||!['water','lava'].includes(this.getTerrainAt(worldX, worldY)))
       && !fortificationBlocksPoint(worldX,worldY);
+  }
+
+  /** Ground motion must not leap over a narrow channel between valid endpoints.
+   * This is movement clearance, not line of sight: arrows may cross water. */
+  isWalkablePath(from:Vec2,to:Vec2) {
+    if(!Number.isFinite(from.x)||!Number.isFinite(from.y)||!Number.isFinite(to.x)||!Number.isFinite(to.y))return false;
+    const dx=to.x-from.x,dy=to.y-from.y,distance=Math.hypot(dx,dy);
+    if(!Number.isFinite(distance))return false;
+    if(distance<.01)return this.isWalkable(to.x,to.y);
+    const steps=Math.max(1,Math.ceil(distance/8));
+    for(let i=0;i<=steps;i++)if(!this.isWalkable(from.x+dx*i/steps,from.y+dy*i/steps))return false;
+    return true;
   }
 
   canCreatureOccupy(worldX: number, worldY: number) {

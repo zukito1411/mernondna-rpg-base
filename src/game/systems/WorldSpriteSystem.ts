@@ -19,6 +19,7 @@ export class WorldSpriteSystem {
   constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup,
     private readonly shadows?:GroundShadowSystem,private readonly wildlife?:AmbientWildlifeSystem){}
   register(actor:WorldActor,texture:ArtTextureKey,frame:number,scale:number,solid:boolean,fallback?:{width:number;height:number},center=false){
+    if(this.owned.has(actor))return;
     const sheet=ART_BY_KEY[texture],metadata=(actor.frame.customData??{}) as PreparedArt;
     const visible=metadata.visibleBounds??{left:0,top:0,width:sheet.frameWidth,height:sheet.frameHeight};
     const sourceRegion=metadata.sourceRegion??sheet.regions?.[frame],sourceAnchor=sheet.groundPoints?.[frame];
@@ -28,11 +29,12 @@ export class WorldSpriteSystem {
       actor.setOrigin((visible.left+(sourceAnchor[0]-sourceRegion[0])/sourceRegion[2]*visible.width)/sheet.frameWidth,
         (visible.top+(sourceAnchor[1]-sourceRegion[1])/sourceRegion[3]*visible.height)/sheet.frameHeight);
     }
+    const cos=Math.cos(actor.rotation),sin=Math.sin(actor.rotation);
     const point=(x:number,y:number)=>({
-      x:actor.x+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*Math.cos(actor.rotation)
-        -(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*Math.sin(actor.rotation),
-      y:actor.y+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*Math.sin(actor.rotation)
-        +(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*Math.cos(actor.rotation),
+      x:actor.x+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*cos
+        -(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*sin,
+      y:actor.y+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*sin
+        +(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*cos,
     });
     const sourcePoint=([x,y]:GroundPoint)=>{
       const source=metadata.sourceRegion??sheet.regions?.[frame];
@@ -101,8 +103,12 @@ export class WorldSpriteSystem {
     const shapes=this.owned.get(actor);if(!shapes)return;this.owned.delete(actor);
     for(const shape of shapes)this.bodies.remove(shape,true,true);
   }
+  blocksPoint(point:Vec2,width=18,height=22){
+    return this.scene.physics.overlapRect(point.x-width/2+.15,point.y-height+.15,width-.3,height-.3,false,true)
+      .some(body=>body.enable&&body.gameObject?.getData(WORLD_SPRITE_OWNER));
+  }
   blocksPath(from:Vec2,to:Vec2,width=18,height=22){
-    if(Math.hypot(to.x-from.x,to.y-from.y)<.01)return false;
+    if(Math.hypot(to.x-from.x,to.y-from.y)<.01)return this.blocksPoint(to,width,height);
     // Broad-phase lookup uses Phaser's existing static spatial index. Swept
     // feet stop a fast dash skipping a thin contour between physics frames.
     const left=Math.min(from.x,to.x)-width/2,top=Math.min(from.y,to.y)-height;

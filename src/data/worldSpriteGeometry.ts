@@ -26,7 +26,7 @@ const capital:WorldSpriteProfile[]=[
   profile(base(.035,.70,.97,.97)), // hall: fence and right-hand porch included
   profile(base(.025,.76,.98,.975)),
   profile(base(.08,.79,.92,.975)),
-  {solids:[base(.035,.74,.39,.97),base(.60,.74,.98,.97)],sortY:.96}, // real gate opening
+  {solids:[base(.035,.74,.39,.97),base(.60,.74,.98,.97)],sortY:.96,forceSolid:true}, // real gate opening
   profile(base(.10,.81,.92,.975)),
   profile(base(.03,.71,.97,.975)),
   profile(base(.035,.72,.97,.975)),
@@ -34,6 +34,20 @@ const capital:WorldSpriteProfile[]=[
   profile(base(.04,.78,.96,.98)), // large castle, side towers and stair court
   profile(base(.09,.80,.93,.98)),
 ];
+// Elven boards have their own foundations; do not use a generic 56-unit
+// rectangle or mistake the palace's side arches for closed building walls.
+const elven:WorldSpriteProfile[]=[
+  profile(base(.025,.73,.98,.98)),profile(base(.025,.76,.98,.98)),
+  profile(base(.06,.82,.97,.98)),
+  {solids:[base(.025,.76,.415,.98),base(.625,.76,.985,.98)],sortY:.97,forceSolid:true},
+  profile(base(.035,.79,.97,.98)),profile(base(.025,.70,.98,.98)),
+  profile(base(.025,.72,.98,.98)),profile(base(.03,.77,.98,.98)),
+  profile(base(.025,.79,.98,.98)),
+  {solids:[base(.035,.81,.20,.98),base(.31,.75,.78,.98),base(.89,.81,.985,.98)],sortY:.97,forceSolid:true},
+];
+const lifeTree=profile([[.44,.73],[.58,.74],[.72,.86],[.84,.925],[.71,.965],[.30,.965],[.16,.925],[.30,.855]],.965);
+const flowerFences=[profile(box(.02,.78,.98,.91),.9),profile(box(.29,.06,.65,.96),.96),
+  profile(box(.22,.06,.73,.96),.96),profile(box(.20,.06,.78,.96),.96)];
 const trees:WorldSpriteProfile[]=[
   profile([[.41,.77],[.58,.78],[.84,.93],[.75,.98],[.23,.98],[.17,.94]],.965),
   profile([[.41,.80],[.58,.80],[.75,.93],[.67,.98],[.30,.98],[.25,.94]],.965),
@@ -57,11 +71,15 @@ const others:WorldSpriteProfile[]=[
 ];
 export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpriteProfile|undefined {
   if(texture==='pirate_flagship')return floor;
+  if(texture==='port_dock')return floor;
+  if(texture==='elarion_tree')return lifeTree;
+  if(texture==='flower_fence')return flowerFences[frame];
   if(texture==='darkav_props')return frame===0?profile(base(.25,.80,.78,.98)):
     frame===3?buildings[4]:profile(base(.06,.62,.95,.98));
   if(texture==='darkav_volcano')return profile([[.49,.22],[.70,.43],[.89,.64],[.98,.82],[.87,.97],[.15,.98],[.025,.82],[.07,.62],[.29,.40]],.975);
   if(texture==='world_buildings')return buildings[frame];
   if(texture==='capital_buildings')return capital[frame];
+  if(texture==='elven_villas')return elven[frame];
   if(texture==='world_objects')return [profile(base(.04,.70,.96,.96)),profile(base(.03,.72,.97,.97)),
     {solids:[base(.05,.72,.36,.97),base(.62,.76,.96,.97)],sortY:.97,forceSolid:true},profile(base(.13,.78,.88,.97))][frame];
   if(texture==='world_assets')return frame<=1?trees[frame]:frame===4?floor:
@@ -80,7 +98,7 @@ export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpri
     profile(base(.045,frame===4 ? .76 : frame===5||frame===9 ? .72 : .66,.965,.97));
   if(texture==='flora')return {solids:[],sortY:.96};
   if(texture==='royal_walls')return frame===3?profile(base(.12,.79,.9,.98)):frame===5?
-    {solids:[base(.035,.75,.395,.98),base(.6,.75,.975,.98)],sortY:.97}:
+    {solids:[base(.035,.75,.395,.98),base(.6,.75,.975,.98)],sortY:.97,forceSolid:true}:
     {solids:[],sortY:.97}; // curtain/gate collision remains the surveyed seams
   if(texture==='bridges')return frame===2?{solids:[],sortY:.26,floor:true}:frame===8?
     {solids:[base(.08,.68,.28,.97),base(.74,.68,.95,.97)],sortY:.95,forceSolid:true}:floor;

@@ -138,6 +138,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   activePlayMs=0;
   private cinematicDirector!:CinematicDirector;
   private reliefWatchMs=0;
+  private shuttingDown=false;
   private nextImpactSoundAt=0;
   private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
@@ -151,6 +152,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   stopDragonSound(instanceId:string,cue?:'roar'|'breath'|'flight'){this.enemySounds.stopEffect(instanceId,cue);}
   canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
   safeSkillPosition(point:Vec2){return this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
+  canTraverseGround(from:Vec2,to:Vec2){
+    // Swept feet catch thin object/wall contours before the terrain sampling.
+    return !fortificationBlocksPath(from,to,12)&&!this.worldSprites.blocksPath(from,to)
+      &&this.worldGenerator.isWalkablePath(from,to);
+  }
+  restoreOutsidePosition(point:Vec2){
+    (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
+    this.lastSafe={...point};this.player.setDepth(point.y);
+  }
   skillLanding(target:Vec2,range:number):Vec2 {
     const from={x:this.player.x,y:this.player.y};
     const candidates=[32,48,64].flatMap(radius=>Array.from({length:16},(_,i)=>({x:target.x+Math.cos(i*Math.PI/8)*radius,y:target.y+Math.sin(i*Math.PI/8)*radius})));
@@ -193,7 +203,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const y = Phaser.Math.Linear(from.y, to.y, i / steps);
       if (!this.worldGenerator.isWalkable(x, y) || this.isBlockedByBuilding(x, y) || this.isNpcObscured(x,y)) return false;
     }
-    return this.hasClearPath(from.x, from.y, to.x, to.y);
+    return !this.worldSprites.blocksPath(from,to)&&this.hasClearPath(from.x, from.y, to.x, to.y);
   }
 
   /** Nearest person in an NPC's intended segment; used for local crowd avoidance. */
@@ -221,6 +231,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    this.shuttingDown=false;
     this.regionalNpcSlots.clear();
     this.regionalNpcRetryAt.clear();
     this.spearProjectiles=new SpearProjectileSystem(this);
@@ -1570,15 +1581,25 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private enforceLandCollision() {
-    if (this.worldGenerator.isWalkable(this.player.x, this.player.y)
-      &&(!(flagshipFootprint(this.lastSafe.x,this.lastSafe.y)||flagshipFootprint(this.player.x,this.player.y))
-        ||this.hasClearPath(this.lastSafe.x,this.lastSafe.y,this.player.x,this.player.y))
-      && !fortificationBlocksPath(this.lastSafe,this.player,12)
-      && !this.worldSprites.blocksPath(this.lastSafe,this.player)) {
+    if (this.canTraverseGround(this.lastSafe,this.player)) {
       this.lastSafe = { x: this.player.x, y: this.player.y };
     } else {
-      (this.player.body as Phaser.Physics.Arcade.Body).reset(this.lastSafe.x, this.lastSafe.y);
-      (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+      // A streamed collider can cover the saved safe point while standing.
+      // Search locally only in that exceptional case; never disable the prop.
+      if(!this.worldGenerator.isWalkable(this.lastSafe.x,this.lastSafe.y)||this.worldSprites.blocksPoint(this.lastSafe)){
+        const clear=(p:Vec2)=>this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y);
+        let recovered:Vec2|undefined;
+        for(const radius of [16,32,48,80,128,192,256,384,512]){
+          for(let i=0;i<16;i++){
+            const angle=i*Math.PI/8,p={x:this.lastSafe.x+Math.cos(angle)*radius,y:this.lastSafe.y+Math.sin(angle)*radius};
+            if(clear(p)){recovered=p;break;}
+          }
+          if(recovered)break;
+        }
+        if(recovered)this.lastSafe=recovered;
+      }
+      this.restoreOutsidePosition(this.lastSafe);
+      (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
     }
   }
 
@@ -1612,6 +1633,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   shutdown() {
+    if(this.shuttingDown)return;
+    this.shuttingDown=true;
+    this.events.off(Phaser.Scenes.Events.SHUTDOWN,this.shutdown,this);
+    this.events.off(Phaser.Scenes.Events.DESTROY,this.shutdown,this);
     this.interiors?.destroy();
     this.spearProjectiles?.clear();
     this.wildlife?.destroy();

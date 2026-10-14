@@ -81,7 +81,7 @@ export class PlayerSkillSystem {
     if(cast.landing) {
       const fraction=Phaser.Math.Clamp((cast.elapsed-140)/430,0,1),eased=Phaser.Math.Easing.Sine.InOut(fraction);
       const point={x:Phaser.Math.Linear(cast.start.x,cast.landing.x,eased),y:Phaser.Math.Linear(cast.start.y,cast.landing.y,eased)};
-      if(this.scene.safeSkillPosition(point)&&this.scene.hasClearPath(this.player.x,this.player.y,point.x,point.y))
+      if(this.scene.safeSkillPosition(point)&&this.scene.canTraverseGround(this.player,point))
         (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
       else {cast.start={x:this.player.x,y:this.player.y};cast.landing={...cast.start};}
       height=Math.sin(fraction*Math.PI)*64;

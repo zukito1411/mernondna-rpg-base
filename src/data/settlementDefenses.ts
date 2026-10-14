@@ -1,4 +1,4 @@
-import {TOWNS} from './towns';
+import {TOWNS,TOWN_BY_ID} from './towns';
 import {SETTLEMENT_PROFILES,type SettlementProfileId} from './settlementProfiles';
 import {ROAD_ROUTES} from './roadRoutes';
 import {ART_BY_KEY,artFrameSize} from './art';
@@ -92,13 +92,15 @@ const defenseBounds=SETTLEMENT_DEFENSES.map(defense=>({defense,
   left:Math.min(...defense.vertices.map(p=>p.x)),right:Math.max(...defense.vertices.map(p=>p.x)),
   top:Math.min(...defense.vertices.map(p=>p.y)),bottom:Math.max(...defense.vertices.map(p=>p.y))}));
 export function insideDefense(townId:string,x:number,y:number,buffer=0) {
-  const town=TOWNS.find(t=>t.id===townId)!;const profile=SETTLEMENT_PROFILES[townId as SettlementProfileId];
+  const town=TOWN_BY_ID[townId];const profile=SETTLEMENT_PROFILES[townId as SettlementProfileId];
+  if(!town||!profile)return false;
   const hx=profile.bounds.width/2+160+buffer,hy=profile.bounds.height/2+160+buffer,dx=Math.abs(x-town.world.x),dy=Math.abs(y-town.world.y);
   return dy<=hy&&dx<=hx+2*(hy-dy);
 }
 export function outerFortificationBlocksPoint(x:number,y:number,radius=12) {
-  return SETTLEMENT_DEFENSES.some(defense=>insideDefense(defense.townId,x,y,radius+16)
-    &&defense.lines.some(line=>distance({x,y},line.a,line.b)<radius+9));
+  const pad=radius+9;
+  return defenseBounds.some(bounds=>x>=bounds.left-pad&&x<=bounds.right+pad&&y>=bounds.top-pad&&y<=bounds.bottom+pad
+    &&bounds.defense.lines.some(line=>distance({x,y},line.a,line.b)<pad));
 }
 export function outerFortificationBlocksPath(a:Vec2,b:Vec2,radius=0) {
   const pad=radius+9,left=Math.min(a.x,b.x)-pad,right=Math.max(a.x,b.x)+pad,top=Math.min(a.y,b.y)-pad,bottom=Math.max(a.y,b.y)+pad;
