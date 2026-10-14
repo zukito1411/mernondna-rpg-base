@@ -40,7 +40,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // scene's updatePlayer call. Attach visual layers only once that is done.
   private readonly syncSwordAfterPhysics=()=>{
     if(!this.active)return;
-    this.setDepth(this.y);
+    this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
     if(this.attackVisual?.active)this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
     this.updateSwordVisual();
   };
@@ -181,7 +181,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const runningAnimation = dashing || (sprinting && !this.sprintExhausted);
     this.updateAnimation(body.velocity.x, body.velocity.y, runningAnimation, x, y);
     if (dashing && time >= this.nextDashTrailAt) this.createDashTrail(time);
-    this.setDepth(this.y);
+    this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
     if (this.attackVisual?.active) this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
 
     const equippedArts=slottedActiveSkills(state.skillSlots);
@@ -317,7 +317,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const trail = this.scene.add.sprite(this.x, this.y, this.texture.key, this.frame.name)
       .setOrigin(this.originX, this.originY).setScale(this.scaleX, this.scaleY)
       .setFlipX(this.flipX).setTint(0x9debdc).setAlpha(0.38).setBlendMode(Phaser.BlendModes.ADD)
-      .setDepth(this.y - 1).setName('player-dash-afterimage');
+      .setDepth((this.scene as WorldScene).playerRenderDepth(this.y) - 1).setName('player-dash-afterimage');
     this.scene.tweens.add({ targets: trail, alpha: 0, x: trail.x - this.dashDirection.x * 18,
       y: trail.y - this.dashDirection.y * 18, duration: 180, onComplete: () => trail.destroy() });
   }

@@ -118,6 +118,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly regionalNpcRetryAt=new Map<string,number>();
   private interiors!:InteriorSession;
   get inInterior(){return Boolean(this.interiors?.active);}
+  playerRenderDepth(y:number){return this.interiors?.playerRenderDepth(y)??y;}
   private readonly interactables = new Map<string, { definition: InteractableContentDefinition; actor: ContentActor }>();
   private lastSafe = { x: LEIGNERON.spawn.x, y: LEIGNERON.spawn.y };
   private hudAccumulator = 0;

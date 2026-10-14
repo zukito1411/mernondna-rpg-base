@@ -1,14 +1,38 @@
 import {Capacitor} from '@capacitor/core';
 
-export async function prepareOfflineStartup() {
-  if(!('serviceWorker' in navigator))return;
+const OFFLINE_PREFIX='mernondna-shell-';
+const REGISTRATION_TIMEOUT_MS=2500;
+
+// A stalled service-worker database must not hold the game at its splash screen.
+async function scopedRegistrations():Promise<ReadonlyArray<ServiceWorkerRegistration>>{
+  if(!('serviceWorker' in navigator))return [];
+  return Promise.race([
+    navigator.serviceWorker.getRegistrations(),
+    new Promise<ReadonlyArray<ServiceWorkerRegistration>>(resolve=>setTimeout(()=>resolve([]),REGISTRATION_TIMEOUT_MS)),
+  ]);
+}
+
+async function unregisterScopedWorkers(scope:string):Promise<boolean>{
+  const registrations=(await scopedRegistrations()).filter(reg=>reg.scope===scope);
+  if(!registrations.length)return false;
+  return Promise.race([
+    Promise.all(registrations.map(reg=>reg.unregister())).then(results=>results.some(Boolean)),
+    new Promise<boolean>(resolve=>setTimeout(()=>resolve(false),REGISTRATION_TIMEOUT_MS)),
+  ]);
+}
+
+export async function prepareOfflineStartup():Promise<boolean> {
+  if(!('serviceWorker' in navigator))return true;
   const scope=new URL(import.meta.env.BASE_URL,location.href).href;
   if(Capacitor.isNativePlatform()){
-    for(const registration of await navigator.serviceWorker.getRegistrations())
-      if(registration.scope===scope)await registration.unregister();
-    return;
+    // Native APKs bundle their assets. Remove leftover PWA workers without
+    // touching localStorage, which holds the player's save and settings.
+    const unregistered=await unregisterScopedWorkers(scope);
+    // Existing pages remain controlled until navigation after unregister.
+    if(unregistered&&navigator.serviceWorker.controller){location.reload();return false;}
+    return true;
   }
-  if(!import.meta.env.PROD)return;
+  if(!import.meta.env.PROD)return true;
   if(typeof navigator.storage?.persist==='function'){
     void navigator.storage.persist().then(persisted=>{
       if(!persisted)console.info('Persistent offline storage was not granted; the browser may clear cached game assets when storage is low.');
@@ -16,4 +40,18 @@ export async function prepareOfflineStartup() {
   }
   void navigator.serviceWorker.register(new URL('sw.js',scope),{scope,updateViaCache:'none'})
     .catch(error=>console.warn('Offline app registration failed:',error));
+  return true;
+}
+
+// Cache repair preserves localStorage, saves, and all other app data.
+export async function refreshOfflineGameFiles():Promise<void>{
+  try {
+    const scope=new URL(import.meta.env.BASE_URL,location.href).href;
+    await unregisterScopedWorkers(scope);
+    if('caches' in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(key=>key.startsWith(OFFLINE_PREFIX)).map(key=>caches.delete(key)));
+    }
+  }catch(error){console.warn('Could not clear game asset cache:',error);}
+  location.reload();
 }

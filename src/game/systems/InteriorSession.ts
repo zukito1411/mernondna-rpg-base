@@ -37,6 +37,7 @@ export class InteriorSession {
   constructor(private readonly scene:WorldScene){}
   get active(){return this.loading||this.entry!==null;}
   get ready(){return this.entry!==null&&!this.loading;}
+  playerRenderDepth(y:number){return this.ready?DEPTH+y-this.origin.y:y;}
   get safePosition(){return this.outside;}
   getActor(npcId:string){return this.residents.find(n=>n.definition.id===npcId);}
 
@@ -153,7 +154,9 @@ export class InteriorSession {
     this.mapFloors=plan.floors.map(r=>({x:this.origin.x+r.x,y:this.origin.y+r.y,width:r.width,height:r.height}));
     const camera=scene.cameras.main;
     for(const object of scene.children.list){
-      if(object===scene.player)continue;
+      // The sword and hand are separate player-attached sprites, not outdoor scenery.
+      if(object===scene.player||('name' in object&&
+        (object.name==='equipped-sword'||object.name==='equipped-sword-hand')))continue;
       if('visible' in object&&'cameraFilter' in object){
         const render=object as Phaser.GameObjects.GameObject&{visible:boolean;cameraFilter:number};
         this.hidden.push({object,visible:render.visible,filter:render.cameraFilter});camera.ignore(object);
@@ -202,7 +205,7 @@ export class InteriorSession {
       npc.on('pointerdown',()=>{if(this.reachableResident(npc))this.talk(npc);});
     }
     this.guide=this.own(scene.add.graphics().setDepth(DEPTH+3000));
-    scene.player.resetInput();scene.player.setDepth(DEPTH+plan.entrance.y);
+    scene.player.resetInput();scene.player.setDepth(scene.playerRenderDepth(scene.player.y));
     camera.centerOn(scene.player.x,scene.player.y);
     const story=useGameStore.getState(),visitFlag='visited:interior:'+entry.id;
     if(!story.storyFlags[visitFlag])story.setStoryFlag(visitFlag);
@@ -275,7 +278,7 @@ export class InteriorSession {
       if(this.validFeet(x+dx/steps,y))x+=dx/steps;
       if(this.validFeet(x,y+dy/steps))y+=dy/steps;
     }
-    body.reset(x,y);body.setVelocity(velocity.x,velocity.y);player.setDepth(DEPTH+y-this.origin.y);
+    body.reset(x,y);body.setVelocity(velocity.x,velocity.y);player.setDepth(this.scene.playerRenderDepth(y));
     for(const npc of this.residents)npc.setDepth(DEPTH+npc.y-this.origin.y);
     const near=this.residents.find(n=>this.reachableResident(n));
     const exit=this.plan.entrance,nearExit=Math.hypot(x-this.origin.x-exit.x,y-this.origin.y-exit.y)<80;

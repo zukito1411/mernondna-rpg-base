@@ -8,7 +8,7 @@ import './inventory-column.css';
 import {prepareOfflineStartup} from './utils/appStartup';
 
 async function start(){
-  try{await prepareOfflineStartup();}catch(error){console.warn('Offline preparation:',error);}
+  try{if(!(await prepareOfflineStartup()))return;}catch(error){console.warn('Offline preparation:',error);}
   try{
     const {default:App}=await import('./App');
     createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>);

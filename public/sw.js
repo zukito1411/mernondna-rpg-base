@@ -16,7 +16,11 @@ self.addEventListener('install', event => {
     if (data.version!==BUILD_VERSION || !Array.isArray(data.files)) throw new Error('Invalid offline build manifest.');
     installed = data;
     const cache=await caches.open(PREFIX+data.version);
-    const requests=data.files.map(path => new Request(new URL(path,root), {cache:'reload'}));
+    // Cache only the app shell at install. Caching 400+ MB of artwork and audio
+    // during installation can exhaust mobile storage; game assets are cached
+    // on demand as they are requested.
+    const shell=data.files.filter(path=>path==='./'||path==='index.html'||/\.(js|css)$/.test(path));
+    const requests=shell.map(path => new Request(new URL(path,root), {cache:'reload'}));
     for(let offset=0;offset<requests.length;offset+=8)
       await cache.addAll(requests.slice(offset,offset+8));
     await cache.put(manifestUrl,new Response(JSON.stringify(data)));
@@ -26,8 +30,8 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const data = installed || await manifest();
-    const shells = (await caches.keys()).filter(key => key.startsWith(PREFIX));
-    for (const key of shells.slice(0,-2)) if(key!==PREFIX+data.version) await caches.delete(key);
+    const shells = (await caches.keys()).filter(key => key.startsWith('mernondna-shell-'));
+    for (const key of shells) if(key!==PREFIX+data.version) await caches.delete(key);
     await self.clients.claim();
   })());
 });
@@ -35,7 +39,11 @@ self.addEventListener('fetch', event => {
   const request = event.request,url = new URL(request.url);
   if (request.method!=='GET' || url.origin!==self.location.origin || !url.href.startsWith(root)) return;
   event.respondWith((async () => {
-    const data = await manifest(),cache = await caches.open(PREFIX+data.version);
+    // Broken cache metadata must not prevent normal network fetching.
+    let data;
+    try {data=await manifest();} catch {return fetch(request);}
+    let cache;
+    try {cache=await caches.open(PREFIX+data.version);} catch {return fetch(request);}
     if(request.mode==='navigate') {
       const shell = await cache.match(root,{ignoreVary:true}) || await cache.match(new URL('index.html',root),{ignoreVary:true});
       if(shell)return shell;

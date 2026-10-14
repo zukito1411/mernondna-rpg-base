@@ -4,6 +4,7 @@ import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 import type Phaser from 'phaser';
 import {TitleArtwork} from './TitleArtwork';
+import {refreshOfflineGameFiles} from '../utils/appStartup';
 
 declare global { interface Window { __mernondnaGame?: Phaser.Game } }
 
@@ -45,16 +46,25 @@ export function GameCanvas() {
       game = createMernondnaGame(ref.current);
     }catch(reason){failed(reason);}
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('e2e')) window.__mernondnaGame = game;
+    let lastAdvance=Date.now(),lastProgress=-1,stalled=false;
+    const onVisible=()=>{if(!document.hidden)lastAdvance=Date.now();};
+    document.addEventListener('visibilitychange',onVisible);
     const readinessPoll=window.setInterval(()=>{
       if(!game)return;
       const assetError=game.registry.get('assetError');
       if(typeof assetError==='string'){setError(assetError);return;}
       const progress=game.registry.get('loadingProgress');
       const ready=game.registry.get('worldReady')===true;
+      if(ready)setError(null);
+      if(typeof progress==='number'&&progress>lastProgress+.001){lastProgress=progress;lastAdvance=Date.now();}
+      if(!ready&&!document.hidden&&!stalled&&Date.now()-lastAdvance>90000){
+        stalled=true;
+        setError('Loading has stopped progressing. Retry or refresh game files without deleting your save.');
+      }
       setLoading(current=>current.ready===ready&&current.progress===progress?current:
         {...current,ready,progress:typeof progress==='number'?progress:current.progress});
     },100);
-    return () => {window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);window.removeEventListener('keydown',onInteractKey);
+    return () => {window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);window.removeEventListener('keydown',onInteractKey);document.removeEventListener('visibilitychange',onVisible);
       if (window.__mernondnaGame === game) delete window.__mernondnaGame; game?.destroy(true); };
   }, []);
 
@@ -78,5 +88,5 @@ export function GameCanvas() {
         </div>
       </div>
     </div>}
-    {error&&<div className="startup-failure" role="alert"><h2>Game initialization stopped</h2><p>{error}</p><p>Your save was not deleted.</p><button onClick={()=>window.location.reload()}>Retry opening</button></div>}</>;
+    {error&&<div className="startup-failure" role="alert"><h2>Game initialization stopped</h2><p>{error}</p><p>Your save was not deleted.</p><button onClick={()=>window.location.reload()}>Retry opening</button><button onClick={()=>{void refreshOfflineGameFiles();}}>Refresh game files (keeps save)</button></div>}</>;
 }
