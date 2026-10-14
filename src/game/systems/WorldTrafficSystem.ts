@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {chunkNeighborhood,contentChunkKey} from './chunkNeighborhood';
-import {cartRoutes,seaRoute,routePosition,type TrafficRoute} from './travelRoutes';
+import {cartRoutes,seaRoute,routePosition,routePointAtDistance,type TrafficRoute} from './travelRoutes';
 import {trafficDirection,trafficDistance,horseWalkFrame,wheelTurnFrame} from './trafficMotion';
 import {BOAT_SCALE,boatHelm,boatPassenger,CART_ART_POSES} from './VehicleArt';
 import {ART_BY_KEY,actorScaleForHeight,type ArtTextureKey} from '../../data/art';
@@ -57,7 +57,7 @@ export class WorldTrafficSystem {
       let vehicle=this.active.get(route.id);
       if(!vehicle){vehicle=this.create(route,point.x,point.y);this.active.set(route.id,vehicle);}
       const direction=trafficDirection(point.dx,point.dy),distance=trafficDistance(route,this.elapsed);
-      if(route.kind==='cart')this.presentCart(vehicle,point.x,point.y,direction,distance,point.moving);
+      if(route.kind==='cart')this.presentCart(vehicle,point.x,point.y,direction,distance,point.moving,point.distance,point.forward);
       else this.presentBoat(vehicle,point.x,point.y,point.dx,point.dy,direction,point.moving);
     }
     for(const [id,vehicle] of this.active)if(!wanted.has(id)){this.release(vehicle);this.active.delete(id);}
@@ -90,12 +90,15 @@ export class WorldTrafficSystem {
   }
   positionVessel(vehicle:Vehicle,x:number,y:number,dx:number,dy:number,moving=true){this.presentBoat(vehicle,x,y,dx,dy,trafficDirection(dx,dy),moving);}
   releaseVessel(vehicle:Vehicle){this.release(vehicle);}
-  private presentCart(vehicle:Vehicle,x:number,y:number,direction:number,distance:number,moving:boolean){
+  private presentCart(vehicle:Vehicle,x:number,y:number,direction:number,distance:number,moving:boolean,pathDistance:number,forward:boolean){
     const pose=CART_ART_POSES[direction],horse=vehicle.horse!,side=direction===1||direction===2;
     vehicle.sprite.setFrame(direction).setOrigin(pose.originX,pose.originY).setPosition(x,y).setDepth(y);
-    const horseTexture=side?'horse-east':direction===0?'horse-south':'horse-north';
-    horse.setTexture(horseTexture,moving?horseWalkFrame(distance):0).setFlipX(direction===1)
-      .setPosition(x+pose.horse.x,y+pose.horse.y).setDepth(direction===3?y-.02:y+.02);
+    const lead=Math.hypot(pose.horse.x,pose.horse.y),sign=forward?1:-1;
+    const hoof=routePointAtDistance(vehicle.route,pathDistance+sign*lead);
+    const horseDirection=trafficDirection(hoof.dx*sign,hoof.dy*sign),horseSide=horseDirection===1||horseDirection===2;
+    const horseTexture=horseSide?'horse-east':horseDirection===0?'horse-south':'horse-north';
+    horse.setTexture(horseTexture,moving?horseWalkFrame(distance):0).setFlipX(horseDirection===1)
+      .setPosition(hoof.x,hoof.y).setDepth(hoof.y+(horseDirection===3?-.02:.02));
     vehicle.wheels!.forEach((wheel,i)=>{
       const axle=pose.wheels[i];
       wheel.setFrame(wheelTurnFrame(distance,direction)).setScale(side?.5:.14,.5)

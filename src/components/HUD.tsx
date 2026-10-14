@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { GameIcon } from './GameIcon';
 import { DesktopSkillBar } from './DesktopSkillBar';
 import { REGION_BY_ID } from '../data/regions';
@@ -16,6 +17,10 @@ function barPercent(value: number, max: number) {
 }
 
 export function HUD() {
+  // Choose once per gameplay mount. Browser chrome, a synthetic mouse event,
+  // or an attached pointer must not repeatedly switch the status panel layout.
+  const [compactHud] = useState(() => Capacitor.isNativePlatform()
+    || window.matchMedia('(hover: none), (pointer: coarse)').matches);
   const [menuExpanded, setMenuExpanded] = useState(false);
   const hp = useGameStore((s) => s.hp);
   const maxHp = useGameStore((s) => s.maxHp);
@@ -47,7 +52,7 @@ export function HUD() {
 
   if(cinematic)return null;
   return (
-    <div className="hud-layer" aria-live="polite">
+    <div className="hud-layer" data-compact-hud={compactHud} aria-live="polite">
       <div className="hud-primary-stack">
         <section className="status-card">
           <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>

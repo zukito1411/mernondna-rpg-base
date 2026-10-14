@@ -774,65 +774,86 @@
   .character-grid,.gear-grid {grid-template-columns:1fr !important;}
 }
 
-/* Restore Day/time and quest distance on mobile */
-@media (hover: none), (pointer: coarse) {
-
-  /* Keep gameplay chrome compact and stable across text changes/rotation.
-     Long content belongs in the journal, not in intrinsic grid track sizes. */
-  .hud-layer {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
+/* The gameplay HUD selects compact mode once, rather than following changing
+   viewport-height / input-media breakpoints. Browser bars and new quest text
+   must never switch between two panel sizes while the player is moving. */
+  .hud-layer[data-compact-hud="true"] {
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+    font-variant-numeric: tabular-nums;
   }
-  .hud-layer .hud-primary-stack {
-    width: min(208px,44vw);
+  .hud-layer[data-compact-hud="true"] .hud-primary-stack {
+    width: 188px;
+    max-width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 132px);
     top: max(6px,env(safe-area-inset-top));
     left: max(6px,env(safe-area-inset-left));
     gap: 5px;
   }
-  .hud-layer .status-card {
-    height: 72px;
+  .hud-layer[data-compact-hud="true"] .status-card {
+    height: 64px;
+    min-height: 64px;
+    max-height: 64px;
     padding: 6px 8px;
     transform: none;
+    overflow: hidden;
     display: grid;
     grid-template-columns: minmax(0,1fr);
-    grid-template-rows: 17px 5px 5px 8px 10px;
-    gap: 3px;
+    grid-template-rows: 14px 5px 5px 8px 10px;
+    gap: 2px;
   }
-  .hud-layer .status-title { min-width: 0; gap: 5px; line-height: 17px; }
-  .hud-layer .status-title strong {
+  .hud-layer[data-compact-hud="true"] .status-title { min-width: 0; gap: 5px; line-height: 14px; }
+  .hud-layer[data-compact-hud="true"] .status-title strong {
     min-width: 0;
-    font-size: 14px;
+    font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .hud-layer .status-title > span { flex: none; font-size: 10px; white-space: nowrap; }
-  .hud-layer .status-card .meter { height: 5px; margin: 0; }
-  .hud-layer .status-card .xp-meter { height: 8px; margin: 0; }
-  .hud-layer .status-card .xp-meter span { font-size: 7px; }
-  .hud-layer .status-meta { min-width: 0; flex-wrap: nowrap; margin: 0; gap: 5px; font-size: 9px; line-height: 10px; }
-  .hud-layer .status-meta > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hud-layer .status-meta > span:nth-child(2) { display: none; } /* The minimap owns the clock. */
-  .hud-layer .status-meta > span:last-child { flex: none; white-space: nowrap; }
-  .hud-layer .quest-card {
-    height: 80px;
+  .hud-layer[data-compact-hud="true"] .status-title > span { flex: none; font-size: 10px; white-space: nowrap; }
+  .hud-layer[data-compact-hud="true"] .status-card .meter { position: relative; min-width: 0; height: 5px; margin: 0; }
+  .hud-layer[data-compact-hud="true"] .status-card .xp-meter { position: relative; min-width: 0; height: 8px; margin: 0; }
+  .hud-layer[data-compact-hud="true"] :is(.meter-fill,.xp-meter-fill) { position: absolute; top: 0; bottom: 0; left: 0; }
+  .hud-layer[data-compact-hud="true"] .status-card .xp-meter span { font-size: 7px; white-space: nowrap; }
+  .hud-layer[data-compact-hud="true"] .status-meta { min-width: 0; flex-wrap: nowrap; margin: 0; gap: 5px; font-size: 9px; line-height: 10px; }
+  .hud-layer[data-compact-hud="true"] .status-meta > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hud-layer[data-compact-hud="true"] .status-meta > span:nth-child(2) { display: none; } /* The minimap owns the clock. */
+  .hud-layer[data-compact-hud="true"] .status-meta > span:last-child { flex: none; white-space: nowrap; }
+  .hud-layer[data-compact-hud="true"] .quest-card {
+    height: 78px;
+    min-height: 78px;
+    max-height: 78px;
     padding: 6px 8px;
     grid-template-rows: 12px minmax(0,1fr);
     gap: 2px;
     overflow: hidden;
   }
-  .hud-layer .quest-card > strong {
+  .hud-layer[data-compact-hud="true"] .quest-card > strong {
     font-size: 10px;
     line-height: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .hud-layer .quest-card .quest-objective, .hud-layer .quest-card .journal-link { display: none; }
-  .hud-layer .quest-guidance { min-width: 0; margin: 0; padding-top: 3px; gap: 5px; align-self: start; }
-  .hud-layer .quest-card .quest-destination { display: block; font-size: 9px; line-height: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hud-layer .compass-arrow { flex: 0 0 18px; width: 18px; height: 18px; }
+  .hud-layer[data-compact-hud="true"] .quest-card .quest-objective, .hud-layer[data-compact-hud="true"] .quest-card .journal-link { display: none; }
+  .hud-layer[data-compact-hud="true"] .quest-guidance { min-width: 0; margin: 0; padding-top: 3px; gap: 5px; align-self: start; }
+  .hud-layer[data-compact-hud="true"] .quest-guidance > div { grid-template-rows: 12px 20px 11px; }
+  .hud-layer[data-compact-hud="true"] .quest-card .quest-destination { display: block; font-size: 9px; line-height: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hud-layer[data-compact-hud="true"] .compass-arrow { flex: 0 0 18px; width: 18px; height: 18px; }
+  .hud-layer[data-compact-hud="true"] .quest-card .quest-guidance small { display: block; font-size: 9px; line-height: 11px; white-space: nowrap; }
+  .hud-layer[data-compact-hud="true"] .quest-card .quest-guidance .quest-next-step {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    height: 20px;
+    overflow: hidden;
+    font-size: 8px;
+    line-height: 10px;
+    white-space: normal;
+  }
+  .hud-layer[data-compact-hud="true"] .quest-card .quest-guidance .quest-step-distance { overflow: hidden; text-overflow: ellipsis; }
 
+/* Restore Day/time on the existing touch minimap. */
+@media (hover: none), (pointer: coarse) {
   /* Give the minimap room for Day and time */
   .hud-layer .minimap-card {
     width: 116px;
@@ -849,34 +870,6 @@
     white-space: nowrap;
   }
 
-  /* Restore quest direction and distance */
-  .hud-layer .quest-card .quest-guidance small {
-    display: block;
-    font-size: 9px;
-    line-height: 11px;
-    white-space: nowrap;
-  }
-  .hud-layer .quest-card .quest-guidance .quest-next-step {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    white-space: normal;
-  }
-  .hud-layer .quest-card .quest-guidance .quest-step-distance {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-@media (orientation: landscape) and (max-height: 520px) and (hover: none),
-       (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
-  .hud-layer .hud-primary-stack { width: min(188px,44vw); }
-  .hud-layer .status-card { height: 64px; grid-template-rows: 14px 5px 5px 8px 10px; gap: 2px; }
-  .hud-layer .status-title { line-height: 14px; }
-  .hud-layer .status-title strong { font-size: 13px; }
-  .hud-layer .quest-card { height: 78px; }
-  .hud-layer .quest-card .quest-guidance .quest-next-step { font-size: 8px; line-height: 10px; }
 }
 
 /* LEIGHNERON_MOBILE_PARCHMENT_CENTERING_V1

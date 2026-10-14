@@ -9,7 +9,8 @@ export interface CurtainLine {a:Vec2;b:Vec2;townId:string;gateShoulder?:boolean}
 export interface DefensiveEntrance {id:string;townId:string;point:Vec2;width:number;kind:'road'|'water';northSouth:boolean;gateArtwork?:boolean}
 export interface DefensiveSurvey {townId:string;vertices:Vec2[];lines:CurtainLine[];entrances:DefensiveEntrance[];approaches:Vec2[][]}
 const fit=artFrameSize('royal_walls',0).width/ART_BY_KEY.royal_walls.regions![0][2];
-const gateScale=2.3,gateHalfOpening=59*fit*gateScale/2;
+// The open artwork needs enough aperture for a road cart, not just one person.
+const gateScale=3.1,gateHalfOpening=59*fit*gateScale/2;
 const distance=(p:Vec2,a:Vec2,b:Vec2)=>{
   const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)):0;
   return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
@@ -118,13 +119,16 @@ for(const defense of SETTLEMENT_DEFENSES){const town=TOWNS.find(t=>t.id===defens
     for(let i=0;i<count;i++)SETTLEMENT_DEFENSE_PROPS.push({id:`defense:${town.id}:curtain:${edge}:${i}`,kind:'prop',texture:'royal_walls',frame,scale,solid:false,anchor:'center',tint:profile.wallTint,
       world:{x:a.x+(b.x-a.x)*(i+.5)/count,y:a.y+(b.y-a.y)*(i+.5)/count}});
   }
-  for(const [i,point] of defense.vertices.entries())SETTLEMENT_DEFENSE_PROPS.push({id:`defense:${town.id}:tower:${i}`,kind:'prop',texture:'royal_walls',frame:3,scale:baseScale*1.15,solid:true,footprint:{width:57.5*baseScale,height:27.6*baseScale},anchor:'center',world:point,tint:profile.wallTint});
+  for(const [i,point] of defense.vertices.entries()){
+    const towerScale=baseScale*1.15,clearance=artFrameSize('royal_walls',3).width*towerScale/2+24;
+    // Side roads can enter exactly at a perimeter vertex. The opening cuts
+    // both adjacent curtains; a corner tower must not fill that opening again.
+    if(defense.entrances.some(e=>Math.hypot(e.point.x-point.x,e.point.y-point.y)<e.width/2+clearance))continue;
+    SETTLEMENT_DEFENSE_PROPS.push({id:`defense:${town.id}:tower:${i}`,kind:'prop',texture:'royal_walls',frame:3,scale:towerScale,solid:true,footprint:{width:57.5*baseScale,height:27.6*baseScale},anchor:'center',world:point,tint:profile.wallTint});
+  }
   for(const entrance of defense.entrances) {
     if(entrance.gateArtwork)SETTLEMENT_DEFENSE_PROPS.push({id:entrance.id+':gatehouse',kind:'prop',world:entrance.point,texture:'royal_walls',frame:5,scale:gateScale,solid:false,anchor:'center',tint:profile.wallTint,label:entrance.point.y<town.world.y?'Highmere North Gate':'Highmere South Gate'});
-    const edge=defense.vertices.findIndex((a,i)=>distance(entrance.point,a,defense.vertices[(i+1)%defense.vertices.length])<2);
-    if(edge<0)continue;const a=defense.vertices[edge],b=defense.vertices[(edge+1)%defense.vertices.length],length=Math.hypot(b.x-a.x,b.y-a.y);
-    for(const side of [-1,1])SETTLEMENT_DEFENSE_PROPS.push({id:entrance.id+':post:'+side,kind:'prop',texture:'royal_walls',frame:3,scale:baseScale,solid:true,footprint:{width:50*baseScale,height:24*baseScale},anchor:'center',tint:profile.wallTint,
-      world:{x:entrance.point.x+(b.x-a.x)/length*entrance.width/2*side,y:entrance.point.y+(b.y-a.y)/length*entrance.width/2*side},
-      ...(side===1&&entrance.kind==='road'?{label:town.name+' guarded passage'}:{})});
+    // Open side passages end at the actual cut curtains. Do not add round
+    // towers on an extrapolated edge, or duplicate the gate sprite's posts.
   }
 }

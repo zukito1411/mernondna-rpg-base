@@ -9,7 +9,6 @@ import {spriteSubjectCanvas} from './spriteArt';
 import {actorSpriteGridSubjects} from './spriteComponents';
 import {INTERIOR_ART,INTERIOR_FLOORS,interiorFloorIndex,type InteriorArtKey} from '../../data/interiorArt';
 import {resolveQuestTarget,questBearing,activeObjective} from './questNavigation';
-import {InteriorQuestRoutes} from './interiorQuestRoutes';
 
 const DEPTH=10_000_000;
 const SOURCE='interior-source',ATLAS='interior-furniture';
@@ -34,12 +33,7 @@ export class InteriorSession {
   private guide:Phaser.GameObjects.Graphics|null=null;
   private wallSolids:RoomRect[]=[];
   private floorMask:Phaser.Display.Masks.GeometryMask|null=null;
-  private questRoutes:InteriorQuestRoutes|null=null;
-  private questPath:Vec2[]=[];
-  private questPathKey='';
-  private nextGuideAt=0;
   private mapFloors:RoomRect[]=[];
-  private guidePoint:Vec2|null=null;
   constructor(private readonly scene:WorldScene){}
   get active(){return this.loading||this.entry!==null;}
   get ready(){return this.entry!==null&&!this.loading;}
@@ -264,31 +258,6 @@ export class InteriorSession {
   }
   private reachableResident(npc:Npc){return Math.hypot(npc.x-this.scene.player.x,npc.y-this.scene.player.y)<90
     &&this.clearPath(this.scene.player,npc,npc);}
-  private guideWaypoint(target:Vec2,key:string){
-    const player=this.scene.player;
-    if(!this.plan)return target;
-    if(this.questPathKey===key&&this.guidePoint&&this.scene.time.now<this.nextGuideAt)return this.guidePoint;
-    const resident=this.residents.find(n=>key==='npc:'+n.definition.id);
-    const goal=resident?[{x:resident.x,y:resident.y+58},{x:resident.x-58,y:resident.y},{x:resident.x+58,y:resident.y}]
-      .find(p=>this.validFeet(p.x,p.y))??target:target;
-    if(this.clearPath(player,goal)){
-      this.questPath=[];this.questPathKey=key;this.nextGuideAt=this.scene.time.now+200;this.guidePoint={...goal};return goal;
-    }
-    if(!this.questRoutes){
-      const left=Math.min(...this.plan.floors.map(r=>r.x)),top=Math.min(...this.plan.floors.map(r=>r.y));
-      const right=Math.max(...this.plan.floors.map(r=>r.x+r.width)),bottom=Math.max(...this.plan.floors.map(r=>r.y+r.height));
-      this.questRoutes=new InteriorQuestRoutes({x:this.origin.x+left,y:this.origin.y+top,width:right-left,height:bottom-top},
-        p=>this.validFeet(p.x,p.y),(a,b)=>this.clearPath(a,b));
-    }
-    if(this.questPathKey!==key||this.scene.time.now>=this.nextGuideAt){
-      const first=this.questPath[0];
-      if(this.questPathKey!==key||!first||Math.hypot(first.x-player.x,first.y-player.y)>170)
-        this.questPath=this.questRoutes.route(player,goal);
-      this.questPathKey=key;this.nextGuideAt=this.scene.time.now+200;
-      while(this.questPath.length>1&&Math.hypot(this.questPath[0].x-player.x,this.questPath[0].y-player.y)<55)this.questPath.shift();
-    }
-    const point=this.questPath[0]??player;this.guidePoint={x:point.x,y:point.y};return this.guidePoint;
-  }
   update(time:number,delta:number,blocked:boolean){
     this.scene.physics.world.pause();
     if(this.loading){this.scene.player.discardActions();return;}
@@ -318,12 +287,11 @@ export class InteriorSession {
       x:this.origin.x+exit.x,y:this.origin.y+exit.y,contentId:'interior:exit:'+this.entry.id,
       label:`Leave ${this.entry.name} — ${target.label}`};
     else if(target)target={...target,worldLocation:{...this.entry.door}};
-    if(target){const p=this.guideWaypoint(target,target.contentId);target={...target,waypoint:{x:p.x,y:p.y,label:'Follow the clear room passages'}};}
     for(const npc of this.residents)npc.updatePresentation(x,y,target?.contentId==='npc:'+npc.definition.id);
     for(const npc of this.residents)npc.setInteriorLabelDepth(DEPTH-this.origin.y);
     this.guide?.clear();
     if(target&&this.guide){
-      const approach=target.waypoint??target,angle=questBearing(player,approach),dx=Math.sin(angle),dy=-Math.cos(angle),gx=x+dx*48,gy=y+dy*48;
+      const approach=target,angle=questBearing(player,approach),dx=Math.sin(angle),dy=-Math.cos(angle),gx=x+dx*48,gy=y+dy*48;
       if(Math.hypot(approach.x-x,approach.y-y)>10)this.guide.fillStyle(0xffd976,.95).fillTriangle(gx+dx*9,gy+dy*9,gx-dx*5-dy*6,gy-dy*5+dx*6,gx-dx*5+dy*6,gy-dy*5-dx*6);
       this.guide.lineStyle(2,0xffd976,.8).strokeEllipse(target.x,target.y+2,28,10);
     }
@@ -344,7 +312,7 @@ export class InteriorSession {
   exit(){
     if(!this.entry)return;
     const returnPoint=this.outside!;this.entry=null;this.plan=null;
-    this.questRoutes=null;this.questPath=[];this.questPathKey='';this.nextGuideAt=0;this.mapFloors=[];this.guidePoint=null;
+    this.mapFloors=[];
     for(const object of this.objects){this.scene.tweens.killTweensOf(object);object.destroy();}this.objects=[];this.residents=[];this.guide=null;
     this.floorMask?.destroy();this.floorMask=null;this.wallSolids=[];
     for(const saved of this.hidden){if(saved.object.scene)saved.object.cameraFilter=saved.filter;}this.hidden=[];

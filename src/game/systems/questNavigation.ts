@@ -5,11 +5,10 @@ import { npcWorldPosition, npcEscortArrival } from '../../data/npcPositions';
 import { BOSS_BY_ID } from '../../data/enemies';
 import { TOWN_BY_ID } from '../../data/towns';
 import type { ContentDefinition, ContentWorldState, QuestObjective, QuestRuntimeState, QuestTarget, Vec2 } from '../types';
-import { PORTS, PORT_BY_ID } from '../../data/ports';
+import { PORT_BY_ID } from '../../data/ports';
 import { NPC_INTERIOR_BY_ID } from '../../data/interiors';
 import { WorldGenerator } from './WorldGenerator';
-import { mainlandQuestWaypoint } from './questRoutes';
-import {FLAGSHIP_GANGPLANK,onFlagshipDeck,onFlagshipBoarding,shipPoint} from '../../data/pirateFlagship';
+import {onFlagshipDeck,onFlagshipBoarding} from '../../data/pirateFlagship';
 import {questNpcLabel,contentQuestLocation} from './questDestinations';
 import {REGION_BY_ID} from '../../data/regions';
 
@@ -34,36 +33,25 @@ function eligible(d:ContentDefinition,o:QuestObjective){
   if(o.type==='visit')return d.kind==='settlement'&&d.townId===o.targetId;
   return ('questTargetId' in d&&d.questTargetId===o.targetId)||d.id===o.targetId;
 }
-function travelApproach(target:QuestTarget,player:Vec2,interiorId?:string):QuestTarget{
+function withTravelHint(target:QuestTarget,player:Vec2,interiorId?:string):QuestTarget{
   if(interiorId)return target;
   const deckGoal=onFlagshipDeck(target.x,target.y),aboard=onFlagshipBoarding(player.x,player.y);
-  const plankY=(FLAGSHIP_GANGPLANK.top+FLAGSHIP_GANGPLANK.bottom)/2;
-  if(aboard&&!deckGoal){
-    const p=onFlagshipDeck(player.x,player.y)?shipPoint(600,plankY):shipPoint(1040,plankY);
-    return {...target,waypoint:{...p,label:'Leave the flagship by its eastern gangplank'}};
-  }
   const from=geography.getRegionAt(player.x,player.y),to=geography.getRegionAt(target.x,target.y);
-  const fromPort=Object.hasOwn(islandPorts,from)?PORT_BY_ID[islandPorts[from as keyof typeof islandPorts]]:
-    PORTS.find(p=>!p.river&&Math.hypot(player.x-p.landing.x,player.y-p.landing.y)<4000);
+  const fromPort=aboard?PORT_BY_ID.tidewatch:Object.hasOwn(islandPorts,from)?PORT_BY_ID[islandPorts[from as keyof typeof islandPorts]]:undefined;
   const toPort=Object.hasOwn(islandPorts,to)?PORT_BY_ID[islandPorts[to as keyof typeof islandPorts]]:
     target.contentId.includes('flagship')?PORT_BY_ID.tidewatch:undefined;
   if((fromPort?.id??'highmere')!==(toPort?.id??'highmere')){
     const quay=fromPort??PORT_BY_ID.highmere;
-    const road=quay.id==='highmere'||quay.id==='blackspire'?mainlandQuestWaypoint(player,quay.quay):undefined;
     const arrival=toPort??PORT_BY_ID.highmere,region=TOWN_BY_ID[arrival.townId].regionId;
     const arrivalName=arrival.id==='blackspire'?'Ashen Landing':arrival.name;
-    return {...target,waypoint:{...(road??quay.quay),label:(road?'Follow the road to ':'Go to ')+quay.name
-      +' — board a boat to '+arrivalName+' ('+(region==='dead-sea'?'Dead Sea':REGION_BY_ID[region].name)+')'}};
+    return {...target,travelHint:(aboard?'Leave the flagship, then go to ':'Go to ')+quay.name
+      +' — board a boat to '+arrivalName+' ('+(region==='dead-sea'?'Dead Sea':REGION_BY_ID[region].name)+')'};
   }
+  if(aboard&&!deckGoal)return {...target,travelHint:'Leave the flagship by its eastern gangplank'};
   if(deckGoal&&!onFlagshipDeck(player.x,player.y)){
-    const shore=shipPoint(1040,plankY),near=Math.hypot(player.x-shore.x,player.y-shore.y)<160||aboard;
-    return {...target,waypoint:{...(near?shipPoint(600,plankY):shore),label:near?'Cross the painted eastern gangplank':'Approach the flagship from the eastern shoreline'}};
+    return {...target,travelHint:'Board the flagship using its eastern shoreline gangplank'};
   }
-  const darkavApproach=toPort?.id==='blackspire'&&(target.contentId.startsWith('npc:')||['boss:varkhul','clue:varkhul-ward','port:blackspire'].includes(target.contentId));
-  if(!toPort&&!fromPort||darkavApproach){
-    const point=mainlandQuestWaypoint(player,target);
-    if(point)return {...target,waypoint:{...point,label:'Follow the road and cross at the bridges'}};
-  }return target;
+  return target;
 }
 /** One objective resolver shared by world, interiors, maps and journal. */
 export function resolveQuestTarget(quests:Record<string,QuestRuntimeState>,world:ContentWorldState,player:Vec2,
@@ -77,7 +65,7 @@ export function resolveQuestTarget(quests:Record<string,QuestRuntimeState>,world
     if(!npc)return null;
     const id='npc:'+npc.id,room=NPC_INTERIOR_BY_ID[npc.id];
     const p=room&&room.entry.id!==interiorId?room.entry.door:livePosition?.(id)??world.states[id]??npcWorldPosition(npc);
-    return travelApproach({x:p.x,y:p.y,contentId:id,label:questNpcLabel(npc.id,Boolean(room&&room.entry.id!==interiorId))+' — '+dependency.name,
+    return withTravelHint({x:p.x,y:p.y,contentId:id,label:questNpcLabel(npc.id,Boolean(room&&room.entry.id!==interiorId))+' — '+dependency.name,
       questId,objectiveId:o.id,type:o.type},player,interiorId);
   }
   const key=questId+':'+o.id;
@@ -108,7 +96,7 @@ export function resolveQuestTarget(quests:Record<string,QuestRuntimeState>,world
     const minutes=Math.max(0,Math.ceil(((state.respawnAt??0)-Date.now())/60000));
     label+=minutes?' — recovering; returns in '+minutes+' min':' — return to the lair for the next battle';
   }
-  return travelApproach({x:position.x,y:position.y,contentId:target.id,label,questId,objectiveId:o.id,type:o.type},player,interiorId);
+  return withTravelHint({x:position.x,y:position.y,contentId:target.id,label,questId,objectiveId:o.id,type:o.type},player,interiorId);
 }
 
 export function questBearing(player: Vec2, target: Vec2) { return Math.atan2(target.x - player.x, player.y - target.y); }

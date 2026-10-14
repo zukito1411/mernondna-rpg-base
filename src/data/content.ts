@@ -17,10 +17,14 @@ import {SETTLEMENT_DEFENSE_PROPS,insideDefense} from './settlementDefenses';
 import {WILDERNESS_SITES} from './wildernessSites';
 import {isTreeArt} from './treeArt';
 import {DRAGON_LAIR_CONTENT} from './dragonLair';
-import {LAVA_FLOW} from './worldLandscape';
+import {LAVA_FLOW,DRAINAGE,pathDistance,harborBay} from './worldLandscape';
+import {lakeAt} from './landscapeFeatures';
+import {StaticBoundsIndex} from '../game/systems/StaticBoundsIndex';
+import {WORLD_WIDTH,WORLD_HEIGHT} from './world';
 import {PORTS} from './ports';
 import {FLAGSHIP_CONTENT,shipPoint} from './pirateFlagship';
 import {addCampaignWorldContent} from './campaignWorld';
+import {ROAD_BRIDGE_FRAME,stoneBridgeScale} from './bridgeDeck';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for(const port of PORTS)WORLD_CONTENT.push({id:'port:'+port.id,kind:'interactable',world:port.quay,
@@ -73,7 +77,7 @@ for (const layout of SETTLEMENT_LAYOUTS) {
   }
   if (layout.waterway) for (const [i,y] of layout.waterway.crossings.entries()) WORLD_CONTENT.push({
     id:`bridge:${town.id}:${i}`,kind:'prop',world:{x:town.world.x+layout.waterway.x,y:town.world.y+y},
-    texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center',
+    texture:'bridges',frame:ROAD_BRIDGE_FRAME,scale:stoneBridgeScale(layout.waterway.width),solid:false,anchor:'center',
   });
   WORLD_CONTENT.push({id:`detail:${town.id}:court-bench`,kind:'prop',world:{x:town.world.x-320,y:town.world.y-80},
     texture:'others',frame:7,scale:.55,solid:false});
@@ -115,7 +119,7 @@ for (const [index,bridgeY] of HIGHMERE_RIVER.bridgeY.entries()) {
   const start = HIGHMERE_RIVER.points[segmentIndex], end = HIGHMERE_RIVER.points[segmentIndex + 1];
   const t = end.y === start.y ? 0 : (y - start.y) / (end.y - start.y);
   WORLD_CONTENT.push({ id:`bridge:highmere:${index}`,kind:'prop',world:{ x:start.x + (end.x - start.x) * t,y },
-    texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center' });
+    texture:'bridges',frame:ROAD_BRIDGE_FRAME,scale:stoneBridgeScale(HIGHMERE_RIVER.width),solid:false,anchor:'center' });
 }
 for (const npc of NPCS) {
   WORLD_CONTENT.push({ id: `npc:${npc.id}`, kind: 'npc', npcId: npc.id,
@@ -304,7 +308,7 @@ for(const layout of SETTLEMENT_LAYOUTS){const town=TOWN_BY_ID[layout.townId];
     world:{x:town.world.x+detail.x,y:town.world.y+detail.y},texture:detail.texture,frame:detail.frame,
     scale:detail.scale,solid:detail.solid,footprint:propFoundation(detail.texture,detail.frame,detail.scale),...(detail.label?{label:detail.label}:{})});
 }
-for(const bridge of WILDERNESS_BRIDGES)WORLD_CONTENT.push({id:bridge.id,kind:'prop',world:{x:bridge.x,y:bridge.y},texture:'bridges',frame:2,scale:bridge.scale,solid:false,anchor:'center'});
+for(const bridge of WILDERNESS_BRIDGES)WORLD_CONTENT.push({id:bridge.id,kind:'prop',world:{x:bridge.x,y:bridge.y},texture:'bridges',frame:ROAD_BRIDGE_FRAME,scale:bridge.scale,solid:false,anchor:'center'});
 for(const site of WILDERNESS_SITES){
   WORLD_CONTENT.push({id:'discovery:'+site.id,kind:'interactable',world:site.world,texture:'others',frame:11,scale:.58,name:site.name,
     description:site.description,repeatText:site.description,repeatable:true,discoveryId:site.id,questTargetId:site.id,questEventType:'investigate'});
@@ -337,6 +341,36 @@ for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
   WORLD_CONTENT[i] = rewriteNpcMentions(WORLD_CONTENT[i], NPC_NAME_ALIASES);
 }
 addCampaignWorldContent(WORLD_CONTENT);
+// Discovery/story boards are appended after the old town-only placement pass.
+// Fit them now, against final streets, bridge art and neighboring objects.
+const isRoadsideBoard=(d:ContentDefinition)=>'frame' in d
+  &&(d.texture==='others'&&d.frame===11||d.texture==='world_assets'&&d.frame===PROPS.sign);
+const boardObstacles=new StaticBoundsIndex(WORLD_CONTENT.flatMap(d=>'frame' in d&&!isRoadsideBoard(d)
+  ?[{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y,d.anchor==='center')}]:[]));
+const boardPlacements:Rect[]=[];
+for(const d of WORLD_CONTENT){
+  if(!isRoadsideBoard(d)||!('frame' in d))continue;
+  const texture=d.texture??'world_objects',scale=d.scale??1,preferred={...d.world};
+  const fits=(p:{x:number;y:number})=>{
+    const rect=spriteBounds(texture,d.frame,scale,p.x,p.y,d.anchor==='center');
+    if(rect.left<0||rect.top<0||rect.right>=WORLD_WIDTH||rect.bottom>=WORLD_HEIGHT)return false;
+    if(fortificationBlocksPoint(p.x,p.y,50)||harborBay(p.x,p.y)||lakeAt(p.x,p.y))return false;
+    if(ROAD_ROUTES.some(r=>rectTouchesStreet(rect,r,20)))return false;
+    if(SETTLEMENT_LAYOUTS.some(layout=>{const town=TOWN_BY_ID[layout.townId];
+      const local={left:rect.left-town.world.x,right:rect.right-town.world.x,top:rect.top-town.world.y,bottom:rect.bottom-town.world.y};
+      return layout.streets.some(s=>rectTouchesStreet(local,s,20));}))return false;
+    const pad=Math.max(rect.right-rect.left,rect.bottom-rect.top)/2+12;
+    if(DRAINAGE.some(r=>pathDistance(p.x,p.y,r.points,160)<r.width/2+pad))return false;
+    if(pathDistance(p.x,p.y,LAVA_FLOW,300)<110+pad)return false;
+    return !boardObstacles.query({left:rect.left-16,right:rect.right+16,top:rect.top-16,bottom:rect.bottom+16}).some(o=>overlaps(rect,o.bounds,16))
+      &&!boardPlacements.some(other=>overlaps(rect,other,16));
+  };
+  const candidates=[preferred,...[96,144,224,320,480,640,960,1280].flatMap(radius=>Array.from({length:16},(_,i)=>({
+    x:preferred.x+Math.cos(i*Math.PI/8)*radius,y:preferred.y+Math.sin(i*Math.PI/8)*radius})))];
+  const position=candidates.find(fits);
+  if(position)d.world=position;
+  boardPlacements.push(spriteBounds(texture,d.frame,scale,d.world.x,d.world.y,d.anchor==='center'));
+}
 export const CONTENT_BY_ID = Object.fromEntries(WORLD_CONTENT.map(d => [d.id, d])) as Record<string, ContentDefinition>;
 export function initialContentState(definition: ContentDefinition): ContentState {
   return { ...definition.world,

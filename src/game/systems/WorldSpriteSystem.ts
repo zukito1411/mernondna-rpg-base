@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
-import {worldSpriteProfile,polygonGroundBands,STONE_BRIDGE,type GroundPoint} from '../../data/worldSpriteGeometry';
+import {worldSpriteProfile,polygonGroundBands,TIMBER_BRIDGE,type GroundPoint} from '../../data/worldSpriteGeometry';
+import {ROAD_BRIDGE_FRAME} from '../../data/bridgeDeck';
 import {segmentTouchesRect} from '../../data/settlementGeometry';
 import {isTreeArt} from '../../data/treeArt';
 import type {Vec2} from '../types';
@@ -67,11 +68,11 @@ export class WorldSpriteSystem {
         .setVisible(false).setName('ground:'+actor.name).setData(WORLD_SPRITE_OWNER,actor);
       this.scene.physics.add.existing(body,true);this.bodies.add(body);owned.push(body);
     };
-    if(texture==='bridges'&&frame===2){
+    if(texture==='bridges'&&frame===ROAD_BRIDGE_FRAME){
       actor.setDepth(-900); // Deck/support artwork is ground, not foreground.
-      for(const [part,y] of [['back',STONE_BRIDGE.backSortY],['front',STONE_BRIDGE.frontSortY]] as const){
+      for(const [part,y] of [['back',TIMBER_BRIDGE.backSortY],['front',TIMBER_BRIDGE.frontSortY]] as const){
         const layer=this.scene.add.image(actor.x,actor.y,`bridge-${part}-rail`).setOrigin(actor.originX,actor.originY)
-          .setScale(actor.scaleX,actor.scaleY).setDepth(sourcePoint([284,y]).y).setName('bridge-'+part+':'+actor.name);
+          .setScale(actor.scaleX,actor.scaleY).setDepth(sourcePoint([241,y]).y).setName('bridge-'+part+':'+actor.name);
         layer.setTint(actor.tintTopLeft,actor.tintTopRight,actor.tintBottomLeft,actor.tintBottomRight);
         // The deck artwork includes water and bank soil: only the extracted
         // rail silhouettes cast a shadow, never the entire river illustration.

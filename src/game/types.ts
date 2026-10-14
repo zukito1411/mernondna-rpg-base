@@ -249,8 +249,10 @@ export interface ContentWorldState {
 
 export interface QuestTarget extends Vec2 {
   contentId: string; label: string; questId: string; objectiveId: string; type: QuestObjective['type'];
-  /** Maps keep the destination pin; compass arrows can follow a safe approach. */
+  /** Legacy route metadata; current guidance always points directly at x/y. */
   waypoint?: Vec2 & {label:string};
+  /** Travel instructions never redirect the pointer away from the destination. */
+  travelHint?:string;
   worldLocation?:Vec2;
 }
 export interface NavigationMarker extends Vec2 {

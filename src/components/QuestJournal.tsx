@@ -30,7 +30,7 @@ export function QuestJournal() {
           {current.amount>1&&<p>{runtime.objectiveProgress[current.id]??0} / {current.amount} completed in the marked encounter.</p>}
           {contact&&<p>Contact: {contact.name} — {contact.title}</p>}
           {dependency&&<p>Continue “{dependency.name}”. Its current objective is tracked through this chapter.</p>}
-          {target&&(target.questId===q.id||target.questId===dependency?.id)&&<p>Destination: {target.label}{target.waypoint&&<small> · Next approach: {target.waypoint.label}</small>}</p>}
+          {target&&(target.questId===q.id||target.questId===dependency?.id)&&<p>Destination: {target.label}{target.travelHint&&<small> · {target.travelHint}</small>}</p>}
           {current.type==='escort'&&<p>Stay near the survivor. They will stop if you move too far ahead; the guide switches between them and the safe arrival point.</p>}
         </div>}
         {runtime.status==='completed'&&q.resolution&&<p className="journal-resolution">{q.resolution}</p>}

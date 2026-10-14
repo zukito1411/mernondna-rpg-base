@@ -9,7 +9,7 @@ export function QuestCompass() {
   const openPanel=useGameStore(s=>s.openPanel);
   const x=position?.x??worldX,y=position?.y??worldY;
   if (!target) return null;
-  const approach=target.waypoint??target;
+  const approach=target;
   const distance = Math.hypot(approach.x - x,approach.y - y), bearing = questBearing({ x,y },approach);
   return (
     <div className="quest-guidance" data-objective={target.objectiveId} role="button" tabIndex={0}
@@ -20,9 +20,9 @@ export function QuestCompass() {
         <path d="M16 3 26 26 16 21 6 26Z" />
       </svg>
       <div><span className="quest-destination">{target.label}</span>
-        {target.waypoint&&<small className="quest-next-step">Next: {target.waypoint.label}</small>}
-        <small className="quest-step-distance">{distance < 72 ? target.waypoint?'Approach nearby':'Destination nearby'
-          : `${compassDirection(bearing)} · ${Math.max(1,Math.round(distance / TILE_SIZE))} paces${target.waypoint?' to next approach':''}`}</small>
+        <small className="quest-next-step">{target.travelHint??'Go directly toward the marked destination'}</small>
+        <small className="quest-step-distance">{distance < 72 ? 'Destination nearby'
+          : `${compassDirection(bearing)} · ${Math.max(1,Math.round(distance / TILE_SIZE))} paces to destination`}</small>
       </div>
     </div>
   );

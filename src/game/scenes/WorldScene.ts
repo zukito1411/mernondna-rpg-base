@@ -50,7 +50,7 @@ import { propFoundation, spriteBounds, overlaps } from '../../data/settlementGeo
 import { objectiveIsCurrent } from '../systems/storyProgress';
 import { fortificationBlocksPath, fortificationBlocksPoint } from '../../data/fortifications';
 import { CinematicDirector } from '../systems/CinematicDirector';
-import { formationPosition, npcStreetRoute } from '../systems/npcRoutes';
+import { formationPosition } from '../systems/npcRoutes';
 import { QUEST_BY_ID } from '../../data/quests';
 import { TargetingSystem } from '../systems/TargetingSystem';
 import {WeatherSystem} from '../systems/WeatherSystem';
@@ -133,7 +133,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly heldPanelKeys = new Set<string>();
   private questGuide!: Phaser.GameObjects.Graphics;
   private questTarget: QuestTarget | null = null;
-  private streetGuide:{key:string;path:Vec2[];retryAt:number}|null=null;
   private storyCampRetryAt=new Map<string,number>();
   activePlayMs=0;
   private cinematicDirector!:CinematicDirector;
@@ -272,7 +271,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.creatureBodies = this.physics.add.group();
     this.chunkManager = new ChunkManager(this,this.worldGenerator,this.treeSway,this.dayNight,this.worldSprites);
     this.enemies.clear(); this.npcs.length = 0; this.interactables.clear();
-    this.storyCampRetryAt.clear();this.streetGuide=null;
+    this.storyCampRetryAt.clear();
     this.spawnAttempts = 0; this.spawnAccumulator = 0; this.hudAccumulator = 0;
     this.nextAmbientIntervalMs = 11000; this.nextRoadBanditsAt=0; this.encounters.clear();
     this.focused = true; this.wasBlocked = false;
@@ -1215,33 +1214,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const store = useGameStore.getState();
     this.questTarget = resolveQuestTarget(store.quests, store.worldContent, this.player,
       id => this.contentManager.getActor(id),store.trackedQuestId);
-    if(this.questTarget){
-      const town=this.worldGenerator.getTownAt(this.player.x,this.player.y),goal=this.questTarget.waypoint??this.questTarget;
-      if(town&&Math.hypot(goal.x-this.player.x,goal.y-this.player.y)<8000){
-        const key=`${town.id}:${this.questTarget.questId}:${this.questTarget.objectiveId}:${this.questTarget.contentId}:${Math.round(goal.x/64)},${Math.round(goal.y/64)}:${Math.floor(this.player.x/160)},${Math.floor(this.player.y/160)}`;
-        const first=this.streetGuide?.path[0];
-        if(!this.streetGuide||this.streetGuide.key!==key||(this.time.now>=this.streetGuide.retryAt
-          &&(!first||!this.canTraverseGround(this.player,first)))){
-          const local=(p:{x:number;y:number})=>({x:p.x-town.world.x,y:p.y-town.world.y});
-          const global=(p:{x:number;y:number})=>({x:p.x+town.world.x,y:p.y+town.world.y});
-          // Player routes may pass behind roofs. NPC presentation clearance
-          // is not a movement boundary and must not reject such approaches.
-          const path=npcStreetRoute(town.id,local(this.player),local(goal),(a,b)=>this.canTraverseGround(global(a),global(b)));
-          this.streetGuide={key,path:path.map(global),retryAt:this.time.now+1000};
-        }
-        const path=this.streetGuide.path;
-        // The final contact may patrol within the same quantized cache cell.
-        if(path.length)path[path.length-1]={x:goal.x,y:goal.y};
-        // Advance even inside the same cache cell; never skip a corner until
-        // the next segment is actually traversable from the player's feet.
-        while(path.length>1&&Math.hypot(path[0].x-this.player.x,path[0].y-this.player.y)<100
-          &&this.canTraverseGround(this.player,path[1]))path.shift();
-        const point=path[0];
-        if(point&&Math.hypot(point.x-goal.x,point.y-goal.y)>1)
-          this.questTarget={...this.questTarget,waypoint:{...point,label:'Follow the settlement streets'
-            +(this.questTarget.waypoint?' — '+this.questTarget.waypoint.label:' to the destination')}};
-      }
-    }
     const markers: NavigationMarker[] = [];
     for(const resident of INTERIOR_RESIDENTS){
       const p=resident.entry.door;
@@ -1284,7 +1256,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const target = this.questTarget;
     if (!target || blocked) return;
     const live = target.type==='escort'?target:this.contentManager.getActor(target.contentId) ?? target;
-    const approach=target.waypoint??live;
+    const approach=live;
     const angle = questBearing(this.player,approach), dx = Math.sin(angle), dy = -Math.cos(angle);
     const approachDistance=Phaser.Math.Distance.Between(this.player.x,this.player.y,approach.x,approach.y);
     const arrived=Phaser.Math.Distance.Between(this.player.x,this.player.y,live.x,live.y)<=72

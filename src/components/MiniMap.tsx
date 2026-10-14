@@ -63,7 +63,7 @@ export function MiniMap() {
       else { ctx.beginPath(); ctx.arc(point.x,point.y,marker.kind === 'boss' ? 4 : 2.5,0,Math.PI * 2); ctx.fill(); ctx.stroke(); }
     }
     if (navigation.target) {
-      const approach=navigation.target.waypoint??navigation.target;
+      const approach=navigation.target;
       const point = mapPoint(approach,player,RANGE,SIZE,true);
       ctx.save(); ctx.translate(point.x,point.y); ctx.rotate(questBearing(player,approach));
       ctx.fillStyle = '#ffdb79'; ctx.strokeStyle = '#342711'; ctx.lineWidth = 2;

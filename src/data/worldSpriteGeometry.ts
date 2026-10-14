@@ -115,6 +115,15 @@ export const STONE_BRIDGE = {
   backSortY:439,frontSortY:520,
 } as const;
 
+/** Simple straight timber posts/ropes, leaving all deck planks in the floor. */
+export const TIMBER_BRIDGE = {
+  backArt:[[[129,115],[166,115],[166,198],[129,198]],[[327,114],[367,114],[367,198],[327,198]],
+    [[163,143],[331,143],[331,173],[163,173]]] as readonly GroundPolygon[],
+  frontArt:[[[121,188],[159,188],[159,288],[121,288]],[[327,188],[368,188],[368,288],[327,288]],
+    [[158,235],[329,235],[329,266],[158,266]]] as readonly GroundPolygon[],
+  backSortY:196,frontSortY:265,
+} as const;
+
 /** Small stepped convex contours, including separate ruin/gate pillars. Never
  * replace a hollow structure with its whole bounding rectangle. */
 export function polygonGroundBands(polygon:GroundPolygon,count=4,splitConcave=false){

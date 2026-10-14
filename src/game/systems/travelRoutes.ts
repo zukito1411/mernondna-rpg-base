@@ -8,21 +8,31 @@ import {fortificationBlocksPoint,fortificationBlocksPath} from '../../data/forti
 import type {WorldGenerator} from './WorldGenerator';
 import {BOAT_HULL_CLEARANCE} from './VehicleArt';
 
-export interface TrafficRoute {id:string;kind:'boat'|'cart';points:Vec2[];length:number;speed:number;phase:number}
+export interface TrafficRoute {id:string;kind:'boat'|'cart';points:Vec2[];length:number;speed:number;phase:number;endpointClearance?:number}
 export function pathLength(points:Vec2[]){return points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-points[i].x,p.y-points[i].y),0);}
-const routeLengths=new WeakMap<TrafficRoute,number[]>();
+// Merchants on the same run share its immutable points and length table.
+const routeLengths=new WeakMap<Vec2[],number[]>();
 /** Active-play clock gives stable positions across renderer unloading. Endpoints
  * have a short loading pause; direction reverses without teleporting. */
 export function routePosition(route:TrafficRoute,elapsedMs:number){
-  const travel=route.length/route.speed*1000,pause=4000,cycle=2*(travel+pause);
+  const inset=route.endpointClearance??0,span=Math.max(0,route.length-inset*2);
+  const travel=span/route.speed*1000,pause=4000,cycle=2*(travel+pause);
   const time=((elapsedMs+route.phase)%cycle+cycle)%cycle;
   const outbound=time<travel+pause;
-  let distance=outbound?Math.min(route.length,time*route.speed/1000):Math.max(0,route.length-(time-travel-pause)*route.speed/1000);
-  let cumulative=routeLengths.get(route);
-  if(!cumulative){cumulative=[0];for(let i=1;i<route.points.length;i++)cumulative.push(cumulative.at(-1)!+Math.hypot(route.points[i].x-route.points[i-1].x,route.points[i].y-route.points[i-1].y));routeLengths.set(route,cumulative);}
+  const distance=inset+(outbound?Math.min(span,time*route.speed/1000):Math.max(0,span-(time-travel-pause)*route.speed/1000));
+  const point=routePointAtDistance(route,distance);
+  return {...point,distance,forward:outbound,dx:point.dx*(outbound?1:-1),dy:point.dy*(outbound?1:-1),moving:outbound?time<travel:time<travel*2+pause};
+}
+
+/** Sample an attached horse on the same measured path, not a flat offset that
+ * can put its hooves in the water beside an arched bridge. */
+export function routePointAtDistance(route:TrafficRoute,distance:number){
+  distance=Math.max(0,Math.min(route.length,distance));
+  let cumulative=routeLengths.get(route.points);
+  if(!cumulative){cumulative=[0];for(let i=1;i<route.points.length;i++)cumulative.push(cumulative.at(-1)!+Math.hypot(route.points[i].x-route.points[i-1].x,route.points[i].y-route.points[i-1].y));routeLengths.set(route.points,cumulative);}
   let lo=1,hi=cumulative.length-1;while(lo<hi){const mid=(lo+hi)>>1;if(cumulative[mid]<distance)lo=mid+1;else hi=mid;}
   const a=route.points[lo-1],b=route.points[lo],length=cumulative[lo]-cumulative[lo-1],t=length?Math.max(0,Math.min(1,(distance-cumulative[lo-1])/length)):0;
-  return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,dx:(b.x-a.x)*(outbound?1:-1),dy:(b.y-a.y)*(outbound?1:-1),moving:outbound?time<travel:time<travel*2+pause};
+  return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,dx:b.x-a.x,dy:b.y-a.y};
 }
 
 export function cartRoutes(world:WorldGenerator):TrafficRoute[]{
@@ -31,21 +41,27 @@ export function cartRoutes(world:WorldGenerator):TrafficRoute[]{
     let run:Vec2[]=[];let serial=0;
     const flush=()=>{
       const length=pathLength(run);
-      if(length>=320){const id='cart:'+road.id+':'+serial++,rng=seededRandom(id);
+      // Reserve road beyond both loading stops for the full horse/cart train.
+      if(length>=720){const id='cart:'+road.id+':'+serial++,rng=seededRandom(id);
         // Several separated merchants on long corridors, all locally streamed.
         const count=Math.min(6,Math.max(1,Math.floor(length/3500)));
-        for(let i=0;i<count;i++)result.push({id:id+':'+i,kind:'cart',points:run,length,speed:42+rng()*10,phase:i*length/count/48*1000+rng()*8000});}
+        for(let i=0;i<count;i++)result.push({id:id+':'+i,kind:'cart',points:run,length,speed:42+rng()*10,phase:i*length/count/48*1000+rng()*8000,endpointClearance:180});}
       run=[];
     };
     for(let i=1;i<road.points.length;i++){
-      const a=road.points[i-1],b=road.points[i],length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.ceil(length/48);
+      const a=road.points[i-1],b=road.points[i],length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.ceil(length/16);
       if(length<.001)continue;
-      const nx=-(b.y-a.y)/length*44,ny=(b.x-a.x)/length*44;
+      // Side-view hooves/wheels have a shallow ground footprint. An arbitrary
+      // 88px square rejected the actual narrow deck even though it fits them.
+      const clearance=Math.abs(b.x-a.x)>Math.abs(b.y-a.y)*1.15?12:44;
+      const nx=-(b.y-a.y)/length*clearance,ny=(b.x-a.x)/length*clearance;
       for(let s=i===1?0:1;s<=steps;s++){
         const p={x:a.x+(b.x-a.x)*s/steps,y:a.y+(b.y-a.y)*s/steps};
         // Town centers have authored alleys/walls; caravans turn at approaches
         // rather than following a regional centerline through buildings.
-        if(!settlementAt(p.x,p.y)&&world.isWalkable(p.x,p.y)&&world.isWalkable(p.x+nx,p.y+ny)&&world.isWalkable(p.x-nx,p.y-ny))run.push(p);
+        const previous=run.at(-1);
+        if(!settlementAt(p.x,p.y)&&world.isWalkable(p.x,p.y)&&world.isWalkable(p.x+nx,p.y+ny)&&world.isWalkable(p.x-nx,p.y-ny)
+          &&(!previous||!fortificationBlocksPath(previous,p,clearance)))run.push(p);
         else flush();
       }
     }

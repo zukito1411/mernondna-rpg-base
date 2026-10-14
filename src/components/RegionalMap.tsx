@@ -100,7 +100,6 @@ export function RegionalMap({select,center,coarse=false}:{
       <button key={town.id} type="button" className="regional-settlement" style={{left:p.x+'%',top:p.y+'%'}} aria-label={`Select ${town.name} for teleport`} title={town.name} onClick={e=>select(town.id,e.currentTarget)}><i aria-hidden="true" /></button>:null;})}
     {navigation.markers.filter(m=>m.kind==='boss'||m.kind==='landmark').map(m=>{const p=project(m.x,m.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={m.id} title={m.label} className="regional-poi" style={{left:p.x+'%',top:p.y+'%'}}>◇</span>:null;})}
     {navigation.target&&(()=>{const destination=navigation.target.worldLocation??navigation.target,p=project(destination.x,destination.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span className="regional-quest" title={navigation.target.label} style={{left:p.x+'%',top:p.y+'%'}}>◆</span>:null;})()}
-    {!navigation.interiorName&&navigation.target?.waypoint&&(()=>{const p=project(navigation.target.waypoint.x,navigation.target.waypoint.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span className="regional-poi" title={navigation.target.waypoint.label} style={{left:p.x+'%',top:p.y+'%'}}>➤</span>:null;})()}
     {player.x>=0&&player.x<=100&&player.y>=0&&player.y<=100&&<span className="regional-player" style={{left:player.x+'%',top:player.y+'%',transform:`translate(-50%,-50%) rotate(${navigation.heading}rad)`}}>▲</span>}
     <span className="regional-north">N ↑ · drag to survey nearby regions</span>
   </div>;

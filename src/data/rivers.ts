@@ -1,7 +1,7 @@
 import { TOWN_BY_ID } from './towns';
 import {ROAD_ROUTES} from './roadRoutes';
 import {DRAINAGE,pathDistance} from './worldLandscape';
-import {onStoneBridgeDeck,stoneBridgeApproachSpan} from './bridgeDeck';
+import {onStoneBridgeDeck,stoneBridgeApproachSpan,stoneBridgeScale} from './bridgeDeck';
 import {CHUNK_SIZE} from './world';
 
 const highmere = TOWN_BY_ID.highmere.world;
@@ -50,7 +50,7 @@ export function onSettlementRiver(x:number,y:number) {
 export const WILDERNESS_BRIDGES=ROAD_ROUTES.flatMap(r=>r.crossings.map((p,i)=>({...p,id:`bridge:road:${r.id}:${i}`})));
 type BridgeSurvey={x:number;y:number;scale:number;wilderness:boolean};
 const bridgeCells=new Map<string,BridgeSurvey[]>();
-const bridgeSurveys:BridgeSurvey[]=[...HIGHMERE_BRIDGE_POINTS.map(p=>({...p,scale:3.3,wilderness:false})),
+const bridgeSurveys:BridgeSurvey[]=[...HIGHMERE_BRIDGE_POINTS.map(p=>({...p,scale:stoneBridgeScale(HIGHMERE_RIVER.width),wilderness:false})),
   ...WILDERNESS_BRIDGES.map(p=>({...p,wilderness:true}))];
 for(const p of bridgeSurveys){
   const half=stoneBridgeApproachSpan(p.scale),height=100;
