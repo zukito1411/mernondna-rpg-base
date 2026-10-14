@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "status": "source-art-only",
-  "runtimeRegistered": false,
+  "status": "runtime-integrated-source-kits",
+  "runtimeRegistered": true,
   "artDirection": "Painted outlined elevated top-down Mernodna; flat floor patches and cutaway indoor furnishing",
   "sourceLayout": {
     "columns": 6,

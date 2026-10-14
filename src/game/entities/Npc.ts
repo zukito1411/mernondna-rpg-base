@@ -17,6 +17,7 @@ import {guardMarchTexture} from '../../data/guardMarchArt';
 import {guardMarchScale} from '../systems/GuardMarchArt';
 import {npcSchedulePosition} from '../../data/npcPositions';
 import {npcMayPatrol} from '../systems/npcPlacement';
+import {citizenModel,citizenHeight,presentCitizen} from '../systems/RegionalCitizenArt';
 
 const NPC_WALK_SPEED = 44;
 type WalkDirection = ActorDirection;
@@ -25,6 +26,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly definition: NpcDefinition;
   readonly nameLabel: Phaser.GameObjects.Text;
   readonly home: Vec2;
+  private readonly regionalModel:number|undefined;
   private readonly titleLabel: Phaser.GameObjects.Text;
   private readonly labelY: number;
   private readonly rng: () => number;
@@ -58,10 +60,13 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     const family=sourceFamily==='npc_royal_guard'?'npc_guard':declaredIdleArt?.walk??sourceFamily;
     const idleArt=declaredIdleArt??NPC_IDLE_ART.find(entry=>entry.walk===family);
     const texture = guardMarchTexture(family)??(idleArt&&!ART_BY_KEY[family]?idleArt.key:family);
-    const apparentHeight = npcApparentHeight(family);
+    const regionalModel=citizenModel(definition);
+    const apparentHeight = regionalModel===undefined
+      ?definition.settlementResident?(idleArt?.height??80):npcApparentHeight(family):citizenHeight(regionalModel);
     if((family==='npc_guard'||family==='npc_elven_guard')&&!idleArt)throw new Error(`Missing guard idle art for ${definition.id}`);
     super(scene, x, y, texture, definition.spriteFrame);
     this.definition = definition;
+    this.regionalModel=regionalModel;
     this.walkTexture = family;
     this.walkArtTexture=texture;
     const sizeMultiplier=family==='npc_elven_guard'?1.12:1;
@@ -97,11 +102,22 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       fontFamily: 'system-ui, sans-serif', fontSize: '9px', color: '#d2c3a5', stroke: '#17130e', strokeThickness: 2,
     }).setResolution(2).setOrigin(.5,0).setDepth(y + 80).setName(`npc-title:${definition.id}`);
     this.once('destroy', () => { this.nameLabel.destroy(); this.titleLabel.destroy(); });
+    if(regionalModel!==undefined)presentCitizen(this,regionalModel);
+    else {
+      // Start full idle poses immediately, including newly streamed visitors.
+      this.playDirection(0,1,false);
+      if(definition.settlementResident&&this.anims.currentAnim){
+        let phase=0;for(const c of definition.id)phase=(phase*31+c.charCodeAt(0))>>>0;
+        this.anims.setProgress((phase%997)/997);
+      }
+    }
   }
 
   beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;this.npcDetour=null;}
   get escorting(){return this.escortGoal!==null;}
+  get usesRegionalPresentation(){return this.regionalModel!==undefined||Boolean(this.definition.settlementResident);}
   storyRest(){(this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);}
+  setInteriorLabelDepth(offset:number){this.nameLabel.setDepth(offset+this.y+80);this.titleLabel.setDepth(offset+this.y+80);}
   advanceCinematic(delta:number) {
     const body=this.body as Phaser.Physics.Arcade.Body,step=Math.min(delta,80)/1000;
     const point={x:this.x+body.velocity.x*step,y:this.y+body.velocity.y*step};
@@ -259,7 +275,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private get mayPatrol(){
-    return npcMayPatrol(this.definition);
+    return this.regionalModel===undefined&&npcMayPatrol(this.definition);
   }
 
   updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false) {
@@ -278,6 +294,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private playDirection(_x: number, _y: number, walking: boolean) {
+    if(this.regionalModel!==undefined){presentCitizen(this,this.regionalModel);return;}
     const body = this.body as Phaser.Physics.Arcade.Body;
     const speed = body.velocity.length();
     walking = walking && speed >= 3 && (Boolean(this.definition.formation) || this.stalledMs < 200);

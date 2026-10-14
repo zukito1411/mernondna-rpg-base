@@ -21,6 +21,13 @@ export class WorldSpriteSystem {
   register(actor:WorldActor,texture:ArtTextureKey,frame:number,scale:number,solid:boolean,fallback?:{width:number;height:number},center=false){
     const sheet=ART_BY_KEY[texture],metadata=(actor.frame.customData??{}) as PreparedArt;
     const visible=metadata.visibleBounds??{left:0,top:0,width:sheet.frameWidth,height:sheet.frameHeight};
+    const sourceRegion=metadata.sourceRegion??sheet.regions?.[frame],sourceAnchor=sheet.groundPoints?.[frame];
+    if(center&&sourceRegion&&sourceAnchor){
+      // Alpha-trimmed atlas frames can have a different center than the source
+      // crop. Anchor the actual prepared drawing, not the untrimmed estimate.
+      actor.setOrigin((visible.left+(sourceAnchor[0]-sourceRegion[0])/sourceRegion[2]*visible.width)/sheet.frameWidth,
+        (visible.top+(sourceAnchor[1]-sourceRegion[1])/sourceRegion[3]*visible.height)/sheet.frameHeight);
+    }
     const point=(x:number,y:number)=>({
       x:actor.x+(visible.left+x*visible.width-sheet.frameWidth*actor.originX)*scale*Math.cos(actor.rotation)
         -(visible.top+y*visible.height-sheet.frameHeight*actor.originY)*scale*Math.sin(actor.rotation),
@@ -32,13 +39,25 @@ export class WorldSpriteSystem {
       return source?point((x-source[0])/source[2],(y-source[1])/source[3]):point(x,y);
     };
     const profile=worldSpriteProfile(texture,frame),owned:Phaser.GameObjects.Rectangle[]=[];
-    if(!profile?.floor||texture==='bridges'){
+    if(!profile?.floor&&texture!=='port_dock'){
       const building=texture==='world_buildings'||texture==='capital_buildings'||texture==='elven_villas'
         ||texture==='world_objects'&&frame<4;
-      this.shadows?.register(actor,true,texture==='bridges'||texture==='port_dock'
-        ?{projection:.3,contactScale:.7}
-        :building||isTreeArt(texture,frame)
-          ?{contactScale:building?1.45:1.2,contactHeight:.8,contactOffset:-.150,groundOffsetY:building?-28:-58}:{});
+      const tree=isTreeArt(texture,frame),groundY=profile?.sortY??.96;
+      const source=metadata.sourceRegion??sheet.regions?.[frame],surveyed=sheet.groundPoints?.[frame];
+      const groundPoint={
+        x:(visible.left+visible.width*(source&&surveyed?(surveyed[0]-source[0])/source[2]:.5))/sheet.frameWidth,
+        y:(visible.top+visible.height*(source&&surveyed?(surveyed[1]-source[1])/source[3]:groundY))/sheet.frameHeight};
+      const contacts=profile?.solids.map(polygon=>{
+        const points=polygon.map(([x,y])=>point(x,y));
+        const left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x));
+        const top=Math.min(...points.map(p=>p.y)),bottom=Math.max(...points.map(p=>p.y));
+        return {x:(left+right)/2-actor.x,y:(top+bottom)/2-actor.y,
+          width:Math.min(440,(right-left)*1.12),height:Math.min(100,Math.max(8,(bottom-top)*1.05))};
+      });
+      this.shadows?.register(actor,true,{groundPoint,contactOpacity:.65,
+        projection:profile&&!profile.solids.length&&texture!=='royal_walls'?0:1,
+        projectionBottom:(visible.top+visible.height*(building ? .86 : tree ? .92 : .9))/sheet.frameHeight,
+        ...(contacts?.length?{contacts}:{contactScale:.55,contactHeight:.3})});
     }
     const add=(left:number,top:number,right:number,bottom:number)=>{
       if(right-left<.5||bottom-top<.5)return;
@@ -52,7 +71,10 @@ export class WorldSpriteSystem {
         const layer=this.scene.add.image(actor.x,actor.y,`bridge-${part}-rail`).setOrigin(actor.originX,actor.originY)
           .setScale(actor.scaleX,actor.scaleY).setDepth(sourcePoint([284,y]).y).setName('bridge-'+part+':'+actor.name);
         layer.setTint(actor.tintTopLeft,actor.tintTopRight,actor.tintBottomLeft,actor.tintBottomRight);
-        this.shadows?.register(layer,true,{projection:.3,contactScale:.2});
+        // The deck artwork includes water and bank soil: only the extracted
+        // rail silhouettes cast a shadow, never the entire river illustration.
+        this.shadows?.register(layer,true,{projection:.3,contactScale:0,
+          groundPoint:{x:actor.originX,y:actor.originY}});
         actor.once('destroy',()=>layer.destroy());
       }
       // Bridge rail art is decorative; terrain bounds already constrain the crossing.

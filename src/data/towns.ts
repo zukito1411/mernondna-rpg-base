@@ -76,6 +76,7 @@ export const ROAD_CONNECTIONS: Array<[string, string]> = [
   ['highmere', 'willowcross'],
   ['willowcross', 'elarion'],
   ['elarion', 'moonfall'],
+  ['moonfall', 'starhold'],
   ['willowcross', 'starhold'],
   ['starhold', 'redmesa'],
   ['redmesa', 'deepford'],

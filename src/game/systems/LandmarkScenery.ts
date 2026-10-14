@@ -3,48 +3,57 @@ import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import {SCENIC_LAKES} from '../../data/landscapeFeatures';
 import {LAVA_FLOW} from '../../data/worldLandscape';
 import {ROAD_ROUTES} from '../../data/roadRoutes';
-import {spriteBounds,overlaps,rectTouchesStreet} from '../../data/settlementGeometry';
+import {spriteBounds,overlaps,rectTouchesStreet,type Rect} from '../../data/settlementGeometry';
 import {artFrameSize,type ArtTextureKey} from '../../data/art';
 import type {RegionId,Vec2} from '../types';
 import type {WorldGenerator} from './WorldGenerator';
 import type {SceneryDetail} from './sceneryPlan';
 import {settlementAt} from '../../data/settlements';
 import {WORLD_CONTENT} from '../../data/content';
+import {StaticBoundsIndex} from './StaticBoundsIndex';
 
 interface Piece {texture:ArtTextureKey;frame:number;scale:number;dx:number;dy:number;solid?:boolean}
 const piece=(texture:ArtTextureKey,frame:number,scale:number,dx:number,dy:number,solid=true):Piece=>({texture,frame,scale,dx,dy,solid});
 function dressing(region:RegionId,style:string):Piece[]{
+  if(region==='dead-sea')return [];
   if(region==='rindass')return [piece('desert_props',style==='ruin'?11:9,1.1,-340,-260),
     piece('desert_props',8,.52,240,-60),piece('desert_props',6,.7,350,160),piece('desert_props',7,.48,-170,200)];
   if(region==='nardorous'||region==='frostlands')return [piece('climate_props',5,.7,-230,-180),piece('climate_props',2,.7,310,-140),
     piece('climate_props',4,.8,280,150),piece('climate_props',3,.85,-320,170)];
   if(region==='darkav')return [piece('darkav_props',3,1.1,-330,-240),piece('darkav_props',0,1.15,340,-150),
     piece('darkav_props',1,.8,330,190),piece('climate_props',9,.65,-240,170),piece('climate_props',7,1.1,500,260)];
-  if(style==='camp')return [piece('desert_props',9,.96,-330,-230),piece('desert_props',8,.5,250,-30),
-    piece('desert_props',6,.66,300,170),piece('woodland_props',7,.42,-250,170)];
+  if(style==='camp')return [piece('world_assets',7,.56,-330,-230),piece('others',8,.58,250,-30),
+    piece('woodland_props',6,.66,300,170),piece('woodland_props',7,.42,-250,170)];
   if(style==='grove')return [piece('woodland_props',7,.8,-260,-180),piece('woodland_props',10,.3,240,140,false),
     piece('woodland_props',2,.45,-190,160,false),piece('woodland_props',5,1.1,300,-120)];
   return [piece('woodland_props',9,1,-270,-170),piece('woodland_props',6,.8,300,130),
     piece('woodland_props',8,.65,240,-180),piece('woodland_props',11,.46,-190,200)];
 }
+const authoredBounds=new StaticBoundsIndex(WORLD_CONTENT.map(s=>({bounds:'frame' in s
+  ?spriteBounds(s.texture??'world_objects',s.frame,s.scale??1,s.world.x,s.world.y)
+  :{left:s.world.x-70,right:s.world.x+70,top:s.world.y-90,bottom:s.world.y+70}})),CHUNK_SIZE);
 /** Small designed compositions at existing story discoveries and lake shores.
  * Deterministic fitting, dry banks and access reservations precede decoration.
  * Visual dressing unloads with chunks; discovery flags remain in the ledger. */
 export function planLandmarkScenery(chunkX:number,chunkY:number,world:WorldGenerator,includeNeighbors=false):SceneryDetail[]{
   const result:SceneryDetail[]=[];
+  const reservationCache=new Map<string,Rect[]>();
   const home=(p:Vec2)=>Math.floor(p.x/CHUNK_SIZE)===chunkX&&Math.floor(p.y/CHUNK_SIZE)===chunkY;
   const nearby=(p:Vec2)=>Math.abs(p.x-(chunkX+.5)*CHUNK_SIZE)<CHUNK_SIZE/2+1000&&Math.abs(p.y-(chunkY+.5)*CHUNK_SIZE)<CHUNK_SIZE/2+1000;
   const add=(id:string,anchor:Vec2,item:Piece,lava=false)=>{
+    const region=world.getRegionAt(anchor.x,anchor.y);
     const preferred={x:anchor.x+item.dx,y:anchor.y+item.dy};
     const slots=[preferred,...[64,128,192].flatMap(radius=>Array.from({length:8},(_,i)=>({x:preferred.x+Math.cos(i*Math.PI/4)*radius,y:preferred.y+Math.sin(i*Math.PI/4)*radius})))];
     // Global authored reservations make cross-seam fitting independent of
     // which adjacent chunk happened to load first. Calculate once per piece.
-    const bounds=WORLD_CONTENT.filter(s=>Math.abs(s.world.x-anchor.x)<1100&&Math.abs(s.world.y-anchor.y)<1100)
-      .map(s=>'frame' in s?spriteBounds(s.texture??'world_objects',s.frame,s.scale??1,s.world.x,s.world.y):
-        {left:s.world.x-70,right:s.world.x+70,top:s.world.y-90,bottom:s.world.y+70});
+    const reservationKey=anchor.x+':'+anchor.y;
+    let bounds=reservationCache.get(reservationKey);
+    if(!bounds){bounds=authoredBounds.query({left:anchor.x-1600,right:anchor.x+1600,top:anchor.y-1600,bottom:anchor.y+1600}).map(s=>s.bounds);
+      reservationCache.set(reservationKey,bounds);}
     const occupied=[...bounds,...result.map(s=>spriteBounds(s.texture,s.frame,s.scale,s.x,s.y))];
     const position=slots.find(p=>{
       const r=spriteBounds(item.texture,item.frame,item.scale,p.x,p.y);
+      if(world.getRegionAt(p.x,p.y)!==region)return false;
       if(ROAD_ROUTES.some(road=>rectTouchesStreet(r,road,30)))return false;
       if(occupied.some(b=>overlaps(r,b,24)))return false;
       return [r.left,(r.left+r.right)/2,r.right].every(x=>[r.top,(r.top+r.bottom)/2,r.bottom].every(y=>
@@ -60,7 +69,8 @@ export function planLandmarkScenery(chunkX:number,chunkY:number,world:WorldGener
     dressing(world.getRegionAt(site.world.x,site.world.y),site.style).forEach((item,i)=>add(site.id+':'+i,site.world,item));}
   for(const lake of SCENIC_LAKES){if(!nearby(lake))continue;
     const anchor={x:lake.x-lake.rx-130,y:lake.y+100};
-    const pieces=lake.frozen?[piece('climate_props',2,.85,0,-120),piece('climate_props',3,.85,-130,170)]:
+    const pieces=lake.region==='rindass'?[piece('desert_props',0,.65,-150,-100),piece('desert_props',4,.72,-210,190),piece('desert_props',3,.35,0,40,false)]:
+      lake.frozen?[piece('climate_props',2,.85,0,-120),piece('climate_props',3,.85,-130,170)]:
       [piece('woodland_props',0,.55,0,40,false),piece('woodland_props',6,.78,-210,190),piece('woodland_props',8,.6,-150,-80)];
     pieces.forEach((item,i)=>add(lake.id+':'+i,anchor,item));}
   // The lava-pool artwork sits only on real non-walkable lava, never across

@@ -60,6 +60,7 @@ export interface ContentHost<Actor> {
   /** Check the complete pending group against shared capacity before creating
    * any of its actors. Existing active members already consume their slots. */
   canActivateGroup?(members: readonly CreatureActivation[]): boolean;
+  prepareCreatureGroup?(members: readonly CreatureActivation[]): boolean;
   create(definition: ContentDefinition, state: ContentState): Actor;
   position(actor: Actor): Vec2;
   capture(definition: ContentDefinition, actor: Actor): Partial<ContentState>;
@@ -407,10 +408,11 @@ export class ContentChunkManager<Actor> {
       // Do not pull distant packmates into the local physics/render budget.
       // Wait until all pending survivors are in the streamed neighborhood.
       if (!this.wanted.has(this.locations.get(id)!)) return false;
-      if (this.host.canActivate && !this.host.canActivate(definition, state)) return false;
       pending.push({ definition, state });
     }
-    if (!pending.length || !this.host.canActivateGroup!(pending)) return false;
+    if (!pending.length || this.host.prepareCreatureGroup&&!this.host.prepareCreatureGroup(pending)) return false;
+    if(this.host.canActivate&&pending.some(({definition,state})=>!this.host.canActivate!(definition,state)))return false;
+    if(!this.host.canActivateGroup!(pending))return false;
     const created: string[] = [];
     try {
       for (const { definition, state } of pending) {

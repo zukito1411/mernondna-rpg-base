@@ -6,6 +6,7 @@ import { NPC_NAME_ALIASES } from './npcs';
 import { rewriteNpcMentions } from './npcPresentation';
 import {DRAGON_QUEST} from './dragonLair';
 import {QUEST_SCENE_BINDINGS} from './questScenes';
+import {applyCampaign} from './campaign';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -52,4 +53,8 @@ for (let i = 0; i < QUESTS.length; i += 1) {
   for(const objective of QUESTS[i].objectives){const scene=QUEST_SCENE_BINDINGS[QUESTS[i].id]?.[objective.id];if(scene&&!objective.cinematicId)objective.cinematicId=scene;}
   QUESTS[i] = rewriteNpcMentions(QUESTS[i], NPC_NAME_ALIASES);
 }
+applyCampaign(QUESTS);
+// Apply stable legacy scene bindings to their replacement story stages too.
+for(const quest of QUESTS)for(const objective of quest.objectives)
+  objective.cinematicId??=QUEST_SCENE_BINDINGS[quest.id]?.[objective.id];
 export const QUEST_BY_ID = Object.fromEntries(QUESTS.map((quest) => [quest.id, quest])) as Record<string, QuestDefinition>;

@@ -4,6 +4,9 @@ import { CIBAR_RESIDENTS } from './cibarResidents';
 import { WARD_RESIDENTS } from './wardResidents';
 import {ROAD_RESIDENTS} from './roadResidents';
 import { prepareNpcPresentation } from './npcPresentation';
+import {CASTLE_RESIDENTS} from './castleResidents';
+import {createSettlementResidents} from './settlementResidents';
+import {STORY_RESIDENTS} from './storyResidents';
 
 export const NPCS: NpcDefinition[] = [
   {
@@ -185,11 +188,11 @@ for(const [id,name,x] of [
   ['elarion-hall-guard-west','Lethariel Dawnwatch',-840],
   ['elarion-hall-guard-east','Caelith Moonward',-560],
 ] as const)NPCS.push({id,name,title:'Whitebough Hall Guard',townId:'elarion',
-  role:'Stands watch outside Whitebough Hall',spriteTexture:'npc_elven_guard_idle',spriteFrame:0,
+  role:'Stands watch in the entrance gallery of Whitebough Hall',spriteTexture:'npc_elven_guard_idle',spriteFrame:0,
   worldOffset:{x,y:-650},homeLocation:{x,y:-650},patrolRadius:0,stationary:true,combatant:true,
   weaponId:'narenthil-longbow',faction:'Whitebough Watch',
   relationshipToLeigneron:{kind:'acquaintance',trust:48,summary:'A steadfast guard of Whitebough Hall'},
-  schedule:[{startHour:0,activity:'Stands watch outside Whitebough Hall',location:{x,y:-650}}],
+  schedule:[{startHour:0,activity:'Stands watch in the Whitebough entrance gallery',location:{x,y:-650}}],
   dialogue:['Whitebough Hall is under the watch of the sentinels.','The hall stands for every bough and home in Elarion.'],questIds:[]});
 NPCS.push({id:'elarion-king',name:'Elarion King',title:'King of the Elves',townId:'elarion',
   role:'Rules Elarion and receives visitors at Whitebough Hall',spriteTexture:'npc_elven_king_idle',spriteFrame:0,
@@ -253,4 +256,11 @@ for(const npc of NPCS.filter(resident=>resident.townId==='elarion')){
   }
 }
 export const NPC_NAME_ALIASES = prepareNpcPresentation(NPCS);
+// Authored household identities retain their dialogue and do not consume the
+// legacy name palette or change any approved citizen's display-name allocation.
+NPCS.push(...CASTLE_RESIDENTS);
+// Append after legacy presentation so approved identities/models are untouched,
+// and human visitors to Elarion bypass its native-only model conversion.
+NPCS.push(...createSettlementResidents(NPCS));
+NPCS.push(...STORY_RESIDENTS);
 export const NPC_BY_ID = Object.fromEntries(NPCS.map((npc) => [npc.id, npc])) as Record<string, NpcDefinition>;

@@ -11,7 +11,9 @@ export function DialoguePanel() {
   const logicalStates = useGameStore(s => s.worldContent.states);
   if (!dialogue) return null;
   const npc = NPC_BY_ID[dialogue.npcId];
-  if (!npc) return null;
+  if (!npc) return <div className="dialogue-wrap"><section className="dialogue-panel" role="alert">
+    <p>This resident is no longer available.</p><button type="button" onClick={end}>Close conversation</button>
+  </section></div>;
 
   const lines=dialogue.lines??npc.dialogue;
   const line = lines[Math.min(dialogue.lineIndex, lines.length - 1)];
@@ -21,7 +23,7 @@ export function DialoguePanel() {
     <div className="dialogue-wrap">
       <section className="dialogue-panel">
         <div className="dialogue-speaker">
-          <SpritePortrait frame={npc.spriteFrame} texture={npc.spriteTexture} name={npc.name} />
+          <SpritePortrait npc={npc} frame={npc.spriteFrame} texture={npc.spriteTexture} name={npc.name} />
           <div className="dialogue-identity"><strong>{npc.name}</strong><span>{npc.title}</span>
             <small>Trust {logicalStates[`npc:${npc.id}`]?.trust ?? npc.relationshipToLeigneron.trust} / 100</small>
           </div>

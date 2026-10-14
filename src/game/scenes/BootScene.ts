@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {CITIZEN_SOURCES,prepareCitizenArt} from '../systems/RegionalCitizenArt';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIBLE_HEIGHT } from '../../data/art';
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
@@ -130,6 +131,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    for(const source of CITIZEN_SOURCES)this.load.image(source.key,source.path);
     this.failures.length = 0;
     this.registry.set('loadingProgress',0);
     this.load.on('progress',(progress:number)=>this.registry.set('loadingProgress',progress));
@@ -192,6 +194,7 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     registerAttackWarningFrames(this);
+    prepareCitizenArt(this);
 
     prepareVehicleArt(this);
     prepareDragonBreathArt(this);

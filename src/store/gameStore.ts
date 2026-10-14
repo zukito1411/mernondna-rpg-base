@@ -11,6 +11,8 @@ import { BASE_ATTRIBUTES, levelForExperience, progressionStats, SKILLS, type Att
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
+import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG} from '../data/campaign';
+import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 
 type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'harbor' | null;
 
@@ -72,7 +74,7 @@ export interface GameState {
   storyFlags:Record<string,boolean>;
   storyChoices:Record<string,string>;
   trackedQuestId:string|null;
-  cinematic:{id:string;title:string;line:string}|null;
+  cinematic:{id:string;title:string;line:string;focusNpcId?:string}|null;
   pendingCinematic:string|null;
   cinematicQueue:string[];
   skipCinematicRequested:boolean;
@@ -100,7 +102,7 @@ export interface GameState {
   progressQuest: (type: QuestObjective['type'], targetId: string, amount?: number) => void;
   addRewards: (xp: number, gold: number) => void;
   markBossDefeated: (bossId: string) => void;
-  recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState) => void;
+  recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState, contentId?:string) => void;
   allocateAttribute: (attribute: AttributeId) => void;
   unlockSkill: (skillId: SkillId) => void;
   setContentWorld: (worldContent: ContentWorldState) => void;
@@ -147,8 +149,8 @@ const baseState = () => ({
   travelRequestSource:null as 'map' | 'shrine' | null,
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
   activeSkillStatus:initialActiveSkillStatus(),
-  storyFlags:{} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:null as string|null,
-  cinematic:null as GameState['cinematic'],pendingCinematic:null as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
+  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
+  cinematic:null as GameState['cinematic'],pendingCinematic:'roadborn-opening' as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
 });
 
 function experienceProgress(state: GameState, xp: number) {
@@ -208,21 +210,31 @@ export const useGameStore = create<GameState>((set, get) => ({
       state.storyFlags['cibar-public-water']?'The pump is mended, and every family has its turn at the well.':'The pump is mended. The growers take turns tending it.':null;
     const highmereOutcome=state.quests['crown-summons']?.status==='completed'&&npc.townId==='highmere'?
       state.storyFlags['main-public-reports']?'The warning has been spoken in every town square. Folk are watching the old roads.':state.storyFlags['main-watch-reports']?'The riders carry the warning from town to town, unseen by the danger.':'The signs from the far roads have reached Highmere. The crown knows what threatens them.':null;
-    const lines=context?.objective.dialogue ?? (highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue);
+    const reaction=reactiveStoryDialogue(npcId,state.quests,state.storyFlags);
+    const lines=context?.objective.dialogue ?? (reaction??(highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue));
     set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
-    if(context && ['talk','deliver'].includes(context.objective.type)) get().progressQuest(context.objective.type,npcId);
   },
   advanceDialogue: () => set((state) => state.dialogue ? { dialogue: { ...state.dialogue, lineIndex: state.dialogue.lineIndex + 1 } } : {}),
-  endDialogue: () => set({ dialogue: null }),
+  endDialogue: () => {
+    const dialogue=get().dialogue;
+    set({dialogue:null});
+    // Opening/abandoning a conversation isn't delivering evidence or hearing it.
+    if(!dialogue||dialogue.choices?.length||!dialogue.questId
+      ||dialogue.lineIndex<(dialogue.lines?.length??1)-1)return;
+    const context=conversationObjective(dialogue.npcId,get().quests,dialogue.questId);
+    if(context?.questId===dialogue.questId&&context.objective.id===dialogue.objectiveId
+      &&['talk','deliver'].includes(context.objective.type))get().progressQuest(context.objective.type,dialogue.npcId);
+  },
   chooseDialogue:(id)=>{
     const state=get(),dialogue=state.dialogue;
     if(!dialogue || dialogue.lineIndex<(dialogue.lines?.length??1)-1 || !dialogue.questId) return;
     const objective=QUEST_BY_ID[dialogue.questId]?.objectives.find(o=>o.id===dialogue.objectiveId);
     const choice=dialogue.choices?.find(c=>c.id===id);
     if(!objective||!choice) return;
-    if(choice.correct===false){set({toast:choice.response});return;}
+    if(choice.correct===false){set({toast:choice.response,dialogue:{...dialogue,lineIndex:0,lines:[choice.response]}});return;}
     set({storyChoices:{...state.storyChoices,[dialogue.questId+':'+objective.id]:id},
-      storyFlags:{...state.storyFlags,...(choice.flag?{[choice.flag]:true}:{})},dialogue:null});
+      storyFlags:{...state.storyFlags,...(choice.flag?{[choice.flag]:true}:{})},
+      dialogue:{npcId:dialogue.npcId,lineIndex:0,lines:[choice.response]}});
     get().progressQuest(objective.type,objective.targetId);
     get().showToast(choice.response);
   },
@@ -234,11 +246,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   progressQuest: (type, targetId, amount = 1) => {
     if (!Number.isFinite(amount) || amount <= 0) return;
     const state = get();
-    const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount },state.storyFlags);
+    const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount },state.storyFlags,state.worldContent);
     const scenes=sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags);
     const shrines=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'].filter(id=>(result.quests['eight-regions']?.objectiveProgress['report:'+id]??0)>=1);
     const progression = experienceProgress(state, result.xp);
-    const rewardToast = result.xp || result.gold ? `Quest complete — +${result.xp} XP, +${result.gold} gold` : null;
+    const completed=Object.keys(result.quests).some(id=>state.quests[id]?.status!=='completed'&&result.quests[id].status==='completed');
+    const rewardToast = result.xp || result.gold ? `${completed?'Quest complete':'Story milestone'} — +${result.xp} XP, +${result.gold} gold` : null;
     set({ quests: result.quests, gold: state.gold + result.gold, ...progression,
       trackedQuestId:state.trackedQuestId&&result.quests[state.trackedQuestId]?.status==='completed'?QUEST_BY_ID[state.trackedQuestId]?.nextQuestId??null:state.trackedQuestId,
       ...scenes,storyFlags:questConsequences(result.quests,state.storyFlags),unlockedTownShrines:[...new Set([...state.unlockedTownShrines,...shrines])],
@@ -249,7 +262,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { ...experienceProgress(state, xp), gold: state.gold + gold };
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
-  recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent) => set((state) => {
+  recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent, contentId) => set((state) => {
     const known=bossId&&state.defeatedBosses.includes(bossId);
     if(known){
       const id=`boss:${bossId}`,previous=state.worldContent.states[id],defeated=worldContent?.states[id];
@@ -261,7 +274,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         ||!defeated?.defeated||defeated.hp!==0)return {};
     }
     const defeatedBosses = bossId&&!known ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
-    const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1 },state.storyFlags);
+    const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1,contentId },state.storyFlags,worldContent??state.worldContent);
     const progression = experienceProgress(state, xp + result.xp);
     return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),

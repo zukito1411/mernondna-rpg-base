@@ -6,7 +6,13 @@ import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
 import {getGraphicEffects} from './graphicsEffects';
 
 type Actor=Phaser.GameObjects.Sprite|Phaser.GameObjects.Image;
-export interface ShadowOptions {projection?:number;contactScale?:number;contactHeight?:number;contactOffset?:number;groundOffsetY?:number}
+export interface ShadowOptions {
+ projection?:number;contactScale?:number;contactHeight?:number;contactOffset?:number;groundOffsetY?:number;contactOpacity?:number;
+ /** Normalized atlas footpoint, independent of transparent padding. */
+ groundPoint?:{x:number;y:number};projectionBottom?:number;
+ /** Ground-plane footprint offsets; hollow structures keep separate contacts. */
+ contacts?:readonly {x:number;y:number;width:number;height:number}[];
+}
 interface Caster extends ShadowOptions {actor:Actor;texture?:string;frame?:string|number;enabled?:boolean}
 interface Layer {texture:Phaser.Textures.CanvasTexture;image:Phaser.GameObjects.Image}
 const OVERSCAN=96;
@@ -156,20 +162,30 @@ export class GroundShadowSystem {
  private paint(layer:Layer,visible:Array<{caster:Caster;frame:Phaser.Textures.Frame}>,daylight:number,castX:number,castY:number,cloud:number){
   const ctx=layer.texture.getContext(),zoom=this.base.zoom;ctx.clearRect(0,0,layer.texture.width,layer.texture.height);
   for(const {caster,frame} of visible){
-   const {actor}=caster,x=(actor.x-this.base.x)*zoom,y=(actor.y-this.base.y+(caster.groundOffsetY??0))*zoom;
-   const bounds=(frame.customData as {visibleBounds?:{width:number}}).visibleBounds;
+   const {actor}=caster;
+   const sx=Math.abs(actor.scaleX)*zoom*(actor.flipX?-1:1),sy=Math.abs(actor.scaleY)*zoom*(actor.flipY?-1:1);
+   const cos=Math.cos(actor.rotation),sin=Math.sin(actor.rotation),a=sx*cos,b=sx*sin,c=-sy*sin,d=sy*cos;
+   const ox=actor.originX*frame.cutWidth,oy=actor.originY*frame.cutHeight;
+   const gx=caster.groundPoint?caster.groundPoint.x*frame.cutWidth:ox,gy=caster.groundPoint?caster.groundPoint.y*frame.cutHeight:oy;
+   const actorX=(actor.x-this.base.x)*zoom,actorY=(actor.y-this.base.y)*zoom;
+   const x=actorX+a*(gx-ox)+c*(gy-oy),y=actorY+b*(gx-ox)+d*(gy-oy)+(caster.groundOffsetY??0)*zoom;
+   const bounds=((frame.customData??{}) as {visibleBounds?:{width:number}}).visibleBounds;
    const density=ART_BY_KEY[frame.texture.key as ArtTextureKey]?.density??1;
    const visibleWidth=(bounds?bounds.width*density:frame.cutWidth)*Math.abs(actor.scaleX);
    const radius=Math.max(5,Math.min(220,visibleWidth*.34))*(caster.contactScale??1)*zoom;
    const contactHeight=caster.contactHeight??(2/3),contactY=y+radius*(caster.contactOffset??0);
-   ctx.save();ctx.globalAlpha=actor.alpha;ctx.drawImage(this.contact,x-radius,contactY-radius*contactHeight/2,radius*2,radius*contactHeight);ctx.restore();
+   ctx.save();ctx.globalAlpha=actor.alpha*(caster.contactOpacity??1);
+   if(caster.contacts){for(const contact of caster.contacts){
+     const w=contact.width*zoom,h=contact.height*zoom;
+     ctx.drawImage(this.contact,actorX+contact.x*zoom-w/2,actorY+contact.y*zoom-h/2,w,h);
+   }}else if(radius>0)ctx.drawImage(this.contact,x-radius,contactY-radius*contactHeight/2,radius*2,radius*contactHeight);
+   ctx.restore();
    const projection=caster.projection??1;if(daylight<=.02||projection===0)continue;
-   const silhouette=this.silhouette(frame),sx=Math.abs(actor.scaleX)*zoom*(actor.flipX?-1:1),sy=Math.abs(actor.scaleY)*zoom*(actor.flipY?-1:1);
-   const cos=Math.cos(actor.rotation),sin=Math.sin(actor.rotation),a=sx*cos,b=sx*sin,c=-sy*sin,d=sy*cos;
+   const silhouette=this.silhouette(frame,caster.projectionBottom);
    const px=castX*projection,py=castY*projection;
-   const m0=a-px*b,m1=-py*b,m2=c-px*d,m3=-py*d,ox=actor.originX*frame.cutWidth,oy=actor.originY*frame.cutHeight;
+   const m0=a-px*b,m1=-py*b,m2=c-px*d,m3=-py*d;
    ctx.save();ctx.globalAlpha=(.34+daylight*.3)*(1-cloud*.35)*actor.alpha;
-   ctx.setTransform(m0,m1,m2,m3,x-m0*ox-m2*oy,y-m1*ox-m3*oy);
+   ctx.setTransform(m0,m1,m2,m3,x-m0*gx-m2*gy,y-m1*gx-m3*gy);
    ctx.drawImage(silhouette,0,0,frame.cutWidth,frame.cutHeight);ctx.restore();
   }
   layer.texture.refresh();
@@ -225,13 +241,21 @@ export class GroundShadowSystem {
   }
   layer.texture.refresh();
  }
- private silhouette(frame:Phaser.Textures.Frame){
-  const key=`${frame.texture.key}:${frame.name}`,cached=this.silhouettes.get(key);
+ private silhouette(frame:Phaser.Textures.Frame,bottom=1){
+  const key=`${frame.texture.key}:${frame.name}:${bottom}`,cached=this.silhouettes.get(key);
   if(cached){this.silhouettes.delete(key);this.silhouettes.set(key,cached);return cached;}
   const canvas=document.createElement('canvas'),ratio=Math.min(1,192/Math.max(frame.cutWidth,frame.cutHeight));
   canvas.width=Math.max(1,Math.round(frame.cutWidth*ratio));canvas.height=Math.max(1,Math.round(frame.cutHeight*ratio));
   const ctx=canvas.getContext('2d')!;
   ctx.drawImage(frame.source.image as CanvasImageSource,frame.cutX,frame.cutY,frame.cutWidth,frame.cutHeight,0,0,canvas.width,canvas.height);
+  if(bottom<1){
+   // Fade out the illustrated dirt/grass pad before projection. Its grounding
+   // comes from the surveyed contact footprint, not a stretched ground decal.
+   const end=Math.max(0,Math.min(canvas.height,bottom*canvas.height)),start=Math.max(0,end-8);
+   const mask=ctx.createLinearGradient(0,start,0,Math.max(start+1,end));
+   mask.addColorStop(0,'rgba(0,0,0,1)');mask.addColorStop(1,'rgba(0,0,0,0)');
+   ctx.globalCompositeOperation='destination-in';ctx.fillStyle=mask;ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
   ctx.globalCompositeOperation='source-in';ctx.fillStyle='#111916';ctx.fillRect(0,0,canvas.width,canvas.height);
   const soft=document.createElement('canvas');soft.width=canvas.width;soft.height=canvas.height;
   const softCtx=soft.getContext('2d')!;softCtx.filter='blur(1px)';softCtx.drawImage(canvas,0,0);

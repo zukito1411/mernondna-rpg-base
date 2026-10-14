@@ -28,10 +28,10 @@ export function MiniMap() {
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
-    const player = { x, y }, originX = Math.floor(x / 256) * 256, originY = Math.floor(y / 256) * 256;
+    const player = navigation.playerPosition??{ x, y }, originX = Math.floor(x / 256) * 256, originY = Math.floor(y / 256) * 256;
     const key = `${originX}:${originY}`;
     const extent = RANGE * 8 / 3;
-    if (terrainCache.current?.key !== key) {
+    if (!navigation.interiorName&&terrainCache.current?.key !== key) {
       const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
       const background = canvas.getContext('2d');
       if (!background) return; // A memory-stressed Android WebView may deny a 2D context.
@@ -48,7 +48,10 @@ export function MiniMap() {
     const scale = SIZE / (2 * RANGE);
     ctx.clearRect(0,0,SIZE,SIZE); ctx.save(); ctx.beginPath(); ctx.arc(SIZE / 2,SIZE / 2,SIZE / 2 - 2,0,Math.PI * 2); ctx.clip();
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(cache.canvas,(cache.x - x + RANGE) * scale,(cache.y - y + RANGE) * scale,extent * scale,extent * scale);
+    if(navigation.interiorName){
+      ctx.fillStyle='#14120f';ctx.fillRect(0,0,SIZE,SIZE);ctx.fillStyle='#978460';
+      for(const floor of navigation.interiorFloors??[])ctx.fillRect((floor.x-player.x+RANGE)*scale,(floor.y-player.y+RANGE)*scale,floor.width*scale,floor.height*scale);
+    }else if(cache)ctx.drawImage(cache.canvas,(cache.x - x + RANGE) * scale,(cache.y - y + RANGE) * scale,extent * scale,extent * scale);
     ctx.strokeStyle = '#f5e6bb33'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(SIZE/2,SIZE/2,SIZE * .25,0,Math.PI * 2); ctx.stroke();
     for (const marker of navigation.markers) {
@@ -60,8 +63,9 @@ export function MiniMap() {
       else { ctx.beginPath(); ctx.arc(point.x,point.y,marker.kind === 'boss' ? 4 : 2.5,0,Math.PI * 2); ctx.fill(); ctx.stroke(); }
     }
     if (navigation.target) {
-      const point = mapPoint(navigation.target,player,RANGE,SIZE,true);
-      ctx.save(); ctx.translate(point.x,point.y); ctx.rotate(questBearing(player,navigation.target));
+      const approach=navigation.target.waypoint??navigation.target;
+      const point = mapPoint(approach,player,RANGE,SIZE,true);
+      ctx.save(); ctx.translate(point.x,point.y); ctx.rotate(questBearing(player,approach));
       ctx.fillStyle = '#ffdb79'; ctx.strokeStyle = '#342711'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0,-7); ctx.lineTo(5,5); ctx.lineTo(0,2); ctx.lineTo(-5,5); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     }
@@ -73,7 +77,7 @@ export function MiniMap() {
   }, [x,y,navigation]);
   return (
     <button type="button" className="minimap-card" onClick={() => open('regional-map')} aria-label="Open expanded regional minimap">
-      <span className="minimap-heading">LOCAL MAP <span> N ↑</span></span>
+      <span className="minimap-heading">{navigation.interiorName?'ROOM MAP':'LOCAL MAP'} <span> N ↑</span></span>
       <canvas ref={ref} width={SIZE} height={SIZE} aria-label="Local terrain, Leigneron, nearby NPCs and quest destination" />
       <span className="minimap-legend"><i className="legend-player" /> You <i className="legend-people" /> People <i className="legend-quest" /> Quest <i className="legend-danger" /> Danger</span>
       <span className={`minimap-clock ${night ? 'night' : 'day'}`}><i aria-hidden="true">{night ? '☾' : '☀'}</i><b>Day {day}</b><time>{String(hour).padStart(2, '0')}:{String(mins).padStart(2, '0')}</time></span>

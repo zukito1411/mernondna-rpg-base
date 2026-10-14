@@ -9,6 +9,7 @@ export interface CurtainLine {a:Vec2;b:Vec2;townId:string;gateShoulder?:boolean}
 export interface DefensiveEntrance {id:string;townId:string;point:Vec2;width:number;kind:'road'|'water';northSouth:boolean;gateArtwork?:boolean}
 export interface DefensiveSurvey {townId:string;vertices:Vec2[];lines:CurtainLine[];entrances:DefensiveEntrance[];approaches:Vec2[][]}
 const fit=artFrameSize('royal_walls',0).width/ART_BY_KEY.royal_walls.regions![0][2];
+const gateScale=2.3,gateHalfOpening=59*fit*gateScale/2;
 const distance=(p:Vec2,a:Vec2,b:Vec2)=>{
   const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)):0;
   return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
@@ -81,12 +82,15 @@ export const SETTLEMENT_DEFENSES:DefensiveSurvey[]=TOWNS.map(town=>{
     for(const gap of gaps){between(cursor,gap.lo);cursor=Math.max(cursor,gap.hi);}between(cursor,1);
   }
   for(const entrance of entrances.filter(e=>e.gateArtwork)) {
-    lines.push({townId:town.id,gateShoulder:true,a:{x:entrance.point.x-entrance.width/2,y:entrance.point.y},b:{x:entrance.point.x-57,y:entrance.point.y}},
-      {townId:town.id,gateShoulder:true,a:{x:entrance.point.x+57,y:entrance.point.y},b:{x:entrance.point.x+entrance.width/2,y:entrance.point.y}});
+    lines.push({townId:town.id,gateShoulder:true,a:{x:entrance.point.x-entrance.width/2,y:entrance.point.y},b:{x:entrance.point.x-gateHalfOpening,y:entrance.point.y}},
+      {townId:town.id,gateShoulder:true,a:{x:entrance.point.x+gateHalfOpening,y:entrance.point.y},b:{x:entrance.point.x+entrance.width/2,y:entrance.point.y}});
   }
   return {townId:town.id,vertices,lines,entrances,approaches};
 });
 export const DEFENSE_BY_ID=Object.fromEntries(SETTLEMENT_DEFENSES.map(d=>[d.townId,d])) as Record<string,DefensiveSurvey>;
+const defenseBounds=SETTLEMENT_DEFENSES.map(defense=>({defense,
+  left:Math.min(...defense.vertices.map(p=>p.x)),right:Math.max(...defense.vertices.map(p=>p.x)),
+  top:Math.min(...defense.vertices.map(p=>p.y)),bottom:Math.max(...defense.vertices.map(p=>p.y))}));
 export function insideDefense(townId:string,x:number,y:number,buffer=0) {
   const town=TOWNS.find(t=>t.id===townId)!;const profile=SETTLEMENT_PROFILES[townId as SettlementProfileId];
   const hx=profile.bounds.width/2+160+buffer,hy=profile.bounds.height/2+160+buffer,dx=Math.abs(x-town.world.x),dy=Math.abs(y-town.world.y);
@@ -97,7 +101,9 @@ export function outerFortificationBlocksPoint(x:number,y:number,radius=12) {
     &&defense.lines.some(line=>distance({x,y},line.a,line.b)<radius+9));
 }
 export function outerFortificationBlocksPath(a:Vec2,b:Vec2,radius=0) {
-  return SETTLEMENT_DEFENSES.some(defense=>defense.lines.some(line=>curtainBlocksPath(a,b,line,radius)));
+  const pad=radius+9,left=Math.min(a.x,b.x)-pad,right=Math.max(a.x,b.x)+pad,top=Math.min(a.y,b.y)-pad,bottom=Math.max(a.y,b.y)+pad;
+  return defenseBounds.some(bounds=>left<=bounds.right&&right>=bounds.left&&top<=bounds.bottom&&bottom>=bounds.top
+    &&bounds.defense.lines.some(line=>curtainBlocksPath(a,b,line,radius)));
 }
 export const SETTLEMENT_DEFENSE_PROPS:PropContentDefinition[]=[];
 for(const defense of SETTLEMENT_DEFENSES){const town=TOWNS.find(t=>t.id===defense.townId)!,profile=SETTLEMENT_PROFILES[town.id as SettlementProfileId];
@@ -112,7 +118,7 @@ for(const defense of SETTLEMENT_DEFENSES){const town=TOWNS.find(t=>t.id===defens
   }
   for(const [i,point] of defense.vertices.entries())SETTLEMENT_DEFENSE_PROPS.push({id:`defense:${town.id}:tower:${i}`,kind:'prop',texture:'royal_walls',frame:3,scale:baseScale*1.15,solid:true,footprint:{width:57.5*baseScale,height:27.6*baseScale},anchor:'center',world:point,tint:profile.wallTint});
   for(const entrance of defense.entrances) {
-    if(entrance.gateArtwork)SETTLEMENT_DEFENSE_PROPS.push({id:entrance.id+':gatehouse',kind:'prop',world:entrance.point,texture:'royal_walls',frame:4,scale:1.9,solid:false,anchor:'center',tint:profile.wallTint,label:entrance.point.y<town.world.y?'Highmere North Gate':'Highmere South Gate'});
+    if(entrance.gateArtwork)SETTLEMENT_DEFENSE_PROPS.push({id:entrance.id+':gatehouse',kind:'prop',world:entrance.point,texture:'royal_walls',frame:5,scale:gateScale,solid:false,anchor:'center',tint:profile.wallTint,label:entrance.point.y<town.world.y?'Highmere North Gate':'Highmere South Gate'});
     const edge=defense.vertices.findIndex((a,i)=>distance(entrance.point,a,defense.vertices[(i+1)%defense.vertices.length])<2);
     if(edge<0)continue;const a=defense.vertices[edge],b=defense.vertices[(edge+1)%defense.vertices.length],length=Math.hypot(b.x-a.x,b.y-a.y);
     for(const side of [-1,1])SETTLEMENT_DEFENSE_PROPS.push({id:entrance.id+':post:'+side,kind:'prop',texture:'royal_walls',frame:3,scale:baseScale,solid:true,footprint:{width:50*baseScale,height:24*baseScale},anchor:'center',tint:profile.wallTint,

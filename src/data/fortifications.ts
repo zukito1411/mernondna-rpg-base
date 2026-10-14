@@ -9,7 +9,8 @@ import {outerFortificationBlocksPoint,outerFortificationBlocksPath,curtainBlocks
 const city=TOWN_BY_ID.highmere.world;
 const world=(x:number,y:number):Vec2=>({x:city.x+x,y:city.y+y});
 const vertices=[world(-1000,-2300),world(200,-1700),world(-600,-1300),world(-1400,-1300),world(-2200,-1700)];
-const gate=world(-1000,-1300),opening=96;
+// Opening surveyed from the genuinely open lower-row gate (source x374–433).
+const gate=world(-1000,-1300),gateScale=1.95,opening=59*artFrameSize('royal_walls',5).width/305*gateScale;
 export const ROYAL_WALL_LINES=[
   {a:vertices[0],b:vertices[1],frame:1},{a:vertices[1],b:vertices[2],frame:0},
   {a:vertices[3],b:vertices[4],frame:0},{a:vertices[4],b:vertices[0],frame:0},
@@ -30,12 +31,12 @@ for(const [edge,line] of ROYAL_WALL_LINES.slice(0,4).entries()) {
 }
 // Gate shoulders join short horizontal returns. Decorative ivy overlaps at
 // the seams, but stone endpoints use the same ground line and uniform scale.
-const gateScale=1.55,shoulderSpan=312*fit*gateScale;
+const shoulderSpan=285*fit*gateScale;
 for(const [i,[a,b]] of [[-1400,-1000-shoulderSpan/2],[-1000+shoulderSpan/2,-600]].entries()) {
   const count=Math.ceil((b-a)/180),scale=(b-a)/count/285/fit;
   for(let j=0;j<count;j++)ROYAL_FORTIFICATION_PROPS.push({id:`fort:highmere:return:${i}:${j}`,kind:'prop',world:world(a+(b-a)*(j+.5)/count,-1300),texture:'royal_walls',frame:2,scale,solid:false,anchor:'center'});
 }
-ROYAL_FORTIFICATION_PROPS.push({id:'fort:highmere:south-gate',kind:'prop',world:gate,texture:'royal_walls',frame:4,scale:gateScale,solid:false,anchor:'center',label:'Royal Audience Gate'});
+ROYAL_FORTIFICATION_PROPS.push({id:'fort:highmere:south-gate',kind:'prop',world:gate,texture:'royal_walls',frame:5,scale:gateScale,solid:false,anchor:'center',label:'Royal Audience Gate'});
 for(const [i,p] of vertices.entries())ROYAL_FORTIFICATION_PROPS.push({id:'fort:highmere:corner:'+i,kind:'prop',world:p,texture:'royal_walls',frame:3,scale:1.3,solid:true,footprint:{width:65,height:31},anchor:'center'});
 
 function distance(p:Vec2,a:Vec2,b:Vec2) {

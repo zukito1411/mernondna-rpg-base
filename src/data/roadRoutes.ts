@@ -1,9 +1,11 @@
 import type { Vec2 } from '../game/types';
-import { chunkCenter } from './world';
+import { chunkCenter, CHUNK_SIZE } from './world';
 import { ROAD_CONNECTIONS, TOWN_BY_ID } from './towns';
 import {DRAINAGE} from './worldLandscape';
+import {SETTLEMENT_PROFILES,type SettlementProfileId} from './settlementProfiles';
+import {stoneBridgeScale,stoneBridgeApproachSpan,stoneBridgePath} from './bridgeDeck';
 
-export interface RoadRoute { id:string; from:string; to:string; width:number; points:Vec2[]; surface:'stone'|'dirt'; hierarchy:'royal'|'regional'|'trail'; crossings:Array<Vec2 & {width:number}> }
+export interface RoadRoute { id:string; from:string; to:string; width:number; points:Vec2[]; surface:'stone'|'dirt'; hierarchy:'royal'|'regional'|'trail'; crossings:Array<Vec2 & {width:number;scale:number}> }
 
 // Surveyed mainland corridors. Waypoints follow valley floors and pass
 // approaches rather than drawing a ruler line through every town pair.
@@ -17,36 +19,79 @@ const corridors:Record<string,Array<[number,number]>> = {
   'starhold:redmesa':[[81,32],[81.5,38],[80,44]],
   'redmesa:deepford':[[74,53],[69,56],[63,59.5]],
   'deepford:highmere':[[53,56],[49,49],[44,42],[39,34],[35,27],[31.9,22.42],[31.2,22.42]],
+  'moonfall:starhold':[[65,24],[69,25],[74,27]],
 };
 
-export const ROAD_ROUTES:RoadRoute[] = ROAD_CONNECTIONS.map(([from,to]):RoadRoute => ({
+// Follow the authored cross streets before leaving the surveyed enclosure.
+// This module deliberately does not import settlement layouts: those layouts
+// reserve these approaches when fitting buildings, so importing them cycles.
+function insideSurvey(id:string,p:Vec2){
+  const town=TOWN_BY_ID[id],bounds=SETTLEMENT_PROFILES[id as SettlementProfileId].bounds;
+  const dy=Math.abs(p.y-town.world.y),hy=bounds.height/2+480;
+  return dy<=hy&&Math.abs(p.x-town.world.x)<=bounds.width/2+480+2*(hy-dy);
+}
+function approach(id:string,toward:Vec2):Vec2[]{
+  const town=TOWN_BY_ID[id],bounds=SETTLEMENT_PROFILES[id as SettlementProfileId].bounds;
+  const hx=bounds.width/2+160,hy=bounds.height/2+160,dx=toward.x-town.world.x,dy=toward.y-town.world.y;
+  const local=(x:number,y:number)=>({x:town.world.x+x,y:town.world.y+y});
+  if(id==='deepford'&&dx>0&&dy>0)return [town.world,local(0,620),local(hx+2*(hy-620)+480,620)];
+  if(Math.abs(dx)>Math.abs(dy))return [town.world,local(Math.sign(dx)*(hx+2*hy+480),0)];
+  if(id==='highmere')return dy<0
+    ?[town.world,local(850,0),local(850,-2400),local(1400,-2400),local(1400,-hy-480)]
+    :[town.world,local(-600,0),local(-600,hy+480)];
+  if(id==='oakmere'&&dy<0)return [town.world,local(-550,0),local(-550,-hy-480)];
+  return [town.world,local(0,Math.sign(dy)*(hy+480))];
+}
+export const ROAD_ROUTES:RoadRoute[] = ROAD_CONNECTIONS.map(([from,to]):RoadRoute => {
+ const surveyed=corridors[`${from}:${to}`].map(([x,y])=>chunkCenter(x,y))
+   .filter(p=>!insideSurvey(from,p)&&!insideSurvey(to,p));
+ return {
   id:`${from}:${to}`,from,to,width:from==='elarion'&&to==='moonfall'?96:from==='oakmere'?144:from==='starhold'||to==='starhold'?128:176,
   surface:from==='highmere'||to==='highmere'?'stone':'dirt',hierarchy:from==='highmere'||to==='highmere'?'royal':to==='moonfall'?'trail':'regional',crossings:[],
-  points:[TOWN_BY_ID[from].world,
-    ...(from==='highmere'&&to==='willowcross'?[{x:TOWN_BY_ID.highmere.world.x+950,y:TOWN_BY_ID.highmere.world.y}]:[]),
-    ...corridors[`${from}:${to}`].map(([x,y]) => chunkCenter(x,y)),TOWN_BY_ID[to].world],
-}));
+  points:[...approach(from,surveyed[0]??TOWN_BY_ID[to].world),...surveyed,
+    ...approach(to,surveyed[surveyed.length-1]??TOWN_BY_ID[from].world).reverse()],
+ };});
 
 // Align every new river crossing to the actual east/west bridge illustration.
 // Existing town-center approaches already match their authored local decks.
 for(const route of ROAD_ROUTES){const aligned:Vec2[]=[route.points[0]];
-  for(let i=1;i<route.points.length;i++){const a=route.points[i-1],b=route.points[i],hits:Array<Vec2 & {t:number;width:number}>=[];
+  for(let i=1;i<route.points.length;i++){const a=route.points[i-1],b=route.points[i],hits:Array<Vec2 & {t:number;width:number;scale:number}>=[];
     for(const river of DRAINAGE)for(let j=1;j<river.points.length;j++){
       const c=river.points[j-1],d=river.points[j],dx=b.x-a.x,dy=b.y-a.y,ex=d.x-c.x,ey=d.y-c.y,det=dx*ey-dy*ex;
       if(Math.abs(det)<.001||Math.abs(ey)<Math.abs(ex)*.45)continue;
       const t=((c.x-a.x)*ey-(c.y-a.y)*ex)/det,u=((c.x-a.x)*dy-(c.y-a.y)*dx)/det;
       if(t<=0||t>=1||u<0||u>1)continue;
-      const p={x:a.x+dx*t,y:a.y+dy*t,t,width:river.width};
+      const waterSpan=river.width*Math.hypot(ex,ey)/Math.abs(ey);
+      const p={x:a.x+dx*t,y:a.y+dy*t,t,width:waterSpan,scale:stoneBridgeScale(waterSpan)};
       if(Math.hypot(p.x-TOWN_BY_ID[route.from].world.x,p.y-TOWN_BY_ID[route.from].world.y)<3000
         ||Math.hypot(p.x-TOWN_BY_ID[route.to].world.x,p.y-TOWN_BY_ID[route.to].world.y)<3000)continue;
       if(!hits.some(h=>Math.hypot(h.x-p.x,h.y-p.y)<300))hits.push(p);
     }
-    for(const hit of hits.sort((p,q)=>p.t-q.t)){const sign=b.x>=a.x?1:-1,half=hit.width*.8+50;
-      aligned.push({x:hit.x-sign*half,y:hit.y},{x:hit.x+sign*half,y:hit.y});route.crossings.push(hit);}
+    for(const hit of hits.sort((p,q)=>p.t-q.t)){
+      const sign=b.x>=a.x?1:-1,half=Math.max(hit.width/2+60,stoneBridgeApproachSpan(hit.scale));
+      const deck=stoneBridgePath(hit.x,hit.y,hit.scale);
+      if(sign<0)deck.reverse();
+      aligned.push({x:hit.x-sign*half,y:hit.y},...deck,{x:hit.x+sign*half,y:hit.y});route.crossings.push(hit);
+    }
     aligned.push(b);
   }route.points=aligned;
 }
-export function roadSurfaceAt(x:number,y:number){const p={x,y};return ROAD_ROUTES.find(r=>r.points.slice(1).some((b,i)=>segmentDistance(p,r.points[i],b)<=r.width/2))?.surface;}
+// Immutable spatial buckets avoid scanning every road and allocating sliced
+// point arrays for each terrain pixel, tree slot and creature movement query.
+interface RoadSegment {a:Vec2;b:Vec2;route:RoadRoute}
+const roadCells=new Map<string,RoadSegment[]>(),cellSize=CHUNK_SIZE*2;
+for(const route of ROAD_ROUTES)for(let i=1;i<route.points.length;i++){
+  const segment={a:route.points[i-1],b:route.points[i],route},pad=route.width/2;
+  for(let y=Math.floor((Math.min(segment.a.y,segment.b.y)-pad)/cellSize);y<=Math.floor((Math.max(segment.a.y,segment.b.y)+pad)/cellSize);y++)
+    for(let x=Math.floor((Math.min(segment.a.x,segment.b.x)-pad)/cellSize);x<=Math.floor((Math.max(segment.a.x,segment.b.x)+pad)/cellSize);x++){
+      const key=x+':'+y,list=roadCells.get(key)??[];list.push(segment);roadCells.set(key,list);
+    }
+}
+export function roadSurfaceAt(x:number,y:number){
+  const point={x,y};
+  for(const s of roadCells.get(Math.floor(x/cellSize)+':'+Math.floor(y/cellSize))??[])
+    if(segmentDistance(point,s.a,s.b)<=s.route.width/2)return s.route.surface;
+}
 
 export function segmentDistance(point:Vec2,a:Vec2,b:Vec2) {
   const dx = b.x - a.x, dy = b.y - a.y, length = dx * dx + dy * dy;
@@ -55,7 +100,11 @@ export function segmentDistance(point:Vec2,a:Vec2,b:Vec2) {
 }
 
 export function onRoadRoute(x:number,y:number,clearance = 0) {
-  const point = { x,y };
-  return ROAD_ROUTES.some(route => route.points.slice(1).some((end,index) =>
-    segmentDistance(point,route.points[index],end) <= route.width / 2 + clearance));
+  const point = { x,y },pad=Math.max(0,clearance);
+  if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(pad))return false;
+  for(let cy=Math.floor((y-pad)/cellSize);cy<=Math.floor((y+pad)/cellSize);cy++)
+    for(let cx=Math.floor((x-pad)/cellSize);cx<=Math.floor((x+pad)/cellSize);cx++)
+      for(const s of roadCells.get(cx+':'+cy)??[])
+        if(segmentDistance(point,s.a,s.b)<=s.route.width/2+pad)return true;
+  return false;
 }

@@ -15,6 +15,7 @@ import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
+import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES} from '../data/campaign';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -210,10 +211,12 @@ export function parseSave(raw: string): SaveData | null {
     if (!record(data) || data.version !== 5 || !record(data.state)) return null;
     const s = data.state;
     if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return null;
-    const storyFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
-    if(!record(storyFlags)||!Object.values(storyFlags).every(v=>typeof v==='boolean')
+    const savedFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
+    if(!record(savedFlags)||!Object.values(savedFlags).every(v=>typeof v==='boolean')
       ||!record(storyChoices)||!Object.values(storyChoices).every(v=>typeof v==='string'&&v.length<100)
-      ||Object.keys(storyFlags).length>512||Object.keys(storyChoices).length>512) return null;
+      ||Object.keys(savedFlags).length>512||Object.keys(storyChoices).length>512) return null;
+    const storyFlags={...savedFlags} as Record<string,boolean>;
+    const legacyCampaign=!storyFlags[CAMPAIGN_REVISION_FLAG];
     if (!strings(s.unlockedTownShrines) || new Set(s.unlockedTownShrines).size !== s.unlockedTownShrines.length
       || !s.unlockedTownShrines.every(id => Object.hasOwn(TOWN_BY_ID,id))) return null;
     if (!playerAttributes(s.attributes) || !numberIn(s.statPoints, 0, 10000) || !Number.isInteger(s.statPoints)
@@ -238,6 +241,33 @@ export function parseSave(raw: string): SaveData | null {
       }
       if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return null;
       const progress = {...quest.objectiveProgress};
+      if(!storyFlags[INDOOR_STORY_FLAG]){
+        const frontier=quest.status==='completed'?definition.objectives.length-1:
+          definition.objectives.reduce((last,o,i)=>progress[o.id]===o.amount?i:last,-1);
+        for(const id of INDOOR_STORY_STAGES[definition.id]??[]){
+          const i=definition.objectives.findIndex(o=>o.id===id);
+          if(i>=0&&i<=frontier&&progress[id]===undefined)progress[id]=definition.objectives[i].amount;
+        }
+      }
+      if(legacyCampaign){
+        const required:Record<string,string[]>={
+          'first-road':['talk-aldren','kill-varr','return-aldren'],
+          'crown-summons':['old-charter','capital','report','customs','households','witness','guard-report','audience','mandate'],
+          'eight-regions':['moonlit-warden','stonejaw','iron-tusk','rootfather','salt-king','frost-wyrm','ashen-seer','return-aldren-after-regions'],
+          'returning-ember':['vexa-warning','survey-ward','repel-varkhul','dain-report','vexa-resolution'],
+        };
+        const legacyStages=required[definition.id];
+        if(quest.status==='completed'&&legacyStages&&!legacyStages.every(id=>progress[id]===1))return null;
+        // Grandfather additions only behind the player's saved frontier. Never
+        // reset rewards, invent choices, or skip newly introduced future work.
+        const frontier=quest.status==='completed'?definition.objectives.length-1:
+          definition.objectives.reduce((last,o,i)=>progress[o.id]===o.amount?i:last,-1);
+        for(let i=0;i<=frontier;i++){
+          const objective=definition.objectives[i];
+          if(legacyStages&&progress[objective.id]===undefined)progress[objective.id]=objective.amount;
+          if(progress[objective.id]===objective.amount&&objective.cinematicId)storyFlags['scene:'+objective.cinematicId]=true;
+        }
+      }
       if(definition.id==='eight-regions'&&quest.status==='active'&&s.quests['crown-summons']===undefined){
         const oldBossObjectives=definition.objectives.filter(o=>o.bossId);
         const towns=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'];
@@ -261,21 +291,28 @@ export function parseSave(raw: string): SaveData | null {
       if (quest.status === 'completed' && !definition.objectives.every(o => (Number(progress[o.id]) || 0) >= o.amount)) return null;
       quests[definition.id] = { status: quest.status as 'locked' | 'active' | 'completed', objectiveProgress };
     }
-    if(quests['eight-regions']?.status==='completed'&&s.quests['crown-summons']===undefined){
+    if(['active','completed'].includes(quests['eight-regions']?.status??'')&&s.quests['crown-summons']===undefined){
       quests['crown-summons']={status:'completed',objectiveProgress:Object.fromEntries(QUESTS.find(q=>q.id==='crown-summons')!.objectives.map(o=>[o.id,o.amount]))};
-      storyFlags['legacy:regional-finished']=true;
+      if(quests['eight-regions'].status==='completed')storyFlags['legacy:regional-finished']=true;
+      for(const objective of QUESTS.find(q=>q.id==='crown-summons')!.objectives)
+        if(objective.cinematicId)storyFlags['scene:'+objective.cinematicId]=true;
     }
     const state = s as unknown as SavedState;
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
-    const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags as Record<string,boolean>);
+    storyFlags[CAMPAIGN_REVISION_FLAG]=true;
+    storyFlags[INDOOR_STORY_FLAG]=true;
+    // Existing progressed players don't get a new-game prologue on resume.
+    if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
+    const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);
     const xp = state.xp + result.xp;
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     return { version: 5, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state, worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
-      trackedQuestId:typeof s.trackedQuestId==='string'&&Object.hasOwn(quests,s.trackedQuestId)?s.trackedQuestId:null,
+      trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
+        QUESTS.find(q=>q.kind==='main'&&result.quests[q.id]?.status==='active')?.id??null,
       level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * 3,
       skillPoints: state.skillPoints + levelsGained,
     } };

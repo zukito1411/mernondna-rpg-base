@@ -1,11 +1,23 @@
 import { QUEST_BY_ID } from '../../data/quests';
-import type { QuestObjective, QuestRuntimeState } from '../types';
+import { WORLD_CONTENT } from '../../data/content';
+import type { ContentWorldState, QuestObjective, QuestRuntimeState } from '../types';
+
+const campIds=new Map<string,string[]>();
+function clearedCampCount(objective:QuestObjective,world?:ContentWorldState){
+  if(!objective.killContentPrefix||!world)return 0;
+  const key=objective.killContentPrefix+'|'+(objective.enemyIds??[objective.targetId]).join(',');
+  let ids=campIds.get(key);
+  if(!ids){ids=WORLD_CONTENT.filter(d=>d.kind==='creature'&&d.id.startsWith(objective.killContentPrefix!)
+    &&(objective.enemyIds??[objective.targetId]).includes(d.enemyId)).map(d=>d.id);campIds.set(key,ids);}
+  return ids.reduce((n,id)=>n+Number(world.states[id]?.defeated===true),0);
+}
 
 export function advanceQuests(
   current: Record<string, QuestRuntimeState>,
   defeatedBosses: string[],
-  event?: { type: QuestObjective['type']; targetId: string; amount: number },
+  event?: { type: QuestObjective['type']; targetId: string; amount: number; contentId?:string },
   storyFlags:Record<string,boolean>={},
+  world?:ContentWorldState,
 ) {
   let changed = false;
   let xp = 0;
@@ -19,6 +31,7 @@ export function advanceQuests(
     if (!definition) continue;
     let runtime = quests[id] ?? savedRuntime;
     if (runtime.status === 'locked'
+      && (!definition.prerequisiteQuestId||quests[definition.prerequisiteQuestId]?.status==='completed')
       && Object.values(QUEST_BY_ID).some(previous => previous.nextQuestId === id && quests[previous.id]?.status === 'completed')) {
       runtime = { status: 'active', objectiveProgress: {} };
       quests[id] = runtime;
@@ -29,17 +42,26 @@ export function advanceQuests(
     const progress = { ...runtime.objectiveProgress };
     for (const objective of definition.objectives) {
       if ((progress[objective.id] ?? 0) >= objective.amount) continue;
-      if (objective.bossId && defeatedBosses.includes(objective.bossId)) {
+      const wasComplete=(progress[objective.id]??0)>=objective.amount;
+      const cleared=clearedCampCount(objective,world);
+      if(cleared>(progress[objective.id]??0)){
+        progress[objective.id]=Math.min(objective.amount,cleared);
+      } else if (objective.bossId && !objective.requiresFreshDefeat && defeatedBosses.includes(objective.bossId)) {
         progress[objective.id] = objective.amount;
       } else if((objective.type==='quest'&&quests[objective.targetId]?.status==='completed')
         ||(objective.type==='investigate'&&storyFlags['discovery:'+objective.targetId])){
         progress[objective.id]=objective.amount;
-      } else if (!usedEvents.has(id) && event?.type === objective.type && event.targetId === objective.targetId) {
+      } else if (!usedEvents.has(id) && event?.type === objective.type
+        && (objective.type==='kill'?(objective.enemyIds??[objective.targetId]).includes(event.targetId):event.targetId===objective.targetId)
+        && (!objective.killContentPrefix||Boolean(event.contentId?.startsWith(objective.killContentPrefix)))) {
+        // Scoped camps use their ledger, not repeated death notifications.
+        if(objective.killContentPrefix&&world)break;
         progress[objective.id] = Math.min(objective.amount, (progress[objective.id] ?? 0) + event.amount);
         usedEvents.add(id);
       } else break;
       changed = true;
       passChanged=true;
+      if(!wasComplete&&progress[objective.id]>=objective.amount)xp+=objective.rewardXp??0;
       if (progress[objective.id] < objective.amount) break;
     }
     const completed = definition.objectives.every(o => (progress[o.id] ?? 0) >= o.amount);

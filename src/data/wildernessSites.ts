@@ -3,7 +3,7 @@ import {TOWN_BY_ID,TOWNS} from './towns';
 import {DRAINAGE,pathDistance} from './worldLandscape';
 import {insideDefense} from './settlementDefenses';
 import type {Vec2} from '../game/types';
-export interface WildernessSite {id:string;name:string;world:Vec2;description:string;style:'ruin'|'camp'|'overlook'|'grove';hostile?:boolean}
+export interface WildernessSite {id:string;name:string;world:Vec2;description:string;style:'ruin'|'camp'|'overlook'|'grove';hostile?:boolean;roadId?:string}
 function roadPoint(id:string,fraction:number):Vec2{
   const r=ROAD_ROUTES.find(r=>r.id===id)!,lengths=r.points.slice(1).map((b,i)=>Math.hypot(b.x-r.points[i].x,b.y-r.points[i].y));
   let remaining=lengths.reduce((a,b)=>a+b,0)*fraction;
@@ -25,7 +25,7 @@ const routes:Array<[string,string,string,number,WildernessSite['style'],string]>
   ['rootwater-watch','The Rootwater Stones','deepford:highmere',.24,'ruin','Runes carved in the rock tell of a spring beneath the mine. Black roots have broken through the stone and reached the water.'],
   ['seed-road-camp','The Seed Road Camp','deepford:cibar-plains',.55,'camp','Seed sacks lie split beside the road. The farmers who guarded them have vanished, and something heavy has dragged their cart toward the fields.'],
 ];
-export const WILDERNESS_SITES:WildernessSite[]=routes.map(([id,name,road,fraction,style,description])=>({id,name,world:roadPoint(road,fraction),style,description,
+export const WILDERNESS_SITES:WildernessSite[]=routes.map(([id,name,road,fraction,style,description])=>({id,name,world:roadPoint(road,fraction),style,description,roadId:road,
   // This abandoned shelter is occupied by Krag's warband, not a safe rest stop.
   ...(id==='southern-caravan-rest'?{hostile:true}:{})}));
 for(const [townId,id,name,description] of [

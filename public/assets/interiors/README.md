@@ -1,6 +1,42 @@
 # Mernodna interior asset library
 
-Generated 2026-10-13 with the built-in imagegen tool. **Asset preparation only; not loaded or implemented in the game yet.** No runtime source, save, NPC, gameplay or scene changes were made in this pass.
+Generated 2026-10-13 with the built-in imagegen tool. **Now integrated through `InteriorSession` and `src/data/interiors.ts`.** Selected existing homes, inns, workshops and civic/royal buildings have physical exterior entrances; use the normal interaction control near their southern door approaches.
+
+## Implemented behavior
+
+- Nine regional kits load on demand, one room kit at a time. Measured furniture crops become a small active-room atlas; source textures and unused room textures are released on exit.
+- Purpose-specific multi-room plans provide connected living, sleeping, kitchen,
+  storage and work sections. Inns/villas have four sections; castle complexes
+  have eight: audience hall, council chamber, library, private chamber, kitchen,
+  entrance gallery, guardroom and dining room. Broad hallways connect them over
+  solid black; all remain on one continuous interior floor, not menu stages.
+- Furniture uses semantic art names and isolated source subjects from
+  `src/data/interiorArt.ts`, not mismatched numeric slots. Doorways use actual
+  transparent open-arch artwork, with passable centres and solid jambs. Visible
+  furniture width controls proportional height; rectangular pieces are no longer
+  forced into square display dimensions.
+- North/side walls follow exposed edges of the floor union only. Corridor joins
+  remain open. Regional timber/stone floors, room labels and floor-clipped lighting
+  distinguish private, service and public spaces.
+- Full player feet stay within the floor/corridor union. Movement and dash advance in bounded swept steps and check explicit furniture/NPC footprints. Combat arts are suppressed indoors.
+- Existing named local residents occupy appropriate indoor work positions and retain their dialogue, quests and affinity. Exterior actors are camera-filtered and outdoor physics/AI/streaming are paused, so there are no simultaneously visible indoor/outdoor duplicates.
+  Story preparation now uses explicit one-building-per-NPC assignments instead
+  of occupation-based room borrowing; their exterior chunk actors are suppressed
+  while logical trust/story records remain. See `docs/STORY_INTERIOR_PLACEMENTS.md`.
+- Quest guidance now targets an assigned resident's entrance outside, the actual
+  NPC inside the correct room, or the exit when the next objective is elsewhere.
+- Use interaction by the south doorway to leave. Entering during nearby combat is refused. Indoor travel requests are refused rather than silently corrupting the return point.
+- Saves always record the safe exterior entry position, never room coordinates. Reloading resumes outside the building. No save version, NPC IDs, story progress or inventory schema changes are needed.
+- Dedicated household sentries occupy castle galleries. Twelve new named guards
+  reuse approved existing/regional models; Elarion's existing two hall guards move
+  inside without changing their artwork. Marching formations and gate watches are
+  not borrowed. Named story actors keep their IDs and assigned buildings.
+- Westgate Inn is eligible: the entrance filter matches the word "gate", not the
+  substring in an inn's name. Citadel Archive is an archive, not another castle.
+- Multi-room layouts are implemented on one floor. Stair-based multi-storey travel
+  and bespoke quest scenes remain future work.
+
+Build/APK verification does not establish visual GPU registration or manual entry/exit quality. Those checks remain distinct from compiling and packaging.
 
 Nine transparent source kits provide 24 illustrated slots apiece (216 source slots total). Existing exterior artwork provided the painted, outlined elevated-camera style; regional materials, textile motifs and signature furnishings distinguish these interiors. Existing NPC art will be reused during integration rather than creating unnamed replacement characters.
 
@@ -28,7 +64,7 @@ Row 3: pantry/display shelf, lantern, stairs, open partition arch, occupational 
 
 Each sheet is 1536 x 1024 with an approximate six-column/four-row organization. **Do not blindly spritesheet-slice at 256 x 256:** generated illustrations can approach or cross nominal grid divisions. Measure complete visible subject regions before preparing bounded GPU frames; retain alpha gutters and do not clip furniture or neighbouring sprites. `catalog.json` records intended slot roles, not verified source crop rectangles or authoritative collision geometry.
 
-## Next-session integration requirements
+## Integration constraints
 
 - Build authored, walkable floor plans first; furniture and NPC work stations follow those plans. These are modular components, not baked room screenshots or arbitrary clutter.
 - Render only the bounded room footprint over solid black. Black outside a floor plan must never be walkable: collision must constrain the player's full foot/body footprint and swept dash motion, not just hide the outside artwork.
@@ -45,7 +81,12 @@ Each sheet is 1536 x 1024 with an approximate six-column/four-row organization. 
 
 ## Review and provenance
 
-All nine source sheets were viewed for palette, content, overall perspective and visible completeness. This is **not** rendered atlas, seam, collision, lighting or gameplay verification. No tests, typecheck, build or game/browser launch was performed. Entry/exit, black-void confinement, NPC occupancy, room layout, UI, saving and performance are deliberately left for the user's next implementation session.
+All nine source sheets were viewed for palette, content, perspective and completeness. Source inspection and APK compilation are **not** rendered atlas, seam, collision, lighting or gameplay verification. The room controller implements those behaviors, but they still need manual in-game review; no automated gameplay/browser suite was requested for this integration.
+
+For the multi-room/portrait repair, all nine source boards were inspected again.
+No tests, type checks, builds, APK creation or game/browser launches were run.
+Rendered furniture registration, every passage and NPC interaction still require
+manual review; source inspection is not a claim of completed runtime testing.
 
 Exact prompt set: `docs/art/interior-generation-prompts.json`. Region assignments and slot inventory: `catalog.json`. Original built-in outputs remain in Codex's generated-images directory; selected project files are saved here and do not depend on those originals.
 

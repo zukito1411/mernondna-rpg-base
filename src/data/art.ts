@@ -219,10 +219,10 @@ export const ART_SHEETS: readonly ArtSheet[] = [
 
       'bench','barrels','cargo-crates','fountain','notice-board','royal-banner','beacon'] },
 
-  { key:'royal_walls',path:'assets/sprites/walls.png',columns:5,atlasColumns:5,density:2,frameWidth:320,frameHeight:320,blackBackground:false,
-    sourceSize:[1448,1086],regions:[[26,384,132,183],[794,379,137,184],[320,595,329,205],[787,593,127,199],[1045,601,375,191]],
-    groundPoints:[[93,510.5],[862,511.5],[482.5,756],[850,785],[1234,770]],
-    names:['rising-curtain','falling-curtain','horizontal-curtain','corner-tower','south-facing-gate'] },
+  { key:'royal_walls',path:'assets/sprites/walls.png',columns:6,atlasColumns:5,density:2,frameWidth:320,frameHeight:320,blackBackground:false,
+    sourceSize:[1448,1086],regions:[[26,384,132,183],[794,379,137,184],[320,595,329,205],[787,593,127,199],[1045,601,375,191],[250,818,305,207]],
+    groundPoints:[[93,510.5],[862,511.5],[482.5,756],[850,785],[1234,770],[402,993]],
+    names:['rising-curtain','falling-curtain','horizontal-curtain','corner-tower','south-facing-gate','open-south-facing-gate'] },
   { key:'walls',path:'assets/sprites/walls.png',columns:25,atlasColumns:5,density:2,frameWidth:320,frameHeight:320,blackBackground:false,
 
     sourceSize:[1448,1086],trimRegions:true,

@@ -55,6 +55,11 @@ export interface NpcDefinition {
   name: string;
   title: string;
   townId: string;
+  /** Identity/origin is independent of the settlement hosting a visitor. */
+  ancestry?: 'human'|'elf'|'orc'|'dwarf';
+  visualRegion?: RegionId;
+  visitor?: boolean;
+  settlementResident?: boolean;
   districtId?:string;
   role: string;
   spriteFrame: number;
@@ -75,6 +80,8 @@ export interface NpcDefinition {
   combatant?: boolean;
   patrolRadius?: number;
   stationary?: boolean;
+  /** Offscreen return after a rescue; local coordinates in the home town. */
+  storyReturn?: {questId:string;objectiveId:string;position:Vec2};
 }
 
 export interface WeaponDefinition {
@@ -142,6 +149,13 @@ export interface QuestObjective {
   dialogue?: string[];
   choices?: Array<{ id:string; text:string; response:string; flag:string; correct?:boolean }>;
   cinematicId?: string;
+  /** Restrict counted hunts to their authored camp, not ambient mobs. */
+  killContentPrefix?: string;
+  enemyIds?: string[];
+  chapter?: string;
+  rewardXp?: number;
+  /** Final confrontation needs a battle during this stage, not an early kill. */
+  requiresFreshDefeat?: boolean;
 }
 
 export interface QuestDefinition {
@@ -154,6 +168,9 @@ export interface QuestDefinition {
   rewardXp: number;
   nextQuestId?: string;
   prerequisiteQuestId?: string;
+  kind?: 'main' | 'side';
+  chapter?: string;
+  resolution?: string;
 }
 
 export interface DynamicEventDefinition {
@@ -232,12 +249,18 @@ export interface ContentWorldState {
 
 export interface QuestTarget extends Vec2 {
   contentId: string; label: string; questId: string; objectiveId: string; type: QuestObjective['type'];
+  /** Maps keep the destination pin; compass arrows can follow a safe approach. */
+  waypoint?: Vec2 & {label:string};
+  worldLocation?:Vec2;
 }
 export interface NavigationMarker extends Vec2 {
   id: string; label: string; kind: 'npc' | 'enemy' | 'boss' | 'building' | 'town' | 'landmark';
 }
 export interface NavigationState {
   heading: number; target: QuestTarget | null; markers: NavigationMarker[]; interaction: string | null;
+  playerPosition?:Vec2;
+  interiorName?:string;
+  interiorFloors?:Array<Vec2&{width:number;height:number}>;
 }
 
 // LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1

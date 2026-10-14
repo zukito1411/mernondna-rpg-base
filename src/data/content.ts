@@ -20,6 +20,7 @@ import {DRAGON_LAIR_CONTENT} from './dragonLair';
 import {LAVA_FLOW} from './worldLandscape';
 import {PORTS} from './ports';
 import {FLAGSHIP_CONTENT,shipPoint} from './pirateFlagship';
+import {addCampaignWorldContent} from './campaignWorld';
 
 export const WORLD_CONTENT: ContentDefinition[] = [];
 for(const port of PORTS)WORLD_CONTENT.push({id:'port:'+port.id,kind:'interactable',world:port.quay,
@@ -303,7 +304,7 @@ for(const layout of SETTLEMENT_LAYOUTS){const town=TOWN_BY_ID[layout.townId];
     world:{x:town.world.x+detail.x,y:town.world.y+detail.y},texture:detail.texture,frame:detail.frame,
     scale:detail.scale,solid:detail.solid,footprint:propFoundation(detail.texture,detail.frame,detail.scale),...(detail.label?{label:detail.label}:{})});
 }
-for(const bridge of WILDERNESS_BRIDGES)WORLD_CONTENT.push({id:bridge.id,kind:'prop',world:{x:bridge.x,y:bridge.y},texture:'bridges',frame:2,scale:3.3,solid:false,anchor:'center'});
+for(const bridge of WILDERNESS_BRIDGES)WORLD_CONTENT.push({id:bridge.id,kind:'prop',world:{x:bridge.x,y:bridge.y},texture:'bridges',frame:2,scale:bridge.scale,solid:false,anchor:'center'});
 for(const site of WILDERNESS_SITES){
   WORLD_CONTENT.push({id:'discovery:'+site.id,kind:'interactable',world:site.world,texture:'others',frame:11,scale:.58,name:site.name,
     description:site.description,repeatText:site.description,repeatable:true,discoveryId:site.id,questTargetId:site.id,questEventType:'investigate'});
@@ -335,6 +336,7 @@ for(const definition of WORLD_CONTENT){
 for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
   WORLD_CONTENT[i] = rewriteNpcMentions(WORLD_CONTENT[i], NPC_NAME_ALIASES);
 }
+addCampaignWorldContent(WORLD_CONTENT);
 export const CONTENT_BY_ID = Object.fromEntries(WORLD_CONTENT.map(d => [d.id, d])) as Record<string, ContentDefinition>;
 export function initialContentState(definition: ContentDefinition): ContentState {
   return { ...definition.world,

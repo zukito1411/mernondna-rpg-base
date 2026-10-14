@@ -367,7 +367,7 @@ const STABLE_ID_KEYS = new Set([
   'id', 'giverNpcId', 'targetId', 'contentId', 'questTargetId', 'questEventType', 'discoveryId',
   'npcId', 'questIds', 'townId', 'townShrineId', 'portId', 'regionId', 'bossId', 'enemyId',
   'wolfPackId', 'prerequisiteQuestId', 'nextQuestId',
-  'flag', 'kind', 'type', 'cinematicId',
+  'flag', 'kind', 'type', 'cinematicId', 'killContentPrefix', 'enemyIds', 'questId', 'objectiveId',
 ]);
 
 function replaceNames(value: unknown, aliases: ReadonlyMap<string, string>): unknown {
@@ -404,7 +404,8 @@ export function prepareNpcPresentation(npcs: NpcDefinition[]): Map<string, strin
     Object.assign(npc, updated);
     npc.name = newName;
     npc.title = TITLE_OVERRIDES[npc.id] ?? npc.title;
-    npc.dialogue = makeDialogue(npc);
+    // Names/models must not erase a character's authored voice and history.
+    npc.dialogue = updated.dialogue?.length ? updated.dialogue : makeDialogue(npc);
   }
   return aliases;
 }

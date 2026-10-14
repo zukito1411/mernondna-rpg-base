@@ -40,9 +40,13 @@ export class CinematicDirector {
     const camera=this.scene.cameras.main;
     if(Math.hypot(camera.midPoint.x-target.x,camera.midPoint.y-target.y)>800){camera.centerOn(target.x,target.y);camera.fadeIn(220);}
     const state=useGameStore.getState(),line=shot.variants?.find(v=>state.storyFlags[v.flag])?.line??shot.line;
-    useGameStore.getState().hydrate({cinematic:{id:data.id,title:data.title,line},skipCinematicRequested:false});
+    useGameStore.getState().hydrate({cinematic:{id:data.id,title:data.title,line,focusNpcId:shot.focusNpcId},skipCinematicRequested:false});
   }
-  private target(shot:StoryScene['shots'][number]){return shot.focusNpcId?this.scene.storyActorPosition(shot.focusNpcId)??shot:shot;}
+  private target(shot:StoryScene['shots'][number]){
+    const actor=shot.focusNpcId?this.scene.storyActorPosition(shot.focusNpcId):undefined;
+    // Never pan an indoor camera to outdoor world coordinates/black void.
+    return actor??(this.scene.inInterior?this.scene.player:shot);
+  }
   refreshZoom(){
     if(this.sceneData)this.scene.cameras.main.setZoom(this.sceneData.shots[this.index].zoom*renderDensity(this.scene));
   }

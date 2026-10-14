@@ -21,9 +21,23 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .game-shell { position: relative; width: 100%; height: 100%; overflow: hidden; background: #172016; }
 .game-canvas { position: absolute; inset: 0; }
 .game-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
-.home-menu { position: absolute; inset: 0; display: grid; place-items: end center; overflow: hidden; isolation: isolate; background: #172016 url("/assets/reference/Tales%20of%20Leighneron_%20Sunset%20Valley.png") center center / cover no-repeat; }
-.home-menu-shade { position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg, rgba(9,11,14,.05) 32%, rgba(10,12,13,.08) 54%, rgba(10,12,13,.72) 100%); }
-.home-menu-actions { display: grid; justify-items: center; gap: 9px; width: min(310px, calc(100vw - 36px)); margin-bottom: max(7vh, calc(env(safe-area-inset-bottom) + 18px)); }
+.home-menu { position: absolute; inset: 0; display: grid; place-items: end center; overflow: hidden; isolation: isolate; background: #172016; }
+.home-menu-actions { position:relative; z-index:1; display: grid; justify-items: center; gap: 9px; width: min(310px, calc(100vw - 36px)); margin-bottom: max(7vh, calc(env(safe-area-inset-bottom) + 18px)); animation:title-controls-in 650ms ease-out 150ms both; }
+.title-artwork { position:absolute; inset:0; overflow:hidden; pointer-events:none; user-select:none; }
+.title-art-scene { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; transform:scale(1.025); animation:title-valley-pan 38s ease-in-out infinite alternate; }
+.title-art-shade { position:absolute; inset:0; background:linear-gradient(180deg,rgba(9,11,14,.08),transparent 42%,rgba(10,12,13,.12) 62%,rgba(10,12,13,.8)); }
+.title-art-logo { position:absolute; top:max(7vh,calc(env(safe-area-inset-top) + 12px)); left:50%; width:min(64vw,820px,90vh); transform:translateX(-50%); }
+.title-art-reveal { position:relative; animation:title-logo-reveal 1600ms cubic-bezier(.2,.7,.2,1) both; }
+.title-art-reveal > img { display:block; width:100%; height:auto; filter:drop-shadow(0 4px 6px #140c0bc0); }
+.title-art-sheen { position:absolute; inset:0; overflow:hidden; -webkit-mask-image:url('/assets/reference/Title.png'); mask-image:url('/assets/reference/Title.png'); -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat; }
+.title-art-sheen::before { position:absolute; inset:0 auto 0 0; width:20%; content:""; background:linear-gradient(90deg,transparent,rgba(255,245,197,.65),transparent); transform:translateX(-180%) skewX(-16deg); opacity:0; animation:title-gold-sheen 12s ease-in-out 1800ms infinite; }
+.title-art-motes { position:absolute; inset:0; }
+.title-art-motes i { position:absolute; left:var(--mote-x); top:var(--mote-y); width:3px; height:3px; border-radius:50%; background:#ffe5a1; box-shadow:0 0 6px 2px #ffc86b44; opacity:0; animation:title-mote-drift var(--mote-duration) linear var(--mote-delay) infinite; }
+@keyframes title-valley-pan { from { transform:scale(1.025) translate(-.35%,.2%); } to { transform:scale(1.06) translate(.35%,-.35%); } }
+@keyframes title-logo-reveal { from { opacity:0; transform:translateY(12px) scale(.965); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes title-gold-sheen { 0%,100% { opacity:0; transform:translateX(-180%) skewX(-16deg); } 5% { opacity:.35; } 18%,99% { opacity:0; transform:translateX(700%) skewX(-16deg); } }
+@keyframes title-mote-drift { 0% { opacity:0; transform:translate3d(0,15px,0); } 18%,65% { opacity:.55; } 100% { opacity:0; transform:translate3d(24px,-110px,0); } }
+@keyframes title-controls-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 .home-menu-button { width: 100%; min-height: 48px; border: 2px solid #d8b86f; border-radius: 9px; background: linear-gradient(180deg, rgba(74,53,31,.96), rgba(31,24,17,.98)); box-shadow: inset 0 1px 0 rgba(255,237,184,.5), inset 0 -4px 0 rgba(12,9,6,.42), 0 4px 12px rgba(0,0,0,.65), 0 0 0 1px rgba(22,14,8,.9); color: #fff0c7; font: 700 17px Georgia,serif; letter-spacing: .04em; text-shadow: 0 2px 3px #160e08; cursor: pointer; transition: filter 120ms ease, transform 120ms ease; }
 .home-menu-button:hover:not(:disabled) { filter: brightness(1.22); transform: translateY(-1px); }
 .home-menu-button:active:not(:disabled) { transform: translateY(1px); }
@@ -39,12 +53,13 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .home-option-toggle strong { color: #f2d184; text-transform: uppercase; }
 .home-options p { margin: 10px 2px 0; color: #c6b798; font-size: 12px; }
 @media (max-width: 560px) {
-  .home-menu { background-position: center 18%; }
+  .title-art-scene { object-position:42% center; }
+  .title-art-logo { top:max(13vh,calc(env(safe-area-inset-top) + 16px)); width:min(92vw,70vh); }
   .home-menu-actions { width: min(280px, calc(100vw - 40px)); gap: 8px; margin-bottom: max(8vh, calc(env(safe-area-inset-bottom) + 18px)); }
   .home-menu-button { min-height: 46px; font-size: 16px; }
 }
 @media (max-height: 420px) and (orientation: landscape) {
-  .home-menu { background-position: center top; }
+  .title-art-logo { top:max(4vh,env(safe-area-inset-top)); width:min(62vw,78vh); }
   .home-menu-actions { width: min(36vw, 300px); gap: 5px; margin-bottom: max(3vh, calc(env(safe-area-inset-bottom) + 8px)); }
   .home-menu-button { min-height: 26px; font-size: clamp(12px, 4vh, 16px); }
 }
@@ -71,6 +86,8 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .quest-card strong { color: #f4dca6; font-family: Georgia, serif; }
 .quest-card span { font-size: 12px; color: #e6ddcc; line-height: 1.35; }
 .quest-guidance { display: flex; align-items: center; gap: 8px; padding-top: 7px; margin-top: 5px; border-top: 1px solid var(--line); }
+.quest-guidance[role="button"] { cursor: pointer; }
+.quest-guidance[role="button"]:focus-visible { outline: 2px solid var(--line); outline-offset: 3px; border-radius: 4px; }
 .compass-arrow { flex: 0 0 28px; width: 28px; height: 28px; fill: #ffdb87; stroke: #77552a; stroke-width: 1.2; }
 .quest-guidance > div { display: grid; gap: 1px; min-width: 0; }
 .quest-card .quest-destination { color: #ffe3a0; font-weight: 600; font-size: 12px; }
@@ -197,6 +214,12 @@ kbd { font-size: 10px; opacity: .65; }
 .dialogue-identity small { font-size: 10px; color: #c1b491; }
 .sprite-portrait { position: relative; display: inline-block; flex: 0 0 64px; width: 64px; height: 64px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #393221; align-self: center; }
 .sprite-portrait img { position: absolute; max-width: none; image-rendering: auto; pointer-events: none; }
+.portrait-crop { position:absolute; overflow:hidden; }
+.portrait-fallback { display:grid; place-items:center; width:100%; height:100%; }
+.dialogue-panel .dialogue-speaker { align-items:center; }
+.cinematic-identity { display:flex; justify-content:center; align-items:center; gap:12px; }
+.cinematic-identity small { display:block; font-size:11px; color:#bda785; }
+.cinematic-caption p { margin:8px 0 0; }
 .dialogue-panel p { margin: 10px 0; line-height: 1.55; }
 .relationship-note { color: #a89678; font-size: 11px; margin-bottom: 12px; border-left: 2px solid rgba(227,189,113,.4); padding-left: 8px; }
 .dialogue-panel button { float: right; }
@@ -332,6 +355,10 @@ kbd { font-size: 10px; opacity: .65; }
 .quest-journal h3 { margin:0 0 8px; }.quest-journal p { color:#d3c4a4; }
 .quest-journal small { display:inline-block; color:#c5ad78; font-size:12px; }.quest-journal li { margin:8px 0; }
 .quest-journal button,.dialogue-choices button { padding:9px 12px; border:1px solid #9a7b49; border-radius:6px; background:#4e3c25; color:#fff0cd; cursor:pointer; }
+.journal-current { margin:12px 0; padding:12px; border-left:3px solid #d3b069; background:#322717; }
+.journal-resolution { padding:12px; background:#243024; border-left:3px solid #8ba478; }
+.journal-content summary { cursor:pointer; padding:8px 0; color:#eed6a0; }
+.journal-content li small { display:block; margin-top:4px; }
 .dialogue-choices { display:flex; flex-direction:column; gap:8px; }
 .dialogue-panel { max-height:82dvh; overflow:auto; }
 .cinematic-presentation { position:absolute; inset:0; z-index:100; pointer-events:none; color:#fff0cf; }
@@ -355,15 +382,19 @@ kbd { font-size: 10px; opacity: .65; }
 .minimap-weather { display:block; font-size:9px; line-height:1.2; padding-top:3px; color:#d9d8bd; text-align:center; }
 .startup-failure { position:fixed; inset:0; z-index:1000; background:#17120df5; color:#f4dfae; padding:clamp(20px,6vw,70px); pointer-events:auto; overflow:auto; }
 .startup-failure button { padding:12px 20px; background:#46361f; border:1px solid #b49a6b; color:#ffe9ba; border-radius:8px; }
-.game-loading { position:fixed; inset:0; z-index:900; overflow:hidden; background:#172016 url("/assets/reference/Tales%20of%20Leighneron_%20Sunset%20Valley.png") center center / cover no-repeat; color:#fff0cf; }
-.game-loading::before { position:absolute; inset:0; content:""; background:linear-gradient(180deg,rgba(8,11,10,.08) 35%,rgba(8,11,10,.12) 58%,rgba(8,11,10,.78) 100%); }
+.game-loading { position:fixed; inset:0; z-index:900; overflow:hidden; background:#172016; color:#fff0cf; }
 .game-loading-content { position:absolute; z-index:1; left:50%; bottom:max(30px,calc(env(safe-area-inset-bottom) + 24px)); display:grid; gap:14px; width:min(620px,calc(100% - 40px)); transform:translateX(-50%); }
 .game-loading-quote { min-height:2.8em; display:grid; place-items:end center; margin:0; color:#fff1d1; font:italic 600 clamp(16px,2.8vw,22px)/1.4 Georgia,serif; text-align:center; text-wrap:balance; text-shadow:0 2px 5px #000,0 4px 18px #000; animation:loading-quote-in 300ms ease-out both; }
 .game-loading-track { width:100%; height:10px; overflow:hidden; border:1px solid rgba(255,235,190,.72); border-radius:999px; background:rgba(8,12,10,.76); box-shadow:0 3px 16px #000a,inset 0 1px 3px #000; }
 .game-loading-track span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#b68d48,#f1d997,#fff0c3); box-shadow:0 0 14px rgba(255,225,157,.72); transition:width 260ms ease-out; }
 @keyframes loading-quote-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
-@media (max-width:560px) { .game-loading { background-position:center center; } .game-loading-content { bottom:max(22px,calc(env(safe-area-inset-bottom) + 18px)); gap:11px; } .game-loading-quote { min-height:3.8em; } }
-@media (prefers-reduced-motion:reduce) { .game-loading-quote { animation:none; } }
+@media (max-width:560px) { .game-loading-content { bottom:max(22px,calc(env(safe-area-inset-bottom) + 18px)); gap:11px; } .game-loading-quote { min-height:3.8em; } }
+@media (prefers-reduced-motion:reduce) {
+  .game-loading-quote,.home-menu-actions,.title-art-scene,.title-art-reveal,.title-art-sheen::before,.title-art-motes i { animation:none; }
+  .title-art-scene { transform:none; }
+  .title-art-sheen,.title-art-motes { display:none; }
+  .game-loading-track span { transition:none; }
+}
 
 .hud-primary-stack { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); display: grid; gap: 8px; width: min(360px, 70vw); }
 .hud-primary-stack .status-card, .hud-primary-stack .quest-card { position: relative; inset: auto; width: 100%; }

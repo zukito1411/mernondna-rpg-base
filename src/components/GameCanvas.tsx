@@ -3,6 +3,7 @@ import { createMernondnaGame } from '../game/MernondnaGame';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 import type Phaser from 'phaser';
+import {TitleArtwork} from './TitleArtwork';
 
 declare global { interface Window { __mernondnaGame?: Phaser.Game } }
 
@@ -69,6 +70,7 @@ export function GameCanvas() {
   const progress=Math.round(Math.min(.92,Math.max(0,loading.progress*.92))*100);
   return <><div ref={ref} className="game-canvas" aria-label="Mernodna game world"/>
     {!loading.ready&&!error&&<div className="game-loading" role="status" aria-live="polite">
+      <TitleArtwork/>
       <div className="game-loading-content">
         <p className="game-loading-quote" key={quoteIndex}>{LOADING_QUOTES[quoteIndex]}</p>
         <div className="game-loading-track" role="progressbar" aria-label="Loading game" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>

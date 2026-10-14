@@ -11,7 +11,7 @@ export function prepareBridgeRail(scene:Phaser.Scene){
   const region=metadata.sourceRegion??sheet.regions![2],fit=metadata.sourceFit??artFrameSize('bridges',2).width/sheet.regions![2][2];
   const visible=metadata.visibleBounds??{left:(sheet.frameWidth-region[2]*fit)/2,top:sheet.frameHeight-2-region[3]*fit};
   const source=document.createElement('canvas');source.width=w;source.height=h;
-  source.getContext('2d')!.drawImage(atlas.getSourceImage() as HTMLCanvasElement,2*w,0,w,h,0,0,w,h);
+  source.getContext('2d')!.drawImage(atlas.getSourceImage() as HTMLCanvasElement,frame.cutX,frame.cutY,w,h,0,0,w,h);
   const mask=document.createElement('canvas');mask.width=w;mask.height=h;
   const frontMask=document.createElement('canvas');frontMask.width=w;frontMask.height=h;
   for(const [part,polygons] of [['front',STONE_BRIDGE.frontArt],['back',STONE_BRIDGE.backArt]] as const){
@@ -27,7 +27,7 @@ export function prepareBridgeRail(scene:Phaser.Scene){
     const texture=scene.textures.createCanvas(`bridge-${part}-rail`,w,h)!,ctx=texture.getContext();
     ctx.drawImage(source,0,0);ctx.globalCompositeOperation='destination-in';ctx.drawImage(mask,0,0);ctx.globalCompositeOperation='source-over';
     texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    const base=atlas.getContext();base.globalCompositeOperation='destination-out';base.drawImage(mask,2*w,0);base.globalCompositeOperation='source-over';
+    const base=atlas.getContext();base.globalCompositeOperation='destination-out';base.drawImage(mask,frame.cutX,frame.cutY);base.globalCompositeOperation='source-over';
   }
   atlas.refresh();source.width=source.height=mask.width=mask.height=frontMask.width=frontMask.height=1;
 }

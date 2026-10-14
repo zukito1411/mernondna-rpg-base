@@ -12,6 +12,7 @@ import {treeScale,type TreeTexture} from './treeArt';
 import {REGION_SCENERY} from './regionScenery';
 import {BUILDING_PRESENTATION_GROWTH} from './environmentPresentation';
 import {coreSettlementDressing} from './settlementDressing';
+import {onStoneBridgeDeck} from './bridgeDeck';
 
 export interface LandParcel { id: string; purpose: string; x: number; y: number; width: number; height: number; terrain: TerrainKind }
 export interface Street { id: string; width: number; points: Vec2[]; surface?:'stone'|'dirt' }
@@ -452,7 +453,7 @@ export function protectedSettlementAt(x: number, y: number) {
 export function settlementTerrain(layout: SettlementLayout, x: number, y: number): TerrainKind {
   if(TOWN_BY_ID[layout.townId].kind==='harbor' && Math.abs(x-700)<=60 && y>=650 && y<=835) return 'stone';
   if(layout.waterway && Math.abs(x-layout.waterway.x)<=layout.waterway.width/2)
-    return layout.waterway.crossings.some(c=>Math.abs(y-c)<=40)?'stone':'water';
+    return layout.waterway.crossings.some(c=>onStoneBridgeDeck(x,y,layout.waterway!.x,c))?'stone':'water';
   if(layout.parcels.some(p=>p.terrain==='water'&&inParcel(x,y,p))) return 'water';
   // Paved courts override street dirt; streets cut access lanes through fields.
   if (layout.parcels.some(p => p.terrain === 'stone' && inParcel(x,y,p))) return 'stone';

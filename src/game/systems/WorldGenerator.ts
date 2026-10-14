@@ -16,6 +16,7 @@ import {ASHEN_DOCK_ROAD,onPortDeck} from '../../data/ports';
 import {onFlagshipBoarding,flagshipWalkable} from '../../data/pirateFlagship';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
+const mainlandRegions=REGIONS.filter(region=>!['darkav','frostlands','portquill'].includes(region.id));
 
 const TERRAIN_INDEX: Record<TerrainKind, number> = {
   grass: 0,
@@ -40,7 +41,7 @@ function ellipseContains(chunkX: number, chunkY: number, cx: number, cy: number,
 export class WorldGenerator {
   getFootstepSurface(x:number,y:number):'grass'|'stone'|'snow'|'wood'{
     if(onPortDeck(x,y))return 'wood';
-    if(onHighmereBridge(x,y))return 'wood';
+    if(onHighmereBridge(x,y))return 'stone';
     const terrain=this.getTerrainAt(x,y);
     if(terrain==='snow'||terrain==='ice')return 'snow';
     if(terrain==='stone'||terrain==='lava'||terrain==='ash'||terrain==='sand')return 'stone';
@@ -78,7 +79,7 @@ export class WorldGenerator {
 
     if (!ellipseContains(chunkX, chunkY, 55, 37, 49, 34)) return 'dead-sea';
 
-    const mainland = REGIONS.filter((region) => !['darkav', 'frostlands', 'portquill'].includes(region.id));
+    const mainland = mainlandRegions;
     let best = mainland[0];
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const region of mainland) {
@@ -97,8 +98,14 @@ export class WorldGenerator {
     if(onFlagshipBoarding(worldX,worldY))return 'dirt';
     const regionId = this.getRegionAt(worldX, worldY);
     if (regionId === 'dead-sea') return 'water';
-    if (onHighmereRiver(worldX,worldY)) return onHighmereBridge(worldX,worldY) ? 'stone' : 'water';
+    // Registered decks take priority over water/settlement reservations. The
+    // lookup is spatially bucketed; no scan of every bridge for each ground cell.
+    if(onHighmereBridge(worldX,worldY))return 'stone';
+    if (onHighmereRiver(worldX,worldY)) return 'water';
     if(harborBay(worldX,worldY))return 'water';
+    // A wide settlement reservation must not erase a real tributary or its
+    // bridge in the agricultural approaches outside the built-up wards.
+    if(onHeadwaterStream(worldX,worldY))return onWildernessBridge(worldX,worldY)?'stone':'water';
 
     const layout = settlementAt(worldX,worldY);
     if (layout) {
@@ -106,7 +113,7 @@ export class WorldGenerator {
       return settlementTerrain(layout,worldX - town.world.x,worldY - town.world.y);
     }
 
-    if(onSettlementRiver(worldX,worldY)||onHeadwaterStream(worldX,worldY)) return onWildernessBridge(worldX,worldY)?'stone':'water';
+    if(onSettlementRiver(worldX,worldY)) return onWildernessBridge(worldX,worldY)?'stone':'water';
     if(regionId==='darkav'){const lair=dragonLairTerrain(worldX,worldY);if(lair)return lair;}
     if(regionId==='darkav'&&pathDistance(worldX,worldY,ASHEN_DOCK_ROAD,80)<48)return 'ash';
 

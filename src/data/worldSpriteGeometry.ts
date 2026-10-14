@@ -79,7 +79,8 @@ export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpri
   if(texture==='climate_props')return frame<=1?winterTrees[frame]:frame===11?floor:
     profile(base(.045,frame===4 ? .76 : frame===5||frame===9 ? .72 : .66,.965,.97));
   if(texture==='flora')return {solids:[],sortY:.96};
-  if(texture==='royal_walls')return frame===3?profile(base(.12,.79,.9,.98)):
+  if(texture==='royal_walls')return frame===3?profile(base(.12,.79,.9,.98)):frame===5?
+    {solids:[base(.035,.75,.395,.98),base(.6,.75,.975,.98)],sortY:.97}:
     {solids:[],sortY:.97}; // curtain/gate collision remains the surveyed seams
   if(texture==='bridges')return frame===2?{solids:[],sortY:.26,floor:true}:frame===8?
     {solids:[base(.08,.68,.28,.97),base(.74,.68,.95,.97)],sortY:.95,forceSolid:true}:floor;

@@ -9,6 +9,7 @@ import { activeObjective } from '../game/systems/questNavigation';
 import { MiniMap } from './MiniMap';
 import { QuestCompass } from './QuestCompass';
 import { experienceWithinLevel } from '../data/progression';
+import {questObjectiveText} from '../game/systems/questDestinations';
 
 function barPercent(value: number, max: number) {
   return `${Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))}%`;
@@ -61,7 +62,7 @@ export function HUD() {
 
         <section className="quest-card">
           <strong>{active?.quest.name ?? 'No active quest'}</strong>
-          <span className="quest-objective">{active?.objective.text ?? 'Explore Mernodna freely.'}</span>
+          <span className="quest-objective">{active?questObjectiveText(active.objective):'Explore Mernodna freely.'}</span>
           <QuestCompass />
           <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
         </section>

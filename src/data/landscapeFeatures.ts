@@ -18,6 +18,10 @@ export const SCENIC_LAKES:ScenicLake[]=[
   pond('cliffwater-tarn','Cliffwater Tarn','nardorous',74,31,500,350,true),
   pond('saltmeadow-pool','Saltmeadow Pool','portquill',23,68,360,260),
   pond('bluewatch-tarn','Bluewatch Tarn','frostlands',96,65,650,420,true),
+  pond('orchard-mere','Orchard Mere','trandum',24,28,310,230),
+  pond('greenward-reed-pool','Greenward Reed Pool','narenthil',50,23,360,250),
+  pond('southern-mill-pool','Southern Mill Pool','druganwoods',62,66,400,280),
+  pond('mesa-spring','Mesa Spring','rindass',76,52,280,190),
 ].filter(lake=>{
   const bounds={left:lake.x-lake.rx*1.2,right:lake.x+lake.rx*1.2,top:lake.y-lake.ry*1.2,bottom:lake.y+lake.ry*1.2};
   return !ROAD_ROUTES.some(road=>rectTouchesStreet(bounds,road,220))&&
@@ -29,4 +33,8 @@ export function lakeDistance(x:number,y:number,lake:ScenicLake){
   return (Math.hypot(dx,dy)-edge)*Math.min(lake.rx,lake.ry);
 }
 export function lakeAt(x:number,y:number){return SCENIC_LAKES.find(lake=>Math.abs(x-lake.x)<lake.rx*1.2&&Math.abs(y-lake.y)<lake.ry*1.2&&lakeDistance(x,y,lake)<0);}
-export function lakeShoreDistance(x:number,y:number){return Math.min(Infinity,...SCENIC_LAKES.map(lake=>Math.abs(lakeDistance(x,y,lake))));}
+export function lakeShoreDistance(x:number,y:number){
+  let closest=Infinity;
+  for(const lake of SCENIC_LAKES)closest=Math.min(closest,Math.abs(lakeDistance(x,y,lake)));
+  return closest;
+}
