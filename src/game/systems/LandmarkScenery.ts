@@ -11,6 +11,7 @@ import type {SceneryDetail} from './sceneryPlan';
 import {settlementAt} from '../../data/settlements';
 import {WORLD_CONTENT} from '../../data/content';
 import {StaticBoundsIndex} from './StaticBoundsIndex';
+import {bossArenaBounds} from './bossArenas';
 
 interface Piece {texture:ArtTextureKey;frame:number;scale:number;dx:number;dy:number;solid?:boolean}
 const piece=(texture:ArtTextureKey,frame:number,scale:number,dx:number,dy:number,solid=true):Piece=>({texture,frame,scale,dx,dy,solid});
@@ -29,9 +30,9 @@ function dressing(region:RegionId,style:string):Piece[]{
   return [piece('woodland_props',9,1,-270,-170),piece('woodland_props',6,.8,300,130),
     piece('woodland_props',8,.65,240,-180),piece('woodland_props',11,.46,-190,200)];
 }
-const authoredBounds=new StaticBoundsIndex(WORLD_CONTENT.map(s=>({bounds:'frame' in s
+const authoredBounds=new StaticBoundsIndex(WORLD_CONTENT.map(s=>({bounds:bossArenaBounds(s)??('frame' in s
   ?spriteBounds(s.texture??'world_objects',s.frame,s.scale??1,s.world.x,s.world.y)
-  :{left:s.world.x-70,right:s.world.x+70,top:s.world.y-90,bottom:s.world.y+70}})),CHUNK_SIZE);
+  :{left:s.world.x-70,right:s.world.x+70,top:s.world.y-90,bottom:s.world.y+70})})),CHUNK_SIZE);
 /** Small designed compositions at existing story discoveries and lake shores.
  * Deterministic fitting, dry banks and access reservations precede decoration.
  * Visual dressing unloads with chunks; discovery flags remain in the ledger. */

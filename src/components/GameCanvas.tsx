@@ -59,7 +59,8 @@ export function GameCanvas() {
       if(typeof progress==='number'&&progress>lastProgress+.001){lastProgress=progress;lastAdvance=Date.now();}
       if(!ready&&!document.hidden&&!stalled&&Date.now()-lastAdvance>90000){
         stalled=true;
-        setError('Loading has stopped progressing. Retry or refresh game files without deleting your save.');
+        const stage=game.registry.get('loadingStage');
+        setError(`Loading stalled during ${typeof stage==='string'?stage:'game startup'}. Retry or refresh game files without deleting your save.`);
       }
       setLoading(current=>current.ready===ready&&current.progress===progress?current:
         {...current,ready,progress:typeof progress==='number'?progress:current.progress});

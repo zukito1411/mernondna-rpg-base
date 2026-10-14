@@ -95,7 +95,10 @@ export class ContentChunkManager<Actor> {
       const npc=d.kind==='npc'?NPC_BY_ID[d.npcId]:undefined;
       const fixedNpc=npc&&!npcMayPatrol(npc);
       const escortedNpc=d.kind==='npc'&&d.npcId==='tovin-reed';
-      this.states.set(id,{...state,...(fixedNpc&&!escortedNpc||(d.kind!=='npc'&&d.kind!=='creature')?d.world:{})});
+      // Preserve health, drops, respawn timers, and quest history, but use
+      // repaired authored boss arenas rather than old saved tree-bound positions.
+      this.states.set(id,{...state,...(fixedNpc&&!escortedNpc||(d.kind!=='npc'&&d.kind!=='creature')
+        ||d.kind==='creature'&&Boolean(d.bossId)?d.world:{})});
       if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);
     }
     for (const definition of definitions) this.register(definition);

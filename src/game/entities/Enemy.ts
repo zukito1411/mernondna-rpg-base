@@ -54,6 +54,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private attackTelegraphStartedAt=0;
   private attackTelegraphWindup=0;
   private readonly boss: BossDefinition | undefined;
+  private readonly bossHome: {x:number;y:number}|null;
   private attackEpoch=0;
   private hitStunUntil=0;
   private staggerImmuneUntil=0;
@@ -88,6 +89,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
     this.boss = instanceId.startsWith('boss:') ? BOSS_BY_ID[instanceId.slice(5)] : undefined;
+    this.bossHome=this.boss&&this.boss.id!=='salt-king'&&this.boss.id!=='varkhul'?{x,y}:null;
     this.wolfAlpha=isWolfFamily(definition.id) && wolfAlpha;
     // A pack's members share its danger tier even when roaming across borders
     // or being restored on opposite sides of a settlement's tier boundary.
@@ -228,7 +230,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       const alpha=this.wolfPackId&&!this.wolfAlpha?scene.wolfPackLeader(this.wolfPackId)
         :patrolLeader!==this?patrolLeader:null;
       const alphaDistance=alpha?Math.hypot(alpha.x-this.x,alpha.y-this.y):0;
-      if(alpha&&alphaDistance>108&&alphaDistance<(this.wolfPackId?540:900)){
+      const homeDistance=this.bossHome?Math.hypot(this.x-this.bossHome.x,this.y-this.bossHome.y):0;
+      if(this.bossHome&&homeDistance>180){
+        // Keep idle bosses close to their clearings; pursuit remains unchanged.
+        this.wander.set((this.bossHome.x-this.x)/homeDistance*this.definition.moveSpeed*.6,
+          (this.bossHome.y-this.y)/homeDistance*this.definition.moveSpeed*.6);
+        this.nextWanderAt=time+650;
+      }else if(alpha&&alphaDistance>108&&alphaDistance<(this.wolfPackId?540:900)){
         this.wander.set((alpha.x-this.x)/alphaDistance*this.definition.moveSpeed*.68,
           (alpha.y-this.y)/alphaDistance*this.definition.moveSpeed*.68);
         this.nextWanderAt=time+850;

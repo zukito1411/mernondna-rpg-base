@@ -231,6 +231,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    this.registry.set('loadingStage','Creating world actors');
     this.shuttingDown=false;
     this.regionalNpcSlots.clear();
     this.regionalNpcRetryAt.clear();
@@ -414,6 +415,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     setSaveSnapshotProvider(() => this.syncState());
     this.interiors=new InteriorSession(this);
 
+    this.registry.set('loadingStage','Drawing nearby terrain');
     this.chunkManager.update(this.player.x, this.player.y);
     this.contentManager.update(this.player.x, this.player.y);
     // Layout updates can put a saved player inside a new foundation.
@@ -440,6 +442,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     });
 
     this.notify('Oakmere is open to explore. Follow the eastern road and speak with Edmund beyond the farms.');
+    this.registry.set('loadingStage','Waiting for first frame');
     this.game.events.once(Phaser.Core.Events.POST_RENDER,()=>{
       if(this.sys.isActive())this.registry.set('worldReady',true);
     });
@@ -1327,7 +1330,22 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       return npc;
     }
     if (definition.kind === 'creature') {
-      const enemy = new Enemy(this,ENEMY_BY_ID[definition.enemyId],x,y,definition.id,definition.eventSpawn,
+      // Authored bosses must begin where both the terrain and the currently
+      // streamed physical scenery permit a real fight. Preserve the logical
+      // boss identity/HP/timer; only repair coordinates when obstructed.
+      let spawn={x,y};
+      if(definition.bossId&&definition.bossId!=='salt-king'&&definition.bossId!=='varkhul'
+        &&!this.canEnemyOccupy(x,y)){
+        const candidates=[64,96,128,176,224,288,352,448].flatMap(radius=>
+          Array.from({length:16},(_,i)=>({x:definition.world.x+Math.cos(i*Math.PI/8)*radius,
+            y:definition.world.y+Math.sin(i*Math.PI/8)*radius})));
+        const clear=(p:Vec2)=>this.canEnemyOccupy(p.x,p.y)
+          &&[0,Math.PI/2,Math.PI,Math.PI*1.5].every(angle=>
+            this.canEnemyOccupy(p.x+Math.cos(angle)*55,p.y+Math.sin(angle)*55));
+        const safe=candidates.find(clear)??candidates.find(p=>this.canEnemyOccupy(p.x,p.y));
+        if(safe){spawn=safe;this.contentManager.patchState(definition.id,safe);}
+      }
+      const enemy = new Enemy(this,ENEMY_BY_ID[definition.enemyId],spawn.x,spawn.y,definition.id,definition.eventSpawn,
         definition.wolfPackId??null,definition.wolfAlpha??false,definition.encounterId??null,definition.encounterBehavior);
       if (enemy.encounterKey) {
         this.encounters.register(enemy.encounterKey,enemy.instanceId);

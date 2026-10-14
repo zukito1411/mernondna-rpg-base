@@ -142,6 +142,7 @@ export class BootScene extends Phaser.Scene {
     for(const source of CITIZEN_SOURCES)this.load.image(source.key,source.path);
     this.failures.length = 0;
     this.registry.set('loadingProgress',0);
+    this.registry.set('loadingStage','Loading artwork');
     this.load.on('progress',(progress:number)=>this.registry.set('loadingProgress',progress));
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       if (file.type === 'audio') {
@@ -201,6 +202,7 @@ export class BootScene extends Phaser.Scene {
       });
       return;
     }
+    this.registry.set('loadingStage','Preparing character art');
     registerAttackWarningFrames(this);
     prepareCombatArtEffects(this);
     prepareCombatArtEffects(this,DISTINCT_EFFECT_TEXTURE,'distinct-art-effect');
@@ -210,6 +212,10 @@ export class BootScene extends Phaser.Scene {
     prepareVehicleArt(this);
     prepareDragonBreathArt(this);
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
+    const remainingSources=new Map<string,number>();
+    for(const sheet of ART_SHEETS.filter(s=>s.key!=='walls'))
+      for(const path of new Set([sheet.path,...(sheet.sources?.map(source=>source.path)??[])]))
+        remainingSources.set(path,(remainingSources.get(path)??0)+1);
     const loaded = new Set<string>();
     const heroFits=new Map<string,number>();
     const heroGrounds=new Map<string,number>();
@@ -411,9 +417,20 @@ export class BootScene extends Phaser.Scene {
       texture.setFilter(sheet.key==='enemies'||sheet.key.startsWith('enemy_')?Phaser.Textures.FilterMode.NEAREST:Phaser.Textures.FilterMode.LINEAR);
       applySkillWeaponPalette(this,sheet.key,undefined,true);
       if(sheet.key!=='elarion_tree')prepareEnvironmentLightArt(this, sheet.key);
+      // Avoid retaining decoded RGBA buffers from every character sheet and
+      // remove source textures as soon as the last dependent atlas is ready.
+      pixels.clear();
+      for(const path of new Set([sheet.path,...(sheet.sources?.map(source=>source.path)??[])])){
+        const remaining=(remainingSources.get(path)??0)-1;
+        if(remaining>0)remainingSources.set(path,remaining);
+        else{
+          remainingSources.delete(path);
+          if(this.textures.exists(`source:${path}`))this.textures.remove(`source:${path}`);
+        }
+      }
     }
 
-    pixels.clear();
+    this.registry.set('loadingStage','Finalizing animations');
     prepareRabbitArt(this);
     prepareSquirrelArt(this);
     prepareWoodlandBirdArt(this);
@@ -432,7 +449,7 @@ export class BootScene extends Phaser.Scene {
     prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
-    for (const path of loaded) this.textures.remove(`source:${path}`);
+    for (const path of loaded) if(this.textures.exists(`source:${path}`))this.textures.remove(`source:${path}`);
     const animations: SpriteAnimation[] = [
       ...PLAYER_ANIMATIONS,
       ...NPC_ANIMATIONS.filter(a=>!GUARD_MARCH_ART.some(g=>a.key.startsWith(g.walk+'-')&&!a.key.endsWith('-idle'))),
@@ -459,6 +476,7 @@ export class BootScene extends Phaser.Scene {
       });
     }
     prepareSlashWeaponEffect(this);
+    this.registry.set('loadingStage','Preparing world');
     this.scene.start('world');
   }
 }

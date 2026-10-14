@@ -12,6 +12,7 @@ import type {DayNightSystem} from './DayNightSystem';
 import {planLandmarkScenery} from './LandmarkScenery';
 import type {WorldSpriteSystem} from './WorldSpriteSystem';
 import {StaticBoundsIndex} from './StaticBoundsIndex';
+import {bossArenaBounds} from './bossArenas';
 
 interface ChunkRuntime {
   image: Phaser.GameObjects.Image;
@@ -138,7 +139,11 @@ export class ChunkManager {
     // Up to 36 mature trees, 40 habitat pieces and nearby bounded landmark
     // groups, all released with the chunk (including their leaf/light layers).
     // Authored/interactive settlement trees keep the persistent content ledger.
-    const reservations=sites.map(d=>({...d.world,...('frame' in d?{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y)}:{})}));
+    const reservations=sites.map(d=>{
+      const arena=bossArenaBounds(d);
+      return {...d.world,...('frame' in d?{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y)}:{}),
+        ...(arena?{bounds:arena}:{})};
+    });
     const nearbyLandmarks=planLandmarkScenery(chunkX,chunkY,this.world,true);
     const landmarkDetails=nearbyLandmarks.filter(d=>Math.floor(d.x/CHUNK_SIZE)===chunkX&&Math.floor(d.y/CHUNK_SIZE)===chunkY);
     const landmarks=nearbyLandmarks.map(d=>({...d,bounds:spriteBounds(d.texture,d.frame,d.scale,d.x,d.y)}));
