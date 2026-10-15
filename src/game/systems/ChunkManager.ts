@@ -3,7 +3,7 @@ import { CHUNK_SIZE } from '../../data/world';
 import { artScale } from '../../data/art';
 import { WORLD_CONTENT } from '../../data/content';
 import { WorldGenerator } from './WorldGenerator';
-import { chunkNeighborhood } from './chunkNeighborhood';
+import { chunkNeighborhood,viewportChunks,streamViewKey,type StreamView } from './chunkNeighborhood';
 import { TerrainBaker } from './TerrainBaker';
 import { planWildernessTrees,planWildernessDetails } from './sceneryPlan';
 import {spriteBounds} from '../../data/settlementGeometry';
@@ -41,16 +41,21 @@ export class ChunkManager {
   }
 
   update(worldX: number, worldY: number,viewportOnly=false) {
+    if(viewportOnly){
+      const camera=this.scene.cameras.main;
+      this.updateView({left:worldX-camera.width/camera.zoom/2,right:worldX+camera.width/camera.zoom/2,
+        top:worldY-camera.height/camera.zoom/2,bottom:worldY+camera.height/camera.zoom/2});return;
+    }
     const centerX = Math.floor(worldX / CHUNK_SIZE);
     const centerY = Math.floor(worldY / CHUNK_SIZE);
     const camera=this.scene.cameras.main,halfW=camera.width/camera.zoom/2+128,halfH=camera.height/camera.zoom/2+128;
-    const bounds={left:Math.floor((worldX-halfW)/CHUNK_SIZE),right:Math.floor((worldX+halfW)/CHUNK_SIZE),top:Math.floor((worldY-halfH)/CHUNK_SIZE),bottom:Math.floor((worldY+halfH)/CHUNK_SIZE)};
-    const centerKey = viewportOnly?`view:${bounds.left}:${bounds.right}:${bounds.top}:${bounds.bottom}`:`${centerX}:${centerY}`;
+    const visible=viewportChunks({left:worldX-halfW,right:worldX+halfW,top:worldY-halfH,bottom:worldY+halfH});
+    const wanted=chunkNeighborhood(worldX,worldY);
+    for(const key of visible)wanted.add(key);
+    const centerKey = `${centerX}:${centerY}:`+streamViewKey(visible);
     if (centerKey === this.lastCenter) { this.loadPendingChunk(); return; }
     this.lastCenter = centerKey;
 
-    const wanted = chunkNeighborhood(worldX, worldY);
-    if(viewportOnly)for(const key of wanted){const [x,y]=key.split(':').map(Number);if(x<bounds.left||x>bounds.right||y<bounds.top||y>bounds.bottom)wanted.delete(key);}
     for (const [key, chunk] of this.active) {
       if (wanted.has(key)) continue;
       chunk.image.destroy();
@@ -59,9 +64,9 @@ export class ChunkManager {
       this.active.delete(key);
     }
     for (const key of [...this.pendingChunks.keys()]) if(!wanted.has(key))this.pendingChunks.delete(key);
-    // On initial entry and cinematic cuts, the complete visible area is needed
-    // immediately. Normal movement only queues new, offscreen neighbor chunks.
-    if(viewportOnly||this.active.size===0){
+    // Initial entry requires complete coverage. Subsequent movement staggers
+    // offscreen neighbors, but never drops visible chunks after a zoom/resize.
+    if(this.active.size===0){
       this.pendingChunks.clear();
       for (const key of wanted) {
         if (!this.active.has(key)) {const [x,y]=key.split(':').map(Number);this.load(x,y);}
@@ -69,9 +74,8 @@ export class ChunkManager {
     }else{
       // The player's current chunk is safety-critical. Never leave its props
       // pending behind offscreen bakes after a teleport or a fast boundary step.
-      const currentKey=centerX+':'+centerY;
-      if(wanted.has(currentKey)&&!this.active.has(currentKey)){
-        this.pendingChunks.delete(currentKey);this.load(centerX,centerY);this.lastChunkBakedAt=this.scene.time.now;
+      for(const key of visible)if(!this.active.has(key)){
+        const [x,y]=key.split(':').map(Number);this.pendingChunks.delete(key);this.load(x,y);this.lastChunkBakedAt=this.scene.time.now;
       }
       for(const key of wanted)if(!this.active.has(key)&&!this.pendingChunks.has(key)){
         const [x,y]=key.split(':').map(Number);this.pendingChunks.set(key,{x,y});
@@ -79,6 +83,27 @@ export class ChunkManager {
       this.loadPendingChunk();
     }
     this.updateOpenSeaStatus();
+  }
+
+  /** Hidden cuts bake one texture per tick; visible pans guarantee their actual
+   * viewport, while offscreen margin chunks retain the staggered bake budget. */
+  updateView(view:StreamView,staged=false):boolean {
+    // Covers complete mature trees beyond the edge, not just their ground anchors.
+    const wanted=viewportChunks(view,768),visible=viewportChunks(view);
+    this.lastCenter='view:'+streamViewKey(wanted);
+    for(const [key,chunk] of this.active)if(!wanted.has(key)){
+      chunk.image.destroy();for(const image of chunk.scenery)image.destroy();
+      if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);this.active.delete(key);
+    }
+    for(const key of this.pendingChunks.keys())if(!wanted.has(key))this.pendingChunks.delete(key);
+    const ordered=[...wanted].sort((a,b)=>Number(visible.has(b))-Number(visible.has(a)));
+    for(const key of ordered)if(!this.active.has(key)){
+      const [x,y]=key.split(':').map(Number);
+      if(!staged&&visible.has(key)){this.pendingChunks.delete(key);this.load(x,y);}
+      else if(!this.pendingChunks.has(key))this.pendingChunks.set(key,{x,y});
+    }
+    this.loadPendingChunk();this.updateOpenSeaStatus();
+    return [...wanted].every(key=>this.active.has(key));
   }
 
   /** Each expensive canvas bake stays on the main thread, but never multiple

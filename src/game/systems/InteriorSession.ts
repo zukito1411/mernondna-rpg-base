@@ -34,12 +34,76 @@ export class InteriorSession {
   private wallSolids:RoomRect[]=[];
   private floorMask:Phaser.Display.Masks.GeometryMask|null=null;
   private mapFloors:RoomRect[]=[];
+  private backdrop:Phaser.GameObjects.Rectangle|null=null;
+  private cinematicContext:{entry:InteriorEntry|null;outside:Vec2|null;position:Vec2;depth:number;
+    filters:Array<{object:Phaser.GameObjects.GameObject;filter:number}>}|null=null;
+  private settleLoad:((ready:boolean)=>void)|null=null;
+  private loadingPromise:Promise<boolean>|null=null;
   constructor(private readonly scene:WorldScene){}
   get active(){return this.loading||this.entry!==null;}
   get ready(){return this.entry!==null&&!this.loading;}
   playerRenderDepth(y:number){return this.ready?DEPTH+y-this.origin.y:y;}
-  get safePosition(){return this.outside;}
+  get safePosition(){return this.cinematicContext?(this.cinematicContext.outside??this.cinematicContext.position):this.outside;}
+  get currentEntry(){return this.entry;}
+  get viewCenter(){return this.plan?{x:this.origin.x+this.plan.entrance.x,y:this.origin.y+this.plan.entrance.y}:this.scene.player;}
   getActor(npcId:string){return this.residents.find(n=>n.definition.id===npcId);}
+
+  beginCinematic(){
+    if(this.cinematicContext)return;
+    this.cinematicContext={entry:this.entry,outside:this.outside?{...this.outside}:null,
+      position:{x:this.scene.player.x,y:this.scene.player.y},depth:this.scene.player.depth,
+      filters:this.scene.children.list.filter(o=>o===this.scene.player||o.name==='equipped-sword'||o.name==='equipped-sword-hand')
+        .map(object=>({object,filter:object.cameraFilter}))};
+  }
+  async showCinematicLocation(entry:InteriorEntry|null){
+    if(this.disposed)return false;
+    this.beginCinematic();
+    if(this.loadingPromise)await this.loadingPromise;
+    if(this.disposed)return false;
+    if(this.entry?.id===entry?.id)return true;
+    this.closeRoom();
+    const context=this.cinematicContext!,original=entry?.id===context.entry?.id;
+    for(const saved of context.filters)if(saved.object.scene)saved.object.cameraFilter=saved.filter;
+    if(!entry){
+      if(context.entry)for(const saved of context.filters)this.scene.cameras.main.ignore(saved.object);
+      this.scene.player.setDepth(context.depth);return true;
+    }
+    this.outside=original?context.outside:{...entry.door};
+    return this.loadEntry(entry,original?context.outside!:entry.door,!original);
+  }
+  async restoreCinematicLocation(){
+    const context=this.cinematicContext;if(!context)return true;
+    const ready=await this.showCinematicLocation(context.entry);
+    if(this.disposed)return false;
+    this.cinematicContext=null;
+    for(const saved of context.filters)if(saved.object.scene)saved.object.cameraFilter=saved.filter;
+    this.outside=context.outside;this.scene.player.setDepth(context.depth);
+    if(!ready){
+      this.closeRoom();this.outside=null;
+      this.scene.restoreOutsidePosition(context.outside??context.position);
+      this.scene.notify('The room could not reload. You have been returned safely outside.');
+    }
+    this.scene.player.resetInput();return ready;
+  }
+  recoverCinematicLocation(){
+    const context=this.cinematicContext;if(!context)return;
+    this.detachLoader();this.settleLoad?.(false);this.settleLoad=null;
+    this.closeRoom();this.loading=false;this.cinematicContext=null;this.outside=null;
+    for(const saved of context.filters)if(saved.object.scene)saved.object.cameraFilter=saved.filter;
+    this.scene.restoreOutsidePosition(context.outside??context.position);this.scene.player.resetInput();
+    this.scene.notify('The room could not reload. You have been returned safely outside.');
+  }
+  constrainCamera(x:number,y:number,zoom:number){
+    if(!this.plan)return {x,y,zoom};
+    const camera=this.scene.cameras.main,b=camera.getBounds();
+    zoom=Math.max(zoom,camera.width/b.width,camera.height/b.height);
+    const hw=camera.width/zoom/2,hh=camera.height/zoom/2;
+    return {x:Phaser.Math.Clamp(x,b.left+hw,b.right-hw),y:Phaser.Math.Clamp(y,b.top+hh,b.bottom-hh),zoom};
+  }
+  presentCinematic(x:number,y:number,paused=false){
+    this.fitBackdrop();
+    for(const npc of this.residents){npc.updatePresentation(x,y,false,paused,true);npc.setDepth(DEPTH+npc.y-this.origin.y);npc.setInteriorLabelDepth(DEPTH-this.origin.y);}
+  }
 
   nearest(x:number,y:number){
     let nearest:InteriorEntry|undefined,distance=95;
@@ -58,27 +122,46 @@ export class InteriorSession {
     }
     this.outside={x:this.scene.player.x,y:this.scene.player.y};
     this.scene.player.resetInput();this.scene.targeting.clear();this.scene.physics.world.pause();
-    this.loading=true;this.scene.notify(`Entering ${entry.name}…`);
+    this.scene.notify(`Entering ${entry.name}…`);void this.loadEntry(entry,this.outside,false);
+  }
+  private loadEntry(entry:InteriorEntry,anchor:Vec2,cinematic:boolean):Promise<boolean>{
+    this.loading=true;
+    const promise=new Promise<boolean>(resolve=>{
+    this.settleLoad=resolve;
+    const settle=(ready:boolean)=>{this.settleLoad=null;resolve(ready);};
+    const fail=(message:string)=>{
+      this.detachLoader();this.closeRoom();this.loading=false;this.releaseArt();
+      if(!this.cinematicContext){
+        this.outside=null;this.scene.restoreOutsidePosition(anchor);this.scene.player.resetInput();
+        this.scene.cameras.main.centerOn(anchor.x,anchor.y);this.scene.resumeAfterCinematic();
+      }
+      this.scene.notify(message);settle(false);
+    };
     const complete=()=>{
       this.detachLoader();
-      if(this.disposed)return;
+      if(this.disposed){settle(false);return;}
       try{
         if(!this.scene.textures.exists(SOURCE))throw new Error('Interior kit unavailable');
-        this.prepareArt();this.open(entry);
-      }catch(error){if(this.entry)this.exit();this.loading=false;this.entry=null;this.outside=null;this.releaseArt();this.scene.physics.world.resume();
-        this.scene.notify(`Could not enter: ${error instanceof Error?error.message:String(error)}`);}
+        this.prepareArt();this.open(entry,anchor,cinematic);settle(true);
+      }catch(error){fail(`Could not enter: ${error instanceof Error?error.message:String(error)}`);}
     };
     const error=(file:Phaser.Loader.File)=>{
       if(file.key!==SOURCE)return;
-      this.detachLoader();this.loading=false;this.outside=null;this.releaseArt();
-      this.scene.physics.world.resume();
-      this.scene.notify('Interior art could not load. You remain outside.');
+      fail('Interior art could not load.');
     };
     this.callbacks={complete,error};
-    this.scene.load.once(Phaser.Loader.Events.COMPLETE,complete);
+    // Only this kit gates the room, not unrelated enemy-art requests sharing
+    // the scene loader. Bound network waits so skip/restoration can settle.
+    this.scene.load.once('filecomplete-image-'+SOURCE,complete);
     this.scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR,error);
-    this.scene.load.image(SOURCE,`assets/interiors/${entry.kit}/kit.png`);
-    if(!this.scene.load.isLoading())this.scene.load.start();
+    try{
+      this.scene.load.image({key:SOURCE,url:`assets/interiors/${entry.kit}/kit.png`,xhrSettings:{timeout:15000}});
+      if(!this.scene.load.isLoading())this.scene.load.start();
+    }catch(error){fail(`Could not load interior: ${error instanceof Error?error.message:String(error)}`);}
+    });
+    this.loadingPromise=promise;
+    void promise.then(()=>{if(this.loadingPromise===promise)this.loadingPromise=null;});
+    return promise;
   }
   private prepareArt(){
     const image=this.scene.textures.get(SOURCE).getSourceImage() as HTMLImageElement;
@@ -148,23 +231,29 @@ export class InteriorSession {
       }
     }
   }
-  private open(entry:InteriorEntry){
+  private open(entry:InteriorEntry,anchor:Vec2,cinematic=false){
     const scene=this.scene,plan=roomPlan(entry.hall,entry.name,entry.profile,entry.kit);this.entry=entry;this.plan=plan;this.loading=false;
-    this.origin={x:this.outside!.x-plan.entrance.x,y:this.outside!.y-plan.entrance.y};
+    this.origin={x:anchor.x-plan.entrance.x,y:anchor.y-plan.entrance.y};
     this.mapFloors=plan.floors.map(r=>({x:this.origin.x+r.x,y:this.origin.y+r.y,width:r.width,height:r.height}));
     const camera=scene.cameras.main;
     for(const object of scene.children.list){
+      if(object.name==='cinematic-transition-cover')continue;
       // The sword and hand are separate player-attached sprites, not outdoor scenery.
       if(object===scene.player||('name' in object&&
-        (object.name==='equipped-sword'||object.name==='equipped-sword-hand')))continue;
+        (object.name==='equipped-sword'||object.name==='equipped-sword-hand'))){
+        if(!cinematic)continue;
+      }
       if('visible' in object&&'cameraFilter' in object){
         const render=object as Phaser.GameObjects.GameObject&{visible:boolean;cameraFilter:number};
         this.hidden.push({object,visible:render.visible,filter:render.cameraFilter});camera.ignore(object);
       }
     }
     this.formerBounds=camera.useBounds?Phaser.Geom.Rectangle.Clone(camera.getBounds()):null;camera.removeBounds();
-    this.own(scene.add.rectangle(0,0,scene.scale.width*8,scene.scale.height*8,0x000000)
-      .setOrigin(0).setScrollFactor(0).setDepth(DEPTH-1000));
+    const left=Math.min(...plan.floors.map(r=>r.x))-80,top=Math.min(...plan.floors.map(r=>r.y))-80;
+    const right=Math.max(...plan.floors.map(r=>r.x+r.width))+80,bottom=Math.max(...plan.floors.map(r=>r.y+r.height))+80;
+    camera.setBounds(this.origin.x+left,this.origin.y+top,right-left,bottom-top);
+    this.backdrop=this.own(scene.add.rectangle(0,0,1,1,0x000000)
+      .setOrigin(0).setScrollFactor(0).setDepth(DEPTH-1000));this.fitBackdrop();
     for(const floor of plan.floors)this.own(scene.add.tileSprite(this.origin.x+floor.x,this.origin.y+floor.y,
       floor.width,floor.height,FLOORS[interiorFloorIndex(entry.kit,floor.kind)]).setOrigin(0).setDepth(DEPTH-900));
     for(const object of plan.objects)this.drawArt(object.art,object.x,object.y,object.width,
@@ -208,10 +297,10 @@ export class InteriorSession {
     scene.player.resetInput();scene.player.setDepth(scene.playerRenderDepth(scene.player.y));
     camera.centerOn(scene.player.x,scene.player.y);
     const story=useGameStore.getState(),visitFlag='visited:interior:'+entry.id;
-    if(!story.storyFlags[visitFlag])story.setStoryFlag(visitFlag);
+    if(!this.cinematicContext&&!story.storyFlags[visitFlag])story.setStoryFlag(visitFlag);
     const objective=activeObjective(story.quests,story.trackedQuestId)?.objective;
-    if(objective?.type==='visit'&&objective.targetId===entry.id)story.progressQuest('visit',entry.id);
-    this.scene.notify(`${entry.name} — use the south doorway to leave.`);
+    if(!this.cinematicContext&&objective?.type==='visit'&&objective.targetId===entry.id)story.progressQuest('visit',entry.id);
+    if(!this.cinematicContext)this.scene.notify(`${entry.name} — use the south doorway to leave.`);
   }
   private residentPosition(preferred:Vec2):Vec2 {
     const plan=this.plan!;
@@ -263,6 +352,7 @@ export class InteriorSession {
     &&this.clearPath(this.scene.player,npc,npc);}
   update(time:number,delta:number,blocked:boolean){
     this.scene.physics.world.pause();
+    this.fitBackdrop();
     if(this.loading){this.scene.player.discardActions();return;}
     if(!this.entry||!this.plan)return;
     const player=this.scene.player,body=player.body as Phaser.Physics.Arcade.Body;
@@ -313,22 +403,33 @@ export class InteriorSession {
   }
   private talk(npc:Npc){useGameStore.getState().startDialogue(npc.definition.id);}
   exit(){
-    if(!this.entry)return;
-    const returnPoint=this.outside!;this.entry=null;this.plan=null;
+    if(!this.entry||this.cinematicContext)return;
+    const returnPoint=this.outside!;this.closeRoom();
+    this.scene.player.resetInput();this.scene.restoreOutsidePosition(returnPoint);
+    this.scene.cameras.main.centerOn(returnPoint.x,returnPoint.y);this.outside=null;
+    this.scene.physics.world.resume();this.scene.syncState();
+  }
+  private closeRoom(){
+    if(!this.entry&&!this.objects.length){this.releaseArt();return;}
+    this.entry=null;this.plan=null;this.backdrop=null;
     this.mapFloors=[];
     for(const object of this.objects){this.scene.tweens.killTweensOf(object);object.destroy();}this.objects=[];this.residents=[];this.guide=null;
     this.floorMask?.destroy();this.floorMask=null;this.wallSolids=[];
     for(const saved of this.hidden){if(saved.object.scene)saved.object.cameraFilter=saved.filter;}this.hidden=[];
-    this.scene.player.resetInput();this.scene.restoreOutsidePosition(returnPoint);
     if(this.formerBounds)this.scene.cameras.main.setBounds(this.formerBounds.x,this.formerBounds.y,this.formerBounds.width,this.formerBounds.height);
-    this.scene.cameras.main.centerOn(returnPoint.x,returnPoint.y);this.outside=null;this.formerBounds=null;
-    this.releaseArt();this.scene.physics.world.resume();this.scene.syncState();
+    else this.scene.cameras.main.removeBounds();
+    this.formerBounds=null;this.releaseArt();
   }
   private detachLoader(){
     if(!this.callbacks)return;
-    this.scene.load.off(Phaser.Loader.Events.COMPLETE,this.callbacks.complete);
+    this.scene.load.off('filecomplete-image-'+SOURCE,this.callbacks.complete);
     this.scene.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR,this.callbacks.error);this.callbacks=null;
   }
+  private fitBackdrop(){
+    const camera=this.scene.cameras.main,z=camera.zoom;
+    this.backdrop?.setPosition(camera.width/2*(1-1/z)-2,camera.height/2*(1-1/z)-2)
+      .setDisplaySize(camera.width/z+4,camera.height/z+4);
+  }
   private releaseArt(){for(const key of [SOURCE,ATLAS,...FLOORS])if(this.scene.textures.exists(key))this.scene.textures.remove(key);}
-  destroy(){this.disposed=true;this.detachLoader();this.exit();this.releaseArt();}
+  destroy(){this.disposed=true;this.detachLoader();this.settleLoad?.(false);this.settleLoad=null;this.cinematicContext=null;this.closeRoom();this.loading=false;this.outside=null;}
 }

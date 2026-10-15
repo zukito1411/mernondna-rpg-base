@@ -337,10 +337,10 @@ for(const definition of WORLD_CONTENT){
   if(definition.kind==='prop'||definition.kind==='settlement-prop'||'description' in definition)
     definition.tint=blackspireTint;
 }
+addCampaignWorldContent(WORLD_CONTENT);
 for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
   WORLD_CONTENT[i] = rewriteNpcMentions(WORLD_CONTENT[i], NPC_NAME_ALIASES);
 }
-addCampaignWorldContent(WORLD_CONTENT);
 // Discovery/story boards are appended after the old town-only placement pass.
 // Fit them now, against final streets, bridge art and neighboring objects.
 const isRoadsideBoard=(d:ContentDefinition)=>'frame' in d

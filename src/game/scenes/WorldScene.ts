@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import {InteriorSession} from '../systems/InteriorSession';
 import {citizenModel} from '../systems/RegionalCitizenArt';
-import {NPC_INTERIOR_BY_ID,INTERIOR_RESIDENTS} from '../../data/interiors';
+import {NPC_INTERIOR_BY_ID,INTERIOR_RESIDENTS,INTERIOR_ENTRIES} from '../../data/interiors';
+import type {StoryShot} from '../../data/cinematics';
 import {STORY_RESIDENTS} from '../../data/storyResidents';
 import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID,isWolfFamily } from '../../data/enemies';
-import { areaMonsterLevel, BOSS_RESPAWN_MS } from '../../data/enemyTiers';
+import { areaMonsterLevel, BOSS_RESPAWN_MS, encounterRewardFactor } from '../../data/enemyTiers';
 import {restoredEnemyHealth} from '../systems/enemyHealth';
 import {authoredRoofs} from '../systems/authoredRoofs';
 import { LEIGNERON } from '../../data/player';
@@ -43,7 +44,7 @@ import {normalizePirateCrews} from '../systems/pirateCrewMigration';
 import {normalizeGoblinCrews} from '../systems/goblinCrewMigration';
 import {M14ArtResidency} from '../systems/M14ArtResidency';
 import {M14_ART} from '../../data/m14Art';
-import { progressionStats, playerDamageGrowth } from '../../data/progression';
+import { progressionStats, playerDamageGrowth, earnedRewards } from '../../data/progression';
 import { localSettlementTravelEnabled } from '../../utils/localSettlementTravel';
 import type { ActiveSkillDefinition } from '../../data/activeSkills';
 import { propFoundation, spriteBounds, overlaps } from '../../data/settlementGeometry';
@@ -75,6 +76,9 @@ import type { Vec2 } from '../types';
 
 type ContentActor = Phaser.GameObjects.Sprite | Phaser.GameObjects.Text;
 const authoredBosses = WORLD_CONTENT.filter(d => d.kind === 'creature' && d.bossId);
+const authoredClearStages=Object.values(QUEST_BY_ID).flatMap(quest=>quest.objectives.flatMap(objective=>
+  objective.killContentPrefix?[{questId:quest.id,objective}]:[]));
+const clearStageFor=(id:string)=>authoredClearStages.find(stage=>id.startsWith(stage.objective.killContentPrefix!));
 // LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1: cache tree crowns around Oakmere, rather than scanning every
 // world tree during NPC route planning. Actual tree feet and physics stay intact.
 const oakmereTreeCanopies=WORLD_CONTENT
@@ -175,7 +179,48 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
       {forceStagger:skill.id==='crescent-flurry'});
   }
-  streamCinematicView(x:number,y:number){if(this.inInterior)return;this.chunkManager.update(x,y,Boolean(this.passage?.active));this.contentManager.update(x,y);this.dayNight.update(0,x,y);}
+  cinematicLocation(shot:StoryShot){return (shot.focusNpcId?NPC_INTERIOR_BY_ID[shot.focusNpcId]?.entry:undefined)
+    ??(shot.interiorId?INTERIOR_ENTRIES.find(entry=>entry.id===shot.interiorId):undefined);}
+  get cinematicLocationId(){return this.interiors.currentEntry?.id??'world';}
+  beginCinematicView(){
+    this.interiors.beginCinematic();this.prepareStoryActors();this.targeting.clear();
+    this.questGuide.clear();this.questGuide.setVisible(false);this.spearProjectiles.clear();this.wildlife.reset();this.volcanicTremor.pause();
+  }
+  prepareCinematicShot(shot:StoryShot){return this.interiors.showCinematicLocation(this.cinematicLocation(shot)??null);}
+  restoreCinematicLocation(){return this.interiors.restoreCinematicLocation();}
+  recoverCinematicLocation(){this.interiors.recoverCinematicLocation();}
+  constrainCinematicCamera(x:number,y:number,zoom:number){return this.interiors.constrainCamera(x,y,zoom);}
+  cinematicTarget(shot:StoryShot){return (shot.focusNpcId?this.storyActorPosition(shot.focusNpcId):undefined)
+    ??(this.inInterior?this.interiors.viewCenter:shot);}
+  cinematicSubjectReady(id?:string){return !id||Boolean(this.inInterior?this.interiors.getActor(id):this.contentManager.getActor('npc:'+id));}
+  streamCinematicView(x:number,y:number):boolean;
+  streamCinematicView(staged?:boolean,focusNpcId?:string,checkSubjects?:boolean):boolean;
+  streamCinematicView(viewOrX:boolean|number=false,focusOrY?:string|number,checkSubjects=true):boolean{
+    const staged=typeof viewOrX==='boolean'&&viewOrX,focusNpcId=typeof focusOrY==='string'?focusOrY:undefined;
+    if(this.inInterior)return this.interiors.ready&&this.cinematicSubjectReady(focusNpcId);
+    const camera=this.cameras.main;camera.preRender();
+    // Preserve explicit-location callers outside cinematics; the director and
+    // voyage always use the actual camera after setting its position/zoom.
+    const explicit=typeof viewOrX==='number'&&typeof focusOrY==='number'&&!this.cinematicDirector?.active;
+    const x=explicit&&typeof viewOrX==='number'?viewOrX:camera.midPoint.x;
+    const y=explicit&&typeof focusOrY==='number'?focusOrY:camera.midPoint.y;
+    const hw=camera.worldView.width/2,hh=camera.worldView.height/2;
+    const view={left:x-hw,right:x+hw,top:y-hh,bottom:y+hh};
+    const ready=this.chunkManager.updateView(view,staged);
+    this.contentManager.update(x,y,view);
+    const bossesReady=authoredBosses.every(boss=>{
+      const state=this.contentManager.getState(boss.id),position=state??boss.world;
+      return state?.defeated||position.x<view.left-128||position.x>view.right+128
+        ||position.y<view.top-128||position.y>view.bottom+128||Boolean(this.contentManager.getActor(boss.id));
+    });
+    return ready&&(!checkSubjects||bossesReady&&this.cinematicSubjectReady(focusNpcId));
+  }
+  resumeAfterCinematic(){
+    this.player.resetInput();this.questGuide.setVisible(true);
+    const state=useGameStore.getState();
+    if(!this.inInterior&&this.focused&&!state.panel&&!state.dialogue&&!this.passage.active)this.physics.world.resume();
+    else this.physics.world.pause();
+  }
   storyActorPosition(id:string){
     if(this.inInterior){const resident=this.interiors.getActor(id);return resident?{x:resident.x,y:resident.y-35}:undefined;}
     const actor=this.interiors?.getActor(id)??this.contentManager.getActor('npc:'+id)
@@ -346,25 +391,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
           return Boolean(point); // Never spawn an unchecked fallback in scenery.
         }
         if(definition.kind!=='creature')return true;
-        // Legacy saves can already be past a rescue whose camp was newly
-        // authored. Do not populate an already-resolved rescue with attackers.
-        // Repeatable flagship crews/bosses deliberately remain unaffected.
-        if(definition.id.startsWith('story-camp:')){
+        // Read actual authored quotas; a 15-kill mission cannot disappear at
+        // the old 3/5-kill threshold. Preserve repeatable flagship crews.
+        const mission=clearStageFor(definition.id);
+        if(mission&&!definition.id.startsWith('pirate:flagship:crew:')){
           const story=useGameStore.getState();
-          const resolved=definition.id.startsWith('story-camp:seed-cart:')
-            ?(story.quests['first-road']?.objectiveProgress['free-seed-cart']??0)>=3
-            :definition.id.startsWith('story-camp:rootwater-rescue:')
-              ?(story.quests['eight-regions']?.objectiveProgress['spring-rescue']??0)>=3
-              :(story.quests['eight-regions']?.objectiveProgress['frost-store-defense']??0)>=5;
-          if(resolved)return false;
+          if((story.quests[mission.questId]?.objectiveProgress[mission.objective.id]??0)>=mission.objective.amount)return false;
         }
         const m14=!ENEMY_BY_ID[definition.enemyId].boss&&(definition.enemyId==='hedge-goblin'||M14_ART.some(spec=>spec.id===definition.enemyId));
         // A native pack may chase briefly beyond its home habitat. Restoring
         // its surviving actors must not strand them dormant on a meadow edge.
-        const habitatPoint=m14?definition.encounterBehavior?.home??runtime:runtime;
+        const habitatPoint=m14&&!mission?definition.encounterBehavior?.home??runtime:runtime;
         const summon=Boolean(this.contentManager.getSummonOwner(definition.id));
         return this.isEnemyTerritory(runtime.x,runtime.y)
-          &&(summon||!m14&&!['rindass-orc-raider','rindass-orc-spearman'].includes(definition.enemyId)
+          &&(summon||Boolean(mission)||!m14&&!['rindass-orc-raider','rindass-orc-spearman'].includes(definition.enemyId)
             ||creatureFitsHabitat(ENEMY_BY_ID[definition.enemyId],this.habitatAt(habitatPoint.x,habitatPoint.y)))
           &&(summon||this.m14LocationAllowed(definition.enemyId,habitatPoint.x,habitatPoint.y))
           &&this.m14Art.ensure(definition.enemyId)
@@ -373,18 +413,20 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       canActivateGroup: members => members.length <= this.encounterCapacity('restore')
         && members.every(({ state }) => this.canEnemyOccupy(state.x,state.y)),
       prepareCreatureGroup:members=>{
-        if(!members[0]?.definition.id.startsWith('story-camp:'))return true;
+        if(!members[0]||!clearStageFor(members[0].definition.id)||members[0].definition.id.startsWith('pirate:flagship:crew:'))return true;
         const group=members[0].definition.encounterId!;
-        if(members.every(({state})=>this.canEnemyOccupy(state.x,state.y)))return true;
+        const fits=(enemyId:string,point:Vec2)=>this.canEnemyOccupy(point.x,point.y)
+          &&this.m14LocationAllowed(enemyId,point.x,point.y);
+        if(members.every(({definition,state})=>fits(definition.enemyId,state)))return true;
         if(this.time.now<(this.storyCampRetryAt.get(group)??0))return false;
         this.storyCampRetryAt.set(group,this.time.now+1000);
         const moves:Array<{id:string;x:number;y:number}>=[];
         for(const {definition,state} of members){
-          if(this.canEnemyOccupy(state.x,state.y))continue;
-          const home=definition.encounterBehavior!.home;
-          const options=[];
-          for(const radius of [32,64,96,128,192,256])for(let i=0;i<12;i++)options.push({x:state.x+Math.cos(i*Math.PI/6)*radius,y:state.y+Math.sin(i*Math.PI/6)*radius});
-          const point=options.find(p=>Math.hypot(p.x-home.x,p.y-home.y)<360&&this.canEnemyOccupy(p.x,p.y)
+          if(fits(definition.enemyId,state))continue;
+          const home=definition.encounterBehavior?.home??definition.world;
+          const options=[definition.encounterBehavior?.station??definition.world];
+          for(const radius of [32,64,96,128,192,256,320])for(let i=0;i<12;i++)options.push({x:state.x+Math.cos(i*Math.PI/6)*radius,y:state.y+Math.sin(i*Math.PI/6)*radius});
+          const point=options.find(p=>Math.hypot(p.x-home.x,p.y-home.y)<360&&fits(definition.enemyId,p)
             &&!moves.some(m=>Math.hypot(m.x-p.x,m.y-p.y)<60)
             &&!members.some(m=>m.definition.id!==definition.id&&Math.hypot(m.state.x-p.x,m.state.y-p.y)<60));
           if(!point)return false;
@@ -450,6 +492,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   update(time: number, delta: number) {
     this.handlePanelHotkeys();
+    if(this.cinematicDirector.active){this.updateCinematicPresentation(time,delta);return;}
     const travelStore=useGameStore.getState();
     if(this.interiors?.active){
       this.enemySounds.pause(true);
@@ -459,8 +502,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if(this.interiors.ready&&this.focused&&!travelStore.panel&&!travelStore.dialogue&&!this.cinematicDirector.active&&travelStore.pendingCinematic){
         if(!this.cinematicDirector.start(travelStore.pendingCinematic))travelStore.hydrate({pendingCinematic:travelStore.cinematicQueue[0]??null,cinematicQueue:travelStore.cinematicQueue.slice(1)});
       }
-      this.interiors.update(time,delta,!this.focused||Boolean(travelStore.panel||travelStore.dialogue||this.cinematicDirector.active));
-      if(this.cinematicDirector.active&&this.focused)this.cinematicDirector.update(delta);
+      if(this.cinematicDirector.active){this.updateCinematicPresentation(time,delta);return;}
+      this.interiors.update(time,delta,!this.focused||Boolean(travelStore.panel||travelStore.dialogue));
       return;
     }
     this.enemySounds.pause(!this.focused||Boolean(travelStore.panel||travelStore.dialogue||travelStore.cinematic||this.passage.active));
@@ -476,23 +519,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.passage.update(paused?0:delta);this.weather.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y,paused);
       this.dayNight.update(paused?0:delta,this.cameras.main.midPoint.x,this.cameras.main.midPoint.y);
       this.waterSurface.update(paused?0:delta);this.traffic.update(paused?0:delta);this.groundShadows.update(paused?0:delta,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);return;
-    }
-    if(this.cinematicDirector.active) {
-      const paused=!this.focused;
-      this.weather.update(paused?0:delta,this.player.x,this.player.y,paused);
-      this.treeSway.update(this.focused?delta:0,this.weather.windStrength);
-      this.waterSurface.update(this.focused?delta:0);
-      this.traffic.update(0);
-      this.groundShadows.update(paused?0:delta,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);
-      this.physics.world.pause();this.player.discardActions();
-      if(this.focused){
-        this.activePlayMs+=Math.min(delta,250);
-        for(const npc of this.npcs)if(npc.definition.formation){npc.updatePatrol(time,delta);npc.advanceCinematic(delta);npc.updatePresentation(this.player.x,this.player.y,false);}
-        this.cinematicDirector.update(delta);
-      }
-      const camera=this.cameras.main;
-      this.dayNight.update(paused?0:delta,camera.midPoint.x,camera.midPoint.y);
-      return;
     }
     const story=useGameStore.getState();
     if(this.focused&&!story.panel&&!story.dialogue) {
@@ -793,14 +819,16 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       return hostileCapacity(this.enemies.size, source, 0, 0);
     let pendingBosses = 0, summonReserve = 0;
     const cx = Math.floor(this.player.x / CHUNK_SIZE), cy = Math.floor(this.player.y / CHUNK_SIZE);
+    const cinematicView=this.cinematicDirector?.active?this.cameras.main.worldView:undefined;
     for (const boss of authoredBosses) {
       if (boss.kind !== 'creature') continue;
       const actor = this.contentManager.getActor(boss.id) as Enemy | undefined;
       const state = this.contentManager.getState(boss.id);
       const position = actor ?? state ?? boss.world;
-      if (Math.abs(Math.floor(position.x / CHUNK_SIZE) - cx) > STREAM_RADIUS
-        || Math.abs(Math.floor(position.y / CHUNK_SIZE) - cy) > STREAM_RADIUS
-        || (actor ? actor.hp <= 0 : state?.defeated)) continue;
+      const nearby=cinematicView?position.x>=cinematicView.left-768&&position.x<=cinematicView.right+768
+        &&position.y>=cinematicView.top-768&&position.y<=cinematicView.bottom+768
+        :Math.abs(Math.floor(position.x/CHUNK_SIZE)-cx)<=STREAM_RADIUS&&Math.abs(Math.floor(position.y/CHUNK_SIZE)-cy)<=STREAM_RADIUS;
+      if (!nearby || (actor ? actor.hp <= 0 : state?.defeated)) continue;
       if (!actor) pendingBosses++;
       const definition = ENEMY_BY_ID[boss.enemyId];
       if (!this.contentManager.hasUnfinishedSummons(boss.id))
@@ -1042,6 +1070,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   damagePlayer(amount: number) {
+    if(this.cinematicDirector?.active)return;
     this.player.takeDamage(amount);
   }
 
@@ -1068,6 +1097,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const gold = definition.goldMin + Math.floor(rng() * (definition.goldMax - definition.goldMin + 1));
     const bossId = enemy.instanceId.startsWith('boss:') ? enemy.instanceId.slice(5) : undefined;
     const boss=bossId?BOSS_BY_ID[bossId]:undefined;
+    const summoned=Boolean(this.contentManager.getSummonOwner(enemy.instanceId))
+      ||Boolean(enemy.encounterKey?.startsWith('encounter:boss-wave:'));
     if(definition.combatStyle==='dragon'&&boss?.respawns)enemy.createRetreatVisual();else enemy.createDeathVisual();
     this.contentManager.patchState(enemy.instanceId, { hp: 0, defeated: true,
       ...(boss?.respawns&&boss.respawnDelayMs?{respawnAt:Date.now()+boss.respawnDelayMs}:{}),
@@ -1080,8 +1111,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         this.notify('The flagship crew is defeated. Replacements will not arrive while you remain aboard.');
       }
     }
-    useGameStore.getState().recordEnemyDefeat(definition.id, definition.xp, gold, bossId, this.contentManager.snapshot(),enemy.instanceId);
-    const gained=this.add.text(enemy.x,enemy.y-48,`+${definition.xp} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
+    const state=useGameStore.getState();
+    const factor=encounterRewardFactor(enemy.level,state.level,summoned);
+    const rewardXp=Math.max(1,Math.round(definition.xp*factor)),rewardGold=Math.round(gold*factor);
+    state.recordEnemyDefeat(definition.id,rewardXp,rewardGold,bossId,this.contentManager.snapshot(),enemy.instanceId);
+    const gained=this.add.text(enemy.x,enemy.y-48,`+${Math.round(rewardXp*progressionStats(state.attributes,state.learnedSkills).rewardMultiplier)} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
     this.tweens.add({targets:gained,y:enemy.y-112,alpha:0,duration:1450,ease:'Sine.easeOut',onComplete:()=>gained.destroy()});
 
     if (enemy.instanceId.startsWith('boss:')) {
@@ -1319,6 +1353,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         npcPosition=clear??npcWorldPosition(npcDefinition);
       }
       const npc = new Npc(this, npcDefinition, npcPosition.x, npcPosition.y, npcWorldPosition(npcDefinition,'home'));
+      if(this.cinematicDirector?.active&&!npc.definition.formation)npc.storyRest();
       this.groundShadows.register(npc);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
@@ -1435,6 +1470,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
+    if(this.cinematicDirector?.active)return;
     if(definition.portId){useGameStore.getState().hydrate({panel:'harbor',harborPortId:definition.portId});this.player.resetInput();return;}
     if(definition.id==='clue:varkhul-ward'){
       const returnAt=this.contentManager.getState('boss:'+DRAGON_BOSS_ID)?.respawnAt;
@@ -1458,7 +1494,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       store.progressQuest(definition.questEventType,definition.questTargetId);
       if(repairing){store.setStoryFlag('cibar-irrigation-repaired');if(actor instanceof Phaser.GameObjects.Sprite)actor.setTint(0xc9f2ed);}
       if(restoring&&actor instanceof Phaser.GameObjects.Sprite)actor.setTint(0xffefc5);
-      store.setContentWorld(this.contentManager.snapshot());this.notify(restoring?'The witnessed chains join Cinderwatch. The compass settles; the ward has keepers again.':repairing?'The new fittings set the pump running, and water flows to the fields again.':definition.description);return;
+      store.setContentWorld(this.contentManager.snapshot());this.notify(restoring?'The witnessed chains join Cinderwatch. The compass settles; the ward has keepers again.':repairing?'The broken clasp fits the scored housing. Celia’s brother was attacked here; the witness account is complete.':definition.description);return;
     }
     if (definition.townShrineId) {
       // The travel UI is the action, not a side effect of marking scenery used.
@@ -1489,7 +1525,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if (this.player.hp > previousHp) this.playEffect('heal', this.player.x, this.player.y);
     }
     const store = useGameStore.getState();
-    store.hydrate({ worldContent: this.contentManager.snapshot(), gold: store.gold + (definition.rewardGold ?? 0) });
+    store.hydrate({worldContent:this.contentManager.snapshot(),
+      gold:store.gold+earnedRewards(0,definition.rewardGold??0,store.attributes,store.learnedSkills).gold});
     this.notify(definition.description);
   }
 
@@ -1640,11 +1677,31 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.cameras.main.setZoom((shortSide < 500 ? .82 : width < 1100 ? 1.1 : 1.25)*density);
   }
 
+  private updateCinematicPresentation(time:number,delta:number){
+    const paused=!this.focused,step=paused?0:delta;
+    this.physics.world.pause();this.player.discardActions();this.enemySounds.pause(true);
+    this.cinematicDirector.update(step);
+    const camera=this.cameras.main;camera.preRender();
+    if(this.inInterior){this.interiors.update(time,delta,true);this.interiors.presentCinematic(camera.midPoint.x,camera.midPoint.y,paused);return;}
+    for(const npc of this.npcs)if(npc.active){
+      if(npc.definition.formation&&!paused&&this.cinematicDirector.playing){npc.updatePatrol(time,step);npc.advanceCinematic(step);}
+      npc.updatePresentation(camera.midPoint.x,camera.midPoint.y,false,paused,true);npc.setDepth(npc.y);
+    }
+    for(const enemy of this.enemies)if(enemy.active)enemy.updatePresentation(camera.midPoint.x,camera.midPoint.y,true);
+    if(this.cinematicDirector.playing)this.activePlayMs+=Math.min(step,250);
+    this.weather.update(step,camera.midPoint.x,camera.midPoint.y,paused);
+    this.treeSway.update(step,this.weather.windStrength);this.waterSurface.update(step);this.traffic.update(0);this.flagshipArt.update(step);
+    this.dayNight.update(step,camera.midPoint.x,camera.midPoint.y);
+    this.groundShadows.update(step,this.dayNight.getHour(),this.weather.cloudCover,this.weather.windStrength);
+    this.m14Art.update(step,this.worldGenerator.getRegionAt(camera.midPoint.x,camera.midPoint.y));
+  }
+
   shutdown() {
     if(this.shuttingDown)return;
     this.shuttingDown=true;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN,this.shutdown,this);
     this.events.off(Phaser.Scenes.Events.DESTROY,this.shutdown,this);
+    this.cinematicDirector?.destroy();
     this.interiors?.destroy();
     this.spearProjectiles?.clear();
     this.wildlife?.destroy();
@@ -1664,7 +1721,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.traffic?.destroy();
     this.groundShadows?.destroy();
     this.weather?.destroy();
-    this.cinematicDirector?.destroy();
     this.contentManager?.destroy();
     this.m14Art?.destroy();
     this.questGuide?.destroy();

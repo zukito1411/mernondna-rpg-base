@@ -1,5 +1,6 @@
 import type {NpcDefinition,RegionId,Vec2} from '../game/types';
 import {TOWNS} from './towns';
+import {residentConversation} from './npcConversations';
 import {wardActivityPoints,settlementWardName} from './settlementWards';
 
 type Ancestry=NonNullable<NpcDefinition['ancestry']>;
@@ -76,10 +77,7 @@ export function createSettlementResidents(existing:readonly NpcDefinition[]):Npc
         schedule:[{startHour:6,activity:visitor?'Receives local trade orders':'Sets out household supplies',location:point},
           {startHour:12,activity:visitor?'Exchanges news with local residents':'Meets neighbors in the work court',location:point},
           {startHour:20,activity:visitor?'Keeps a quiet travelers watch':'Tends the sheltered household court',location:point}],
-        dialogue:visitor?[`I came from ${region} to trade, not to take anyone's place. The people of ${town.name} showed me where guests are welcome.`,
-          `The ${ward} households need reliable roads as much as I do. I keep my goods off their paths.`]
-          :[`I am the ${title.toLowerCase()} here. ${ward} is a working neighborhood, not just a place for passing carts.`,
-            'Newcomers bring useful goods and news. The households still keep the wells, gardens and common paths together.'],
+        dialogue:residentConversation(town.regionId,index+town.id.length,visitor,title),
         storyConsequences:['Supply shortages change the household trade outlook; remains a peaceful civilian and grants no combat or quest rewards.'],questIds:[]});
     }
     for(const n of created){const partner=created.find(other=>other.id!==n.id&&other.visitor!==n.visitor);

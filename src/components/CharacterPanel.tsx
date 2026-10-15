@@ -1,14 +1,16 @@
 import {useState} from 'react';
 import {useGameStore} from '../store/gameStore';
-import {SKILLS,MAX_PLAYER_LEVEL,progressionStats,experienceWithinLevel,playerDamageGrowth,type AttributeId} from '../data/progression';
+import {SKILLS,MAX_PLAYER_LEVEL,ATTRIBUTE_CAP,progressionStats,experienceWithinLevel,playerDamageGrowth,type AttributeId} from '../data/progression';
 import {CombatArtIcon} from './CombatArtIcon';
 import {ACTIVE_SKILLS,ACTIVE_SKILL_BY_ID,type ActiveSkillId} from '../data/activeSkills';
 import {WEAPON_BY_ID} from '../data/weapons';
 
 const ATTRIBUTES:Array<{id:AttributeId;name:string;description:string}>=[
-  {id:'strength',name:'Strength',description:'+6% weapon damage per point.'},
-  {id:'vitality',name:'Vitality',description:'+12 maximum health per point.'},
-  {id:'agility',name:'Agility',description:'More movement speed, stamina and quicker recovery.'},
+  {id:'strength',name:'STR · Strength',description:'+3.5% weapon damage per point.'},
+  {id:'vitality',name:'VIT · Vitality',description:'+10 maximum health per point.'},
+  {id:'agility',name:'AGI · Agility',description:'+1% movement through 20 points; +2 stamina and 0.6% faster recovery through 40.'},
+  {id:'evasion',name:'EVA · Evasion',description:'+1% chance to evade an enemy hit per point, up to 40%.'},
+  {id:'luck',name:'LUK · Luck',description:'+0.625% critical chance (1.5× damage), +1% gold and XP per point. Maximum 25% critical chance.'},
 ];
 export function CharacterPanel(){
   const [tab,setTab]=useState<'arts'|'attributes'|'talents'>('arts');
@@ -49,7 +51,7 @@ export function CharacterPanel(){
           <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round((WEAPON_BY_ID[weaponId]?.damage??18)*stats.damageMultiplier*playerDamageGrowth(level))}</b></span></div>
           <div className="progression-heading"><h3>Attributes</h3><span>{statPoints} points available</span></div>
           <p className="equipment-help">Gain three attribute points when you level up. Spending a point is permanent.</p>
-          {ATTRIBUTES.map(a=><article className="progression-row" key={a.id}><div><strong>{a.name} · {attributes[a.id]}</strong><p>{a.description}</p></div><button type="button" disabled={statPoints<=0} onClick={()=>allocate(a.id)} aria-label={`Add one ${a.name} point`}>+1</button></article>)}
+          {ATTRIBUTES.map(a=><article className="progression-row" key={a.id}><div><strong>{a.name} · {attributes[a.id]} / {ATTRIBUTE_CAP}</strong><p>{a.description}</p></div><button type="button" disabled={statPoints<=0||attributes[a.id]>=ATTRIBUTE_CAP} onClick={()=>allocate(a.id)} aria-label={`Add one ${a.name} point`}>{attributes[a.id]>=ATTRIBUTE_CAP?'Max':'+1'}</button></article>)}
         </section>:<section>
           <div className="progression-heading"><h3>Passive talents</h3><span>{skillPoints} learning points</span></div>
           <p className="equipment-help">Always-on bonuses. These do not use your four combat slots. Talents and new usable skills spend the same learning points.</p>

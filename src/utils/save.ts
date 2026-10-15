@@ -10,7 +10,7 @@ import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
 import type { ContentState, ContentWorldState, CreatureContentDefinition, EncounterBehavior, EncounterRole } from '../game/types';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
@@ -22,7 +22,7 @@ import {POTIONS,type PotionId} from '../data/economy';
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'>>;
-export interface SaveData { version: 5; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
+export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -42,8 +42,8 @@ function strings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(v => typeof v === 'string');
 }
 function playerAttributes(value: unknown): value is PlayerAttributes {
-  return record(value) && ['strength', 'vitality', 'agility'].every(id =>
-    numberIn(value[id], 0, 10000) && Number.isInteger(value[id]));
+  return record(value) && Object.keys(BASE_ATTRIBUTES).every(id =>
+    numberIn(value[id], 0, ATTRIBUTE_CAP) && Number.isInteger(value[id]));
 }
 function skillIds(value: unknown): value is SkillId[] {
   const allowed = SKILLS.map(skill => skill.id);
@@ -204,13 +204,59 @@ export function migrateSave(data: unknown): unknown {
     migrated={...migrated,version:5,state:{...old,xp,
       worldContent:record(content)?{...content,states}:content}};
   }
+  if(record(migrated)&&migrated.version===5&&record(migrated.state)){
+    const old=migrated.state;
+    // Migrate only structurally valid allocations; malformed saves still use
+    // the existing last-good/recovery path rather than being silently repaired.
+    if(!record(old.attributes)||!['strength','vitality','agility'].every(id=>
+      numberIn((old.attributes as Record<string,unknown>)[id],0,10000)&&Number.isInteger((old.attributes as Record<string,unknown>)[id]))
+      ||!skillIds(old.learnedSkills)||!numberIn(old.xp)||!numberIn(old.hp,1)||!numberIn(old.stamina))return migrated;
+    const xp=Math.min(old.xp,xpTotalForLevel(MAX_PLAYER_LEVEL)),level=levelForExperience(xp);
+    let attributes=Object.fromEntries(Object.entries(BASE_ATTRIBUTES).map(([id,base])=>[id,(old.attributes as Record<string,unknown>)[id]??base])) as PlayerAttributes;
+    // A free respec preserves the complete legal budget when an old build no
+    // longer fits. Never truncate invested points without returning them.
+    if(Object.values(attributes).some(n=>!Number.isInteger(n)||n<0||n>ATTRIBUTE_CAP)
+      ||Object.values(attributes).reduce((sum,n)=>sum+n,0)>attributeBudget(level))attributes={...BASE_ATTRIBUTES};
+    let remaining=skillBudget(level);
+    const learnedCombatArts:ActiveSkillId[]=[];
+    if(old.learnedCombatArts!==undefined&&(!strings(old.learnedCombatArts)||!old.learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id))))return migrated;
+    for(const id of (old.learnedCombatArts??[]) as ActiveSkillId[]){
+      const cost=ACTIVE_SKILL_BY_ID[id].learnCost;
+      if(cost&&!learnedCombatArts.includes(id)&&remaining>=cost){learnedCombatArts.push(id);remaining-=cost;}
+    }
+    // Preserve usable, equipped arts first when changed talent prices require
+    // a partial respec; then retain talents in prerequisite order.
+    const learnedSkills:SkillId[]=[];
+    for(const skill of SKILLS)if(old.learnedSkills.includes(skill.id)&&remaining>=skill.cost
+      &&(!skill.requires||learnedSkills.includes(skill.requires))){learnedSkills.push(skill.id);remaining-=skill.cost;}
+    const derived=progressionStats(attributes,learnedSkills);
+    const skillSlots=Array.isArray(old.skillSlots)?old.skillSlots.map(id=>typeof id==='string'&&Object.hasOwn(ACTIVE_SKILL_BY_ID,id)
+      &&(!ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost||learnedCombatArts.includes(id as ActiveSkillId))?id:null):[...DEFAULT_SKILL_SLOTS];
+    const quests=record(old.quests)?{...old.quests}:old.quests;
+    // IDs and completed stages survive larger clear objectives. Partial kills
+    // remain actual kills; new camp members supply the outstanding quota.
+    if(record(quests))for(const definition of QUESTS){
+      const runtime=quests[definition.id];if(!record(runtime)||!record(runtime.objectiveProgress))continue;
+      const progress={...runtime.objectiveProgress};
+      for(const o of definition.objectives)if(o.type==='kill'&&!o.bossId&&o.amount>=15){
+        const legacyAmount=['flagship-deck','frost-store-defense'].includes(o.id)?5:3;
+        const frontier=definition.objectives.reduce((last,stage,index)=>numberIn(progress[stage.id],stage.amount)?index:last,-1);
+        if(runtime.status==='completed'||numberIn(progress[o.id],legacyAmount)
+          ||o.id==='break-blockade'&&frontier>definition.objectives.indexOf(o))progress[o.id]=o.amount;
+      }
+      quests[definition.id]={...runtime,objectiveProgress:progress};
+    }
+    migrated={...migrated,version:6,state:{...old,level,xp,attributes,learnedSkills,learnedCombatArts,skillSlots,quests,
+      hp:Math.min(derived.maxHp,Math.max(1,old.hp)),stamina:Math.min(derived.maxStamina,old.stamina),
+      statPoints:attributeBudget(level)-Object.values(attributes).reduce((sum,n)=>sum+n,0),skillPoints:remaining}};
+  }
   return migrated;
 }
 
 export function parseSave(raw: string): SaveData | null {
   try {
     const data = migrateSave(JSON.parse(raw));
-    if (!record(data) || data.version !== 5 || !record(data.state)) return null;
+    if (!record(data) || data.version !== 6 || !record(data.state)) return null;
     const s = data.state;
     if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return null;
     const savedFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
@@ -225,7 +271,7 @@ export function parseSave(raw: string): SaveData | null {
       || !numberIn(s.skillPoints, 0, 10000) || !Number.isInteger(s.skillPoints) || !skillIds(s.learnedSkills)) return null;
     const derived = progressionStats(s.attributes, s.learnedSkills);
     if (!numberIn(s.hp, 1, derived.maxHp) || !numberIn(s.stamina, 0, derived.maxStamina) || !numberIn(s.xp) || !numberIn(s.gold)
-      || !numberIn(s.level, 1) || !Number.isInteger(s.level)
+      || !numberIn(s.level, 1, MAX_PLAYER_LEVEL) || !Number.isInteger(s.level)
       || !numberIn(s.worldX, 0, WORLD_WIDTH - 1) || !numberIn(s.worldY, 0, WORLD_HEIGHT - 1)
       || !numberIn(s.day, 1) || !numberIn(s.minuteOfDay, 0, 1439.999999)
       || typeof s.weaponId !== 'string' || !Object.hasOwn(WEAPON_BY_ID, s.weaponId)
@@ -311,6 +357,11 @@ export function parseSave(raw: string): SaveData | null {
     if(!Array.isArray(skillSlots)||skillSlots.length!==4||!skillSlots.every(id=>id===null||typeof id==='string'&&Object.hasOwn(ACTIVE_SKILL_BY_ID,id)
       &&(!ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost||learnedCombatArts.includes(id)))
       ||new Set(skillSlots.filter(Boolean)).size!==skillSlots.filter(Boolean).length)return null;
+    const validatedSkills=s.learnedSkills;
+    if(s.level!==levelForExperience(s.xp)||s.xp>xpTotalForLevel(MAX_PLAYER_LEVEL)
+      ||Object.values(s.attributes).reduce((sum,n)=>sum+Number(n),0)+s.statPoints!==attributeBudget(s.level)
+      ||SKILLS.filter(skill=>validatedSkills.includes(skill.id)).reduce((sum,skill)=>sum+skill.cost,0)
+        +learnedCombatArts.reduce((sum,id)=>sum+(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost??0),0)+s.skillPoints!==skillBudget(s.level))return null;
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
@@ -318,15 +369,16 @@ export function parseSave(raw: string): SaveData | null {
     // Existing progressed players don't get a new-game prologue on resume.
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
     const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);
-    const xp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + result.xp);
+    const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);
+    const xp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + rewards.xp);
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
-    return { version: 5, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state,consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + result.gold,
+    return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
+      ...state,consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
       trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
         QUESTS.find(q=>q.kind==='main'&&result.quests[q.id]?.status==='active')?.id??null,
-      level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * 3,
+      level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
       skillPoints: state.skillPoints + levelsGained,
     } };
   } catch { return null; }
@@ -356,7 +408,7 @@ export function saveGame(): boolean {
   try {
     syncSnapshot?.();
     const s = useGameStore.getState();
-    const data: SaveData = { version: 5, savedAt: new Date().toISOString(), state: {
+    const data: SaveData = { version: 6, savedAt: new Date().toISOString(), state: {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,

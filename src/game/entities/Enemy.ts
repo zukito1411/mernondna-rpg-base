@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
-import { enemyLevelAt,scaledEnemy } from '../../data/enemyTiers';
+import { enemyLevelAt,scaledEnemy,globalMonsterBonus } from '../../data/enemyTiers';
+import {luckDamage} from '../../data/progression';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
 import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize,type ArtTextureKey } from '../../data/art';
@@ -18,14 +19,16 @@ import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningS
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
-  readonly definition: EnemyDefinition;
+  definition: EnemyDefinition;
+  private readonly authoredDefinition: EnemyDefinition;
+  private readonly regionalLevel:number;
   hp: number;
   readonly eventSpawn: boolean;
   readonly wolfPackId: string | null;
   readonly wolfAlpha: boolean;
   readonly encounterKey: string | null;
   readonly encounterBehavior: EncounterBehavior | undefined;
-  readonly level:number;
+  level:number;
   readonly instanceId: string;
   private nextAttackAt = 0;
   private lockedUntil = 0;
@@ -95,7 +98,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // or being restored on opposite sides of a settlement's tier boundary.
     const levelHome=encounterBehavior?.home??{x,y};
     const zone=(scene as WorldScene).getRegionAtPosition(levelHome.x,levelHome.y);
-    this.level=enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
+    this.authoredDefinition=definition;
+    this.regionalLevel=enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
+    this.level=this.regionalLevel+globalMonsterBonus(useGameStore.getState().level);
     const base=scaledEnemy(definition,this.level);
     this.wolfPackId=isWolfFamily(definition.id) ? wolfPackId : null;
     this.encounterKey=definition.boss ? null : this.wolfPackId ? `wolf:${this.wolfPackId}`
@@ -149,6 +154,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
+    const nextLevel=this.regionalLevel+globalMonsterBonus(useGameStore.getState().level);
+    if(this.hp>0&&nextLevel!==this.level){
+      const fraction=this.hp/this.definition.hp;
+      const base=scaledEnemy(this.authoredDefinition,nextLevel);
+      this.definition=this.wolfAlpha?{...base,name:this.definition.name,hp:Math.round(base.hp*1.35),
+        damage:Math.round(base.damage*1.12),xp:Math.round(base.xp*1.5),goldMax:Math.ceil(base.goldMax*1.25)}:base;
+      this.hp=Math.max(1,Math.round(fraction*this.definition.hp));
+      this.level=nextLevel;
+      this.nameLabel.setText(`Lv.${this.level} ${this.boss?.name??this.definition.name}`);
+    }
     // Recover only after leaving combat, never during a chase or attack.
     // Paused scenes do not tick updateEnemy, so this is active-play time only.
     const playerDistance = Phaser.Math.Distance.Between(this.x,this.y,player.x,player.y);
@@ -644,8 +659,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean}={}) {
-    if (!this.active || this.hp <= 0 || !this.canBeTargeted) return;
-    this.hp -= amount;
+    if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
+    const state=useGameStore.getState();
+    this.hp -= Math.max(1,Math.round(luckDamage(amount,state.attributes,state.learnedSkills)*(1-(this.definition.defense??0))));
     const scene=this.scene as WorldScene;
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
     this.lastDamagedAt=this.scene.time.now;

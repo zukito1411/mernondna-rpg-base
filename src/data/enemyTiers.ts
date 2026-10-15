@@ -5,7 +5,7 @@ import type { EnemyDefinition, RegionId } from '../game/types';
 const ROUTE=['oakmere','highmere','willowcross','elarion','moonfall','starhold',
  'redmesa','deepford','tidewatch','skallheim','blackspire','cibar-plains'] as const;
 const REGION_FALLBACK:Record<Exclude<RegionId,'dead-sea'>,number>={
- trandum:5,narenthil:10,nardorous:15,rindass:20,druganwoods:20,portquill:25,frostlands:25,darkav:30,
+ trandum:5,narenthil:10,nardorous:15,rindass:20,druganwoods:25,portquill:30,frostlands:35,darkav:50,
 };
 export const BOSS_RESPAWN_MS=20*60*1000;
 export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
@@ -15,22 +15,31 @@ export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
  })).sort((a,b)=>a.distance-b.distance)[0];
  const index=ROUTE.indexOf(nearby?.id as typeof ROUTE[number]);
  // Far from a settlement, use the region's consistent wilderness difficulty.
- return nearby&&nearby.distance<15000&&index>=0?5+Math.floor(index/2)*5:REGION_FALLBACK[regionId];
+ const routeLevel=nearby&&nearby.distance<15000&&index>=0?5+Math.floor(index/2)*5:REGION_FALLBACK[regionId];
+ return Math.max(routeLevel,REGION_FALLBACK[regionId]);
 }
+export function globalMonsterBonus(playerLevel:number){return playerLevel>=30?15:playerLevel>=25?10:playerLevel>=20?5:0;}
 /** One shared level rule for live actors and saved crew upgrades. Elite roles
  * are always five levels above regular members from the same encounter home. */
-export function enemyLevelAt(definition:EnemyDefinition,x:number,y:number,regionId:RegionId,wolfAlpha=false):number {
+export function enemyLevelAt(definition:EnemyDefinition,x:number,y:number,regionId:RegionId,wolfAlpha=false,playerLevel=1):number {
  const elite=definition.id==='pirate-boatswain'||definition.id==='rindass-orc-spearman'
    ||['gray-wolf','frost-wolf'].includes(definition.id)&&wolfAlpha;
- return areaMonsterLevel(x,y,regionId)+(definition.boss?10:elite?5:0);
+ return areaMonsterLevel(x,y,regionId)+(definition.boss?10:elite?5:0)+globalMonsterBonus(playerLevel);
 }
 export function scaledEnemy(definition:EnemyDefinition,level:number):EnemyDefinition {
  const steps=Math.max(0,level-5),boss=Boolean(definition.boss);
  // Durability and threat rise faster than XP rewards: high-tier targets are
- // not merely larger XP bags with nearly starter-tier attacks. Level 5 stays
- // at the authored baseline; species/elite differences remain intact.
- const hpScale=1+steps*.16,damageScale=1+steps*.085;
- const xpScale=(1+steps*.13)*(boss?1.5:1);
+ // not merely larger XP bags with nearly starter-tier attacks. Even the
+ // starting tier is tougher; species/elite differences remain intact.
+ const hpScale=1.2+steps*.19,damageScale=1.15+steps*.10;
+ const xpScale=(1+steps*.065)*(boss?1.25:1),goldScale=1+steps*.025;
  return {...definition,hp:Math.round(definition.hp*hpScale),damage:Math.max(1,Math.round(definition.damage*damageScale)),
-  xp:Math.max(1,Math.round(definition.xp*xpScale))};
+  defense:Math.min(.45,.04+steps*.006),
+  moveSpeed:definition.moveSpeed*(1+Math.min(.12,steps*.003)),
+  xp:Math.max(1,Math.round(definition.xp*xpScale)),
+  goldMin:Math.floor(definition.goldMin*goldScale),goldMax:Math.ceil(definition.goldMax*goldScale)};
+}
+/** Low-tier farming and endlessly summoned helpers are not a fast leveling route. */
+export function encounterRewardFactor(enemyLevel:number,playerLevel:number,summoned=false){
+ return Math.max(.15,1-Math.max(0,playerLevel-enemyLevel-5)*.08)*(summoned ? .2 : 1);
 }

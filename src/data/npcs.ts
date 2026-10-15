@@ -7,6 +7,7 @@ import { prepareNpcPresentation } from './npcPresentation';
 import {CASTLE_RESIDENTS} from './castleResidents';
 import {createSettlementResidents} from './settlementResidents';
 import {STORY_RESIDENTS} from './storyResidents';
+import {reviseNamedConversations} from './npcConversations';
 
 export const NPCS: NpcDefinition[] = [
   {
@@ -263,4 +264,5 @@ NPCS.push(...CASTLE_RESIDENTS);
 // and human visitors to Elarion bypass its native-only model conversion.
 NPCS.push(...createSettlementResidents(NPCS));
 NPCS.push(...STORY_RESIDENTS);
+reviseNamedConversations(NPCS,NPC_NAME_ALIASES);
 export const NPC_BY_ID = Object.fromEntries(NPCS.map((npc) => [npc.id, npc])) as Record<string, NpcDefinition>;

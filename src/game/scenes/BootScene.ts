@@ -9,7 +9,8 @@ import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIB
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
 import { PLAYER_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
 import { PLAYER_SKILL_ANIMATIONS } from '../../data/playerSkillArt';
-import { alphaFrameBounds,createSpriteCropper } from '../systems/spriteArt';
+import { alphaFrameBounds,createSpriteCropper,spriteSubjectCanvas } from '../systems/spriteArt';
+import {actorSpriteSubjects,type ActorSpriteSubject} from '../systems/spriteComponents';
 import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
 import { prepareBridgeRail } from '../systems/BridgeArt';
 import { prepareTreeArt } from '../systems/TreeArt';
@@ -242,6 +243,8 @@ export class BootScene extends Phaser.Scene {
       const isHeroWalk = sheet.key === 'leigneron';
       const isHeroArt = isHeroWalk || sheet.key === 'leigneron_idle' ||
         sheet.key === 'leigneron_idle_sides' || sheet.key === 'leigneron_running';
+      let spearmanSubjects:ActorSpriteSubject[]|undefined;
+      let spearmanFit:number|undefined;
 
       for (let frame = 0; frame < sheet.columns; frame++) {
         const packed = sheet.sources?.[frame];
@@ -301,11 +304,21 @@ export class BootScene extends Phaser.Scene {
               Math.min(frameSource.width,packed.cell[0]+packed.cell[2]+12)-Math.max(0,packed.cell[0]-12),
               Math.min(frameSource.height,packed.cell[1]+packed.cell[3]+12)-Math.max(0,packed.cell[1]-12)] as const
           : packed?.cell ?? sheet.regions?.[frame];
-        const region = data && cell
+        // The throw/death boards are spaced by whole subjects, not exact cells:
+        // spear tips and fallen bodies cross the manifest's nominal seams.
+        // Segment once per board and copy ONLY owned pixels, never neighboring art.
+        const spearmanBoard=sheet.key==='enemy_orc_spearman_actions'||sheet.key==='enemy_orc_spearman_states';
+        if(spearmanBoard&&data&&!spearmanSubjects){
+          spearmanSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4);
+          const neutral=this.textures.get('enemy_orc_spearman').get(0).customData as {visibleBounds:{height:number}};
+          spearmanFit=neutral.visibleBounds.height/spearmanSubjects[0].region[3];
+        }
+        const subject=spearmanSubjects?.[frame];
+        const region = subject?.region ?? (data && cell
           ? isHeroArt
             ? heroVisibleBounds(data.data, data.width, cell)
             : alphaFrameBounds(data.data, data.width, cell)
-          : sheet.regions?.[frame];
+          : sheet.regions?.[frame]);
 
         if (packed && !region) throw new Error(`Empty sprite frame: ${packed.name}`);
         if (packed && region && !isHeroWalk && !packed.renderScale && sheet.contentSize &&
@@ -327,7 +340,7 @@ export class BootScene extends Phaser.Scene {
         }
         const fit = isHeroArt && region
           ? heroFits.get(packed?.path??sheet.path)!
-          : packed?.renderScale ?? (sheet.contentSize
+          : spearmanFit ?? packed?.renderScale ?? (sheet.contentSize
             ? Math.min(
                 (sheet.frameWidth - 4) / sheet.contentSize[0],
                 (sheet.frameHeight - 4) / sheet.contentSize[1]
@@ -343,6 +356,15 @@ export class BootScene extends Phaser.Scene {
           ? region[2] * regionFit : size.width) * sheet.density;
         const drawHeight = (region && (packed || sheet.trimRegions)
           ? region[3] * regionFit : size.height) * sheet.density;
+        let subjectRoot=subject?subject.region[2]/2:0;
+        if(subject&&(sheet.key==='enemy_orc_spearman_actions'||frame%6<3)){
+          const w=subject.region[2],h=subject.region[3];let weightedX=0,weight=0;
+          for(let py=Math.floor(h*.84);py<h;py++)for(let px=0;px<w;px++){
+            const alpha=subject.pixels[(py*w+px)*4+3];
+            if(alpha>128){weightedX+=px*alpha;weight+=alpha;}
+          }
+          if(weight)subjectRoot=weightedX/weight;
+        }
         const x = (frame % columns) * width;
         const y = Math.floor(frame / columns) * height;
 
@@ -352,7 +374,9 @@ export class BootScene extends Phaser.Scene {
         ctx.clip();
         // Register side strides by their body/ground anchor, rather than the
         // changing weapon/cape silhouette, so alpha trimming cannot move the head.
-        const drawX = packed?.groundAnchor && region
+        const drawX = subject&&region
+          ? x+width/2-subjectRoot*fit*sheet.density
+          : packed?.groundAnchor && region
           ? x + width / 2 + (region[0] - packed.groundAnchor[0]) * fit * sheet.density
           // Preserve authored frame center across hero walk/run silhouettes.
           // Recentring each trimmed alpha silhouette makes the torso jitter.
@@ -363,7 +387,9 @@ export class BootScene extends Phaser.Scene {
           : packed?.anchor && region
             ? x + width / 2 + (region[0] - packed.anchor[0]) * fit * sheet.density
             : x + (width - drawWidth) / 2;
-        const drawY = packed?.groundAnchor && region
+        const drawY = subject&&region
+          ? y+height-(sheet.groundPadding??2)*sheet.density-region[3]*fit*sheet.density
+          : packed?.groundAnchor && region
           ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - packed.groundAnchor[1]) * fit * sheet.density
           // Don't reset the hero's vertical foot position from each cropped
           // silhouette. Use the source frame's fixed ground baseline instead.
@@ -379,7 +405,8 @@ export class BootScene extends Phaser.Scene {
         // upscale before the renderer samples them a second time.
         const enemySheet=sheet.key==='enemies'||sheet.key.startsWith('enemy_');
         ctx.imageSmoothingEnabled=!enemySheet||drawHeight<=(region?.[3]??frameSource.height);
-        if(enemySheet&&region&&packed)drawEnemyPose(ctx,frameSource,region,drawX,drawY,drawWidth,drawHeight);
+        if(subject&&region)drawEnemyPose(ctx,spriteSubjectCanvas(subject),[0,0,region[2],region[3]],drawX,drawY,drawWidth,drawHeight);
+        else if(enemySheet&&region&&packed)drawEnemyPose(ctx,frameSource,region,drawX,drawY,drawWidth,drawHeight);
         else ctx.drawImage(
           frameSource,
           region ? region[0] * (packed ? 1 : scaleX) : frame * sourceWidth + inset,
@@ -391,6 +418,7 @@ export class BootScene extends Phaser.Scene {
         ctx.restore();
         const preparedFrame=texture.add(frame,0,x,y,width,height);
         if(preparedFrame)preparedFrame.customData={visibleBounds:{left:(drawX-x)/sheet.density,top:(drawY-y)/sheet.density,width:drawWidth/sheet.density,height:drawHeight/sheet.density},
+          ...(subject?{isolatedSubject:true,foreignProbes:subject.foreignProbes}:{}),
           sourceRegion:region?[...region]:undefined,sourceFit:regionFit,
           sourcePath:packed?.path??sheet.path,sourceImageSize:[frameSource.width,frameSource.height],fullSprite:true};
         const registered=heroGrip(packed?.path??sheet.path,frame,frameSource.width,frameSource.height);

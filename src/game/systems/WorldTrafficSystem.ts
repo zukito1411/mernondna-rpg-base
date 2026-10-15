@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {chunkNeighborhood,contentChunkKey} from './chunkNeighborhood';
+import {viewportChunks,streamViewKey} from './chunkNeighborhood';
 import {cartRoutes,seaRoute,routePosition,type TrafficRoute} from './travelRoutes';
 import {trafficDirection,trafficDistance,horseWalkFrame,wheelTurnFrame} from './trafficMotion';
 import {BOAT_SCALE,boatHelm,boatPassenger,CART_ART_POSES} from './VehicleArt';
@@ -35,9 +35,9 @@ export class WorldTrafficSystem {
   }
   update(delta:number){
     this.elapsed+=Math.min(delta,100);
-    const view=this.scene.cameras.main.worldView,center=contentChunkKey(view.centerX,view.centerY);
+    const view=this.scene.cameras.main.worldView,nearby=viewportChunks(view,500),center=streamViewKey(nearby);
     if(center!==this.seaCenter){
-      this.seaCenter=center;const nearby=chunkNeighborhood(view.centerX,view.centerY);
+      this.seaCenter=center;
       for(const [key] of this.sea)if(!nearby.has(key))this.sea.delete(key);
       for(const key of nearby)if(!this.sea.has(key)){const [x,y]=key.split(':').map(Number);this.sea.set(key,seaRoute(this.world,x,y));}
       this.routes=[...this.roads,...[...this.sea.values()].filter((r):r is TrafficRoute=>Boolean(r))];

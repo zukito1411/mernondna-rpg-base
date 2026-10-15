@@ -7,7 +7,7 @@ import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
 import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, xpTotalForLevel, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
@@ -17,6 +17,7 @@ import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data
 import {BOSS_WEAPONS,POTIONS,merchantStock,itemName,type PotionId} from '../data/economy';
 import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
+import {acceptUiAction} from '../utils/uiInputGuard';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -137,8 +138,8 @@ const baseState = () => ({
   level: localPlayCheatsEnabled()?MAX_PLAYER_LEVEL:1,
   xp: localPlayCheatsEnabled()?xpTotalForLevel(MAX_PLAYER_LEVEL):0,
   attributes: { ...BASE_ATTRIBUTES },
-  statPoints: localPlayCheatsEnabled()?(MAX_PLAYER_LEVEL-1)*3:0,
-  skillPoints: localPlayCheatsEnabled()?MAX_PLAYER_LEVEL-1:0,
+  statPoints: localPlayCheatsEnabled()?attributeBudget(MAX_PLAYER_LEVEL):0,
+  skillPoints: localPlayCheatsEnabled()?skillBudget(MAX_PLAYER_LEVEL):0,
   learnedSkills: [] as SkillId[],
   gold: localPlayCheatsEnabled()?LOCAL_TEST_GOLD:18,
   weaponId: LEIGNERON.starterWeaponId,
@@ -177,9 +178,9 @@ function experienceProgress(state: GameState, xp: number) {
   return {
     xp: totalXp,
     level,
-    statPoints: state.statPoints + levelsGained * 3,
+    statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
     skillPoints: state.skillPoints + levelsGained,
-    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * 3} status points and +${levelsGained} skill point${levelsGained === 1 ? '' : 's'}.` } : {}),
+    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} status points and +${levelsGained} skill point${levelsGained === 1 ? '' : 's'}.` } : {}),
   };
 }
 
@@ -233,11 +234,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.panel !== 'travel' || !state.travelOriginTownId || townId === state.travelOriginTownId
       || !Object.hasOwn(TOWN_BY_ID,townId)
       || !localSettlementTravelEnabled() && !state.unlockedTownShrines.includes(townId)) return {};
+    if(!acceptUiAction())return {};
     return { travelRequest:townId,travelRequestSource:'shrine',panel:null };
   }),
   requestMapTravel:(townId) => set(state => {
     if (!['map','regional-map'].includes(state.panel??'') || state.dialogue || !Object.hasOwn(TOWN_BY_ID,townId)
       || !localSettlementTravelEnabled() && !state.unlockedTownShrines.includes(townId)) return {};
+    if(!acceptUiAction())return {};
     return { travelRequest:townId,travelRequestSource:'map',travelOriginTownId:null,panel:null };
   }),
   clearShrineTravelRequest:() => set({ travelRequest:null,travelOriginTownId:null,travelRequestSource:null }),
@@ -253,18 +256,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
-    const outcome=state.storyFlags['relief-household-charter']?'The crown granaries are open. Every household will have bread through winter.':state.storyFlags['relief-joint-council']?'The market and the kitchens now share the stores. Highmere will face winter together.':null;
+    const outcome=state.storyFlags['relief-household-charter']?'The service warrants are void. There are crown rooms for anyone leaving, and the search riders are still looking for their kin.':state.storyFlags['relief-joint-council']?'The families sit beside the judges now. No employer can move them while their relatives are being sought.':null;
     const localOutcome=npc.townId==='cibar-plains'&&state.storyFlags['cibar-irrigation-repaired']?
-      state.storyFlags['cibar-public-water']?'The pump is mended, and every family has its turn at the well.':'The pump is mended. The growers take turns tending it.':null;
+      state.storyFlags['cibar-public-water']?'They have cleared his name. The travelers choose for themselves whether to speak; nobody is trading their safety for justice.':'The sworn households keep the survivors’ names. Yselle has the evidence, and the men who came to that well will answer for it.':null;
     const highmereOutcome=state.quests['crown-summons']?.status==='completed'&&npc.townId==='highmere'?
       state.storyFlags['main-public-reports']?'The warning has been spoken in every town square. Folk are watching the old roads.':state.storyFlags['main-watch-reports']?'The riders carry the warning from town to town, unseen by the danger.':'The signs from the far roads have reached Highmere. The crown knows what threatens them.':null;
     const reaction=reactiveStoryDialogue(npcId,state.quests,state.storyFlags);
     const lines=context?.objective.dialogue ?? (reaction??(highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue));
     set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
   },
-  advanceDialogue: () => set((state) => state.dialogue ? { dialogue: { ...state.dialogue, lineIndex: state.dialogue.lineIndex + 1 } } : {}),
+  advanceDialogue: () => set((state) => state.dialogue&&acceptUiAction()
+    &&state.dialogue.lineIndex<(state.dialogue.lines??NPC_BY_ID[state.dialogue.npcId]?.dialogue??[]).length-1
+    ? { dialogue: { ...state.dialogue, lineIndex: state.dialogue.lineIndex + 1 } } : {}),
   endDialogue: () => {
     const dialogue=get().dialogue;
+    if(!dialogue||!acceptUiAction())return;
     set({dialogue:null});
     // Opening/abandoning a conversation isn't delivering evidence or hearing it.
     if(!dialogue||dialogue.choices?.length||!dialogue.questId
@@ -278,7 +284,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(!dialogue || dialogue.lineIndex<(dialogue.lines?.length??1)-1 || !dialogue.questId) return;
     const objective=QUEST_BY_ID[dialogue.questId]?.objectives.find(o=>o.id===dialogue.objectiveId);
     const choice=dialogue.choices?.find(c=>c.id===id);
-    if(!objective||!choice) return;
+    if(!objective||!choice||!acceptUiAction()) return;
     if(choice.correct===false){set({toast:choice.response,dialogue:{...dialogue,lineIndex:0,lines:[choice.response]}});return;}
     set({storyChoices:{...state.storyChoices,[dialogue.questId+':'+objective.id]:id},
       storyFlags:{...state.storyFlags,...(choice.flag?{[choice.flag]:true}:{})},
@@ -297,17 +303,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount },state.storyFlags,state.worldContent);
     const scenes=sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags);
     const shrines=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'].filter(id=>(result.quests['eight-regions']?.objectiveProgress['report:'+id]??0)>=1);
-    const progression = experienceProgress(state, result.xp);
+    const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);
+    const progression = experienceProgress(state, rewards.xp);
     const completed=Object.keys(result.quests).some(id=>state.quests[id]?.status!=='completed'&&result.quests[id].status==='completed');
-    const rewardToast = result.xp || result.gold ? `${completed?'Quest complete':'Story milestone'} — +${result.xp} XP, +${result.gold} gold` : null;
-    set({ quests: result.quests, gold: state.gold + result.gold, ...progression,
+    const rewardToast = rewards.xp || rewards.gold ? `${completed?'Quest complete':'Story milestone'} — +${rewards.xp} XP, +${rewards.gold} gold` : null;
+    set({ quests: result.quests, gold: state.gold + rewards.gold, ...progression,
       trackedQuestId:state.trackedQuestId&&result.quests[state.trackedQuestId]?.status==='completed'?QUEST_BY_ID[state.trackedQuestId]?.nextQuestId??null:state.trackedQuestId,
       ...scenes,storyFlags:questConsequences(result.quests,state.storyFlags),unlockedTownShrines:[...new Set([...state.unlockedTownShrines,...shrines])],
       ...(rewardToast ? { toast: progression.toast ? `${rewardToast}. ${progression.toast}` : rewardToast } : {}),
     });
   },
   addRewards: (xp, gold) => set((state) => {
-    return { ...experienceProgress(state, xp), gold: state.gold + gold };
+    if(!Number.isFinite(xp)||!Number.isFinite(gold)||xp<0||gold<0)return {};
+    const rewards=earnedRewards(xp,gold,state.attributes,state.learnedSkills);
+    return { ...experienceProgress(state, rewards.xp), gold: state.gold + rewards.gold };
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
   recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent, contentId) => set((state) => {
@@ -323,19 +332,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const defeatedBosses = bossId&&!known ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1,contentId },state.storyFlags,worldContent??state.worldContent);
-    const progression = experienceProgress(state, xp + result.xp);
+    const rewards=earnedRewards(xp+result.xp,gold+result.gold,state.attributes,state.learnedSkills);
+    const progression = experienceProgress(state, rewards.xp);
     const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
     const dropped=trophy&&Math.random()<.1?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
-    return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + gold + result.gold,
+    const salvage=duplicate&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
+    return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
-        gold:state.gold+gold+result.gold+(duplicate?dropped.salvage:0),
-        toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${dropped.salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
+        gold:state.gold+rewards.gold+salvage,
+        toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
       ...(worldContent ? { worldContent } : {}) };
   }),
   allocateAttribute: (attribute) => set((state) => {
-    if (state.statPoints <= 0) return {};
+    if (state.statPoints <= 0 || !Object.hasOwn(BASE_ATTRIBUTES,attribute) || state.attributes[attribute]>=ATTRIBUTE_CAP) return {};
     const attributes = { ...state.attributes, [attribute]: state.attributes[attribute] + 1 };
     const derived = progressionStats(attributes, state.learnedSkills);
     return { attributes, statPoints: state.statPoints - 1, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
@@ -359,7 +370,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(!localPlayCheatsEnabled())return {...partial,level,xp};
     const gained=Math.max(0,MAX_PLAYER_LEVEL-level);
     return {...partial,level:MAX_PLAYER_LEVEL,xp:xpTotalForLevel(MAX_PLAYER_LEVEL),
-      statPoints:(partial.statPoints??state.statPoints)+gained*3,
+      statPoints:(partial.statPoints??state.statPoints)+gained*STAT_POINTS_PER_LEVEL,
       skillPoints:(partial.skillPoints??state.skillPoints)+gained,
       gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id)};
   }),

@@ -108,6 +108,8 @@ export interface EnemyDefinition {
   combatStyle?:'troll'|'dragon'|'spear-thrower'|'stone-thrower'|'boatswain';
   hp: number;
   damage: number;
+  /** Fraction of incoming weapon/art damage absorbed, capped by tier scaling. */
+  defense?: number;
   moveSpeed: number;
   aggroRange: number;
   attackRange: number;

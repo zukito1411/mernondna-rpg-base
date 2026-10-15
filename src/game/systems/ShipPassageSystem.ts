@@ -19,8 +19,8 @@ export class ShipPassageSystem {
   this.fleet.showPassenger(vessel);this.voyage={from,to,points,elapsed:0,duration:passageDuration(points),vessel};
   const first=passagePoint(points,0);
   this.fleet.positionVessel(vessel,first.x,first.y,first.dx,first.dy,false);
-  this.scene.streamCinematicView(first.x,first.y);
-  this.scene.cameras.main.centerOn(first.x,first.y-90);
+  this.scene.cameras.main.stopFollow().centerOn(first.x,first.y-90);
+  this.scene.streamCinematicView();
   this.scene.player.resetInput();this.scene.player.setVisible(false);this.scene.physics.world.pause();this.scene.cameras.main.stopFollow();
   useGameStore.getState().hydrate({passage:{from:fromId,to:toId,progress:0},panel:null,harborPortId:null,passageRequest:null});return true;
  }
@@ -28,7 +28,7 @@ export class ShipPassageSystem {
   const v=this.voyage;if(!v||delta<=0)return;v.elapsed+=Math.min(delta,100);const progress=Math.min(1,v.elapsed/v.duration),p=passagePoint(v.points,progress);
   v.vessel.scale=v.from.river&&Math.hypot(p.x-v.from.boat.x,p.y-v.from.boat.y)<60000||v.to.river&&Math.hypot(p.x-v.to.boat.x,p.y-v.to.boat.y)<60000?.8:1.25;
   this.fleet.positionVessel(v.vessel,p.x,p.y,p.dx,p.dy,delta>0);
-  this.scene.streamCinematicView(p.x,p.y);this.scene.cameras.main.centerOn(p.x,p.y-90);
+  this.scene.cameras.main.centerOn(p.x,p.y-90);this.scene.streamCinematicView();
   this.hudMs+=delta;if(this.hudMs>200){this.hudMs=0;useGameStore.getState().hydrate({passage:{from:v.from.id,to:v.to.id,progress}});}
   if(progress>=1){
    this.fleet.releaseVessel(v.vessel);this.voyage=null;this.scene.landFromPassage(v.to.landing);

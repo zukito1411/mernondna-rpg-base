@@ -1,10 +1,12 @@
 import type { ContentDefinition, ContentState, ContentWorldState, CreatureContentDefinition, EncounterRole, Vec2 } from '../types';
-import { chunkNeighborhood, contentChunkKey } from './chunkNeighborhood';
+import { chunkNeighborhood, contentChunkKey,viewportChunks,streamViewKey,type StreamView } from './chunkNeighborhood';
 import {CHUNK_SIZE,STREAM_RADIUS,WORLD_WIDTH,WORLD_HEIGHT} from '../../data/world';
 import {ENEMY_BY_ID,isWolfFamily} from '../../data/enemies';
 import {MAX_LIVE_HOSTILES,MAX_PERSISTENT_SPAWNS} from './encounterAdmission';
 import {NPC_BY_ID} from '../../data/npcs';
 import {npcMayPatrol} from './npcPlacement';
+import {StaticBoundsIndex} from './StaticBoundsIndex';
+import {spriteBounds} from '../../data/settlementGeometry';
 
 /** Old boss calls were event spawns without ownership. Adopt only matching
  * event families near a uniquely identifiable wounded/defeated boss. Ordinary
@@ -80,10 +82,23 @@ export class ContentChunkManager<Actor> {
   private readonly creatureGroups = new Map<string, Set<string>>();
   private wanted = new Set<string>();
   private centerKey = '';
+  private readonly sceneryIndex:StaticBoundsIndex<{id:string;bounds:StreamView}>;
+  private sceneryKey='';
+  private sceneryWanted=new Set<string>();
+  private sceneryCandidates=new Set<string>();
   private nextSpawnSequence: number;
   private readonly summonOwners = new Map<string,string>();
 
   constructor(definitions: ContentDefinition[], persisted: ContentWorldState, private readonly host: ContentHost<Actor>) {
+    this.sceneryIndex=new StaticBoundsIndex(definitions.flatMap(d=>{
+      if(!('frame' in d))return [];
+      const scale=d.scale??.6,b=spriteBounds(d.texture??'world_objects',d.frame,scale,d.world.x,d.world.y,d.anchor==='center');
+      const angle=d.rotation??0,c=Math.cos(angle),s=Math.sin(angle);
+      const corners=[[b.left,b.top],[b.right,b.top],[b.left,b.bottom],[b.right,b.bottom]]
+        .map(([x,y])=>({x:d.world.x+(x-d.world.x)*c-(y-d.world.y)*s,y:d.world.y+(x-d.world.x)*s+(y-d.world.y)*c}));
+      return [{id:d.id,bounds:{left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),
+        top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))}}];
+    }));
     this.nextSpawnSequence = persisted.nextSpawnSequence;
     const known=new Map([...definitions,...Object.values(persisted.spawns)].map(d=>[d.id,d]));
     for (const [id, state] of Object.entries(persisted.states)) {
@@ -105,13 +120,24 @@ export class ContentChunkManager<Actor> {
     for (const definition of Object.values(persisted.spawns)) {
       this.register(definition); this.spawns.set(definition.id, definition);
     }
+    this.sceneryCandidates=new Set(this.oversized.keys());
     this.normalizeEncounterBehavior();
     for(const [id,state] of this.states)for(const member of state.summonWave?.members??[])this.summonOwners.set(member,id);
   }
 
-  update(x: number, y: number): boolean {
-    const center = contentChunkKey(x, y);
+  update(x: number, y: number,view?:StreamView): boolean {
+    const viewport=view?viewportChunks(view,768):undefined;
+    const center = viewport?'view:'+streamViewKey(viewport):contentChunkKey(x, y);
     let changed = center !== this.centerKey;
+    // Roofs and canopies may be visible while their base belongs to another
+    // chunk. Query immutable drawn bounds, not a larger world neighborhood.
+    const sceneryKey=view?[view.left-768,view.right+768,view.top-768,view.bottom+768].map(v=>Math.floor(v/512)).join(':'):'';
+    if(sceneryKey!==this.sceneryKey){
+      this.sceneryKey=sceneryKey;
+      this.sceneryWanted=view?new Set(this.sceneryIndex.query({left:view.left-768,right:view.right+768,top:view.top-768,bottom:view.bottom+768}).map(item=>item.id)):new Set();
+      this.sceneryCandidates=new Set([...this.oversized.keys(),...this.sceneryWanted]);
+      changed=true;
+    }
     const now=Date.now();
     // Only scheduled returns are inspected, even while their chunks are far
     // away. The saved UTC deadline includes time spent offline/in menus.
@@ -125,7 +151,7 @@ export class ContentChunkManager<Actor> {
       this.states.set(id,restored);this.index(id,contentChunkKey(restored.x,restored.y));
       this.returns.delete(id);changed=true;
     }
-    if (changed) { this.centerKey = center; this.wanted = chunkNeighborhood(x, y); }
+    if (changed) { this.centerKey = center; this.wanted = viewport??chunkNeighborhood(x, y); }
     // Only near actors are inspected. Bucket migration lets moving creatures cross chunks.
     for (const [id, actor] of this.active) {
       const kind=this.definitions.get(id)!.kind;
@@ -135,7 +161,7 @@ export class ContentChunkManager<Actor> {
       const position = this.host.position(actor);
       const key = contentChunkKey(position.x, position.y);
       this.index(id, key);
-      if (!this.wanted.has(key)&&!this.nearOversized(id,position,x,y)) { this.deactivate(id); changed = true; }
+      if (!this.wanted.has(key)&&!this.sceneryWanted.has(id)&&!this.nearOversized(id,position,x,y,view)) { this.deactivate(id); changed = true; }
     }
     const checkedGroups = new Set<string>();
     for (const key of this.wanted) {
@@ -158,9 +184,9 @@ export class ContentChunkManager<Actor> {
     }
     // A mountain's visible extent can enter view before its base chunk does.
     // Keep just those authored actors alive; terrain streaming stays bounded.
-    for(const [id] of this.oversized){
+    for(const id of this.sceneryCandidates){
       if(this.active.has(id))continue;const state=this.getState(id)!;
-      if(state.defeated||!this.nearOversized(id,state,x,y))continue;
+      if(state.defeated||!this.sceneryWanted.has(id)&&!this.nearOversized(id,state,x,y,view))continue;
       const definition=this.definitions.get(id)!;
       if(this.host.canActivate&&!this.host.canActivate(definition,state))continue;
       this.active.set(id,this.host.create(definition,{...state}));changed=true;
@@ -351,7 +377,7 @@ export class ContentChunkManager<Actor> {
 
   destroy() {
     for (const id of [...this.active.keys()]) this.deactivate(id);
-    this.wanted.clear(); this.centerKey = '';
+    this.wanted.clear();this.sceneryWanted.clear();this.sceneryCandidates.clear();this.sceneryKey='';this.centerKey = '';
   }
 
   /** Upgrade old group records once without moving actors or changing damage.
@@ -440,8 +466,10 @@ export class ContentChunkManager<Actor> {
     if (!this.buckets.has(key)) this.buckets.set(key, new Set());
     this.buckets.get(key)!.add(id); this.locations.set(id, key);
   }
-  private nearOversized(id:string,p:Vec2,x:number,y:number){
+  private nearOversized(id:string,p:Vec2,x:number,y:number,view?:StreamView){
     const extra=this.oversized.get(id);if(extra===undefined)return false;
+    if(view){const margin=extra*CHUNK_SIZE;return p.x>=view.left-margin&&p.x<=view.right+margin
+      &&p.y>=view.top-margin&&p.y<=view.bottom+margin;}
     const radius=STREAM_RADIUS+extra;
     return Math.abs(Math.floor(p.x/CHUNK_SIZE)-Math.floor(x/CHUNK_SIZE))<=radius
       &&Math.abs(Math.floor(p.y/CHUNK_SIZE)-Math.floor(y/CHUNK_SIZE))<=radius;

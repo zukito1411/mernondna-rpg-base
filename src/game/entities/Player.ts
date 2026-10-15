@@ -228,10 +228,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   takeDamage(amount: number) {
     const scene = this.scene as WorldScene;
+    if(!Number.isFinite(amount)||amount<=0||this.hp<=0)return;
+    const state=useGameStore.getState(),stats=progressionStats(state.attributes,state.learnedSkills);
+    if(!this.unlimitedVitals&&Math.random()<stats.evasionChance){
+      scene.playEffect('fortification',this.x,this.y);
+      return;
+    }
     if(amount>0)this.weaponDrawnRemaining=5000;
     if(amount>0)this.skills.interruptRenewal();
     this.recovery.interrupt();
-    this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills).incomingDamageMultiplier));
+    this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * stats.incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);
     scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });

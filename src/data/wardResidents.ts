@@ -1,6 +1,8 @@
 import type {NpcDefinition} from '../game/types';
 import {wardActivityPoints,settlementWardName} from './settlementWards';
 import type {SettlementProfileId} from './settlementProfiles';
+import {TOWN_BY_ID} from './towns';
+import {residentConversation} from './npcConversations';
 
 interface Household {
   townId:SettlementProfileId; names:readonly [string,string];
@@ -64,7 +66,7 @@ export const WARD_RESIDENTS:NpcDefinition[]=households.flatMap(h=>{
       dialoguePersonality:side===-1?'Warm, practical, protective of neighbors':'Direct, precise about work and shared access',
       schedule:[{startHour:5,activity:'Checks the home court',location:points.home},{startHour:8,activity:h.titles[i]+' work',location:points.work},
         {startHour:17,activity:'Meets neighbors at the ward green',location:points.social},{startHour:21,activity:'Returns to the household court',location:points.home}],
-      dialogue:[h.histories[i]+'.',h.lines[i]],questIds:[],
+      dialogue:residentConversation(TOWN_BY_ID[h.townId].regionId,i+h.townId.length+2,false,h.titles[i]),questIds:[],
       storyConsequences:['Relief and supply shortages affect this household; existing regional contacts remain the story authorities'],
     });
     // A second resident gives the same neighborhood a delivery/gathering rhythm
@@ -78,8 +80,9 @@ export const WARD_RESIDENTS:NpcDefinition[]=households.flatMap(h=>{
       dialoguePersonality:'Curious, busy, proud of the neighborhood',
       schedule:[{startHour:6,activity:'Collects household orders',location:home},{startHour:10,activity:'Makes local deliveries',location:work},
         {startHour:18,activity:'Returns through the gathering green',location:{x:points.social.x,y:points.social.y+80}},{startHour:22,activity:'Rests in the home court',location:home}],
-      dialogue:[`${h.names[i]} taught me this trade. We keep the work courts stocked without leaving carts across the street.`,
-        `${ward} is home, not merely somewhere to pass through. The shared well and gardens belong to all our neighbors.`],questIds:[],
+      dialogue:[`${h.names[i]} taught me the work. Also taught me to stop agreeing to deliveries before asking how far I have to carry them.`,
+        side===-1?'I put an extra bowl out whenever a wagon comes late. My family used to arrive like that.'
+          :'I know every loose stone on this lane. Somehow I still manage to find them with a full basket.'],questIds:[],
       storyConsequences:['The household follows its existing regional supply network; no new quest progress is awarded by ambient dialogue'],
     });
   }

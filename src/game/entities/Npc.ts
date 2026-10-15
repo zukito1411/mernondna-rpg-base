@@ -278,9 +278,9 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     return this.regionalModel===undefined&&npcMayPatrol(this.definition);
   }
 
-  updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false) {
+  updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false, cinematic=false) {
     const distance = Phaser.Math.Distance.Between(playerX,playerY,this.x,this.y);
-    if (distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
+    if (!cinematic && distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
       this.target = null;
       this.returningHome = true;
       this.nextPatrolAt = Math.max(this.nextPatrolAt, this.scene.time.now + 1500);

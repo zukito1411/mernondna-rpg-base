@@ -15,6 +15,7 @@ import { HomeMenu } from './components/HomeMenu';
 import {HarborPanel} from './components/HarborPanel';
 import { mobileInput } from './game/input';
 import { useGameStore } from './store/gameStore';
+import {installUiInputGuard,noteUiTransition} from './utils/uiInputGuard';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
 
 export default function App() {
@@ -22,6 +23,18 @@ export default function App() {
   const [canContinue, setCanContinue] = useState(hasSavedGame);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
   const resetGame = useGameStore(state => state.resetGame);
+
+  useEffect(()=>{
+    const dispose=installUiInputGuard(()=>{
+      const s=useGameStore.getState();return Boolean(s.panel||s.dialogue||s.cinematic);
+    });
+    const unsubscribe=useGameStore.subscribe((next,previous)=>{
+      if(next.panel!==previous.panel||next.dialogue!==previous.dialogue||Boolean(next.cinematic)!==Boolean(previous.cinematic)){
+        noteUiTransition();mobileInput.reset();
+      }
+    });
+    return ()=>{unsubscribe();dispose();};
+  },[]);
 
   useEffect(() => {
     if (!playing) return;
@@ -71,7 +84,16 @@ export default function App() {
   };
 
   return (
-    <main className="game-shell">
+    <main className="game-shell" onPointerDown={event=>{
+      if(event.target instanceof Element&&event.target.closest('.overlay-backdrop,.dialogue-wrap,.cinematic-presentation'))event.stopPropagation();
+    }} onPointerUp={event=>{
+      if(event.target instanceof Element&&event.target.closest('.overlay-backdrop,.dialogue-wrap,.cinematic-presentation'))event.stopPropagation();
+    }} onKeyDown={event=>{
+      if(event.key!=='Escape'&&event.target instanceof Element&&event.target.closest('.overlay-backdrop,.dialogue-wrap,.cinematic-presentation')
+        &&event.target.closest('button,input,select,textarea'))event.stopPropagation();
+    }} onClick={event=>{
+      if(event.target instanceof Element&&event.target.closest('.overlay-backdrop,.dialogue-wrap,.cinematic-presentation'))event.stopPropagation();
+    }}>
       {playing ? <>
         <GameCanvas />
         <HUD />
