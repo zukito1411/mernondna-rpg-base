@@ -32,9 +32,10 @@ export class DayNightSystem {
   private maskDirty=true;
   private maskGeometry='';
   // This low-cost mask is painted less often than the camera moves.
-  // Keep its painted world origin and shift the buffered texture every frame,
-  // so light pockets stay attached to lamps instead of vibrating on movement.
+  // The buffered image lives in world space, exactly like the lamps. Camera
+  // follow must never be compensated using the previous render's worldView.
   private maskWorldOrigin: {x:number;y:number} | null = null;
+  private maskWorldScale=0;
   private readonly maskPaddingCss = 96;
   private firefliesEnabled=true;
   setFirefliesEnabled(enabled:boolean){this.firefliesEnabled=enabled;}
@@ -49,7 +50,7 @@ export class DayNightSystem {
     this.texture.setSize(Math.max(1,Math.round(viewport.width*resolution))+padding*2,
       Math.max(1,Math.round(viewport.height*resolution))+padding*2,false);
     this.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    this.overlay=scene.add.image(0,0,'night-overlay').setOrigin(0).setScrollFactor(0).setDepth(1_000_000).setName('night-darkness');
+    this.overlay=scene.add.image(0,0,'night-overlay').setOrigin(0).setDepth(1_000_000).setName('night-darkness');
     if(!scene.textures.exists('warm-light')) {
       const t=scene.textures.createCanvas('warm-light',128,128)!,ctx=t.getContext();
       const gradient=ctx.createRadialGradient(64,64,0,64,64,64);
@@ -104,6 +105,7 @@ export class DayNightSystem {
   isIlluminated(x:number,y:number) {
     if(nightStrength(this.minuteOfDay)<.7)return true;
     for(const light of this.lights){
+      if(!light.actor.active||!light.actor.visible)continue;
       if(Math.hypot(x-light.actor.x-light.x,y-light.actor.y-light.y)<light.radius*.8)return true;
     }
     return false;
@@ -139,6 +141,7 @@ export class DayNightSystem {
         emission.setPosition(owner.x,owner.y).setAlpha(runeGlow?.48+.42*pulse:.88+.12*pulse)
           .setVisible(effects.lightBloom&&owner.visible);
       }else {
+        emission.setPosition(owner.x,owner.y);
         if(emission.depth!==owner.depth+.005)emission.setDepth(owner.depth+.005);
         emission.setAlpha(night*.8).setVisible(effects.lightBloom&&night>0&&owner.visible);
       }
@@ -173,21 +176,24 @@ export class DayNightSystem {
     const origin=this.maskWorldOrigin??view,visible:LocalLight[]=[];
     let geometry='';
     for(const node of this.lights){
+      if(!node.actor.active||!node.actor.visible)continue;
       const x=(node.actor.x+node.x-origin.x)*z+pad,y=(node.actor.y+node.y-origin.y)*z+pad,r=node.radius*z;
       if(x+r<0||y+r<0||x-r>w||y-r>h)continue;
       if(this.lightweight&&visible.length>=18)break;
       visible.push(node);geometry+=`${node.actor.x+node.x},${node.actor.y+node.y},${r},${node.phase},${node.fire};`;
     }
     const animated=visible.some(node=>node.fire);
-    if(!this.maskWorldOrigin||this.maskDirty||geometry!==this.maskGeometry||movement>pad*.7
+    if(!this.maskWorldOrigin||this.maskDirty||z!==this.maskWorldScale||geometry!==this.maskGeometry||movement>pad*.7
       ||animated&&this.renderAccumulator>=interval) {
       this.renderAccumulator=0;
       this.maskWorldOrigin={x:camera.worldView.x,y:camera.worldView.y};
+      this.maskWorldScale=z;
       this.maskDirty=false;
       this.texture.clear().fill(0x020611,1);
       const cutouts:Phaser.GameObjects.Image[]=[];
       this.maskGeometry='';
       for(const node of this.lights) {
+        if(!node.actor.active||!node.actor.visible)continue;
         const x=(node.actor.x+node.x-camera.worldView.x)*z+pad;
         const y=(node.actor.y+node.y-camera.worldView.y)*z+pad;
         const r=node.radius*z;
@@ -201,8 +207,12 @@ export class DayNightSystem {
       // CPU-to-GPU uploads. DynamicTexture also supports the canvas renderer.
       if(cutouts.length)this.texture.erase(cutouts);
     }
-    this.alignMaskToCamera(camera,full,resolution,pad);
+    const paintedOrigin=this.maskWorldOrigin!;
+    this.overlay.setDisplaySize(w/z,h/z).setPosition(paintedOrigin.x-pad/z,paintedOrigin.y-pad/z);
   }
+  /** Teleports/respawns must repaint against the destination camera, not reuse
+   * a previous town's cached light pockets. Does not advance the clock. */
+  invalidateView(){this.maskWorldOrigin=null;this.maskWorldScale=0;this.maskDirty=true;this.renderAccumulator=200;}
   getHour(){return this.minuteOfDay/60;}
   syncState(){useGameStore.getState().setClock(this.day,this.minuteOfDay);}
   destroy(){
@@ -213,20 +223,6 @@ export class DayNightSystem {
     for(const fly of this.fireflies){fly.glow.destroy();fly.light.destroy();}
     this.scene.textures.remove('night-overlay');
   }
-  private alignMaskToCamera(camera:Phaser.Cameras.Scene2D.Camera,
-    full:ReturnType<typeof overlayViewport>,resolution:number,pad:number) {
-    const z=full.zoom*resolution;
-    const innerWidth=Math.max(1,Math.round(full.width*resolution));
-    const innerHeight=Math.max(1,Math.round(full.height*resolution));
-    const scale=this.scene.scale;
-    this.overlay.setDisplaySize(
-      scale.width/camera.zoom*(this.texture.width/innerWidth),
-      scale.height/camera.zoom*(this.texture.height/innerHeight));
-    const origin=this.maskWorldOrigin??camera.worldView;
-    this.overlay.setPosition(
-      scale.width/2*(1-1/camera.zoom)-pad/z+origin.x-camera.worldView.x,
-      scale.height/2*(1-1/camera.zoom)-pad/z+origin.y-camera.worldView.y);
-  }
   private onResize(){
     const viewport=overlayViewport(this.scene);
     const resolution=this.lightweight ? .65 : 1;
@@ -234,9 +230,7 @@ export class DayNightSystem {
     this.texture.setSize(
       Math.max(1,Math.round(viewport.width*resolution))+pad*2,
       Math.max(1,Math.round(viewport.height*resolution))+pad*2,false);
-    this.maskWorldOrigin=null;
-    this.maskDirty=true;
-    this.renderAccumulator=200;
+    this.invalidateView();
   }
 }
 

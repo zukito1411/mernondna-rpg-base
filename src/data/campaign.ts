@@ -3,6 +3,7 @@ import { NPC_BY_ID, NPC_NAME_ALIASES } from './npcs';
 import { rewriteNpcMentions } from './npcPresentation';
 
 export const CAMPAIGN_REVISION_FLAG='campaign:roadborn-v2';
+export const COMBAT_CLEARANCE_REVISION_FLAG='campaign:combat-clearances-v2';
 export const INDOOR_STORY_FLAG='campaign:household-stories-v1';
 export const INDOOR_STORY_STAGES:Record<string,string[]>={
   'first-road':['caravan-hearth'],

@@ -12,7 +12,7 @@ export const NPC_IDLE_ART = [
     regions:[[8,155,358,412],[369,163,358,404],[730,160,359,407],[1090,155,360,412],[1453,162,360,405],[1817,159,354,408]] },
   { walk:'npc_guard',key:'npc_guard_idle',path:'assets/npcs/trandum_guard/idle_tran.png',bodyHeight:381,walkBodyRatio:142/160,height:112,
     regions:[[49,128,284,454],[398,130,303,448],[755,127,302,455],[1112,128,306,450],[1471,128,308,454],[1841,134,301,448]] },
-  { walk:'npc_elven_guard',key:'npc_elven_guard_idle',path:'assets/npcs/elven_guard/elven_idle.png',bodyHeight:465,walkBodyRatio:142/160,height:112,
+  { walk:'npc_elven_guard',key:'npc_elven_guard_idle',path:'assets/npcs/elven_guard/elven_idle.png',bodyHeight:465,bodyReferenceHeight:404,walkBodyRatio:142/160,height:112,
     regions:[[36,116,309,465],[380,116,330,465],[744,116,329,465],[1106,116,323,465],[1465,116,331,467],[1825,116,331,467]] },
   { walk:'npc_villager',key:'npc_villager_idle',path:'assets/npcs/villager_woman/idle_vill_w.png',bodyHeight:410,height:80,
     regions:[[31,191,330,407],[392,189,331,409],[748,189,325,409],[1103,188,331,410],[1458,189,334,409],[1822,189,331,410]] },
@@ -42,4 +42,14 @@ export function npcIdleSources(entry:typeof NPC_IDLE_ART[number]):SpriteSource[]
   const imageSize='imageSize' in entry?entry.imageSize:[2172,724] as const;
   return entry.regions.map((cell,i):SpriteSource => ({ path:entry.path,cell,
     imageSize,renderScale:bodyHeight / entry.bodyHeight,name:`${entry.key}:${i}` }));
+}
+
+/** World-space body reference, excluding a pike above the helmet. Keep the
+ * original idle render scale: changing a combat pose must not resize its idle. */
+export function npcIdleBodyHeight(entry:typeof NPC_IDLE_ART[number]) {
+  return npcIdleSources(entry)[0].renderScale!*
+    ('bodyReferenceHeight' in entry?entry.bodyReferenceHeight:entry.bodyHeight);
+}
+export function npcIdleSilhouetteHeight(entry:typeof NPC_IDLE_ART[number]) {
+  return Math.max(...entry.regions.map(region=>region[3]))*npcIdleSources(entry)[0].renderScale!;
 }

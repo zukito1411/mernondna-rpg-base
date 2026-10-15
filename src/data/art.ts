@@ -3,7 +3,7 @@ import { HERO_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
 
 import { NPC_IDLE_ART, npcIdleSources,npcDirectionalIdleTexture,type NpcDirectionalIdleTexture } from './npcIdleArt';
-import { registerNpcWalkSources } from './npcWalkArt';
+import { registerNpcWalkSources,NPC_WALK_ART,npcWalkTexture,npcWalkPath,type NpcWalkTexture } from './npcWalkArt';
 import {DIRECTIONAL_ENEMY_ART} from './directionalEnemyArt';
 import {BANDIT_COMBAT_TEXTURE} from './banditCombatArt';
 import {SALT_KING_TEXTURE} from './saltKingArt';
@@ -12,6 +12,7 @@ import {BOATSWAIN_ART,BOATSWAIN_TEXTURE} from './boatswainArt';
 import {GOBLIN_ART,GOBLIN_TEXTURE} from './goblinArt';
 import {M14_ART,type M14Texture} from './m14Art';
 import {GUARD_MARCH_ART,type GuardMarchTexture} from './guardMarchArt';
+import {NPC_COMBAT_ART,type NpcCombatTexture} from './npcCombatArt';
 
 import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 
@@ -19,7 +20,7 @@ import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
 type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'enemy_orc_raider' | 'enemy_orc_spearman' | 'enemy_orc_spearman_actions' | 'enemy_orc_spearman_states' | 'enemy_spear_projectile' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | typeof NPC_IDLE_ART[number]['walk'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
-export type ArtTextureKey=SourceArtTextureKey|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|typeof SALT_KING_TEXTURE|GuardMarchTexture|'port_dock'|'pirate_flagship'|typeof PIRATE_TEXTURE|typeof BOATSWAIN_TEXTURE|typeof GOBLIN_TEXTURE|M14Texture|'enemy_goblin_stone';
+export type ArtTextureKey=SourceArtTextureKey|NpcWalkTexture|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|typeof SALT_KING_TEXTURE|GuardMarchTexture|NpcCombatTexture|'port_dock'|'pirate_flagship'|typeof PIRATE_TEXTURE|typeof BOATSWAIN_TEXTURE|typeof GOBLIN_TEXTURE|M14Texture|'enemy_goblin_stone';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
@@ -315,6 +316,14 @@ const orcRaiderCombatSheet:ArtSheet={...banditCombatSheet,key:'enemy_orc_raider'
  frameWidth:160,frameHeight:128,names:Array.from({length:18},(_,i)=>'rindass-orc-raider-combat:'+i)};
 const guardMarchSheets:ArtSheet[]=GUARD_MARCH_ART.map(art=>({key:art.texture,path:art.path,columns:24,atlasColumns:6,
  density:2,frameWidth:128,frameHeight:144,blackBackground:false,names:poseNames}));
+const npcCombatSheets:ArtSheet[]=NPC_COMBAT_ART.map(art=>({key:art.texture,path:art.sources[0].path,
+ columns:art.frames*(art.walkRows?8:4),atlasColumns:art.walkRows?6:art.frames,
+ density:2,frameWidth:art.id==='elven-guard'?208:160,frameHeight:art.id==='elven-guard'?192:160,
+ groundPadding:art.id==='elven-guard'?36:20,blackBackground:false,
+ names:Array.from({length:art.frames*(art.walkRows?8:4)},(_,i)=>art.id+':pose:'+i)}));
+const npcWalkSheets:ArtSheet[]=NPC_WALK_ART.map(art=>({key:npcWalkTexture(art.walk)!,path:npcWalkPath(art),
+ columns:16,atlasColumns:4,density:2,frameWidth:128,frameHeight:128,groundPadding:12,blackBackground:false,
+ names:Array.from({length:16},(_,i)=>art.id+':walk:'+i)}));
 const pirateSheet:ArtSheet={key:PIRATE_TEXTURE,path:PIRATE_PATH,columns:49,atlasColumns:6,
   frameWidth:160,frameHeight:112,density:2,blackBackground:false,names:Array.from({length:49},(_,i)=>'cutlass-pirate:'+i)};
 const boatswainSheet:ArtSheet={key:BOATSWAIN_TEXTURE,path:BOATSWAIN_ART.walk.path,columns:76,atlasColumns:8,
@@ -327,7 +336,7 @@ const goblinStoneSheet:ArtSheet={key:'enemy_goblin_stone',path:'assets/enemies/g
   frameWidth:32,frameHeight:32,density:2,blackBackground:false,names:['goblin-stone']};
 const flagshipSheet:ArtSheet={key:'pirate_flagship',path:'assets/vehicles/pirate_flagship/ship-boardable.png',columns:1,atlasColumns:1,
   frameWidth:1024,frameHeight:1536,density:1,blackBackground:false,names:['moored-pirate-flagship']};
-export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet,saltKingCombatSheet,orcRaiderCombatSheet,pirateSheet,boatswainSheet,goblinSheet,...m14Sheets,goblinStoneSheet,flagshipSheet,...guardMarchSheets].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
+export const ART_BY_KEY = Object.fromEntries([...ART_SHEETS,...directionalSheets,...npcDirectionalIdleSheets,banditCombatSheet,saltKingCombatSheet,orcRaiderCombatSheet,pirateSheet,boatswainSheet,goblinSheet,...m14Sheets,goblinStoneSheet,flagshipSheet,...guardMarchSheets,...npcCombatSheets,...npcWalkSheets].map(sheet => [sheet.key, sheet])) as Record<ArtTextureKey, ArtSheet>;
 
 export function artScale(key: ArtTextureKey) { return 1 / ART_BY_KEY[key].density; }
 

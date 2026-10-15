@@ -473,6 +473,7 @@ export class InteriorSession {
     const returnPoint=this.outside!;this.closeRoom();
     this.scene.player.resetInput();this.scene.restoreOutsidePosition(returnPoint);
     this.scene.cameras.main.centerOn(returnPoint.x,returnPoint.y);this.outside=null;
+    this.scene.refreshWorldLighting();
     this.scene.physics.world.resume();this.scene.syncState();
   }
   private closeRoom(){

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {InteriorSession} from '../systems/InteriorSession';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
+import {findCampaignPatrolPlacement} from '../systems/campaignPatrolPlacement';
 import {storyEncounterInCourtyard,type StoryEncounter} from '../../data/adventure';
 import {citizenModel} from '../systems/RegionalCitizenArt';
 import {NPC_INTERIOR_BY_ID,INTERIOR_RESIDENTS,INTERIOR_ENTRIES} from '../../data/interiors';
@@ -50,7 +51,7 @@ import { progressionStats, playerDamageGrowth, earnedRewards } from '../../data/
 import { localSettlementTravelEnabled } from '../../utils/localSettlementTravel';
 import type { ActiveSkillDefinition } from '../../data/activeSkills';
 import { propFoundation, spriteBounds, overlaps } from '../../data/settlementGeometry';
-import { objectiveIsCurrent } from '../systems/storyProgress';
+import { objectiveIsCurrent,nextObjective } from '../systems/storyProgress';
 import { fortificationBlocksPath, fortificationBlocksPoint } from '../../data/fortifications';
 import { CinematicDirector } from '../systems/CinematicDirector';
 import { formationPosition } from '../systems/npcRoutes';
@@ -319,6 +320,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const state=useGameStore.getState();
     if(!this.inInterior&&this.focused&&!state.panel&&!state.dialogue&&!this.passage.active)this.physics.world.resume();
     else this.physics.world.pause();
+    if(!this.inInterior)this.refreshWorldLighting();
   }
   storyActorPosition(id:string){
     if(this.inInterior){const resident=this.interiors.getActor(id);return resident?{x:resident.x,y:resident.y-35}:undefined;}
@@ -356,7 +358,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const dx=to.x-from.x,dy=to.y-from.y,len2=dx*dx+dy*dy;
     if(len2<1)return null;
     let best=Infinity,point:Vec2|null=null;
-    const candidates=[...this.npcs.filter(n=>n.active&&n!==exclude),this.player].filter(Boolean);
+    const candidates=[...this.storyResidents().filter(n=>n.active&&n!==exclude),this.player].filter(Boolean);
     for(const other of candidates){
       const vx=other.x-from.x,vy=other.y-from.y;
       const fraction=Math.max(0,Math.min(1,(vx*dx+vy*dy)/len2));
@@ -514,29 +516,42 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       canActivateGroup: members => members.length <= this.encounterCapacity('restore')
         && members.every(({ state }) => this.canEnemyOccupy(state.x,state.y)),
       prepareCreatureGroup:members=>{
-        if(!members[0]||!clearStageFor(members[0].definition.id)||members[0].definition.id.startsWith('pirate:flagship:crew:'))return true;
-        const group=members[0].definition.encounterId!;
-        if(group.includes(':reserve:')&&members.some(({state})=>
-          Math.hypot(state.x-this.player.x,state.y-this.player.y)<160
-          ||[...this.enemies].some(enemy=>enemy.active&&enemy.hp>0&&Math.hypot(enemy.x-state.x,enemy.y-state.y)<240)))return false;
-        const fits=(enemyId:string,point:Vec2)=>this.canEnemyOccupy(point.x,point.y)
-          &&this.m14LocationAllowed(enemyId,point.x,point.y);
-        if(members.every(({definition,state})=>fits(definition.enemyId,state)))return true;
+        if(!members[0]||members[0].definition.id.startsWith('pirate:flagship:crew:'))return true;
+        const mission=clearStageFor(members[0].definition.id);if(!mission)return true;
+        const group=members[0].definition.encounterId??members[0].definition.wolfPackId??members[0].definition.id;
+        const groupKey=members[0].definition.wolfPackId?'wolf:'+members[0].definition.wolfPackId:'encounter:'+group;
+        const reserve=members.some(m=>m.definition.campaignReserve)||group.includes(':reserve:');
+        if(reserve&&nextObjective(mission.questId,useGameStore.getState().quests)?.id!==mission.objective.id)return false;
+        const deployClear=(p:Vec2)=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=160
+          &&![...this.enemies].some(e=>e.active&&e.hp>0&&e.encounterKey!==groupKey&&Math.hypot(e.x-p.x,e.y-p.y)<240);
+        const region=this.worldGenerator.getRegionAt(members[0].definition.world.x,members[0].definition.world.y);
+        const fits=(enemyId:string,point:Vec2)=>{
+          const radius=ENEMY_BY_ID[enemyId].bodyRadius??11;
+          return this.canEnemyOccupy(point.x,point.y)&&this.m14LocationAllowed(enemyId,point.x,point.y)
+            &&this.worldGenerator.getRegionAt(point.x,point.y)===region
+            &&[-radius,radius].every(dx=>[-radius*2,0].every(dy=>this.canEnemyOccupy(point.x+dx,point.y+dy)))
+            &&!this.worldSprites.blocksPath({x:point.x-radius,y:point.y},{x:point.x+radius,y:point.y},radius*2,radius*2);
+        };
+        const valid=members.every(({definition,state},index)=>fits(definition.enemyId,state)
+          &&members.slice(index+1).every(m=>Math.hypot(state.x-m.state.x,state.y-m.state.y)>=64));
+        if(valid&&(!reserve||members.every(m=>deployClear(m.state))))return true;
+        if(valid&&reserve&&members.some(m=>[...this.enemies].some(e=>e.active&&e.hp>0&&e.encounterKey!==groupKey
+          &&Math.hypot(e.x-m.state.x,e.y-m.state.y)<240)))return false;
         if(this.time.now<(this.storyCampRetryAt.get(group)??0))return false;
-        this.storyCampRetryAt.set(group,this.time.now+1000);
-        const moves:Array<{id:string;x:number;y:number}>=[];
-        for(const {definition,state} of members){
-          if(fits(definition.enemyId,state))continue;
-          const home=definition.encounterBehavior?.home??definition.world;
-          const options=[definition.encounterBehavior?.station??definition.world];
-          for(const radius of [32,64,96,128,192,256,320])for(let i=0;i<12;i++)options.push({x:state.x+Math.cos(i*Math.PI/6)*radius,y:state.y+Math.sin(i*Math.PI/6)*radius});
-          const point=options.find(p=>Math.hypot(p.x-home.x,p.y-home.y)<360&&fits(definition.enemyId,p)
-            &&!moves.some(m=>Math.hypot(m.x-p.x,m.y-p.y)<60)
-            &&!members.some(m=>m.definition.id!==definition.id&&Math.hypot(m.state.x-p.x,m.state.y-p.y)<60));
-          if(!point)return false;
-          moves.push({id:definition.id,...point});
+        this.storyCampRetryAt.set(group,this.time.now+2500);
+        // Never move a patrol that is already fighting. Restore missing
+        // members only after the current group leaves the active area.
+        if([...this.enemies].some(e=>e.active&&e.hp>0&&e.encounterKey===groupKey))return false;
+        const size=WORLD_CONTENT.filter(d=>d.kind==='creature'&&(d.encounterId??d.wolfPackId)===group).length;
+        const placement=findCampaignPatrolPlacement(members,size,(id,p)=>fits(id,p)
+          &&authoredBosses.every(b=>Math.hypot(b.world.x-p.x,b.world.y-p.y)>620),
+          (a,b)=>this.hasClearPath(a.x,a.y,b.x,b.y)&&this.worldGenerator.isWalkablePath(a,b),deployClear);
+        if(!placement)return false;
+        for(const [index,member] of members.entries()){
+          const station=placement.positions[index];
+          this.contentManager.patchState(member.definition.id,{...station,
+            encounterPlacement:{home:{...placement.home},station:{...station}}});
         }
-        for(const {id,x,y} of moves)this.contentManager.patchState(id,{x,y});
         return false; // Re-read the corrected ledger on the next streaming pass.
       },
       canRespawn: definition => definition.id!=='boss:salt-king'&&!definition.id.startsWith('pirate:flagship:crew:')
@@ -728,17 +743,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       useGameStore.getState().setWorldStatus(this.player.x, this.player.y, regionId, town?.id ?? null);
       useGameStore.getState().setVitals(this.player.hp, this.player.stamina);
       useGameStore.getState().setActiveSkillStatus(this.player.skills.snapshot());
-      const boss = [...this.enemies]
-        .filter(enemy => enemy.active && enemy.hp > 0 && enemy.definition.boss)
-        .map(enemy => ({ enemy, distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) }))
-        .filter(entry => entry.distance < 760)
-        .sort((a, b) => a.distance - b.distance)[0]?.enemy;
-      useGameStore.getState().setBossEncounter(boss ? {
-        id: boss.instanceId,
-        name: boss.definition.boss ? BOSSES.find(entry => `boss:${entry.id}` === boss.instanceId)?.name ?? boss.definition.name : boss.definition.name,
-        hp: Math.max(0, boss.hp),
-        maxHp: boss.definition.hp,
-      } : null);
       this.updateNavigation();
     }
   }
@@ -1252,6 +1256,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.lastSafe = { x: this.player.x, y: this.player.y };
     this.cameras.main.centerOn(this.player.x,this.player.y).startFollow(this.player,true,1,1);
     this.chunkManager.update(this.player.x,this.player.y);this.contentManager.update(this.player.x,this.player.y);
+    this.targeting.clear();this.refreshWorldLighting();
+  }
+  refreshWorldLighting(){
+    this.cameras.main.preRender();
+    this.dayNight.invalidateView();this.dayNight.update(0,this.player.x,this.player.y);
   }
 
   notify(message: string) {
@@ -1260,7 +1269,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   landFromPassage(point:Vec2){
     this.chunkManager.update(point.x,point.y);this.contentManager.update(point.x,point.y);
     (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);this.player.setVisible(true);this.player.resetInput();this.lastSafe={...point};
-    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player, true, 1, 1);this.physics.world.resume();this.syncState();this.updateNavigation();saveGame();
+    this.cameras.main.centerOn(point.x,point.y).startFollow(this.player, true, 1, 1);this.physics.world.resume();
+    this.targeting.clear();this.refreshWorldLighting();this.syncState();this.updateNavigation();saveGame();
   }
 
   countEnemies() {
@@ -1507,8 +1517,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         const safe=candidates.find(clear)??candidates.find(p=>this.canEnemyOccupy(p.x,p.y));
         if(safe){spawn=safe;this.contentManager.patchState(definition.id,safe);}
       }
+      const behavior=definition.encounterBehavior&&state.encounterPlacement?
+        {...definition.encounterBehavior,home:state.encounterPlacement.home,station:state.encounterPlacement.station}:definition.encounterBehavior;
       const enemy = new Enemy(this,ENEMY_BY_ID[definition.enemyId],spawn.x,spawn.y,definition.id,definition.eventSpawn,
-        definition.wolfPackId??null,definition.wolfAlpha??false,definition.encounterId??null,definition.encounterBehavior);
+        definition.wolfPackId??null,definition.wolfAlpha??false,definition.encounterId??null,behavior);
       if (enemy.encounterKey) {
         this.encounters.register(enemy.encounterKey,enemy.instanceId);
         enemy.once('destroy',()=>this.encounters.forget(enemy.encounterKey!,enemy.instanceId));
@@ -1697,7 +1709,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.lastSafe = { ...landing };
     this.cameras.main.centerOn(landing.x,landing.y);
     this.playEffect('teleport',landing.x,landing.y);
-    this.dayNight.update(0,landing.x,landing.y);
+    this.targeting.clear();this.refreshWorldLighting();
     this.syncState();
     this.updateNavigation();
     saveGame();
@@ -1810,6 +1822,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private updateCinematicPresentation(time:number,delta:number){
+    this.storyEncounters.pauseAllies();
     const paused=!this.focused,step=paused?0:delta;
     this.physics.world.pause();this.player.discardActions();this.enemySounds.pause(true);
     // Preparation/reveal must progress while gameplay time is paused; only

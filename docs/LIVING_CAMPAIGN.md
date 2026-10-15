@@ -68,6 +68,15 @@ personally murdering Leigneron's parents.
 
 ## Limits and required runtime review
 
+Follow-up source fixes keep the night mask in world space and refresh it after
+respawn/travel, expose the quest HUD toggle on mobile, and restrict the boss HUD
+to deliberate selection or a hit on the current target. Campaign placement no
+longer rewrites combat stages as report conversations: full reserve patrols use
+validated clearing recovery, persist replacement homes/stations, and retain
+their quota and defeat records. Passed legacy report stages are grandfathered
+without repeat rewards; current partial hunts remain partial. These follow-up
+changes have not been tested or built.
+
 Focused quest, navigation, story, save and release-data unit checks, plus the
 application/configuration and test TypeScript checks, were run after the user
 requested verification. No production/APK build, game launch or automated
@@ -79,11 +88,56 @@ leaving/re-entering, death, save/reload mid-event, skipping introductions,
 signals after streaming, NPC reactions, and return to ordinary ambient spawning.
 Recheck existing dragon ground/flight rendering with the preserved cinematic code.
 
-Guards provide capped, nonlethal assistance rather than a second full NPC combat
-simulation. Civilian movement uses existing walking art where available; other
-residents use alert barks. Records/evacuation are resolved through the battle and
-interaction, not destructible-building or civilian-death simulations. No new NPC
-models or replacement skill icons were introduced.
+All 43 currently authored combatants have an identity-matched combat profile:
+human guards/roadwardens, both hunter models, sword travelers, smiths, elven
+pike sentries, and the five regional household officer variants. These use
+dedicated four-direction complete-body attacks. Original walking source files remain;
+seven base families now use dedicated contact/passing walking sheets. Regional
+officers use their own five event-only gaits. The huntress
+and male hunter release visible, pooled non-homing arrows from their bow hands,
+with swept collision, wall occlusion and interior-aware depth. Nearby marked
+combatants are all eligible, including marching guards. Each defender has an
+independent target and cooldown; eight pooled arrows and 200ms decision ticks
+bound active work without a global two-attacker queue. Civilians remain noncombatants. Escorts temporarily keep
+their escort duty. Helpers choose clear approach positions, face their
+opponent, and apply a single small hit on the strike/release frame. Each hit deals
+2.5% of enemy maximum HP before defense, no more often than every 2.3 seconds.
+Defenders attack unwounded event enemies too, favor less-contested targets,
+reserve spaced approach positions, and sidestep crowds within the event arena.
+There is no lifetime damage ceiling; they can finish event enemies through the
+normal saved-wave defeat path, without granting extra kill rewards. Their hits
+do not use player luck, select the player's target or stagger-lock enemies.
+Paused/cinematic actions and arrows are cancelled without delayed callbacks.
+Event cleanup restores NPC presentation and requests a checked walk back to the
+post; marching guards route back to the moving formation instead of snapping.
+Only the original two combat sheets prepare at boot. Additional families load
+on demand through the shared loader into a six-family cache, never evicting a
+sheet used by an actor or returning guard. Unreferenced sheets are released
+after returning guards finish; packed atlases stay below 2048px per side.
+Source images are released after preparation. Isolated subjects, padded GPU frames, calibrated body dimensions
+and separate boot registration prevent neighboring-pose sampling. Original
+walking/idle files, portraits, NPC/quest IDs and regional identities are unchanged.
+Before the independent-targeting/size follow-up, focused verification passed application/test TypeScript checks, three
+sprite-isolation unit cases, and two real-WebGL browser checks (desktop and touch
+2x-density). All 21 atlases were reviewed with correct UVs and clear edges;
+43 real NPCs passed four-direction walking, 172 attacks, impact/completion and
+collision-foot registration checks. Elven guard source-row bleed was corrected.
+Full-world startup timed out in a separate check, so complete gameplay and actual
+Android remain unverified. Review first-use loading, indoor routing, return-to-post
+and pause/skip/death/exit manually. No production/APK build ran. Records/evacuation
+remain battle and work interactions, not civilian-death simulations.
+
+Release verification of the independent-targeting and size follow-up passed:
+test/application TypeScript, the production web build, 89 scoped regression
+cases, two independent-defender logic cases, and both desktop/touch WebGL
+reviews across 21 atlases and all 43 combatants. The defender cases cover
+untouched enemies, distributed targets, damage beyond the old cap, finishing
+enemies, pause and event cleanup. Rendered pose sheets were inspected again.
+Physical Android and complete-world playthrough remain unverified locally;
+the repository workflow performs APK packaging and publication after push.
+Walking references match idle silhouettes; combat references match body height
+without counting raised weapons. The existing elven size multiplier now applies
+to combat too, with its idle helmet-to-boots reference rather than pike height.
 
 The 2–3-hour main story and 1–1.5-hour optional-story figures remain design goals.
 They have not been measured or established by this change.

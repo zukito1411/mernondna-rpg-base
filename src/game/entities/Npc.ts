@@ -15,9 +15,11 @@ import { approachVelocity, strideRate } from '../systems/locomotion';
 import { MARCH_SPEED } from '../../data/capitalResidents';
 import {guardMarchTexture} from '../../data/guardMarchArt';
 import {guardMarchScale} from '../systems/GuardMarchArt';
+import {npcWalkTexture} from '../../data/npcWalkArt';
 import {npcSchedulePosition} from '../../data/npcPositions';
 import {npcMayPatrol} from '../systems/npcPlacement';
 import {citizenModel,citizenHeight,presentCitizen} from '../systems/RegionalCitizenArt';
+import {npcCombatArt,npcCombatKey,NPC_COMBAT_DIRECTIONS} from '../../data/npcCombatArt';
 
 const NPC_WALK_SPEED = 44;
 type WalkDirection = ActorDirection;
@@ -41,6 +43,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private readonly walkScale:number;
   private readonly idleArt:typeof NPC_IDLE_ART[number]|undefined;
   private readonly idleScale:number;
+  private readonly presentationMultiplier:number;
   private readonly schedule:NpcDefinition['schedule'];
   private routeCheckMs=120;
   private route:Vec2[]=[];
@@ -55,25 +58,32 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private avoidSide=1;
   private storyGoal:Vec2|null=null;
   private storyAlert:string|undefined;
+  private storyGuard=false;
+  private storyAttack:string|null=null;
+  private formationRejoining=false;
+  private formationRejoinAt=0;
 
   constructor(scene: WorldScene, definition: NpcDefinition, x: number, y: number, home: Vec2) {
     const sourceFamily=definition.spriteTexture??'npcs';
     const declaredIdleArt=NPC_IDLE_ART.find(entry=>entry.walk===sourceFamily||entry.key===sourceFamily);
     const family=sourceFamily==='npc_royal_guard'?'npc_guard':declaredIdleArt?.walk??sourceFamily;
     const idleArt=declaredIdleArt??NPC_IDLE_ART.find(entry=>entry.walk===family);
-    const texture = guardMarchTexture(family)??(idleArt&&!ART_BY_KEY[family]?idleArt.key:family);
+    const texture = guardMarchTexture(family)??npcWalkTexture(family)??(idleArt&&!ART_BY_KEY[family]?idleArt.key:family);
     const regionalModel=citizenModel(definition);
     const apparentHeight = regionalModel===undefined
       ?definition.settlementResident?(idleArt?.height??80):npcApparentHeight(family):citizenHeight(regionalModel);
     if((family==='npc_guard'||family==='npc_elven_guard')&&!idleArt)throw new Error(`Missing guard idle art for ${definition.id}`);
-    super(scene, x, y, texture, definition.spriteFrame);
+    // Definition frames belong to the original cast boards, not replacement
+    // 4-column walk atlases. Presentation selects the actual pose immediately.
+    super(scene, x, y, texture, npcWalkTexture(family)?0:definition.spriteFrame);
     this.definition = definition;
     this.regionalModel=regionalModel;
     this.walkTexture = family;
     this.walkArtTexture=texture;
     const sizeMultiplier=family==='npc_elven_guard'?1.12:1;
+    this.presentationMultiplier=sizeMultiplier;
     this.walkScale=family==='npc_guard'||family==='npc_elven_guard'?guardMarchScale(scene,texture,idleArt!)*sizeMultiplier:
-      actorScaleForHeight(texture,definition.spriteFrame,apparentHeight);
+      npcWalkTexture(family)?artScale(texture):actorScaleForHeight(texture,definition.spriteFrame,apparentHeight);
     this.idleArt=idleArt;
     this.idleScale=idleArt?artScale(idleArt.key)*sizeMultiplier:artScale(texture);
     this.schedule=[...definition.schedule].sort((a,b)=>a.startHour-b.startHour);
@@ -118,11 +128,57 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   beginEscort(goal:Vec2) {this.escortGoal={...goal};this.route=[];this.target=null;this.npcDetour=null;}
   get escorting(){return this.escortGoal!==null;}
   get usesRegionalPresentation(){return this.regionalModel!==undefined||Boolean(this.definition.settlementResident);}
-  storyRest(){(this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);}
-  get canStoryWalk(){return this.regionalModel===undefined&&this.scene.anims.exists(this.walkTexture+'-down');}
+  storyRest(){
+    (this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
+    if(this.storyAttack)return;
+    if(this.storyGuard)this.holdStoryGuard();else this.playDirection(this.facing.x,this.facing.y,false);
+  }
+  get combatProfile(){return npcCombatArt(this.definition,this.regionalModel);}
+  get canStoryWalk(){
+    const art=this.combatProfile;
+    return this.regionalModel===undefined?this.scene.anims.exists(this.walkTexture+'-down'):
+      Boolean(art?.walkRows&&NPC_COMBAT_DIRECTIONS.every(d=>this.scene.anims.exists(npcCombatKey(art,'walk',d))));
+  }
+  get canStoryFight(){
+    const art=this.combatProfile;
+    return Boolean(art&&!this.escorting&&this.canStoryWalk
+      &&NPC_COMBAT_DIRECTIONS.every(d=>this.scene.anims.exists(npcCombatKey(art,'attack',d))));
+  }
+  get storyAttackReach(){return this.combatProfile?.reach??0;}
+  get storyFacing(){return this.walkDirection;}
+  beginStoryGuard(){
+    if(this.canStoryFight){this.storyGuard=true;this.storyGoal=null;this.stalledMs=0;this.holdStoryGuard();}
+  }
+  endStoryGuard(){
+    this.storyGuard=false;this.storyAttack=null;this.storyGoal=null;
+    this.formationRejoining=Boolean(this.definition.formation);this.formationRejoinAt=0;
+    this.target=null;this.route=[];this.npcDetour=null;this.routineKey='';this.stalledMs=0;
+    this.storyRest();
+  }
+  holdStoryGuard(target?:Vec2){
+    if(!this.storyGuard||this.storyAttack)return;
+    this.storyGoal=null;
+    const body=this.body as Phaser.Physics.Arcade.Body;body.setVelocity(0,0);body.setImmovable(true);body.pushable=false;
+    if(target)this.facing.set(target.x-this.x,target.y-this.y).normalize();
+    const art=this.combatProfile!;
+    // Direction selection expects velocity-sized inputs, not a unit vector.
+    this.walkDirection=actorTravelDirection(this.facing.x*60,this.facing.y*60,this.walkDirection);
+    this.presentTexture(art.texture,artScale(art.texture)*this.presentationMultiplier);this.anims.stop();this.anims.timeScale=1;
+    this.setFrame(NPC_COMBAT_DIRECTIONS.indexOf(this.walkDirection)*art.frames);
+  }
+  beginStoryAttack(target:Vec2){
+    if(!this.storyGuard||this.storyAttack||!this.canStoryFight)return false;
+    this.holdStoryGuard(target);
+    this.storyAttack=npcCombatKey(this.combatProfile!,'attack',this.walkDirection);
+    this.anims.play(this.storyAttack);return true;
+  }
+  get storyStrikeReady(){return Boolean(this.storyAttack&&this.anims.currentAnim?.key===this.storyAttack
+    &&(this.anims.currentFrame?.index??0)>=(this.combatProfile?.impact??4));}
+  get storyAttackFinished(){return Boolean(this.storyAttack&&(!this.anims.isPlaying||this.anims.currentAnim?.key!==this.storyAttack));}
+  endStoryAttack(){this.storyAttack=null;this.storyRest();}
   beginStoryMovement(goal:Vec2){if(this.canStoryWalk)this.storyGoal={...goal};}
   endStoryMovement(){this.storyGoal=null;this.storyRest();}
-  get storyMoving(){return this.storyGoal!==null;}
+  get storyMoving(){return this.storyGoal!==null||this.storyGuard;}
   setStoryAlert(text?:string){this.storyAlert=text;}
   setInteriorLabelDepth(offset:number){this.nameLabel.setDepth(offset+this.y+80);this.titleLabel.setDepth(offset+this.y+80);}
   advanceCinematic(delta:number) {
@@ -135,12 +191,21 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   updatePatrol(time: number, delta: number) {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
+    this.setDepth(scene.playerRenderDepth(this.y));
+    if(this.storyAttack){body.setVelocity(0,0);return;}
     if(this.storyGoal){
       const dx=this.storyGoal.x-this.x,dy=this.storyGoal.y-this.y,distance=Math.hypot(dx,dy);
-      if(distance<8||!scene.canNpcVisit(this,this.storyGoal)){this.endStoryMovement();return;}
-      this.facing.set(dx,dy).normalize();body.setVelocity(this.facing.x*60,this.facing.y*60);
+      if(distance<8){this.endStoryMovement();return;}
+      const ahead={x:this.x+dx/distance*Math.min(24,distance),y:this.y+dy/distance*Math.min(24,distance)};
+      if(!scene.canNpcVisit(this,this.storyGoal)||scene.npcPathBlocker(this,ahead,this)){
+        this.endStoryMovement();return;
+      }
+      this.facing.set(dx,dy).normalize();
+      const speed=Math.min(60,distance*4);body.setVelocity(this.facing.x*speed,this.facing.y*speed);
       this.playDirection(dx,dy,true);return;
     }
+    if(this.storyGuard){this.holdStoryGuard();return;}
+    if(this.formationRejoining&&(scene.getWorldHour()<6||scene.getWorldHour()>=20))this.formationRejoining=false;
     if(!this.mayPatrol&&!this.escortGoal){
       this.npcDetour=null;
       body.setVelocity(0,0);this.target=null;this.route=[];this.previousPosition={x:this.x,y:this.y};
@@ -152,9 +217,15 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     const toWorld=(p:Vec2)=>({x:p.x+town.world.x,y:p.y+town.world.y});
     if(this.definition.formation && scene.getWorldHour()>=6 && scene.getWorldHour()<20) {
       const goal=toWorld(formationPosition(scene.activePlayMs+180,this.definition.formation.rank));
+      if(this.formationRejoining&&time>=this.formationRejoinAt){
+        this.formationRejoinAt=time+2000;
+        this.route=npcStreetRoute(this.definition.townId,toLocal(this),toLocal(goal),(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
+        this.target=this.route.shift()??null;
+      }
       // Common deterministic phase keeps the file together across streaming.
       // Never snap through a wall if a future layout edit invalidates its route.
       if(scene.canNpcVisit(this,goal) && Math.hypot(this.x-goal.x,this.y-goal.y)<160) {
+        this.formationRejoining=false;this.route=[];this.target=null;
         const dx=goal.x-this.x,dy=goal.y-this.y;
         if(Math.hypot(dx,dy)>.2)this.facing.set(dx,dy).normalize();
         const speed=Math.min(MARCH_SPEED*1.35,Math.hypot(dx,dy)*5);
@@ -168,7 +239,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
         this.escortGoal=null;this.route=[];this.target=null;this.routineAnchor={x:this.x,y:this.y};
         useGameStore.getState().progressQuest('escort',this.definition.id);scene.notify(`${this.definition.name} reaches the kitchen safely.`);
       }else if(!this.target&&!this.route.length)this.route=npcStreetRoute(this.definition.townId,toLocal(this),toLocal(this.escortGoal),(a,b)=>scene.canNpcVisit(toWorld(a),toWorld(b))).map(toWorld);
-    } else {
+    } else if(!this.formationRejoining) {
       const hour=scene.getWorldHour();
       let routine=this.schedule.at(-1);
       for(let i=this.schedule.length-1;i>=0;i--)if(this.schedule[i].startHour<=hour){routine=this.schedule[i];break;}
@@ -293,7 +364,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false, cinematic=false) {
     const distance = Phaser.Math.Distance.Between(playerX,playerY,this.x,this.y);
-    if (!cinematic && distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
+    if (!cinematic && !this.storyGuard && !this.storyGoal && distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
       this.target = null;
       this.returningHome = true;
       this.nextPatrolAt = Math.max(this.nextPatrolAt, this.scene.time.now + 1500);
@@ -307,7 +378,21 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private playDirection(_x: number, _y: number, walking: boolean) {
-    if(this.regionalModel!==undefined){presentCitizen(this,this.regionalModel);return;}
+    const combat=this.combatProfile;
+    if(this.regionalModel!==undefined){
+      if(walking&&combat?.walkRows&&this.canStoryWalk){
+        const body=this.body as Phaser.Physics.Arcade.Body;
+        body.setImmovable(false);body.pushable=true;
+        this.walkDirection=actorTravelDirection(body.velocity.x,body.velocity.y,this.walkDirection);
+        this.presentTexture(combat.texture,artScale(combat.texture));
+        const key=npcCombatKey(combat,'walk',this.walkDirection),previous=this.anims.currentAnim?.key;
+        const preserve=this.anims.isPlaying&&previous!==key&&previous?.startsWith(`npc-combat:${combat.id}:walk:`);
+        const progress=preserve?this.anims.getProgress():0;
+        this.anims.play(key,true);if(preserve)this.anims.setProgress(progress);
+        this.anims.timeScale=strideRate(body.velocity.length(),60);return;
+      }
+      presentCitizen(this,this.regionalModel);return;
+    }
     const body = this.body as Phaser.Physics.Arcade.Body;
     const speed = body.velocity.length();
     walking = walking && speed >= 3 && (Boolean(this.definition.formation) || this.stalledMs < 200);
@@ -337,7 +422,8 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     else {
       this.anims.stop();
       const frame = ART_BY_KEY[this.walkArtTexture].columns === 24
-        ? directionFrame(direction==='left'?-1:direction==='right'?1:0,direction==='up'?-1:direction==='down'?1:0) : this.definition.spriteFrame;
+        ? directionFrame(direction==='left'?-1:direction==='right'?1:0,direction==='up'?-1:direction==='down'?1:0)
+        :npcWalkTexture(this.walkTexture)?NPC_COMBAT_DIRECTIONS.indexOf(direction)*4+1:this.definition.spriteFrame;
       this.setFrame(frame).setFlipX(false);
     }
   }
@@ -348,7 +434,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     const sheet = ART_BY_KEY[texture];
     // Visible ground, physics feet and sort depth all share world y, including
     // taller pike/idle canvases. The body occupies y-22..y, not y-2..y+20.
-    const originY = 1 - 2 / sheet.frameHeight;
+    const originY = 1 - (sheet.groundPadding??2) / sheet.frameHeight;
     this.setTexture(texture,0).setScale(scale).setOrigin(.5,originY).setFlipX(false);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(18 / scale,22 / scale).setOffset(sheet.frameWidth * sheet.density / 2 - 9 / scale,

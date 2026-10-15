@@ -6,6 +6,7 @@ import {useGameStore} from '../../store/gameStore';
 import {nextObjective} from './storyProgress';
 import {MAX_LIVE_HOSTILES} from './encounterAdmission';
 import {pendingStoryWave} from './storyEncounterPlacement';
+import {StoryAllySystem} from './StoryAllySystem';
 import type {WorldScene} from '../scenes/WorldScene';
 import type {Enemy} from '../entities/Enemy';
 import type {Npc} from '../entities/Npc';
@@ -19,9 +20,8 @@ export class StoryEncounterSystem {
   private roomId:string|null=null;
   private readonly actors=new Map<Enemy,number>();
   private readonly reactions=new Set<Npc>();
-  private readonly guardDamage=new Map<Enemy,number>();
+  private readonly allies:StoryAllySystem;
   private retryAt=0;
-  private guardAt=0;
   private workMs=0;
   private working=false;
   private label:Phaser.GameObjects.Text|null=null;
@@ -29,7 +29,7 @@ export class StoryEncounterSystem {
   private placementFailures=0;
   private placementPaused=false;
   private retryPosition:Vec2={x:0,y:0};
-  constructor(private readonly scene:WorldScene){}
+  constructor(private readonly scene:WorldScene){this.allies=new StoryAllySystem(scene);}
   get active(){return this.encounter!==null;}
   get id(){return this.encounter?.id;}
   get prompt(){
@@ -62,15 +62,16 @@ export class StoryEncounterSystem {
     return nearest;
   }
   update(time:number,delta:number,blocked:boolean){
+    this.allies.maintain();
     const next=this.eligible(),point=next&&this.scene.storyEncounterAnchor(next);
     if(this.encounter&&(!next||next.id!==this.encounter.id||!point
       ||this.roomId!==this.scene.activeInteriorId||Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)>this.encounter.radius+180))this.clear();
-    if(blocked)return;
+    if(blocked){this.allies.update(0,this.actors.keys(),this.anchor,this.encounter?.radius??0,true);return;}
     if(!this.encounter){
       if(!next||!point||Math.hypot(this.scene.player.x-point.x,this.scene.player.y-point.y)>Math.min(320,next.radius*.6))return;
       this.encounter=next;this.anchor={...point};this.roomId=this.scene.activeInteriorId;
       this.scene.prepareStoryArena();
-      this.retryAt=time+1600;this.guardAt=time+1800;this.warned=false;
+      this.retryAt=time+1600;this.warned=false;
       this.scene.targeting.clear();this.scene.player.resetInput();
       const state=useGameStore.getState();state.hydrate({trackedQuestId:next.questId});
       this.scene.notify(next.warning);this.scene.playAudio('sfx-heal-bell',.45,.65);
@@ -139,7 +140,7 @@ export class StoryEncounterSystem {
         }
       }
     }
-    if(time>=this.guardAt){this.guardAt=time+1600;this.assist();}
+    this.allies.update(delta,this.actors.keys(),this.anchor,e.radius,false);
     if(!wave&&!this.actors.size){
       if(!e.work){this.complete();return;}
       const player=this.scene.player;
@@ -163,6 +164,7 @@ export class StoryEncounterSystem {
     return true;
   }
   interruptWork(){this.working=false;this.workMs=0;}
+  pauseAllies(){this.allies.update(0,this.actors.keys(),this.anchor,this.encounter?.radius??0,true);}
   defeated(enemy:Enemy){
     const slot=this.actors.get(enemy);if(slot===undefined)return false;
     const key=this.key(slot);this.actors.delete(enemy);
@@ -172,37 +174,19 @@ export class StoryEncounterSystem {
   }
   private react(){
     const e=this.encounter!;
-    let guardSlot=0;
     for(const npc of this.scene.storyResidents()){
       if(!npc.active||Math.hypot(npc.x-this.anchor.x,npc.y-this.anchor.y)>e.radius)continue;
       this.reactions.add(npc);
       npc.setStoryAlert(npc.definition.combatant?'Behind me! Keep the lane clear!':e.interiorNpcId?'Keep away from the doors!':'Inside! Get away from the road!');
       if(npc.definition.id===e.npcId||npc.definition.id===e.interiorNpcId)continue;
       if(!npc.canStoryWalk)continue; // Idle-only regional art must never skate across the floor.
-      if(npc.definition.combatant){
-        const slot=guardSlot++;if(slot>=2)continue;
-        const point={x:this.anchor.x+(npc.x<this.anchor.x?-100:100),y:this.anchor.y+60+slot*100};
-        if(this.scene.canNpcVisit(npc,point))npc.beginStoryMovement(point);
-      }else if(!npc.usesRegionalPresentation){
+      if(!npc.definition.combatant&&!npc.usesRegionalPresentation){
         const dx=npc.x-this.anchor.x,dy=npc.y-this.anchor.y,length=Math.max(1,Math.hypot(dx,dy));
         const point={x:npc.x+dx/length*100,y:npc.y+dy/length*100};
         if(this.scene.canNpcVisit(npc,point))npc.beginStoryMovement(point);
       }
     }
-  }
-  private assist(){
-    for(const npc of this.reactions){
-      if(!npc.active||!npc.definition.combatant)continue;
-      for(const enemy of this.actors.keys()){
-        const dealt=this.guardDamage.get(enemy)??0;
-        if(enemy.hp>=enemy.definition.hp||dealt>=enemy.definition.hp*.2||Math.hypot(enemy.x-npc.x,enemy.y-npc.y)>110
-          ||!this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y))continue;
-        const damage=Math.max(1,Math.round(enemy.definition.hp*.04));this.guardDamage.set(enemy,dealt+damage);
-        // Assistance cannot kill an attacker or replace the player's battle.
-        enemy.takeDamage(damage,new Phaser.Math.Vector2(enemy.x-npc.x,enemy.y-npc.y).normalize(),{nonLethal:true});
-        this.scene.playEffect('slash',enemy.x,enemy.y);break;
-      }
-    }
+    this.allies.recruit(this.reactions);
   }
   private complete(){
     const e=this.encounter!;this.clear();
@@ -213,9 +197,9 @@ export class StoryEncounterSystem {
   clear(){
     for(const actor of this.actors.keys())this.scene.releaseStoryEnemy(actor);this.actors.clear();
     for(const npc of this.reactions)if(npc.active){npc.setStoryAlert();npc.endStoryMovement();}
-    this.reactions.clear();this.guardDamage.clear();this.label?.destroy();this.label=null;
+    this.reactions.clear();this.allies.clear();this.label?.destroy();this.label=null;
     this.encounter=null;this.roomId=null;this.interruptWork();this.scene.targeting.clear();
     this.placementFailures=0;this.placementPaused=false;
   }
-  destroy(){this.clear();}
+  destroy(){this.clear();this.allies.destroy();}
 }

@@ -658,18 +658,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean}={}) {
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally'}={}) {
     if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     const state=useGameStore.getState();
-    const damage=Math.max(1,Math.round((options.nonLethal?amount:luckDamage(amount,state.attributes,state.learnedSkills))*(1-(this.definition.defense??0))));
+    const support=options.nonLethal||options.source==='story-ally';
+    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills))*(1-(this.definition.defense??0))));
     const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
     if(applied<=0)return;
     this.hp -= applied;
     const scene=this.scene as WorldScene;
+    if(!support)scene.targeting.engage(this);
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
     this.lastDamagedAt=this.scene.time.now;
     const fatal=this.hp<=0;
-    const staggered=!fatal&&this.stagger(Boolean(options.forceStagger));
+    // Small NPC support hits must not interrupt telegraphs or stun-lock a foe.
+    const staggered=!support&&!fatal&&this.stagger(Boolean(options.forceStagger));
     if(fatal)this.interruptAttack();
     scene.playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;

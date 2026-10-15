@@ -112,8 +112,10 @@ export class WorldTrafficSystem {
     const bob=this.reducedMotion.matches?0:Math.sin(this.elapsed*.0025+vehicle.route.phase)*1.6,helm=boatHelm(direction);
     const scale=vehicle.scale??BOAT_SCALE,ratio=scale/BOAT_SCALE;
     vehicle.sprite.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y);
-    const crew=vehicle.helmsman!,texture:ArtTextureKey=direction===0?'npc_adventurer_idle':'npc_adventurer';
-    const frame=direction===0?Math.floor(this.elapsed/400)%6:direction===1?6:direction===2?12:18;
+    const crew=vehicle.helmsman!,texture:ArtTextureKey=direction===0?'npc_adventurer_idle':'npc_adventurer_directional_idle';
+    // A helmsman stands aboard; use complete directional idle poses, not the
+    // replaced six-column walking atlas (nor a frozen mid-stride contact).
+    const frame=direction===0?Math.floor(this.elapsed/400)%6:direction===1?0:direction===2?4:8;
     crew.setTexture(texture,frame).setScale(actorScaleForHeight(texture,frame,80))
       .setOrigin(.5,1-2/ART_BY_KEY[texture].frameHeight).setPosition(x+helm.x*ratio,y+bob+helm.y*ratio).setDepth(y+.02);
     const seat=boatPassenger(direction);

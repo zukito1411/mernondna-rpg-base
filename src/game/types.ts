@@ -203,6 +203,8 @@ export interface EncounterBehavior {
 }
 export interface CreatureContentDefinition extends ContentBase {
   kind: 'creature'; enemyId: string; bossId?: string; eventSpawn?: boolean;
+  /** Authored full patrol admitted only after its mission starts and the clearing is free. */
+  campaignReserve?:boolean;
   /** Optional persistent encounter identity; omitted by older saves. */
   encounterId?: string;
   encounterBehavior?: EncounterBehavior;
@@ -240,6 +242,8 @@ export interface InteractableContentDefinition extends ContentBase {
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {
+  /** Validated replacement arena for an authored patrol; survives streaming/save/load. */
+  encounterPlacement?:{home:Vec2;station:Vec2};
   hp?: number; hpMax?:number; defeated?: boolean; used?: boolean; trust?: number;
   respawnAt?:number;
   /** Empty members means a cleared wave, with its post-defeat UTC deadline. */

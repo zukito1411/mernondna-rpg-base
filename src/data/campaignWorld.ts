@@ -7,13 +7,8 @@ import { findCreaturePlacement } from '../game/systems/creaturePlacement';
 import { WORLD_ASSET_FRAMES } from './art';
 import {ADVENTURE_CLUES} from './adventure';
 
-/** Exceptional layout failures are reconciled with quest data, never fatal at
- * module load and never silently replaced with actors on invalid ground. */
-export const CAMPAIGN_PLACEMENT_SHORTFALLS=new Map<string,{requested:number;available:number}>();
-
 /** Authored, persistent mission content. No new global spawn loop or village raids. */
 export function addCampaignWorldContent(content: ContentDefinition[]) {
-  CAMPAIGN_PLACEMENT_SHORTFALLS.clear();
   const geography = new WorldGenerator();
   const bossHomes=content.flatMap(d=>d.kind==='creature'&&d.bossId?[d.world]:[]);
   const site = (id:string) => WILDERNESS_SITES.find(s=>s.id===id)!.world;
@@ -56,14 +51,11 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
     }
     return home;
   };
-  const reinforce=(prefix:string,total:number)=>{
+  const reinforce=(prefix:string,total:number,fallback:{world:Vec2;enemies:string[]})=>{
     const originals=content.filter(d=>d.kind==='creature'&&d.id.startsWith(prefix));
-    if(!originals.length){
-      CAMPAIGN_PLACEMENT_SHORTFALLS.set(prefix,{requested:total,available:0});
-      console.warn('Campaign patrol has no authored ground:',prefix);return;
-    }
-    const anchor=originals[0],origin=anchor.world,region=geography.getRegionAt(origin.x,origin.y);
-    const species=originals.flatMap(d=>d.kind==='creature'?[d.enemyId]:[]);
+    const primary=originals[0],origin=primary?.world??fallback.world,region=geography.getRegionAt(origin.x,origin.y);
+    const reserveOrigin=primary?.kind==='creature'?primary.encounterBehavior?.home??origin:origin;
+    const species=originals.length?originals.flatMap(d=>d.kind==='creature'?[d.enemyId]:[]):[...fallback.enemies];
     if(prefix.startsWith('creature:krag-warband:')){
       species.splice(0,species.length,'rindass-orc-raider','rindass-orc-raider','rindass-orc-spearman');
       originals.forEach((d,i)=>{if(d.kind==='creature'){
@@ -73,6 +65,7 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
     }
     const centers:Vec2[]=[origin];
     const groupSize=species.every(id=>id==='frost-wolf')?5:3;
+    const reserveClearings=new Map<string,{home:Vec2;stations:Vec2[]}>();
     // Fixed, persisted small patrols across real ground. No respawn farming,
     // no larger per-frame spawn loops, and no single fifteen-actor dogpile.
     for(let added=originals.length;added<total;){
@@ -83,38 +76,42 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
         const angle=(i+group*5)*Math.PI/12;
         candidates.push({x:origin.x+Math.cos(angle)*radius,y:origin.y+Math.sin(angle)*radius});
       }
-      const home=candidates.find(p=>geography.getRegionAt(p.x,p.y)===region
+      let home=candidates.find(p=>geography.getRegionAt(p.x,p.y)===region
         &&centers.every(q=>Math.hypot(q.x-p.x,q.y-p.y)>=420)
         &&Array.from({length:count},(_,slot)=>station(p,slot)).every((q,slot)=>missionGround(q,species[(added+slot)%species.length])&&geography.getRegionAt(q.x,q.y)===region
           &&bossHomes.every(b=>Math.hypot(b.x-q.x,b.y-q.y)>620)));
+      const reserve=!home;
+      let stations=home?Array.from({length:count},(_,slot)=>station(home!,slot)):undefined;
+      const reserveKey=Array.from({length:count},(_,slot)=>species[(added+slot)%species.length]).join(',');
+      const cached=reserveClearings.get(reserveKey);
+      if(!home&&cached){home=cached.home;stations=cached.stations;}
       if(!home){
-        // A layout can lose space for another whole patrol while retaining a
-        // safe existing clearing. Keep the quota as staged, one-at-a-time
-        // reserves there; runtime admission prevents overlapping deployment.
-        const enemyId=species[added%species.length];
-        const safe=[...originals.map(d=>d.world),...candidates].find(p=>
-          geography.getRegionAt(p.x,p.y)===region&&missionGround(p,enemyId)
-          &&bossHomes.every(b=>Math.hypot(b.x-p.x,b.y-p.y)>620));
-        if(safe){
-          const encounterId=`${prefix}reserve:${added}`;
-          content.push({id:`${prefix}reinforcement:${added}`,kind:'creature',enemyId,world:{...safe},eventSpawn:true,
-            encounterId,...(enemyId==='frost-wolf'?{wolfPackId:encounterId,wolfAlpha:true}:{}),
-            encounterBehavior:{home:{...safe},station:{...safe},slot:0,leashRadius:700,
-              role:enemyId==='rindass-orc-spearman'?'ranged':'leader'}});
-          added++;continue;
+        // Reuse a real clearing as a full staged patrol, preserving species,
+        // formations and every enemy ID. Do not replace battles with dialogue.
+        for(const candidate of [reserveOrigin,...centers,...candidates]){
+          for(const spacing of [90,64]){
+            const points=Array.from({length:count},(_,slot)=>({x:candidate.x+Math.cos(slot*Math.PI*2/count)*spacing,
+              y:candidate.y+Math.sin(slot*Math.PI*2/count)*spacing}));
+            if(geography.getRegionAt(candidate.x,candidate.y)===region&&clear(candidate)
+              &&points.every((p,slot)=>geography.getRegionAt(p.x,p.y)===region&&missionGround(p,species[(added+slot)%species.length])
+                &&bossHomes.every(b=>Math.hypot(b.x-p.x,b.y-p.y)>620))){home=candidate;stations=points;break;}
+          }
+          if(home)break;
         }
-        CAMPAIGN_PLACEMENT_SHORTFALLS.set(prefix,{requested:total,available:added});
-        console.warn('Campaign patrol reduced: no validated ground remains.',prefix,added,total);
-        break;
       }
-      centers.push(home);
+      // If the map changed too much even for a reserve clearing, retain the
+      // logical full patrol dormant. Runtime validates/relocates it before any
+      // actors can activate. No startup exception, fake deaths or lost quota.
+      if(!home){home=fallback.world;stations=Array.from({length:count},(_,slot)=>station(home!,slot));}
+      if(reserve&&!cached)reserveClearings.set(reserveKey,{home,stations:stations!});
+      if(!reserve)centers.push(home);
       for(let slot=0;slot<count;slot++){
-        const enemyId=species[(added+slot)%species.length],world=station(home,slot);
-        const encounterId=`${prefix}reinforcement:${group}`;
+        const enemyId=species[(added+slot)%species.length],world=stations![slot];
+        const encounterId=reserve?`${prefix}reserve:${added}`:`${prefix}reinforcement:${group}`;
         content.push({id:`${prefix}reinforcement:${added+slot}`,kind:'creature',enemyId,world,eventSpawn:true,
-          encounterId,...(enemyId==='frost-wolf'?{wolfPackId:encounterId,wolfAlpha:slot===0}:{}),
+          encounterId,...(reserve?{campaignReserve:true}:{}),...(enemyId==='frost-wolf'?{wolfPackId:encounterId,wolfAlpha:slot===0}:{}),
           encounterBehavior:{home:{...home},station:{...world},slot,leashRadius:700,
-            role:enemyId==='rindass-orc-spearman'?'ranged':slot===0?'leader':'melee'}});
+            role:enemyId==='rindass-orc-spearman'?'ranged':slot===0?'leader':enemyId==='frost-wolf'?'flanker':'melee'}});
       }
       added+=count;
     }
@@ -161,9 +158,13 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
     clue('story:flagship-manifest',{x:cargo.world.x-65,y:cargo.world.y},'Flagship freight manifest',
       'Beside the ward chains are passenger names disguised as freight. One entry describes the sailmaker’s niece; a later hand records the families put ashore alive near Skallheim. Payments carry the same seal as Highmere’s forced-service warrants.',11);
   }
-  for(const prefix of ['story-camp:road-blockade:','creature:blighted-thornling:greenward-ruin:','creature:grove-spider:moon-pilgrim-grove:',
-    'creature:krag-warband:clan-road-muster:','creature:krag-warband:southern-caravan-rest:',
-    'story-camp:rootwater-rescue:','story-camp:frost-stores:'])reinforce(prefix,15);
+  reinforce('story-camp:road-blockade:',15,{world:{x:varr.x+1100,y:varr.y+850},enemies:['road-bandit','road-bandit','road-bandit']});
+  reinforce('creature:blighted-thornling:greenward-ruin:',15,{world:site('greenward-ruin'),enemies:['blighted-thornling','blighted-thornling','blighted-thornling']});
+  reinforce('creature:grove-spider:moon-pilgrim-grove:',15,{world:grove,enemies:['grove-spider','grove-spider','grove-spider']});
+  for(const id of ['clan-road-muster','southern-caravan-rest'])reinforce(`creature:krag-warband:${id}:`,15,
+    {world:site(id),enemies:['rindass-orc-raider','rindass-orc-raider','rindass-orc-spearman']});
+  reinforce('story-camp:rootwater-rescue:',15,{world:{x:root.x+520,y:root.y+390},enemies:['marsh-wraith','marsh-wraith','marsh-wraith']});
+  reinforce('story-camp:frost-stores:',15,{world:{x:frost.x+550,y:frost.y+350},enemies:Array<string>(5).fill('frost-wolf')});
 
   const evidence:Record<string,[string,string]>={
     'clue:grain-receipt':['Blood-marked transfer warrant','The inspector crossed out the order to transfer children into service. His blood stains the margin. Beneath the fresh date is an older curfew pass bearing a genuine crown signature.'],

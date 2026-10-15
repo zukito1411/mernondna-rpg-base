@@ -11,7 +11,7 @@ import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
-import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG} from '../data/campaign';
+import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,COMBAT_CLEARANCE_REVISION_FLAG} from '../data/campaign';
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
@@ -168,7 +168,7 @@ const baseState = () => ({
   travelRequestSource:null as 'map' | 'shrine' | null,
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
   activeSkillStatus:initialActiveSkillStatus(),
-  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true,[ADVENTURE_REVISION_FLAG]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
+  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true,[ADVENTURE_REVISION_FLAG]:true,[COMBAT_CLEARANCE_REVISION_FLAG]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
   cinematic:null as GameState['cinematic'],pendingCinematic:'roadborn-opening' as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
 });
 

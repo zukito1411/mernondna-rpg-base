@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {ART_BY_KEY} from '../../data/art';
 import {GUARD_MARCH_ART,guardMarchFrameOrigin} from '../../data/guardMarchArt';
-import {NPC_IDLE_ART,npcIdleSources} from '../../data/npcIdleArt';
+import {NPC_IDLE_ART,npcIdleSources,npcIdleSilhouetteHeight} from '../../data/npcIdleArt';
 import {actorSpriteGridSubjects,actorSpriteSubjects} from './spriteComponents';
 import {spriteSubjectCanvas} from './spriteArt';
 import type {SpriteAnimation} from '../../data/animationPacks';
@@ -15,9 +15,15 @@ export function prepareGuardMarchArt(scene:Phaser.Scene):SpriteAnimation[]{
   const native=document.createElement('canvas');native.width=source.width;native.height=source.height;
   const sourceCtx=native.getContext('2d')!;sourceCtx.drawImage(source,0,0);
   const pixels=sourceCtx.getImageData(0,0,source.width,source.height).data;
-  const grid='grid' in art?art.grid:undefined;
-  const subjects=grid?actorSpriteGridSubjects(pixels,source.width,source.height,grid.columns,grid.rows)
-   :actorSpriteSubjects(pixels,source.width,source.height,6,4);
+  // Elven boots cross the nominal 256px row seam and can touch the next
+  // row's polearm. Measured row boundaries preserve those boots without
+  // attaching a whole neighboring figure or its cut-off edge fragments.
+  const subjects='rowBounds' in art?art.rowBounds.slice(0,-1).flatMap((top,row)=>{
+   const y=Math.round(top*source.height/1024),bottom=Math.round(art.rowBounds[row+1]*source.height/1024);
+   return actorSpriteGridSubjects(sourceCtx.getImageData(0,y,source.width,bottom-y).data,source.width,bottom-y,6,1,
+    {rejectEdgeFragments:true}).map(subject=>({...subject,
+     region:[subject.region[0],subject.region[1]+y,subject.region[2],subject.region[3]] as const}));
+  }):actorSpriteSubjects(pixels,source.width,source.height,6,4);
   const idle=NPC_IDLE_ART.find(a=>a.walk===art.walk)!,bodyHeight=npcIdleSources(idle)[0].renderScale!*idle.bodyHeight;
   const sheet=ART_BY_KEY[art.texture],fw=sheet.frameWidth*2,fh=sheet.frameHeight*2,ground=fh-4;
   const gutter='frameGutter' in art?art.frameGutter:0;
@@ -56,7 +62,7 @@ export function prepareGuardMarchArt(scene:Phaser.Scene):SpriteAnimation[]{
 }
 
 export function guardMarchScale(scene:Phaser.Scene,texture:string,idle:typeof NPC_IDLE_ART[number]){
- const idleHeight=Math.max(...idle.regions.map(([, , ,height])=>height))*npcIdleSources(idle)[0].renderScale!;
+ const idleHeight=npcIdleSilhouetteHeight(idle);
  const marchHeight=Math.max(...Array.from({length:24},(_,frame)=>{
   const sprite=scene.textures.getFrame(texture,frame);
   if(!sprite)throw new Error(`Missing guard march frame ${texture}/${frame}`);

@@ -15,9 +15,8 @@ import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
-import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES} from '../data/campaign';
+import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES,COMBAT_CLEARANCE_REVISION_FLAG} from '../data/campaign';
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
-import {CAMPAIGN_PLACEMENT_SHORTFALLS} from '../data/campaignWorld';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
 
@@ -126,6 +125,19 @@ function validateContent(value: unknown): ContentWorldState | null {
       &&(!onFlagshipDeck(s.x,s.y)||!flagshipWalkable(s.x,s.y,24));
     const position=relocatedSaltKing?definition.world:{x:s.x,y:s.y};
     let summonWave:ContentState['summonWave'];
+    let encounterPlacement:ContentState['encounterPlacement'];
+    if(s.encounterPlacement!==undefined){
+      const p=s.encounterPlacement;
+      if(definition.kind!=='creature'||!definition.encounterBehavior||!record(p)||!record(p.home)||!record(p.station)
+        ||!numberIn(p.home.x,0,WORLD_WIDTH-1)||!numberIn(p.home.y,0,WORLD_HEIGHT-1)
+        ||!numberIn(p.station.x,0,WORLD_WIDTH-1)||!numberIn(p.station.y,0,WORLD_HEIGHT-1)
+        ||Math.hypot(p.station.x-p.home.x,p.station.y-p.home.y)>320)return null;
+      // An authored clearing may move in a later map revision. Discard only
+      // stale placement metadata, not the player's save or real defeat flags.
+      if(Math.hypot(p.home.x-definition.world.x,p.home.y-definition.world.y)<=3200
+        &&geography.getRegionAt(p.home.x,p.home.y)===geography.getRegionAt(definition.world.x,definition.world.y))
+        encounterPlacement={home:{x:p.home.x,y:p.home.y},station:{x:p.station.x,y:p.station.y}};
+    }
     if(s.summonWave!==undefined){
       const wave=s.summonWave;
       if(definition.kind!=='creature'||!definition.bossId||!ENEMY_BY_ID[definition.enemyId].summonComposition
@@ -145,6 +157,7 @@ function validateContent(value: unknown): ContentWorldState | null {
       ...(typeof s.defeated === 'boolean' ? { defeated: s.defeated } : {}), ...(typeof s.used === 'boolean' ? { used: s.used } : {}),
       ...(typeof s.respawnAt==='number'?{respawnAt:s.respawnAt}:{}),
       ...(summonWave?{summonWave}:{}),
+      ...(encounterPlacement?{encounterPlacement}:{}),
     };
   }
   const owners=new Set<string>();
@@ -291,6 +304,17 @@ export function parseSave(raw: string): SaveData | null {
       }
       if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return null;
       const progress = {...quest.objectiveProgress};
+      if(!storyFlags[COMBAT_CLEARANCE_REVISION_FLAG]){
+        // A previous release could turn a 15-kill stage into a one-step report.
+        // Preserve stages already passed, without crediting a current partial
+        // hunt or awarding any milestone again. Stable IDs remain unchanged.
+        const frontier=quest.status==='completed'?definition.objectives.length:
+          definition.objectives.reduce((last,o,i)=>typeof progress[o.id]==='number'&&Number(progress[o.id])>=o.amount?i:last,-1);
+        for(const [index,o] of definition.objectives.entries())if(o.type==='kill'&&o.killContentPrefix&&o.amount>=15
+          &&index<frontier&&typeof progress[o.id]==='number'&&Number.isInteger(progress[o.id])
+          &&Number(progress[o.id])>=1&&Number(progress[o.id])<o.amount)
+          progress[o.id]=o.amount;
+      }
       if(!storyFlags[ADVENTURE_REVISION_FLAG]){
         const frontier=quest.status==='completed'?definition.objectives.length-1:
           definition.objectives.reduce((last,o,i)=>progress[o.id]===o.amount?i:last,-1);
@@ -342,11 +366,7 @@ export function parseSave(raw: string): SaveData | null {
       }
       const objectiveProgress: Record<string, number> = {};
       for (const objective of definition.objectives) {
-        let value = progress[objective.id];
-        const recovery=objective.killContentPrefix&&CAMPAIGN_PLACEMENT_SHORTFALLS.get(objective.killContentPrefix);
-        if(recovery&&typeof value==='number'&&Number.isFinite(value)&&value>objective.amount&&value<=recovery.requested){
-          value=objective.amount;progress[objective.id]=value;
-        }
+        const value = progress[objective.id];
         if (value !== undefined && !numberIn(value, 0, objective.amount)) return null;
         if (typeof value === 'number') objectiveProgress[objective.id] = value;
       }
@@ -381,6 +401,7 @@ export function parseSave(raw: string): SaveData | null {
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
     storyFlags[INDOOR_STORY_FLAG]=true;
     storyFlags[ADVENTURE_REVISION_FLAG]=true;
+    storyFlags[COMBAT_CLEARANCE_REVISION_FLAG]=true;
     // Existing progressed players don't get a new-game prologue on resume.
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
     const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);

@@ -68,18 +68,19 @@ export function HUD() {
         </section>
 
         <div className={`quest-hud-slot${questVisible?'':' is-hidden'}`}>
-          {questVisible&&<section className="quest-card">
+          {questVisible&&<section id="quest-hud-card" className="quest-card">
             <strong>{active?.quest.name ?? 'No active quest'}</strong>
             <span className="quest-objective">{active?questObjectiveText(active.objective):'Explore Mernodna freely.'}</span>
             <QuestCompass />
             <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
           </section>}
-          {!compactHud&&<button type="button" className="hud-info-toggle quest-hud-toggle"
+          <button type="button" className="hud-info-toggle quest-hud-toggle"
+            aria-controls="quest-hud-card"
             aria-label={questVisible?'Hide quest HUD':'Show quest HUD'}
             aria-expanded={questVisible} title={questVisible?'Hide quest HUD':'Show quest HUD'}
             onClick={()=>setQuestVisible(visible=>!visible)}>
             <GameIcon name={questVisible?'chevron-left':'chevron-right'}/>
-          </button>}
+          </button>
         </div>
       </div>
       {bossEncounter && <section className="boss-encounter-card" aria-label={`${bossEncounter.name} boss health`}>

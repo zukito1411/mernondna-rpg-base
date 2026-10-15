@@ -1,5 +1,24 @@
 import type { SpriteSource } from './animationPacks';
 
+/** Full-body contact / passing / opposite contact / passing poses.
+ * Source rows are down, right, up; left uses a mirrored complete pose. */
+export const NPC_WALK_ART = [
+  {walk:'npc_adventurer',id:'adventurer'},
+  {walk:'npc_general',id:'general'},
+  {walk:'npc_huntress',id:'huntress'},
+  {walk:'npc_blacksmith',id:'blacksmith'},
+  {walk:'npc_attendant',id:'attendant'},
+  {walk:'npc_villager',id:'villager'},
+  {walk:'npc_woman',id:'priestess'},
+] as const;
+export type NpcWalkSpec=typeof NPC_WALK_ART[number];
+export type NpcWalkTexture=`${NpcWalkSpec['walk']}_walk_v2`;
+export function npcWalkTexture(walk:string):NpcWalkTexture|undefined {
+  const spec=NPC_WALK_ART.find(a=>a.walk===walk);
+  return spec?`${spec.walk}_walk_v2`:undefined;
+}
+export function npcWalkPath(spec:NpcWalkSpec){return `assets/npcs/walking/${spec.id}.png`;}
+
 // Source-pixel head centers and sole baselines for the six left poses, then
 // the six right poses. Register the person independently of bags and weapons.
 const sideWalkAnchors: Record<string, readonly (readonly [number, number])[]> = {

@@ -1,10 +1,13 @@
 import type {Enemy} from '../entities/Enemy';
 import type {WorldScene} from '../scenes/WorldScene';
+import {BOSS_BY_ID} from '../../data/enemies';
+import {useGameStore} from '../../store/gameStore';
 
 /** Shared eligibility for indicators, automatic casts and deliberate selection. */
 export class TargetingSystem {
   selected:Enemy|null=null;
   private manual:Enemy|null=null;
+  private engaged:Enemy|null=null;
   constructor(private readonly scene:WorldScene){}
   eligible(enemy:Enemy,range=680) {
     const player=this.scene.player;
@@ -22,7 +25,23 @@ export class TargetingSystem {
     }
     return nearest;
   }
-  select(enemy:Enemy){if(this.eligible(enemy)){this.manual=enemy;this.selected=enemy;}}
-  update(){if(this.manual&&!this.eligible(this.manual))this.manual=null;this.selected=this.manual??this.nearest(680);}
-  clear(){this.manual=null;this.selected=null;}
+  select(enemy:Enemy){if(this.eligible(enemy)){this.manual=enemy;this.selected=enemy;this.publishBoss();}}
+  /** Nearest-enemy assistance is not a request to open a boss health bar.
+   * A deliberate selection or an actual player hit confirms combat intent. */
+  engage(enemy:Enemy){if(this.selected===enemy){this.engaged=enemy;this.publishBoss();}}
+  update(){
+    if(this.manual&&!this.eligible(this.manual))this.manual=null;
+    if(this.engaged&&!this.eligible(this.engaged))this.engaged=null;
+    this.selected=this.manual??this.nearest(680);this.publishBoss();
+  }
+  clear(){this.manual=null;this.engaged=null;this.selected=null;this.publishBoss();}
+  private publishBoss(){
+    const enemy=this.selected;
+    const boss=enemy?.definition.boss&&(enemy===this.manual||enemy===this.engaged)&&this.eligible(enemy)?enemy:null;
+    const next=boss?{id:boss.instanceId,name:BOSS_BY_ID[boss.instanceId.replace(/^boss:/,'')]?.name??boss.definition.name,
+      hp:Math.max(0,boss.hp),maxHp:boss.definition.hp}:null;
+    const store=useGameStore.getState(),previous=store.bossEncounter;
+    if(previous?.id!==next?.id||previous?.hp!==next?.hp||previous?.maxHp!==next?.maxHp||previous?.name!==next?.name)
+      store.setBossEncounter(next);
+  }
 }

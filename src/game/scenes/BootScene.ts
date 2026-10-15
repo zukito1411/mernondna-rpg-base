@@ -23,6 +23,10 @@ import {prepareDirectionalEnemyArt} from '../systems/DirectionalEnemyArt';
 import {prepareNpcDirectionalIdleArt} from '../systems/NpcDirectionalIdleArt';
 import {GUARD_MARCH_ART} from '../../data/guardMarchArt';
 import {prepareGuardMarchArt} from '../systems/GuardMarchArt';
+import {NPC_COMBAT_ART} from '../../data/npcCombatArt';
+import {prepareNpcCombatArt} from '../systems/NpcCombatArt';
+import {NPC_WALK_ART,npcWalkPath} from '../../data/npcWalkArt';
+import {prepareNpcWalkArt} from '../systems/NpcWalkArt';
 import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
 import {prepareSaltKingArt} from '../systems/SaltKingArt';
@@ -171,6 +175,9 @@ export class BootScene extends Phaser.Scene {
     for(const [key,path] of Object.entries(MOTION_ART))this.load.image('motion-source:'+key,path);
     this.load.image('dragon-breath-source',DRAGON_BREATH_ART);
     for(const art of GUARD_MARCH_ART)this.load.image('guard-march-source:'+art.walk,art.path);
+    for(const art of NPC_WALK_ART)this.load.image('npc-walk-source:'+art.walk,npcWalkPath(art));
+    for(const art of NPC_COMBAT_ART.filter(a=>a.eager))for(const [i,source] of art.sources.entries())
+      this.load.image(`npc-combat-source:${art.id}:${i}`,source.path);
     for (const art of DIRECTIONAL_ENEMY_ART.filter(a => a.species !== 6)) {
       this.load.image('directional-source:' + art.id, art.sourcePath);
     }
@@ -473,15 +480,22 @@ export class BootScene extends Phaser.Scene {
     prepareGoblinArt(this);
     preparePirateFlagshipArt(this);
     const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
+    const npcWalkAnimations=prepareNpcWalkArt(this);
+    // Directional idles/portraits have already captured the original poses.
+    // Retire replaced walking atlases instead of doubling resident GPU memory.
+    for(const art of NPC_WALK_ART)this.textures.remove(art.walk);
     const guardMarchAnimations=prepareGuardMarchArt(this);
+    const npcCombatAnimations=prepareNpcCombatArt(this);
     prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
     for (const path of loaded) if(this.textures.exists(`source:${path}`))this.textures.remove(`source:${path}`);
     const animations: SpriteAnimation[] = [
       ...PLAYER_ANIMATIONS,
-      ...NPC_ANIMATIONS.filter(a=>!GUARD_MARCH_ART.some(g=>a.key.startsWith(g.walk+'-')&&!a.key.endsWith('-idle'))),
+      ...NPC_ANIMATIONS.filter(a=>![...GUARD_MARCH_ART,...NPC_WALK_ART].some(g=>a.key.startsWith(g.walk+'-')&&!a.key.endsWith('-idle'))),
+      ...npcWalkAnimations,
       ...guardMarchAnimations,
+      ...npcCombatAnimations,
       ...directionalNpcIdles,
       ...ENEMY_ANIMATIONS.filter(a=>!M14_ART.some(spec=>spec.texture===a.texture)),
       ...directionalEnemyAnimations,
