@@ -357,7 +357,7 @@ kbd { font-size: 10px; opacity: .65; }
 .quest-journal h3 { margin:0 0 8px; }.quest-journal p { color:#d3c4a4; }
 .quest-journal small { display:inline-block; color:#c5ad78; font-size:12px; }.quest-journal li { margin:8px 0; }
 .quest-journal button,.dialogue-choices button { padding:9px 12px; border:1px solid #9a7b49; border-radius:6px; background:#4e3c25; color:#fff0cd; cursor:pointer; }
-.journal-current { margin:12px 0; padding:12px; border-left:3px solid #d3b069; background:#322717; }
+.journal-current { margin:12px 0; padding:12px; border-left:3px solid #d3b069; background:#a0723d; }
 .journal-resolution { padding:12px; background:#243024; border-left:3px solid #8ba478; }
 .journal-content summary { cursor:pointer; padding:8px 0; color:#eed6a0; }
 .journal-content li small { display:block; margin-top:4px; }

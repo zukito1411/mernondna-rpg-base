@@ -23,6 +23,7 @@ export function HUD() {
   const [compactHud] = useState(() => Capacitor.isNativePlatform()
     || window.matchMedia('(hover: none), (pointer: coarse)').matches);
   const [menuExpanded, setMenuExpanded] = useState(false);
+  const [questVisible, setQuestVisible] = useState(true);
   const hp = useGameStore((s) => s.hp);
   const maxHp = useGameStore((s) => s.maxHp);
   const stamina = useGameStore((s) => s.stamina);
@@ -66,12 +67,20 @@ export function HUD() {
           <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{goldLabel(gold)}g</span></div>
         </section>
 
-        <section className="quest-card">
-          <strong>{active?.quest.name ?? 'No active quest'}</strong>
-          <span className="quest-objective">{active?questObjectiveText(active.objective):'Explore Mernodna freely.'}</span>
-          <QuestCompass />
-          <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
-        </section>
+        <div className={`quest-hud-slot${questVisible?'':' is-hidden'}`}>
+          {questVisible&&<section className="quest-card">
+            <strong>{active?.quest.name ?? 'No active quest'}</strong>
+            <span className="quest-objective">{active?questObjectiveText(active.objective):'Explore Mernodna freely.'}</span>
+            <QuestCompass />
+            <button className="journal-link" onClick={()=>openPanel('journal')}>Journal · J</button>
+          </section>}
+          {!compactHud&&<button type="button" className="hud-info-toggle quest-hud-toggle"
+            aria-label={questVisible?'Hide quest HUD':'Show quest HUD'}
+            aria-expanded={questVisible} title={questVisible?'Hide quest HUD':'Show quest HUD'}
+            onClick={()=>setQuestVisible(visible=>!visible)}>
+            <GameIcon name={questVisible?'chevron-left':'chevron-right'}/>
+          </button>}
+        </div>
       </div>
       {bossEncounter && <section className="boss-encounter-card" aria-label={`${bossEncounter.name} boss health`}>
         <strong>{bossEncounter.name}</strong>

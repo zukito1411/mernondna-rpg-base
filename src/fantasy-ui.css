@@ -362,6 +362,24 @@
 .hud-primary-stack.is-collapsed {width:0!important;}
 .hud-primary-stack.is-collapsed > :is(.status-card,.quest-card) {display:none;}
 .hud-primary-stack.is-collapsed .hud-info-toggle {left:0;}
+.hud-primary-stack .quest-hud-slot {position:relative;min-width:0;}
+.hud-primary-stack .quest-hud-slot .quest-card {position:relative;inset:auto;width:100%;min-width:0;}
+.hud-primary-stack .quest-hud-slot.is-hidden {height:0;}
+.hud-primary-stack .quest-hud-slot.is-hidden .quest-hud-toggle {left:0;}
+.hud-primary-stack .quest-hud-toggle {
+  position:absolute;top:0;left:calc(100% + 2px);z-index:10;
+  isolation:isolate;box-sizing:border-box;display:grid;place-items:center;
+  width:44px;height:44px;min-width:44px;min-height:44px;flex:0 0 44px;
+  padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:#f2d9a6;
+}
+.hud-primary-stack .quest-hud-toggle::before {
+  content:'';position:absolute;z-index:0;inset:7px 8px;
+  border:1px solid #a68050;border-radius:6px;
+  background:linear-gradient(#574029,#2c2017);box-shadow:0 2px 5px #0008;
+  pointer-events:none;
+}
+.hud-primary-stack .quest-hud-toggle svg {position:relative;z-index:1;width:15px;height:15px;}
+.hud-primary-stack .quest-hud-toggle:focus-visible {outline:2px solid #f3ce84;outline-offset:0;border-radius:6px;}
 .hud-layer .minimap-card {top:max(58px,calc(env(safe-area-inset-top) + 50px));}
 @media (orientation:landscape) and (max-height:560px){
   .map-panel {max-height:calc(100dvh - 10px);height:calc(100dvh - 10px);}
