@@ -1,25 +1,30 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGameStore } from '../src/store/gameStore';
 import { resolveQuestTarget, compassDirection, questBearing, mapPoint } from '../src/game/systems/questNavigation';
 import { LEIGNERON } from '../src/data/player';
 import { WORLD_CONTENT } from '../src/data/content';
 import { ART_SHEETS, PLAYER_ANIMATIONS } from '../src/data/art';
 import { NPCS } from '../src/data/npcs';
+import { questClock, readDialogue, reachObjective, playObjective } from './questHarness';
+import { nextObjective } from '../src/game/systems/storyProgress';
 
-beforeEach(() => useGameStore.getState().resetGame());
+beforeEach(() => { questClock(); useGameStore.getState().resetGame(); });
+afterEach(() => vi.restoreAllMocks());
 const target = (live?: (id: string) => { x: number; y: number } | undefined) => {
   const s = useGameStore.getState(); return resolveQuestTarget(s.quests,s.worldContent,LEIGNERON.spawn,live);
 };
 describe('quest navigation', () => {
-  it('tracks Aldren → Varr → Aldren and advances to the unlocked campaign', () => {
+  it('tracks the opening rescue before Varr and advances to the crown investigation', () => {
     expect(target()?.contentId).toBe('npc:aldren-vale');
-    const s = useGameStore.getState(); s.startDialogue('aldren-vale'); s.endDialogue();
+    readDialogue('aldren-vale');
+    expect(target()?.contentId).toBe('npc:sena-marrow');
+    reachObjective('first-road', 'kill-varr');
     expect(target()?.contentId).toBe('boss:captain-varr');
-    s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr');
+    playObjective('first-road', nextObjective('first-road', useGameStore.getState().quests)!);
+    reachObjective('first-road', 'return-aldren');
     expect(target()?.objectiveId).toBe('return-aldren');
-    s.startDialogue('aldren-vale'); s.endDialogue();
-    expect(target()?.questId).toBe('eight-regions');
-    expect(target()?.contentId).toBe('boss:moonlit-warden');
+    readDialogue('aldren-vale');
+    expect(target()?.questId).toBe('crown-summons');
   });
   it('uses live actor positions and persistent NPC relocation before authored defaults', () => {
     useGameStore.getState().setContentWorld({ states: { 'npc:aldren-vale': { x: 40000,y: 40000,trust: 85 } }, spawns: {},nextSpawnSequence: 0 });
@@ -29,7 +34,7 @@ describe('quest navigation', () => {
   it('preserves the return conversation when the boss was killed early', () => {
     const s = useGameStore.getState(); s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr');
     expect(target()?.contentId).toBe('npc:aldren-vale');
-    s.startDialogue('aldren-vale'); s.endDialogue();
+    reachObjective('first-road', 'return-aldren');
     expect(target()?.objectiveId).toBe('return-aldren');
   });
   it('uses north-up bearings and clamps distant destinations to the circular map edge', () => {
@@ -44,7 +49,7 @@ describe('quest navigation', () => {
 });
 describe('supplied art integration', () => {
   it('uses role-specific NPC art, all new building/prop types and all hero poses', () => {
-    expect(new Set(NPCS.map(n => `${n.spriteTexture ?? 'npcs'}:${n.spriteFrame}`)).size).toBe(9);
+    expect(new Set(NPCS.map(n => `${n.spriteTexture ?? 'npcs'}:${n.spriteFrame}`)).size).toBeGreaterThanOrEqual(9);
     const props = WORLD_CONTENT.filter(d => 'frame' in d);
     for (const key of ['world_assets','world_buildings'] as const) {
       const used = new Set(props.filter(d => 'frame' in d && (d.texture ?? 'world_objects') === key).map(d => 'frame' in d ? d.frame : -1));

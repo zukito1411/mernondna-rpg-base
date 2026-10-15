@@ -8,6 +8,7 @@ import {CASTLE_RESIDENTS} from './castleResidents';
 import {createSettlementResidents} from './settlementResidents';
 import {STORY_RESIDENTS} from './storyResidents';
 import {reviseNamedConversations} from './npcConversations';
+import {ADVENTURE_QUEST_GIVERS} from './adventure';
 
 export const NPCS: NpcDefinition[] = [
   {
@@ -265,4 +266,5 @@ NPCS.push(...CASTLE_RESIDENTS);
 NPCS.push(...createSettlementResidents(NPCS));
 NPCS.push(...STORY_RESIDENTS);
 reviseNamedConversations(NPCS,NPC_NAME_ALIASES);
+for(const npc of NPCS)npc.questIds.push(...(ADVENTURE_QUEST_GIVERS[npc.id]??[]));
 export const NPC_BY_ID = Object.fromEntries(NPCS.map((npc) => [npc.id, npc])) as Record<string, NpcDefinition>;

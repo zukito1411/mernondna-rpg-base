@@ -48,7 +48,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
   quest(capital).summary='A murdered messenger carried proof that the crown’s own seal was used to steal the ward survey. Take the letter to the Royal Archive in Highmere, protect the surviving witness, and discover why someone wants entire families erased from the record.';
   talk(capital,'report','Bring the messenger’s letter to Renna inside Highmere’s Royal Archive.',
     'Set it down gently. I knew that handwriting before I knew yours.',
-    'The messenger was bringing me names struck from the road rolls. Some were travelers. Some were children placed with other families after the relief crossing. Your name should have been among them.',
+    'The messenger was bringing the inspector’s notes. Missing ward iron, altered freight books, payments nobody would explain. Your mother’s survey was copied into the same file.',
     'Your mother’s survey and those missing names traveled under the same seal. Ask Davin at River Customs who crossed after curfew.');
   talk(capital,'customs','Question Davin inside River Customs, Highmere, about the curfew crossing.',
     'I let a closed wagon through. A royal warrant, two guards, no lantern inside. I told myself not looking was the same as obeying.',
@@ -65,9 +65,9 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'A seal in my name bought a murder. You need not soften that for my comfort.',
     'The stolen survey marks wards in every region. The missing families lived beside them. Find out who removed the iron, and give the living a chance to speak before anyone writes their ending for them.');
   quest(murder).name='The Man Beneath the Weighhouse';quest(murder).chapter='Act II · A witness worth saving';
-  quest(murder).summary='A watchman has been murdered and Tovin Reed is being hunted for it. Investigate the forged warrant, find the real witness, and decide whether justice is worth exposing him to those who ordered the killing.';
+  quest(murder).summary='A royal records inspector was murdered beside Highmere’s river. Tovin Reed saw the killers and is being hunted. Follow the altered warrant, protect the witness, and discover who wanted the ward-iron inquiry silenced.';
   talk(murder,'kitchen','Hear Mairin’s account inside Morrow Kitchen, Highmere.',
-    'Tovin came home with blood on his cuffs. He had tried to help a dying watchman. That is the crime they have given him.',
+    'Tovin came home with blood on his cuffs. He had tried to help the inspector they found by the bridge. That is the crime they have given him.',
     'He said the man was killed for refusing a wagon of prisoners. Look by the well for the warrant he dropped. Please, do not bring the watch to my door without him.');
   stage(murder,'receipt',{text:'Examine the blood-marked warrant beside the Lower Ward well in Highmere.'});
   talk(murder,'customs','Compare the altered warrant with Davin’s account at River Customs, Highmere.',
@@ -75,20 +75,20 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'Pell saw the wagon turn toward the weighhouse. Go without an escort. He has good reason to run from a uniform.');
   talk(murder,'runner','Win Pell’s trust in Highmere’s Lower Ward.',
     'The last man who promised to keep this quiet came back with six guards. Tovin still has the bruise. What makes you different?');
-  stage(murder,'yard',{text:'Search the old weighhouse in Highmere’s south lane for the watchman’s hidden testimony.'});
+  stage(murder,'yard',{text:'Search the old weighhouse in Highmere’s south lane for the inspector’s hidden testimony.'});
   talk(murder,'missing-worker','Find Tovin beside Highmere’s old weighhouse.',
     'Oswin was breathing when I found him. He kept trying to say his daughter’s name. I could not understand it.',
-    'The tally under the stone is not cargo. It is people. Sevrin’s men called them debts. The watchman said no child was a debt, and one of them struck him.',
+    'The tally under the stone is not cargo. It is people. Sevrin’s men called them debts. The inspector said no child was a debt, and one of them struck him.',
     'I will speak. But walk beside me until I see my mother. I cannot do that lane alone again.');
-  talk(murder,'confront','Confront Sevrin inside Highmere’s Counting House with the watchman’s testimony.',
-    'I signed transfers. I was told the displaced households had agreed to service. The captain who brought the warrants said their debts were lawful.',
-    'No, I did not ask the children. You may stop looking at me like that. Take the tally to the crown. I will not pretend my seal was stolen.');
+  talk(murder,'confront','Confront Sevrin inside Highmere’s Counting House with the inspector’s testimony.',
+    'That is a relief warrant. My seal is on hundreds of them. You cannot lay a murder at my door because a frightened boy saw one of my clerks.',
+    'Take your account to the captain. I will answer a lawful inquiry. Until then, I have a city to feed.');
   stage(murder,'resolution',{text:'Decide with Mairin how to expose the murder without abandoning its witness.',dialogue:[
     'He wakes when boots pass the window. A public hearing may stop them ever hiding this again. It will also give every last one of them his face. What would you ask of your own son?'],choices:[
-    {id:'public',text:'Ask Tovin to testify publicly, with Yselle beside him.',response:'Then he chooses when to speak. I will stand beside him too. The city will hear the dead watchman’s name.',flag:'grain-public-inquiry'},
+    {id:'public',text:'Ask Tovin to testify publicly, with Yselle beside him.',response:'Then he chooses when to speak. I will stand beside him too. The city will hear the dead inspector’s name.',flag:'grain-public-inquiry'},
     {id:'guard',text:'Seal his testimony with Yselle; arrest the named men quietly.',response:'He gets a night without strangers at the door. I know some will call it another secret. Let them ask me why.',flag:'grain-guarded-inquiry'},
   ]});
-  quest(murder).resolution='Tovin reached his mother alive. The watchman’s murder and the illegal household transfers are recorded; your decision determines whether his testimony is public or held under protection.';
+  quest(murder).resolution='Tovin reached his mother alive. The inspector’s murder and the illegal household transfers are recorded; your decision determines whether his testimony is public or held under protection.';
 
   quest(council).name='Names That Cannot Be Sold';quest(council).chapter='Act II · A household is not a debt';
   quest(council).summary='Families displaced by the broken wards were sold into service under royal warrants. Hear the households and the guilds, examine the adoption rolls, and make the crown choose between immediate release and a witnessed search for missing relatives.';
@@ -180,7 +180,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'Fifteen spirits hold the escape approaches. Clear them and find her. I will argue with the guild when she can stand beside me.');
   talk(regions,'bruni-rescued','Speak with Bruni after clearing Rootwater’s escape route in Druganwoods.',
     'They sealed the waste gallery with men still inside it. My father was one of them. I spent twenty years being told he ran.',
-    'The Rootfather grew around their spring. It is holding the names we buried. Take my survey. And read the river account beside it—your parents refused the same order to leave people behind.');
+    'The Rootfather grew around their spring. It is holding the names we buried. Take my survey. Read the river account beside it too. Your parents went back for the last families when the crossing flooded.');
   stage(regions,'seed-road-repair',{text:'Resolve Celia’s murder inquiry at Cibar Plains so the surviving relief witnesses can testify safely.'});
   talk(regions,'mine-account','Arrange the reckoning inside Deepford’s Hall Archive before facing the Rootfather.',
     'Celia’s account and Bruni’s survey agree. People were made to disappear wherever the survey marked a ward.',
@@ -202,7 +202,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'The charge book names the buyers and the men who carried the keys. Get it from the burnt chainworks. Then we can stop calling this an accident.');
   talk(regions,'capital-return','Return the regional testimonies to Renna inside Highmere’s Royal Archive.',
     'The missing families were witnesses. Your mother’s survey showed where they lived; the forged warrants let the buyers move them without anyone asking why.',
-    'Your parents were ordered to abandon their passengers at the ford. They refused. Someone removed the bridge pins before the last crossing. The river account names the paid cutters. It was murder, Leigneron. Not the road claiming a debt.',
+    'The river account describes a terrible flood. Your parents returned for the last families. The bridge collapsed beneath them after the children reached shelter. They died saving people, Leigneron.',
     'Aldren kept your name out of the transfer book. He did not know why the crown was asking for it. He only knew he would not hand you over.',
     'I can give you their names and the witnesses. I cannot give you the years back. Take this home before you choose what to do with it.');
   talk(regions,'seal-account','Confront Sevrin inside Highmere’s Counting House about the vanished families.',
@@ -210,11 +210,11 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'Oswin was my brother. He asked me to stop signing. I told him he did not understand what the city needed. They buried him before I admitted he understood better than I did.',
     'I knew. Not everything, not the ford—but enough. I kept signing because each signature made the last one harder to admit. Leave my name on every copy. I have no right to ask you for another kindness.');
   talk(regions,'return-aldren-after-regions','Return to Aldren in Oakmere with the truth about your parents.',
-    'I knew they had ordered me to give you up. I did not know they had killed them. I should have told you about the order. Being afraid for you was not the same as protecting you.',
+    'I kept hoping we had missed a road. A village beyond the mountains, somewhere they might have reached. I did not know what happened at the crossing. I wish I had been there with them.',
     'You were not a promise I made to dead friends. You were a child who hated boiled onions and needed someone at the door after a bad dream. You became my son long before I knew how to say it.',
     'Be angry with me if you must. There is a chair here while you are. Then speak to Orin. Varkhul still holds the last furnace, and those people deserve a road that does not demand another family.');
   quest(regions).summary='Follow the stolen survey through missing pilgrims, a sabotaged mountain convoy, divided orc clans, a sealed mine, captive families and the burned chainworks. Each region holds witnesses to one betrayal. Bring them home before facing the dragon at Darkav’s last ward.';
-  quest(regions).resolution='The regions’ witnesses expose the forged warrants and the deliberate destruction of the relief crossing. Leigneron’s parents were murdered for refusing to abandon their passengers; Aldren’s adoption saved him from the same transfer rolls. Varkhul remains the final obstacle to restoring the wards.';
+  quest(regions).resolution='The regions’ witnesses expose the stolen ward-iron trade. Leigneron learns that his parents died rescuing families from a flood. Varkhul remains the final obstacle to restoring the wards.';
   talk(regions,'report:elarion','Return to the Lore Archive in Elarion, Narenthil, with the pilgrims’ evidence.',
     'Our rangers followed the cleared approach. Three pilgrims were hiding above the river. The child who tied that ribbon is among them. Two others will not come home.',
     'Lysa has asked that her teacher be heard before the whole grove. We will not let our shame close another path. Take the binding’s rubbing to Starhold; the cutters traveled under a beacon pass.');
@@ -226,7 +226,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'The forge marked the stolen binding before it left. Deepford’s guild took delivery. Let them tell you what was carried under that mark—and who was told not to ask.');
   talk(regions,'river-witness','Visit Boatwright Hall in Deepford, Druganwoods, to ask about the relief crossing.',
     'Your father built a landing for our stranded crews. Sang while he worked, as though the rain were keeping time. I remember because I was frightened, and he knew it.',
-    'When the account called it a flood, I believed it. Bruni found another witness beneath the old seal. Bring her out, lad. I have been living with the wrong answer for years.');
+    'Bruni found the ferryman’s account beneath the old seal. Bring her out, lad. Your parents saved my neighbors. You deserve to hear what they remember.');
   talk(regions,'report:deepford','Return Bruni’s testimony to Deepford’s Hall Archive, Druganwoods.',
     'The gallery will be opened. Bruni insisted on writing the names before we agreed on the words of our apology. She was right.',
     'The passenger transfers went out by sea with the stolen bindings. Take a boat from Highmere’s River Quay to Tidewatch, Portquill. Ask its harbor master what he signed.');

@@ -130,7 +130,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.originY * sheet.frameHeight * density - 2 * radius / this.scaleY);
     body.updateFromGameObject();
     body.setCollideWorldBounds(true);
-    this.setDepth(y);
+    this.setDepth(scene.playerRenderDepth(y));
     this.anims.play(idle.key);
     if(definition.spriteTint!==undefined)this.setTint(definition.spriteTint);
     this.healthBar = scene.add.graphics().setName(`enemy-health:${instanceId}`);
@@ -167,8 +167,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Recover only after leaving combat, never during a chase or attack.
     // Paused scenes do not tick updateEnemy, so this is active-play time only.
     const playerDistance = Phaser.Math.Distance.Between(this.x,this.y,player.x,player.y);
-    const territory=scene.isEnemyTerritory(player.x,player.y);
-    const spotted=playerDistance<=this.definition.aggroRange&&territory;
+    const territory=scene.canEnemyTargetPlayer(this);
+    const spotted=(scene.storyActor(this)||playerDistance<=this.definition.aggroRange)&&territory;
     const encounterMode=this.encounterBehavior&&this.hp>0 ? scene.encounterDecision(this,time,spotted,territory) : null;
     const pursuing = encounterMode ? encounterMode==='pursue' : spotted;
     if (pursuing) this.lastEngagedAt = time;
@@ -209,13 +209,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
       if(this.isStaggered)body.setVelocity(0,0);
       else this.returnToEncounter(scene,body,delta);
-      this.setDepth(this.y);this.lastSafe={x:this.x,y:this.y};this.updateVisual(time);return;
+      this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));this.lastSafe={x:this.x,y:this.y};this.updateVisual(time);return;
     }
-    if(this.isStaggered){body.setVelocity(0,0);this.setDepth(this.y);this.updateVisual(time);return;}
+    if(this.isStaggered){body.setVelocity(0,0);this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));this.updateVisual(time);return;}
     if (time < this.lockedUntil) {
       body.setVelocity(0, 0);
       if(this.attackTelegraph)this.updateAttackTelegraph(time);
-      this.setDepth(this.y);
+      this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
       this.updateVisual(time);
       return;
     }
@@ -269,7 +269,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       else {body.setVelocity(0,0);this.nextWanderAt=time+1000;this.wander.set(0,0);}
     }
     if(!this.directionalCombat&&Math.abs(body.velocity.x)>Math.max(2,Math.abs(body.velocity.y)*.3)) this.setFlipX(body.velocity.x<0);
-    this.setDepth(this.y);
+    this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
     this.lastSafe = { x:this.x,y:this.y };
     this.updateVisual(time);
   }
@@ -459,7 +459,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackTelegraph=null;
     if(!ranged)this.attackTelegraph=scene.add.image(this.x,this.y,ATTACK_WARNING_TEXTURE,layout.frame)
       .setOrigin(layout.originX,.5).setDisplaySize(layout.width,layout.height).setRotation(layout.rotation).setAlpha(.24)
-      .setDepth(Math.min(this.y,player.y)-2)
+      .setDepth(scene.playerRenderDepth(Math.min(this.y,player.y))-2)
       .setName(`attack-telegraph:${this.instanceId}`);
     const attackAnimation = enemyAnimation(this.definition.spriteFrame, 'attack',this.directionalCombat?this.visualDirection:undefined);
     const epoch=++this.attackEpoch;
@@ -480,8 +480,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if(epoch!==this.attackEpoch)return;
       this.attackTelegraph?.destroy();
       this.attackTelegraph = null;
-      if (epoch!==this.attackEpoch || !this.active || !player.active || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
-      if (this.encounterBehavior && scene.encounterDecision(this,scene.time.now,false,scene.isEnemyTerritory(player.x,player.y))!=='pursue') {
+      if (epoch!==this.attackEpoch || !this.active || !player.active || !scene.canEnemyTargetPlayer(this) || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
+      if (this.encounterBehavior && scene.encounterDecision(this,scene.time.now,false,scene.canEnemyTargetPlayer(this))!=='pursue') {
         this.interruptAttack();return;
       }
       if(recoveryClip){
@@ -495,7 +495,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
       if(this.definition.combatStyle==='troll'){
         const impact=scene.add.sprite(this.x,this.y,'effect_troll_impact',0).setOrigin(.5,actorArtLayout('effect_troll_impact').originY)
-          .setScale(artScale('effect_troll_impact')*radius/40).setDepth(this.y+1).play('effect-troll-impact');
+          .setScale(artScale('effect_troll_impact')*radius/40).setDepth(scene.playerRenderDepth(this.y)+1).play('effect-troll-impact');
         impact.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>impact.destroy());scene.playAudio('sfx-heavy-slam',.3);
       }
       const strikeDistance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
@@ -516,7 +516,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const layout=enemyAttackWarningLayout(this.attackTelegraphStyle,this.attackTelegraphRadius,this.attackTelegraphAngle);
     image.setPosition(this.x,this.y+2).setDisplaySize(layout.width,layout.height).setRotation(layout.rotation)
       .setAlpha(.2+progress*.08+(progress>.78?Math.sin(time*.02)*.025:0))
-      .setDepth(Math.min(this.y,(this.scene as WorldScene).player.y)-2);
+      .setDepth((this.scene as WorldScene).playerRenderDepth(Math.min(this.y,(this.scene as WorldScene).player.y))-2);
   }
 
   private updateBossSkill(scene: WorldScene, time: number) {
@@ -658,10 +658,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean}={}) {
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean}={}) {
     if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     const state=useGameStore.getState();
-    this.hp -= Math.max(1,Math.round(luckDamage(amount,state.attributes,state.learnedSkills)*(1-(this.definition.defense??0))));
+    const damage=Math.max(1,Math.round((options.nonLethal?amount:luckDamage(amount,state.attributes,state.learnedSkills))*(1-(this.definition.defense??0))));
+    const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
+    if(applied<=0)return;
+    this.hp -= applied;
     const scene=this.scene as WorldScene;
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
     this.lastDamagedAt=this.scene.time.now;
@@ -701,7 +704,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const modelSheet=ART_BY_KEY[model.texture.key as keyof typeof ART_BY_KEY];
     const top=bounds?model.y+(bounds.top-model.originY*modelSheet.frameHeight)*model.scaleY*modelSheet.density-16
       :this.y-visualHeight-16;
-    this.targetIndicator.clear().setDepth(this.y+90).setVisible(eligible);
+    this.targetIndicator.clear().setDepth(scene.playerRenderDepth(this.y)+90).setVisible(eligible);
     if(eligible){const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
       this.targetIndicator.lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
       this.targetIndicator.fillTriangle(this.x-size,top-36,this.x+size,top-36,this.x,top-26);
@@ -709,8 +712,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.targetIndicator.lineStyle(2,color,.9).strokeEllipse(ground.x,ground.y,
           Math.max(this.definition.boss?56:34,(this.definition.bodyRadius??0)*2.2),Math.max(10,(this.definition.bodyRadius??0)*.45));}
     }
-    this.healthBar.clear().setDepth(this.y + 85).setVisible(visible&&eligible);
-    this.nameLabel.setPosition(this.x, top - 4).setDepth(this.y + 85).setVisible(visible&&eligible);
+    this.healthBar.clear().setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
+    this.nameLabel.setPosition(this.x, top - 4).setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
     if (visible&&eligible) {
       this.healthBar.fillStyle(0x16110c,.85).fillRoundedRect(this.x - width / 2 - 2, top - 1, width + 4, 6, 2);
       this.healthBar.fillStyle(this.definition.boss ? 0xd89557 : 0xbb6550,1)

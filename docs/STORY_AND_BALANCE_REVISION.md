@@ -1,5 +1,10 @@
 # Story, input and progression revision
 
+Campaign continuation: see `LIVING_CAMPAIGN.md` and `main-storyline.md` for the
+current narrative authority and playable story events. The earlier murder plot
+does not apply to Leigneron's parents: they died saving people during a flood.
+The balance/input formulas documented below remain in force.
+
 ## Scope and inspection limits
 
 Implemented against `1ddc238` (the repository version pulled before this task).

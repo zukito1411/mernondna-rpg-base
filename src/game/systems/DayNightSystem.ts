@@ -118,7 +118,7 @@ export class DayNightSystem {
     const camera=this.scene.cameras.main,view=camera.worldView,full=overlayViewport(this.scene);
     for(const node of this.lights) {
       const x=node.actor.x+node.x,y=node.actor.y+node.y,r=node.radius;
-      const visible=effects.lightBloom&&night>0&&x+r>=view.left&&x-r<=view.right&&y+r>=view.top&&y-r<=view.bottom;
+      const visible=node.actor.visible&&effects.lightBloom&&night>0&&x+r>=view.left&&x-r<=view.right&&y+r>=view.top&&y-r<=view.bottom;
       node.glow.setVisible(visible);
       if(night===0)node.glow.setAlpha(0);
       if(!visible)continue;

@@ -4,6 +4,7 @@ import {rewriteNpcMentions} from './npcPresentation';
 import {BOSSES} from './enemies';
 import {DRAGON_LAIR} from './dragonLair';
 import {CONTENT_BY_ID} from './content';
+import {STORY_ENCOUNTERS} from './adventure';
 export interface StoryShot {x:number;y:number;zoom:number;duration:number;line:string;focusNpcId?:string;interiorId?:string;variants?:Array<{flag:string;line:string}>}
 export interface StoryScene {id:string;title:string;shots:StoryShot[]}
 const npc=(id:string,line:string):StoryShot=>{const n=NPC_BY_ID[id],t=TOWN_BY_ID[n?.townId]??TOWN_BY_ID.oakmere;
@@ -16,11 +17,11 @@ const oak=TOWN_BY_ID.oakmere.world,h=TOWN_BY_ID.highmere.world,varr=BOSSES.find(
 add('road-briefing','Seed for the Spring',[npc('aldren-vale',name('aldren-vale')+' needs the seed carts to reach Oakmere. A lost harvest would hurt every household.'),at(oak.x+800,oak.y,'The eastern road leads to Varr’s ruined watchtower. Break the blockade, then return with the stolen royal seal.')]);
 add('road-cleared','The Blockade Breaks',[at(varr.world.x,varr.world.y,'Varr is defeated. His supplies carry a royal seal: the theft reaches beyond this tower.')]);
 add('road-resolution','The Road Opens',[npc('aldren-vale',name('aldren-vale')+' takes responsibility for the eastern watch. Bandit patrols no longer gather along Oakmere’s grain road.'),at(oak.x+600,oak.y,'The seal is evidence, not an answer. Take the testimony to Renna in Highmere.')]);
-add('highmere-arrival','Highmere — A Seal Bought in Blood',[at(h.x+650,h.y+1100,'Beyond the quay, Highmere’s bells announce another curfew. The messenger’s letter grows heavier in Leigneron’s pocket.'),npc('renna-vale','At the Royal Archive, the blood-marked letter is compared with names struck from the household rolls.'),npc('mairin-reed',name('mairin-reed')+' waits at Morrow Kitchen. Her son is being hunted for a watchman’s murder. Hear her before trusting the warrant.')]);
+add('highmere-arrival','Highmere — A Seal Bought in Blood',[at(h.x+650,h.y+1100,'Beyond the quay, Highmere’s bells announce another curfew. The messenger’s letter grows heavier in Leigneron’s pocket.'),npc('renna-vale','At the Royal Archive, the blood-marked letter is compared with names struck from the household rolls.'),npc('mairin-reed',name('mairin-reed')+' waits at Morrow Kitchen. Her son is being hunted for a inspector’s murder. Hear her before trusting the warrant.')]);
 add('charter-audience','A Witness Before the Crown',[npc('lady-adria-vale','The seal, waybill and witness testimony agree. The theft used the crown’s authority against its own people.'),npc('renna-vale','Renna prepares a warning for the far lands. Decide how it should travel before you follow the strange marks.')]);
 add('regional-charter-return','The Broken Seals',[npc('renna-vale','The recovered fragments fit one pattern. The old seals were broken deliberately; the creatures rose where their protection failed.'),at(h.x-120,h.y,'The communities’ evidence gives the crown a way to repair the seals. Carry the final report home to Oakmere.')]);
-add('lower-meeting','The Man Beneath the Weighhouse',[npc('tovin-reed','The dead watchman hid a list of people, not cargo. Tovin saw him refuse to surrender the children. Finding the boy is not enough; he still has to reach his mother alive.')]);
-add('grain-resolution','A Witness Protected',[npc('mairin-reed',name('tovin-reed')+' is home. His mother leaves the lamp burning while the watch takes positions outside.'),{...npc('renna-vale','Yselle seals the murder testimony and moves against the named men. Tovin is protected, though the city must trust a hearing it cannot yet see.'),variants:[{flag:'grain-public-inquiry',line:'Tovin speaks beside Yselle in the square. The dead watchman is named before the city; so is the young witness whose face can no longer be hidden.'}]}]);
+add('lower-meeting','The Man Beneath the Weighhouse',[npc('tovin-reed','The dead inspector hid a list of people, not cargo. Tovin saw him refuse to surrender the children. Finding the boy is not enough; he still has to reach his mother alive.')]);
+add('grain-resolution','A Witness Protected',[npc('mairin-reed',name('tovin-reed')+' is home. His mother leaves the lamp burning while the watch takes positions outside.'),{...npc('renna-vale','Yselle seals the murder testimony and moves against the named men. Tovin is protected, though the city must trust a hearing it cannot yet see.'),variants:[{flag:'grain-public-inquiry',line:'Tovin speaks beside Yselle in the square. The dead inspector is named before the city; so is the young witness whose face can no longer be hidden.'}]}]);
 add('watch-briefing','A Watch Worth Trusting',[npc('captain-yselle-ward','The captain needs disciplined guards at the stores. Practise in the yard, decode the signals, then keep the watch.')]);
 add('guard-muster','The Storehouse Watch',[npc('captain-yselle-ward','Your training and the restored signals give the storehouse a reliable guard. The flour route will no longer be left unprotected.')]);
 add('relief-briefing','Names That Cannot Be Sold',[npc('renna-vale','The adoption book holds loving families beside forced-service debts. Hear the people behind those names before asking the crown to rule on their lives.')]);
@@ -67,7 +68,7 @@ const approaches:Array<[string,string,string,string]>=[
  ['warden-before','moonlit-warden','moonlit-warden','The thornlings and nests are cleared from the approach. The wounded guardian is not the author of the theft: its roots remember the missing binding.'],
  ['stonejaw-before','stonejaw-troll','stonejaw','The porters reached shelter, and the beacon crew has its oil. Stonejaw still holds the pass between the winter convoy and the hearths above it.'],
  ['krag-before','iron-tusk','iron-tusk','Both occupied camps have been cleared. The clans have agreed how to keep the shared well open; Krag’s rule is the last obstacle to their promise.'],
- ['rootfather-before','rootfather','rootfather','Bruni’s survey and Celia’s murder inquiry expose the same erased witnesses. The guardian holds a spring above a sealed gallery; the guild has promised to open it and name its dead.'],
+ ['rootfather-before','rootfather','rootfather','Bruni’s survey shows how the mine waste reached the spring. The guild has promised to repair the channel while Leigneron draws the wounded guardian away.'],
  ['salt-before','salt-king','salt-king','The five deck guards are defeated and the freight account is copied. The Salt King still holds the stolen bindings; confront him for the cargo, not for ownership of the sea.'],
  ['wyrm-before','frost-wyrm','frost-wyrm','The winter cache is clear and the shore lantern recovered. The injured, ground-dwelling Wyrm still threatens the boats that must return to that light.'],
  ['seer-before','ashen-seer','ashen-seer','The chainworks account links the stolen crown seal to the melted ward iron. The Seer’s promise of unbound heat has cost the crews their road and their dead their rest.'],
@@ -80,15 +81,20 @@ for(const [before,bossId,objectiveId,line] of approaches){
  ]);
 }
 add('inheritance-revealed','An Inheritance, Not a Destiny',[
- npc('aldren-vale','The adoption roll bears Aldren’s refusal to surrender the child entrusted to him. At last he says what years of fear kept buried: Leigneron was never a debt to dead friends. He was his son.'),
+ npc('aldren-vale','Edmund has heard the river account. He had kept hoping there might be another road to search. Now he sits beside the young man he raised, and lets them both grieve.'),
  {...npc('mira-fen','You went looking for an answer and kept finding people who needed help. Perhaps those were never separate roads.'),variants:[
    {flag:'leigneron-protector',line:'You said you wanted Lena’s children to stop waiting in fear. That promise traveled farther than you imagined.'},
    {flag:'leigneron-seeker',line:'You found what your family’s work meant to people who remembered it. You did not have to abandon them to find an answer.'},
  ]},
 ]);
 add('family-relief-account','The Names Beside the Crossing',[
- npc('bruni-stonevein','The report calling the relief crossing an accident was written before the bodies were found. A ferryman’s sworn account names men paid to remove the bridge pins.'),
- npc('deepford-boatwright','Leigneron’s parents stayed for the last passengers. The children reached shelter. Their rescuers never did. Someone made a murder sound like weather.'),
+ npc('bruni-stonevein','“Your mother brought food when our crossing flooded. Your father helped us get people out. They went back again when the rest of us could hardly stand.”'),
+ npc('deepford-boatwright','The ferryman recorded the last crossing. The families reached shelter before the flooded bridge collapsed. Leigneron’s parents could have left earlier. They stayed to save strangers.'),
+ at(TOWN_BY_ID.deepford.world.x,TOWN_BY_ID.deepford.world.y+340,'Leigneron folds the account beside the old compass. There is no enemy here to strike. For a while he simply listens to the river.'),
+]);
+add('walter-arrest','The Crown’s Betrayal',[
+ npc('sevrin-hale','“I did what was necessary.” Walter waits for an answer that does not come. Then Leigneron speaks. “You kept doing it after you knew what it cost.”'),
+ npc('captain-yselle-ward','Isabel takes custody of Walter’s orders. His seal will not silence the witnesses again. The regions still need their iron—and someone willing to keep the roads.'),
 ]);
 add('varkhul-before','The Last Furnace',[
  npc('blackspire-warder','The furnace crews wait in shelter. The regional agreements and witnessed chainwork are ready; no civilian follows the challenger into the molten rim.'),
@@ -111,4 +117,9 @@ add('roadborn-epilogue','A Place at the Table',[
  {...npc('blackspire-forgemaster','The forge account is held by regional witnesses, beyond any one official’s reach.'),variants:[{flag:'darkav-open-account',line:'Blackspire’s public account names the smiths’ mistakes as well as the stolen seals. Its survivors are no longer asked to forget.'}]},
  npc('aldren-vale','The dragon will return. Storms will close passes. Roads will always need tending. Leigneron is free to travel again—and now knows why he would.'),
 ]);
+for(const event of STORY_ENCOUNTERS){
+  const focus=event.interiorNpcId??event.npcId;
+  const point=event.contentId?CONTENT_BY_ID[event.contentId]?.world:TOWN_BY_ID[event.townId].world;
+  add('encounter-'+event.id,event.name,[focus?npc(focus,event.warning):at(point!.x,point!.y,event.warning)]);
+}
 for(const id of Object.keys(CINEMATICS))CINEMATICS[id]=rewriteNpcMentions(CINEMATICS[id],NPC_NAME_ALIASES);

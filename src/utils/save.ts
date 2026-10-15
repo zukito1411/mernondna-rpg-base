@@ -16,6 +16,7 @@ import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES} from '../data/campaign';
+import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
 
@@ -289,6 +290,14 @@ export function parseSave(raw: string): SaveData | null {
       }
       if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return null;
       const progress = {...quest.objectiveProgress};
+      if(!storyFlags[ADVENTURE_REVISION_FLAG]){
+        const frontier=quest.status==='completed'?definition.objectives.length-1:
+          definition.objectives.reduce((last,o,i)=>progress[o.id]===o.amount?i:last,-1);
+        for(let i=0;i<=frontier;i++){
+          const o=definition.objectives[i];
+          if((o.type==='encounter'||o.id==='pilgrim-safe')&&progress[o.id]===undefined)progress[o.id]=o.amount;
+        }
+      }
       if(!storyFlags[INDOOR_STORY_FLAG]){
         const frontier=quest.status==='completed'?definition.objectives.length-1:
           definition.objectives.reduce((last,o,i)=>progress[o.id]===o.amount?i:last,-1);
@@ -366,6 +375,7 @@ export function parseSave(raw: string): SaveData | null {
     if (!worldContent) return null;
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
     storyFlags[INDOOR_STORY_FLAG]=true;
+    storyFlags[ADVENTURE_REVISION_FLAG]=true;
     // Existing progressed players don't get a new-game prologue on resume.
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
     const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);

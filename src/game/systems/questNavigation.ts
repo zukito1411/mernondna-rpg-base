@@ -11,6 +11,7 @@ import { WorldGenerator } from './WorldGenerator';
 import {onFlagshipDeck,onFlagshipBoarding} from '../../data/pirateFlagship';
 import {questNpcLabel,contentQuestLocation} from './questDestinations';
 import {REGION_BY_ID} from '../../data/regions';
+import {STORY_ENCOUNTER_BY_ID} from '../../data/adventure';
 
 const geography=new WorldGenerator();
 const candidatesByObjective=new Map<string,ContentDefinition[]>();
@@ -59,6 +60,17 @@ export function resolveQuestTarget(quests:Record<string,QuestRuntimeState>,world
   const active=activeObjective(quests,trackedQuestId);
   if(!active||visited.has(active.questId))return null;
   const {objective:o,questId}=active;visited.add(questId);
+  if(o.type==='encounter'){
+    const e=STORY_ENCOUNTER_BY_ID[o.targetId];if(!e)return null;
+    const room=e.interiorNpcId?NPC_INTERIOR_BY_ID[e.interiorNpcId]:undefined;
+    const npcId=e.interiorNpcId??e.npcId,id=npcId?'npc:'+npcId:e.contentId!;
+    const location=room&&room.entry.id!==interiorId?room.entry.door
+      :livePosition?.(id)??world.states[id]??CONTENT_BY_ID[id]?.world;
+    if(!location)return null;
+    const p=room&&room.entry.id===interiorId?{x:location.x,y:location.y+80}:location,town=TOWN_BY_ID[e.townId];
+    return withTravelHint({...p,interiorId:room?.entry.id,contentId:'encounter:'+e.id,label:e.name+' — '+(room?'inside '+room.entry.name+', ':'')
+      +town.name+', '+(town.regionId==='dead-sea'?'Dead Sea':REGION_BY_ID[town.regionId].name),questId,objectiveId:o.id,type:o.type},player,interiorId);
+  }
   if(o.type==='quest'){
     if(quests[o.targetId]?.status==='active')return resolveQuestTarget(quests,world,player,livePosition,o.targetId,interiorId,visited);
     const dependency=QUEST_BY_ID[o.targetId],npc=dependency&&NPC_BY_ID[dependency.giverNpcId];

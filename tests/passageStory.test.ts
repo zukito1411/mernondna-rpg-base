@@ -1,4 +1,4 @@
-import {describe,it,expect,beforeEach,vi} from 'vitest';
+import {describe,it,expect,beforeEach,afterEach,vi} from 'vitest';
 import {WorldGenerator} from '../src/game/systems/WorldGenerator';
 import {PORTS,ASHEN_DOCK_ROAD} from '../src/data/ports';
 import {SeaPassagePlanner,passagePoint} from '../src/game/systems/seaPassage';
@@ -11,9 +11,12 @@ import {saveGame,parseSave,SAVE_KEY,allowExplicitNewGame} from '../src/utils/sav
 import {SETTLEMENT_LAYOUTS,buildingBounds} from '../src/data/settlements';
 import {rectTouchesStreet} from '../src/data/settlementGeometry';
 import {CONTENT_BY_ID} from '../src/data/content';
+import {STORY_ENCOUNTERS} from '../src/data/adventure';
+import {questClock,reachObjective,readDialogue} from './questHarness';
 describe('passages and grounded quest scenes',()=>{
  const world=new WorldGenerator(),planner=new SeaPassagePlanner(world);
- beforeEach(()=>{useGameStore.getState().resetGame();allowExplicitNewGame();});
+ beforeEach(()=>{questClock();useGameStore.getState().resetGame();allowExplicitNewGame();});
+ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
  it('fits larger houses clear of the actual authored streets',()=>{
   let enlarged=0;
   for(const layout of SETTLEMENT_LAYOUTS)for(const [index,lot] of layout.buildings.entries()){if(lot.omitted||CONTENT_BY_ID['town:'+layout.townId+':building:'+index]?.kind!=='settlement-prop')continue;if((lot.growth??1)>1.12)enlarged++;
@@ -42,19 +45,21 @@ describe('passages and grounded quest scenes',()=>{
    expect(planner.route(to,'highmere')).toEqual([...route].reverse());
   }
  });
- it('gives every authored quest a turning point with a valid scene',()=>{
-  for(const quest of QUESTS){expect(quest.objectives.some(o=>o.cinematicId),quest.id).toBe(true);for(const o of quest.objectives)if(o.cinematicId)expect(CINEMATICS[o.cinematicId],o.cinematicId).toBeTruthy();}
+ it('resolves every authored cinematic and includes dialogue-led optional turning points',()=>{
+  for(const quest of QUESTS){expect(quest.objectives.some(o=>o.cinematicId||o.type==='encounter'||(o.dialogue?.length??0)>=2),quest.id).toBe(true);for(const o of quest.objectives)if(o.cinematicId)expect(CINEMATICS[o.cinematicId],o.cinematicId).toBeTruthy();}
+  for(const encounter of STORY_ENCOUNTERS)expect(CINEMATICS['encounter-'+encounter.id],encounter.id).toBeTruthy();
   expect(Object.keys(CINEMATICS).length).toBeGreaterThan(20);
  });
  it('queues combat scenes and records a safer road after the return conversation',()=>{
-  const s=useGameStore.getState();s.startDialogue('aldren-vale');s.endDialogue();s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr');
+  const s=useGameStore.getState();reachObjective('first-road','kill-varr');s.recordEnemyDefeat('bandit-captain',110,30,'captain-varr');
   expect(useGameStore.getState().cinematicQueue).toContain('road-cleared');expect(useGameStore.getState().storyFlags['oakmere-road-open']).toBeUndefined();
-  s.startDialogue('aldren-vale');s.endDialogue();expect(useGameStore.getState().storyFlags['oakmere-road-open']).toBe(true);
+  reachObjective('first-road','return-aldren');
+  readDialogue('aldren-vale');expect(useGameStore.getState().storyFlags['oakmere-road-open']).toBe(true);
   expect(sceneQueue('road-briefing',['road-cleared'],['road-cleared','road-resolution'],{'scene:road-briefing':true})).toEqual({pendingCinematic:'road-cleared',cinematicQueue:['road-resolution']});
  });
- it('keeps the regional story tracked when Vexa offers the optional dragon quest',()=>{
+ it('keeps the regional story tracked and the final dragon locked during Vexa’s regional briefing',()=>{
   const store=useGameStore.getState();store.hydrate({trackedQuestId:'eight-regions',quests:{...store.quests,'eight-regions':{status:'active',objectiveProgress:Object.fromEntries(QUESTS.find(q=>q.id==='eight-regions')!.objectives.filter(o=>o.id!=='brief:blackspire'&&!['evidence:blackspire','ashen-seer','report:blackspire','capital-return','return-aldren-after-regions'].includes(o.id)).map(o=>[o.id,o.amount]))}}});
-  store.startDialogue('blackspire-forgemaster');expect(useGameStore.getState().dialogue?.questId).toBe('eight-regions');expect(useGameStore.getState().trackedQuestId).toBe('eight-regions');expect(useGameStore.getState().quests['returning-ember'].status).toBe('active');
+  store.startDialogue('blackspire-forgemaster');expect(useGameStore.getState().dialogue?.questId).toBe('eight-regions');expect(useGameStore.getState().trackedQuestId).toBe('eight-regions');expect(useGameStore.getState().quests['returning-ember'].status).toBe('locked');
  });
  it('persists queued/current scenes and does not replay newly authored intros for old saves',()=>{
   const values=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(k:string)=>values.get(k)??null,setItem:(k:string,v:string)=>values.set(k,v)});

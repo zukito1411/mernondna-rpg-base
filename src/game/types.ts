@@ -142,7 +142,7 @@ export interface BossDefinition {
 
 export interface QuestObjective {
   id: string;
-  type: 'talk' | 'kill' | 'visit' | 'collect' | 'investigate' | 'deliver' | 'choice' | 'puzzle' | 'train' | 'escort' | 'quest';
+  type: 'talk' | 'kill' | 'visit' | 'collect' | 'investigate' | 'deliver' | 'choice' | 'puzzle' | 'train' | 'escort' | 'quest' | 'encounter';
   targetId: string;
   amount: number;
   text: string;
@@ -158,6 +158,8 @@ export interface QuestObjective {
   rewardXp?: number;
   /** Final confrontation needs a battle during this stage, not an early kill. */
   requiresFreshDefeat?: boolean;
+  /** A deliberate peaceful choice may resolve a later confrontation. */
+  completedByFlag?:string;
 }
 
 export interface QuestDefinition {
@@ -256,6 +258,8 @@ export interface QuestTarget extends Vec2 {
   /** Travel instructions never redirect the pointer away from the destination. */
   travelHint?:string;
   worldLocation?:Vec2;
+  /** Virtual story markers are local only to their owning room. */
+  interiorId?:string;
 }
 export interface NavigationMarker extends Vec2 {
   id: string; label: string; kind: 'npc' | 'enemy' | 'boss' | 'building' | 'town' | 'landmark';

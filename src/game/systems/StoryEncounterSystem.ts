@@ -1,0 +1,183 @@
+import Phaser from 'phaser';
+import {STORY_ENCOUNTER_BY_ID,type StoryEncounter} from '../../data/adventure';
+import {QUESTS} from '../../data/quests';
+import {useGameStore} from '../../store/gameStore';
+import {nextObjective} from './storyProgress';
+import {MAX_LIVE_HOSTILES} from './encounterAdmission';
+import type {WorldScene} from '../scenes/WorldScene';
+import type {Enemy} from '../entities/Enemy';
+import type {Npc} from '../entities/Npc';
+import type {Vec2} from '../types';
+
+/** Finite quest-owned Enemy actors. Combat, targeting, art and damage remain
+ * the ordinary game systems. Only permission, waves and lifecycle live here. */
+export class StoryEncounterSystem {
+  private encounter:StoryEncounter|null=null;
+  private anchor:Vec2={x:0,y:0};
+  private roomId:string|null=null;
+  private readonly actors=new Map<Enemy,number>();
+  private readonly reactions=new Set<Npc>();
+  private readonly guardDamage=new Map<Enemy,number>();
+  private retryAt=0;
+  private guardAt=0;
+  private workMs=0;
+  private working=false;
+  private label:Phaser.GameObjects.Text|null=null;
+  private warned=false;
+  constructor(private readonly scene:WorldScene){}
+  get active(){return this.encounter!==null;}
+  get id(){return this.encounter?.id;}
+  get prompt(){
+    const e=this.encounter;if(!e?.work||Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)>120)return null;
+    const flags=useGameStore.getState().storyFlags;
+    return e.waves.flat().every((_,i)=>flags[this.key(i)])?e.work.label:null;
+  }
+  owns(enemy:Enemy){return this.actors.has(enemy);}
+  allows(point:Vec2){return this.active&&this.roomId===this.scene.activeInteriorId
+    &&Math.hypot(point.x-this.anchor.x,point.y-this.anchor.y)<=this.encounter!.radius;}
+  private key(slot:number){return `encounter:${this.encounter!.id}:defeated:${slot}`;}
+  private eligible(){
+    const quests=useGameStore.getState().quests;
+    let nearest:StoryEncounter|null=null,distance=Infinity;
+    for(const quest of QUESTS){
+      const objective=nextObjective(quest.id,quests);
+      if(objective?.type==='encounter'){
+        const e=STORY_ENCOUNTER_BY_ID[objective.targetId];
+        const point=e&&this.scene.storyEncounterAnchor(e);
+        if(e&&point&&e.questId===quest.id&&e.objectiveId===objective.id){
+          const d=Math.hypot(point.x-this.scene.player.x,point.y-this.scene.player.y);
+          if(d>e.radius+180)continue;
+          if(this.encounter?.id===e.id)return e;
+          if(d<distance){distance=d;nearest=e;}
+        }
+      }
+    }
+    return nearest;
+  }
+  update(time:number,delta:number,blocked:boolean){
+    const next=this.eligible(),point=next&&this.scene.storyEncounterAnchor(next);
+    if(this.encounter&&(!next||next.id!==this.encounter.id||!point
+      ||this.roomId!==this.scene.activeInteriorId||Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)>this.encounter.radius+180))this.clear();
+    if(blocked)return;
+    if(!this.encounter){
+      if(!next||!point||Math.hypot(this.scene.player.x-point.x,this.scene.player.y-point.y)>Math.min(320,next.radius*.6))return;
+      this.encounter=next;this.anchor={...point};this.roomId=this.scene.activeInteriorId;
+      this.scene.prepareStoryArena();
+      this.retryAt=time+1600;this.guardAt=time+1800;this.warned=false;
+      this.scene.targeting.clear();this.scene.player.resetInput();
+      const state=useGameStore.getState();state.hydrate({trackedQuestId:next.questId});
+      this.scene.notify(next.warning);this.scene.playAudio('sfx-heal-bell',.45,.65);
+      this.label=this.scene.add.text(point.x,point.y-100,next.name,{fontFamily:'Georgia, serif',fontSize:'12px',
+        color:'#ffe2a2',stroke:'#19120c',strokeThickness:3}).setResolution(2).setOrigin(.5).setDepth(this.scene.playerRenderDepth(point.y)+85);
+      this.react();
+      if(this.scene.playStoryIntro(next.id))return;
+    }
+    const e=this.encounter!,flags=useGameStore.getState().storyFlags;
+    // Resolve the first unfinished wave from saved kills. Re-entering, dying
+    // or restarting cannot recreate defeated slots or farm their rewards.
+    let start=0,wave:readonly string[]|undefined;
+    for(const candidates of e.waves){
+      if(candidates.some((_,i)=>!flags[this.key(start+i)])){wave=candidates;break;}
+      start+=candidates.length;
+    }
+    if(wave&&!this.actors.size&&time>=this.retryAt){
+      this.retryAt=time+650;
+      const pending=wave.map((enemyId,i)=>({enemyId,slot:start+i})).filter(s=>!flags[this.key(s.slot)]);
+      if(this.scene.countEnemies()+pending.length<=MAX_LIVE_HOSTILES&&pending.every(s=>this.scene.ensureStoryEnemy(s.enemyId))){
+        const positions:Vec2[]=[];
+        for(const member of pending){
+          let position:Vec2|undefined;
+          for(const radius of this.roomId?[220,290,360,430]:[430,360,290,220])for(let i=0;!position&&i<20;i++){
+            const angle=(i+member.slot*3)*Math.PI/10,p={x:this.anchor.x+Math.cos(angle)*radius,y:this.anchor.y+Math.sin(angle)*radius};
+            if(this.allows(p)&&Math.hypot(p.x-this.scene.player.x,p.y-this.scene.player.y)>=160
+              &&positions.every(q=>Math.hypot(q.x-p.x,q.y-p.y)>=80)&&this.scene.storySpawnClear(p,member.enemyId))position=p;
+          }
+          if(!position)break;positions.push(position);
+        }
+        if(positions.length===pending.length){
+          try{
+            pending.forEach((member,i)=>{
+              const enemy=this.scene.createStoryEnemy(member.enemyId,positions[i],`story-event:${e.id}:${member.slot}`);
+              this.actors.set(enemy,member.slot);
+            });
+            this.react();this.warned=false;
+          }catch(error){for(const actor of this.actors.keys())this.scene.releaseStoryEnemy(actor);this.actors.clear();
+            console.error('Story wave creation failed:',e.id,error);}
+        }else if(!this.warned){this.warned=true;this.scene.notify('Keep to open ground near the marked encounter. The attackers need a clear approach.');}
+      }
+    }
+    if(time>=this.guardAt){this.guardAt=time+1600;this.assist();}
+    if(!wave&&!this.actors.size){
+      if(!e.work){this.complete();return;}
+      const player=this.scene.player;
+      if(this.working&&Math.hypot(player.x-this.anchor.x,player.y-this.anchor.y)<=120
+        &&(player.body as Phaser.Physics.Arcade.Body).velocity.length()<8&&!player.skills.isCasting){
+        this.workMs+=Math.min(delta,100);
+        this.label?.setText(`${e.work.label} · ${Math.floor(this.workMs/e.work.duration*100)}%`);
+        if(this.workMs>=e.work.duration){this.scene.playEffect('fortification',this.anchor.x,this.anchor.y);this.complete();return;}
+      }else{this.interruptWork();this.label?.setText(e.work.label+' · approach and interact');}
+    }
+  }
+  interact(){
+    if(!this.encounter)return false;
+    if(this.encounter.work&&Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)<=120){
+      this.working=true;this.scene.notify(this.actors.size?'Clear the attackers before working.':this.encounter.work.label+' — stay beside it until finished.');
+    }else this.scene.notify(this.actors.size?'Deal with the attackers before speaking or travelling.':'Return to the marked story site.');
+    return true;
+  }
+  interruptWork(){this.working=false;this.workMs=0;}
+  defeated(enemy:Enemy){
+    const slot=this.actors.get(enemy);if(slot===undefined)return false;
+    const key=this.key(slot);this.actors.delete(enemy);
+    if(!useGameStore.getState().storyFlags[key])useGameStore.getState().setStoryFlag(key);
+    enemy.createDeathVisual();this.scene.releaseStoryEnemy(enemy);this.retryAt=this.scene.time.now+1700;
+    return true;
+  }
+  private react(){
+    const e=this.encounter!;
+    let guardSlot=0;
+    for(const npc of this.scene.storyResidents()){
+      if(!npc.active||Math.hypot(npc.x-this.anchor.x,npc.y-this.anchor.y)>e.radius)continue;
+      this.reactions.add(npc);
+      npc.setStoryAlert(npc.definition.combatant?'Behind me! Keep the lane clear!':e.interiorNpcId?'Keep away from the doors!':'Inside! Get away from the road!');
+      if(npc.definition.id===e.npcId||npc.definition.id===e.interiorNpcId)continue;
+      if(!npc.canStoryWalk)continue; // Idle-only regional art must never skate across the floor.
+      if(npc.definition.combatant){
+        const slot=guardSlot++;if(slot>=2)continue;
+        const point={x:this.anchor.x+(npc.x<this.anchor.x?-100:100),y:this.anchor.y+60+slot*100};
+        if(this.scene.canNpcVisit(npc,point))npc.beginStoryMovement(point);
+      }else if(!npc.usesRegionalPresentation){
+        const dx=npc.x-this.anchor.x,dy=npc.y-this.anchor.y,length=Math.max(1,Math.hypot(dx,dy));
+        const point={x:npc.x+dx/length*100,y:npc.y+dy/length*100};
+        if(this.scene.canNpcVisit(npc,point))npc.beginStoryMovement(point);
+      }
+    }
+  }
+  private assist(){
+    for(const npc of this.reactions){
+      if(!npc.active||!npc.definition.combatant)continue;
+      for(const enemy of this.actors.keys()){
+        const dealt=this.guardDamage.get(enemy)??0;
+        if(enemy.hp>=enemy.definition.hp||dealt>=enemy.definition.hp*.2||Math.hypot(enemy.x-npc.x,enemy.y-npc.y)>110
+          ||!this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y))continue;
+        const damage=Math.max(1,Math.round(enemy.definition.hp*.04));this.guardDamage.set(enemy,dealt+damage);
+        // Assistance cannot kill an attacker or replace the player's battle.
+        enemy.takeDamage(damage,new Phaser.Math.Vector2(enemy.x-npc.x,enemy.y-npc.y).normalize(),{nonLethal:true});
+        this.scene.playEffect('slash',enemy.x,enemy.y);break;
+      }
+    }
+  }
+  private complete(){
+    const e=this.encounter!;this.clear();
+    useGameStore.getState().setStoryFlag('encounter:'+e.id+':complete');
+    this.scene.lightStorySignal(e.id);
+    useGameStore.getState().progressQuest('encounter',e.id,1,e.questId);this.scene.notify(e.aftermath);this.scene.syncState();
+  }
+  clear(){
+    for(const actor of this.actors.keys())this.scene.releaseStoryEnemy(actor);this.actors.clear();
+    for(const npc of this.reactions)if(npc.active){npc.setStoryAlert();npc.endStoryMovement();}
+    this.reactions.clear();this.guardDamage.clear();this.label?.destroy();this.label=null;
+    this.encounter=null;this.roomId=null;this.interruptWork();this.scene.targeting.clear();
+  }
+  destroy(){this.clear();}
+}

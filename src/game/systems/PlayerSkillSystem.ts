@@ -89,11 +89,11 @@ export class PlayerSkillSystem {
     // airborne poses are not cropped. Offset the presentation, not physics.
     const visual = this.scene.add.sprite(this.player.x,this.player.y-20,texture,0)
       .setOrigin(.5).setScale(artScale(texture)).setFlipX(!verticalRush&&direction.x < 0)
-      .setDepth(this.player.y + 2).setName(`player-skill:${id}`);
+      .setDepth(this.scene.playerRenderDepth(this.player.y)+2).setName(`player-skill:${id}`);
     if(!skill.poseTimes)visual?.play(`player-skill:${skill.animationId??id}`);
     const start={x:this.player.x,y:this.player.y};
     const landing=id==='skyfall-slam'?this.scene.skillLanding(target??{x:start.x+direction.x*90,y:start.y+direction.y*90},skill.targetingRange??90):undefined;
-    const shadow=id==='skyfall-slam'?this.scene.add.ellipse(start.x,start.y+2,34,12,0x101512,.3).setDepth(start.y-1).setName('player-slam-shadow'):undefined;
+    const shadow=id==='skyfall-slam'?this.scene.add.ellipse(start.x,start.y+2,34,12,0x101512,.3).setDepth(this.scene.playerRenderDepth(start.y)-1).setName('player-slam-shadow'):undefined;
     const proposed=target?{x:target.x,y:target.y}:{x:start.x+direction.x*140,y:start.y+direction.y*140};
     const mark=id==='ember-cleave'&&this.scene.safeSkillPosition(proposed)&&this.scene.hasClearPath(start.x,start.y,proposed.x,proposed.y)?proposed:start;
     const rushDistance=id==='iron-tempest'&&target
@@ -152,7 +152,7 @@ export class PlayerSkillSystem {
       height=Math.sin(fraction*Math.PI)*64;
       cast.shadow?.setPosition(this.player.x,this.player.y+2).setScale(1-height/140).setAlpha(.3-height/400);
     }
-    cast.visual?.setPosition(this.player.x,this.player.y-height-20).setDepth(this.player.y+2);
+    cast.visual?.setPosition(this.player.x,this.player.y-height-20).setDepth(this.scene.playerRenderDepth(this.player.y)+2);
     if(cast.skill.id==='iron-tempest'&&cast.visual&&cast.elapsed>=220&&!cast.rushEffectStarted){
       // The effect follows the chosen directional pose: front/back thrusts
       // use a vertical axis, while left/right mirror the side-facing gust.
@@ -173,7 +173,7 @@ export class PlayerSkillSystem {
         this.playGroundEffect(0,palmX,this.player.y,44,30);
         this.playGroundEffect(0,point.x,point.y,100,76);
         const art=effectPresentation(DISTINCT_EFFECT_TEXTURE,0,cast.effectColor);
-        const visual=this.scene.add.sprite(point.x,point.y,art.texture,0).setOrigin(.5,.94).setDisplaySize(172,112).setDepth(point.y-.1).setName('ember-snare-field');
+        const visual=this.scene.add.sprite(point.x,point.y,art.texture,0).setOrigin(.5,.94).setDisplaySize(172,112).setDepth(this.scene.playerRenderDepth(point.y)-.1).setName('ember-snare-field');
         if(cast.effectColor!==undefined)visual.setTint(cast.effectColor);
         visual.play({key:art.animation,repeat:-1});
         this.emberField={point,elapsed:0,nextPulse:0,skill:cast.skill,visual,effectColor:cast.effectColor};
@@ -192,7 +192,7 @@ export class PlayerSkillSystem {
         const art=effectPresentation(COMBAT_EFFECT_TEXTURE,row,cast.effectColor);
         const sprite=this.scene.add.sprite(this.player.x+cast.direction.x*16,this.player.y+cast.direction.y*16,art.texture,row*4)
           .setDisplaySize(92,92).setBlendMode(Phaser.BlendModes.ADD)
-          .setRotation(Math.atan2(cast.direction.y,cast.direction.x)).setDepth(this.player.y+4).setName(`${cast.skill.id}-wave`);
+          .setRotation(Math.atan2(cast.direction.y,cast.direction.x)).setDepth(this.scene.playerRenderDepth(this.player.y)+4).setName(`${cast.skill.id}-wave`);
         if(cast.effectColor!==undefined)sprite.setTint(cast.effectColor);
         sprite.play({key:art.animation,repeat:-1});
         this.waves.add({sprite,direction:cast.direction.clone(),remaining:cast.skill.targetingRange??620,skill:cast.skill,multiplier:cast.skill.damageMultipliers[cast.nextHit],effectColor:cast.effectColor});
@@ -236,7 +236,7 @@ export class PlayerSkillSystem {
         }).filter(hit=>hit.distance<=(hit.enemy.definition.boss?24:11)+14
           &&this.scene.hasClearPath(from.x,from.y,hit.enemy.x,hit.enemy.y)).sort((a,b)=>a.t-b.t);
         if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction);this.playArtEffect(0,hit.enemy.x,hit.enemy.y,92,Math.atan2(wave.direction.y,wave.direction.x),false,wave.effectColor??null);terminated=true;break;}
-        wave.sprite.setPosition(to.x,to.y).setDepth(to.y+4);wave.remaining-=step;travel-=step;
+        wave.sprite.setPosition(to.x,to.y).setDepth(this.scene.playerRenderDepth(to.y)+4);wave.remaining-=step;travel-=step;
       }
       if(terminated||wave.remaining<=0){wave.sprite.destroy();this.waves.delete(wave);}
     }
@@ -244,7 +244,7 @@ export class PlayerSkillSystem {
 
   private playArtEffect(row:number,x:number,y:number,size:number,rotation=0,distinct=false,effectColor:number|null|undefined=this.cast?.effectColor){
     const color=effectColor??undefined,art=effectPresentation(distinct?DISTINCT_EFFECT_TEXTURE:COMBAT_EFFECT_TEXTURE,row,color);
-    const sprite=this.scene.add.sprite(x,y-8,art.texture,row*4).setDisplaySize(size,size).setDepth(y+4).setRotation(rotation).setBlendMode(Phaser.BlendModes.ADD);
+    const sprite=this.scene.add.sprite(x,y-8,art.texture,row*4).setDisplaySize(size,size).setDepth(this.scene.playerRenderDepth(y)+4).setRotation(rotation).setBlendMode(Phaser.BlendModes.ADD);
     if(color!==undefined)sprite.setTint(color);
     this.effects.add(sprite);sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>{this.effects.delete(sprite);sprite.destroy();});sprite.play(art.animation);
   }
@@ -252,7 +252,7 @@ export class PlayerSkillSystem {
     const tinted=color!==undefined;
     const sprite=this.scene.add.sprite(x,y,tinted?'effect_slash-neutral':'effect_slash',0)
       .setOrigin(.5).setScale(artScale('effect_slash')*1.35).setRotation(angle-Math.PI/4)
-      .setDepth(y+1).setName('crescent-flurry-slash');
+      .setDepth(this.scene.playerRenderDepth(y)+1).setName('crescent-flurry-slash');
     if(color!==undefined)sprite.setTint(color);
     this.effects.add(sprite);
     sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>{this.effects.delete(sprite);sprite.destroy();});
@@ -269,7 +269,7 @@ export class PlayerSkillSystem {
   private playGroundEffect(row:number,x:number,y:number,width:number,height:number,effectColor:number|null|undefined=this.cast?.effectColor){
     const color=effectColor??undefined,art=effectPresentation(DISTINCT_EFFECT_TEXTURE,row,color);
     const sprite=this.scene.add.sprite(x,y,art.texture,row*4)
-      .setOrigin(.5,.94).setDisplaySize(width,height).setDepth(y-.1);
+      .setOrigin(.5,.94).setDisplaySize(width,height).setDepth(this.scene.playerRenderDepth(y)-.1);
     if(color!==undefined)sprite.setTint(color);
     this.effects.add(sprite);
     sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>{

@@ -32,6 +32,7 @@ export function QuestJournal() {
           {dependency&&<p>Continue “{dependency.name}”. Its current objective is tracked through this chapter.</p>}
           {target&&(target.questId===q.id||target.questId===dependency?.id)&&<p>Destination: {target.label}{target.travelHint&&<small> · {target.travelHint}</small>}</p>}
           {current.type==='escort'&&<p>Stay near the survivor. They will stop if you move too far ahead; the guide switches between them and the safe arrival point.</p>}
+          {current.type==='encounter'&&<p>Follow the marker to begin this story event. Defeat its waves, then interact with the marked site if work remains. Moving away interrupts that work. Leaving or falling in battle preserves defeated attackers.</p>}
         </div>}
         {runtime.status==='completed'&&q.resolution&&<p className="journal-resolution">{q.resolution}</p>}
         <small>Completion reward: {q.rewardXp} XP · {q.rewardGold} gold{q.objectives.some(o=>o.rewardXp)&&' · Chapter milestones also grant experience'}</small>

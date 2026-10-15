@@ -53,6 +53,8 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private npcDetour:Vec2|null=null;
   private lastAvoidAttempt=0;
   private avoidSide=1;
+  private storyGoal:Vec2|null=null;
+  private storyAlert:string|undefined;
 
   constructor(scene: WorldScene, definition: NpcDefinition, x: number, y: number, home: Vec2) {
     const sourceFamily=definition.spriteTexture??'npcs';
@@ -117,6 +119,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   get escorting(){return this.escortGoal!==null;}
   get usesRegionalPresentation(){return this.regionalModel!==undefined||Boolean(this.definition.settlementResident);}
   storyRest(){(this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);this.playDirection(this.facing.x,this.facing.y,false);}
+  get canStoryWalk(){return this.regionalModel===undefined&&this.scene.anims.exists(this.walkTexture+'-down');}
+  beginStoryMovement(goal:Vec2){if(this.canStoryWalk)this.storyGoal={...goal};}
+  endStoryMovement(){this.storyGoal=null;this.storyRest();}
+  get storyMoving(){return this.storyGoal!==null;}
+  setStoryAlert(text?:string){this.storyAlert=text;}
   setInteriorLabelDepth(offset:number){this.nameLabel.setDepth(offset+this.y+80);this.titleLabel.setDepth(offset+this.y+80);}
   advanceCinematic(delta:number) {
     const body=this.body as Phaser.Physics.Arcade.Body,step=Math.min(delta,80)/1000;
@@ -128,6 +135,12 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   updatePatrol(time: number, delta: number) {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
+    if(this.storyGoal){
+      const dx=this.storyGoal.x-this.x,dy=this.storyGoal.y-this.y,distance=Math.hypot(dx,dy);
+      if(distance<8||!scene.canNpcVisit(this,this.storyGoal)){this.endStoryMovement();return;}
+      this.facing.set(dx,dy).normalize();body.setVelocity(this.facing.x*60,this.facing.y*60);
+      this.playDirection(dx,dy,true);return;
+    }
     if(!this.mayPatrol&&!this.escortGoal){
       this.npcDetour=null;
       body.setVelocity(0,0);this.target=null;this.route=[];this.previousPosition={x:this.x,y:this.y};
@@ -289,8 +302,8 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     }
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
     this.nameLabel.setPosition(this.x, this.y + this.labelY).setDepth(this.y + 80).setColor(questTarget ? '#ffe193' : '#f6edd7');
-    this.titleLabel.setPosition(this.x, this.y + this.labelY + 2).setDepth(this.y + 80)
-      .setVisible(distance < 260);
+    this.titleLabel.setText(this.storyAlert??this.definition.title).setPosition(this.x, this.y + this.labelY + 2).setDepth(this.y + 80)
+      .setVisible(Boolean(this.storyAlert)||distance < 260);
   }
 
   private playDirection(_x: number, _y: number, walking: boolean) {

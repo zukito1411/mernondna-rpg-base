@@ -10,6 +10,35 @@ export function reactiveStoryDialogue(id:string,quests:Record<string,QuestRuntim
 function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:Record<string,boolean>):string[]|undefined {
   const npc=NPC_BY_ID[id];if(!npc)return;
   const after=(line:string)=>[line,...npc.dialogue];
+  if(id==='maerwen-reedleaf'&&(quests['eight-regions']?.objectiveProgress['pilgrim-safe']??0)>=1)return [
+    'The little ones kept hold of each other all the way back. One would not let go even after we reached the hearth.',
+    'I do not think I thanked you properly. I could hardly remember my own name. Thank you.'];
+  const aftermath:Record<string,string>={
+    'aldren-vale':'When that bell rang, I looked for you before I reached for my sword. Old habits. I am glad you were here.',
+    'mira-fen':'Everyone reached shelter. I counted them twice. Do not laugh; I may count them again.',
+    'elara-voss':'The inn has a watch now. Varr will not get another quiet chance at those records.',
+    'sena-marrow':'One of the little ones asked whether the bell meant supper. I said not yet. I will be glad when I can ring it for something ordinary.',
+  };
+  if(flags['encounter:oakmere-raid:complete']&&quests['first-road']?.status!=='completed'&&aftermath[id])return after(aftermath[id]);
+  if(flags['encounter:archive-fire:complete']&&!flags['campaign-complete']){
+    if(id==='renna-vale')return ['There is soot on every page I touch. I keep finding myself checking whether the ink is still there.',
+      'The witnesses are safe. That matters more. But I am making another copy of everything.'];
+    if(id==='captain-yselle-ward')return ['My watch answers to the crown’s law, not a steward’s purse. His men learned the difference at the archive doors.',
+      'The witnesses have an escort home. Nobody walks that lane alone tonight.'];
+    if(id==='sevrin-hale')return ['The watch has my orders. I will answer before the court. I have no more promises to offer you.'];
+  }
+  if(flags['encounter:redmesa-defense:complete']&&!flags['region-resolved:redmesa']&&id==='redmesa-beastmaster')return [
+    'You stood beside our people when Krag came for them. That is what I will remember, not which blood you carry.',
+    'The clans are ready to hear one another. Let us settle the well before another chief tries settling it with swords.'];
+  if(quests['home-for-two']?.status==='completed'&&id==='willowcross-keeper')return [
+    flags['siblings-widow']?'They carried their own blankets to the widow’s house. One insisted on taking the broken chair too. It was their mother’s.'
+      :'Isabel asked the children what they wanted before asking anyone about the deed. They had been waiting a long time for that question.',
+    'They will stay together. That much is settled.'];
+  if(quests['hunters-promise']?.status==='completed'&&id==='mira-fen')return ['No more snares by the village. Silas has been helping the watch pull up the last stakes.',
+    'Next time we go tracking, I am choosing something that does not end with you drawing a sword.'];
+  if(quests['tidewatch-debt']?.status==='completed'&&id==='tidewatch-sailmaker')return [
+    'She has the letter. No, she has not answered him. I told him that silence was an answer he would have to learn to live with.',
+    flags['pirate-accountability']?'The harbor watch kept its copy. An apology does not make the ledger disappear.':'Whether she forgives him is her own business. We have done enough deciding things for her.'];
   if(quests['shadows-highmere']?.status==='completed'&&['tovin-reed','mairin-reed','pell-rusk'].includes(id)){
     const publicHearing=flags['grain-public-inquiry'];
     if(id==='tovin-reed')return publicHearing?['I shook so badly Yselle held the page for me. Then someone in the square said Oswin’s name, and I could read the next line.','I do not like being recognized. I am still glad I spoke.']

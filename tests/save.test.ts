@@ -1,9 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGameStore } from '../src/store/gameStore';
 import { allowExplicitNewGame,loadGame, parseSave, SAVE_KEY, saveGame, setSaveSnapshotProvider, watchProgressSaves } from '../src/utils/save';
+import { questClock, reachObjective } from './questHarness';
+import { xpTotalForLevel } from '../src/data/progression';
+import { ADVENTURE_REVISION_FLAG } from '../src/data/adventure';
 
 let values: Map<string, string>;
 beforeEach(() => {
+  questClock();
   values = new Map();
   vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) });
@@ -11,7 +15,33 @@ beforeEach(() => {
   allowExplicitNewGame();
   useGameStore.getState().resetGame();
 });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe('local saves', () => {
+  it.each(['defend-oakmere', 'return-aldren'])('migrates inserted events only behind the saved frontier at %s', stage => {
+    reachObjective('first-road', stage);
+    expect(saveGame()).toBe(true);
+    const data = JSON.parse(values.get(SAVE_KEY)!);
+    delete data.state.storyFlags[ADVENTURE_REVISION_FLAG];
+    delete data.state.quests['first-road'].objectiveProgress['defend-oakmere'];
+    const parsed = parseSave(JSON.stringify(data));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.state.quests['first-road'].objectiveProgress['defend-oakmere'])
+      .toBe(stage === 'return-aldren' ? 1 : undefined);
+    expect(parsed?.state.xp).toBe(data.state.xp);
+    expect(parsed?.state.gold).toBe(data.state.gold);
+    expect(parsed?.state.storyFlags[ADVENTURE_REVISION_FLAG]).toBe(true);
+  });
+
+  it('retains mid-event defeated slots without declaring the event complete', () => {
+    reachObjective('first-road', 'defend-oakmere');
+    useGameStore.getState().setStoryFlag('encounter:oakmere-raid:defeated:0');
+    expect(saveGame()).toBe(true);
+    const parsed = parseSave(values.get(SAVE_KEY)!);
+    expect(parsed?.state.storyFlags['encounter:oakmere-raid:defeated:0']).toBe(true);
+    expect(parsed?.state.storyFlags['encounter:oakmere-raid:defeated:1']).toBeUndefined();
+    expect(parsed?.state.quests['first-road'].objectiveProgress['defend-oakmere']).toBeUndefined();
+  });
+
   it('retains bounded encounter stations/roles and rejects malformed or duplicate slots',()=>{
     const behavior={home:{x:35000,y:39000},station:{x:35000,y:39000},leashRadius:900,role:'leader' as const,slot:0};
     useGameStore.getState().setContentWorld({nextSpawnSequence:2,states:{},spawns:{
@@ -37,7 +67,7 @@ describe('local saves', () => {
     } });
     expect(saveGame()).toBe(true);
     const data = JSON.parse(values.get(SAVE_KEY)!);
-    expect(data.version).toBe(5);
+    expect(data.version).toBe(6);
     useGameStore.getState().resetGame();
     expect(loadGame()).toBe(true);
     expect(useGameStore.getState().worldContent.spawns['spawn:0']).toMatchObject({
@@ -119,19 +149,22 @@ describe('local saves', () => {
     expect(useGameStore.getState().quests.extra).toBeUndefined();
   });
   it('migrates version 1 while preserving player, quest and defeated-boss progress', () => {
-    useGameStore.getState().startDialogue('aldren-vale'); useGameStore.getState().endDialogue();
+    reachObjective('first-road', 'kill-varr');
     useGameStore.getState().recordEnemyDefeat('bandit-captain', 110, 30, 'captain-varr');
+    const earnedLevel = useGameStore.getState().level;
     saveGame();
     const old = JSON.parse(values.get(SAVE_KEY)!);
+    old.state.xp = (earnedLevel - 1) * 250; // Version 1 used flat level thresholds.
     old.version = 1; delete old.state.worldContent;
     values.set(SAVE_KEY, JSON.stringify(old));
     useGameStore.getState().resetGame();
     expect(loadGame()).toBe(true);
-    expect(useGameStore.getState().xp).toBe(110);
+    expect(useGameStore.getState().level).toBe(earnedLevel);
+    expect(useGameStore.getState().xp).toBe(xpTotalForLevel(earnedLevel));
     expect(useGameStore.getState().quests['first-road'].objectiveProgress['kill-varr']).toBe(1);
     expect(useGameStore.getState().worldContent.states['boss:captain-varr'].defeated).toBe(true);
     saveGame();
-    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(5);
+    expect(JSON.parse(values.get(SAVE_KEY)!).version).toBe(6);
   });
   it('preserves allocated attributes and learned skills through save/load', () => {
     useGameStore.getState().addRewards(250, 0);
@@ -142,7 +175,7 @@ describe('local saves', () => {
     expect(loadGame()).toBe(true);
     expect(useGameStore.getState()).toMatchObject({
       attributes: { strength: 0, vitality: 1, agility: 0 }, statPoints: 2, skillPoints: 0,
-      learnedSkills: ['iron-heart'], maxHp: 137,
+      learnedSkills: ['iron-heart'], maxHp: 135,
     });
   });
   it('migrates version 2 saves and grants points for levels already earned', () => {

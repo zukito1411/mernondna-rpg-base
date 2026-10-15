@@ -12,6 +12,7 @@ import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG} from '../data/campaign';
+import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {BOSS_WEAPONS,POTIONS,merchantStock,itemName,type PotionId} from '../data/economy';
@@ -115,7 +116,7 @@ export interface GameState {
   endDialogue: () => void;
   showToast: (message: string) => void;
   clearToast: () => void;
-  progressQuest: (type: QuestObjective['type'], targetId: string, amount?: number) => void;
+  progressQuest: (type: QuestObjective['type'], targetId: string, amount?: number,questId?:string) => void;
   addRewards: (xp: number, gold: number) => void;
   markBossDefeated: (bossId: string) => void;
   recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState, contentId?:string) => void;
@@ -167,7 +168,7 @@ const baseState = () => ({
   travelRequestSource:null as 'map' | 'shrine' | null,
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
   activeSkillStatus:initialActiveSkillStatus(),
-  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
+  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true,[ADVENTURE_REVISION_FLAG]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
   cinematic:null as GameState['cinematic'],pendingCinematic:'roadborn-opening' as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
 });
 
@@ -277,7 +278,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       ||dialogue.lineIndex<(dialogue.lines?.length??1)-1)return;
     const context=conversationObjective(dialogue.npcId,get().quests,dialogue.questId);
     if(context?.questId===dialogue.questId&&context.objective.id===dialogue.objectiveId
-      &&['talk','deliver'].includes(context.objective.type))get().progressQuest(context.objective.type,dialogue.npcId);
+      &&['talk','deliver'].includes(context.objective.type))get().progressQuest(context.objective.type,dialogue.npcId,1,dialogue.questId);
   },
   chooseDialogue:(id)=>{
     const state=get(),dialogue=state.dialogue;
@@ -289,7 +290,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({storyChoices:{...state.storyChoices,[dialogue.questId+':'+objective.id]:id},
       storyFlags:{...state.storyFlags,...(choice.flag?{[choice.flag]:true}:{})},
       dialogue:{npcId:dialogue.npcId,lineIndex:0,lines:[choice.response]}});
-    get().progressQuest(objective.type,objective.targetId);
+    get().progressQuest(objective.type,objective.targetId,1,dialogue.questId);
     get().showToast(choice.response);
   },
   trackQuest:(id)=>{if(get().quests[id]?.status==='active')set({trackedQuestId:id});},
@@ -297,10 +298,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   requestCinematicSkip:()=>set({skipCinematicRequested:true}),
   showToast: (message) => set({ toast: message }),
   clearToast: () => set({ toast: null }),
-  progressQuest: (type, targetId, amount = 1) => {
+  progressQuest: (type, targetId, amount = 1,questId) => {
     if (!Number.isFinite(amount) || amount <= 0) return;
     const state = get();
-    const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount },state.storyFlags,state.worldContent);
+    const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount,questId },state.storyFlags,state.worldContent);
     const scenes=sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags);
     const shrines=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'].filter(id=>(result.quests['eight-regions']?.objectiveProgress['report:'+id]??0)>=1);
     const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);

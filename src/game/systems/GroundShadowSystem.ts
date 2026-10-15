@@ -141,6 +141,23 @@ export class GroundShadowSystem {
   if(stamp===this.actorStamp)return;
   this.paint(this.actorLayer,visible,daylight,castX,castY,cloud);this.actorStamp=stamp;
  }
+ /** Reuse the existing soft ground-contact artwork for bounded interiors;
+  * room/actor destruction owns every image and removes its update listener. */
+ interiorContact(actor:Actor,depthAt:(y:number)=>number){
+  const key='interior-contact-shadow';
+  if(!this.scene.textures.exists(key))this.scene.textures.addCanvas(key,this.contact);
+  const image=this.scene.add.image(actor.x,actor.y,key).setDepth(depthAt(actor.y));
+  const sync=()=>{
+   const bounds=((actor.frame.customData??{}) as {visibleBounds?:{width:number}}).visibleBounds;
+   const density=ART_BY_KEY[actor.texture.key as ArtTextureKey]?.density??1;
+   const width=(bounds?bounds.width*density:actor.frame.cutWidth)*Math.abs(actor.scaleX),radius=Math.max(8,Math.min(30,width*.34));
+   image.setPosition(actor.x,actor.y).setDisplaySize(radius*2,radius*2/3).setDepth(depthAt(actor.y))
+    .setVisible(actor.visible&&getGraphicEffects().dynamicShadows).setAlpha(actor.alpha);
+  };
+  const release=()=>image.destroy();
+  this.scene.events.on(Phaser.Scenes.Events.POST_UPDATE,sync);actor.once('destroy',release);
+  image.once('destroy',()=>{this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE,sync);actor.off('destroy',release);});sync();return image;
+ }
  private visible(casters:Set<Caster>,width:number,height:number,castX:number,castY:number){
   const result:Array<{caster:Caster;frame:Phaser.Textures.Frame}>=[];
   for(const caster of casters){
@@ -266,6 +283,7 @@ export class GroundShadowSystem {
   window.removeEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
   this.casters.clear();this.scenery.clear();this.moving.clear();this.silhouettes.clear();
   for(const layer of [this.cloudLayer,this.staticLayer,this.actorLayer]){layer.image.destroy();this.scene.textures.remove(layer.texture.key);}
+  if(this.scene.textures.exists('interior-contact-shadow'))this.scene.textures.remove('interior-contact-shadow');
   this.contact.width=this.contact.height=1;
  }
 }

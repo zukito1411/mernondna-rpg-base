@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import {InteriorSession} from '../systems/InteriorSession';
+import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
+import type {StoryEncounter} from '../../data/adventure';
 import {citizenModel} from '../systems/RegionalCitizenArt';
 import {NPC_INTERIOR_BY_ID,INTERIOR_RESIDENTS,INTERIOR_ENTRIES} from '../../data/interiors';
 import type {StoryShot} from '../../data/cinematics';
@@ -121,7 +123,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly regionalNpcSlots=new Map<string,Vec2>();
   private readonly regionalNpcRetryAt=new Map<string,number>();
   private interiors!:InteriorSession;
+  private storyEncounters!:StoryEncounterSystem;
   get inInterior(){return Boolean(this.interiors?.active);}
+  get activeInteriorId(){return this.interiors?.currentEntry?.id??null;}
+  get storyCombatActive(){return Boolean(this.storyEncounters?.active);}
+  get storyInteraction(){return this.storyEncounters?.prompt??null;}
+  get combatAllowed(){return !this.inInterior||this.storyCombatActive;}
   playerRenderDepth(y:number){return this.interiors?.playerRenderDepth(y)??y;}
   private readonly interactables = new Map<string, { definition: InteractableContentDefinition; actor: ContentActor }>();
   private lastSafe = { x: LEIGNERON.spawn.x, y: LEIGNERON.spawn.y };
@@ -146,7 +153,57 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private nextImpactSoundAt=0;
   private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
-  getCombatEnemies(){return [...this.enemies];}
+  getCombatEnemies(){return [...this.enemies].filter(e=>!this.inInterior||this.storyEncounters.owns(e));}
+  storyResidents(){return this.inInterior?this.interiors.getResidents():this.npcs;}
+  ensureStoryEnemy(id:string){return this.m14Art.ensure(id);}
+  storyEncounterAnchor(e:StoryEncounter):Vec2|undefined{
+    if(e.interiorNpcId){
+      const room=NPC_INTERIOR_BY_ID[e.interiorNpcId];
+      if(!this.interiors.ready||this.activeInteriorId!==room?.entry.id)return;
+      const npc=this.interiors.getActor(e.interiorNpcId);return npc?{x:npc.x,y:npc.y+80}:undefined;
+    }
+    if(this.inInterior)return;
+    const actor=e.npcId?this.contentManager.getActor('npc:'+e.npcId):undefined;
+    return actor??(e.npcId?this.contentManager.getState('npc:'+e.npcId):e.contentId?
+      this.contentManager.getState(e.contentId):undefined);
+  }
+  storySpawnClear(p:Vec2,enemyId:string){
+    const radius=ENEMY_BY_ID[enemyId].bodyRadius??11;
+    return this.inInterior?this.interiors.combatFeet(p.x,p.y,radius)&&this.interiors.combatPath(this.player,p)
+      :this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y)
+        &&!this.worldSprites.blocksPath({x:p.x-radius,y:p.y},{x:p.x+radius,y:p.y},radius*2,radius*2)
+        &&[-radius,radius].every(dx=>[-radius*2,0].every(dy=>this.worldGenerator.isWalkable(p.x+dx,p.y+dy)))
+        &&this.hasClearPath(this.player.x,this.player.y,p.x,p.y)&&this.worldGenerator.isWalkablePath(this.player,p)
+        &&!this.npcs.some(n=>n.active&&Math.hypot(n.x-p.x,n.y-p.y)<65);
+  }
+  createStoryEnemy(id:string,p:Vec2,instanceId:string){
+    const enemy=this.createContentActor({id:instanceId,kind:'creature',enemyId:id,world:p,eventSpawn:true},{...p}) as Enemy;
+    try{if(this.inInterior)this.addInteriorContact(enemy);return enemy;}
+    catch(error){this.destroyContentActor(enemy);throw error;}
+  }
+  addInteriorContact(actor:Phaser.GameObjects.Sprite){return this.groundShadows.interiorContact(actor,y=>this.playerRenderDepth(y)-1);}
+  lightStorySignal(id:string){
+    this.contentManager.getActor('story:signal-fire:'+id)?.setVisible(true);
+    const clue=id==='mountain-signal'?'story:beacon-kit':id==='winter-signal'?'story:frost-lantern':undefined;
+    if(clue)this.contentManager.getActor(clue)?.setVisible(false);
+  }
+  releaseStoryEnemy(enemy:Enemy){this.forgetOrcSpears(enemy.instanceId);this.destroyContentActor(enemy);}
+  storyActor(enemy:Enemy){return enemy.instanceId.startsWith('story-event:');}
+  canEnemyTargetPlayer(enemy:Enemy){
+    return this.storyActor(enemy)?Boolean(this.storyEncounters?.owns(enemy)&&this.storyEncounters.allows(this.player))
+      :!this.inInterior&&this.isEnemyTerritory(this.player.x,this.player.y);
+  }
+  updateInteriorStoryCombat(time:number,delta:number,blocked:boolean){
+    this.storyEncounters.update(time,delta,blocked);
+    blocked=blocked||this.cinematicDirector.active;
+    if(!blocked)this.targeting.update();
+    for(const enemy of [...this.enemies]){
+      if(!this.storyEncounters.owns(enemy)){enemy.updatePresentation(this.player.x,this.player.y,true);continue;}
+      if(!blocked){enemy.updateEnemy(time,Math.min(delta,80));if(enemy.active)this.interiors.advanceEnemy(enemy,delta);}
+      if(enemy.active){enemy.setDepth(this.playerRenderDepth(enemy.y));enemy.updatePresentation(this.player.x,this.player.y,blocked);}
+    }
+    if(!blocked)this.spearProjectiles.update(delta);
+  }
   playEnemyVocal(definition:EnemyDefinition,instanceId:string,cue:EnemySoundCue,x:number,y:number){
     if(!useGameStore.getState().weatherAudio||this.sound.locked)return;
     this.enemySounds.play(definition,instanceId,cue,x,y);
@@ -154,9 +211,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   forgetEnemySound(instanceId:string){this.enemySounds.forget(instanceId);}
   playDragonSound(instanceId:string,cue:'roar'|'breath'|'flight',x:number,y:number,duration:number){this.enemySounds.playEffect(instanceId,cue,x,y,duration);}
   stopDragonSound(instanceId:string,cue?:'roar'|'breath'|'flight'){this.enemySounds.stopEffect(instanceId,cue);}
-  canSeeEnemy(enemy:Enemy){return this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
-  safeSkillPosition(point:Vec2){return this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
+  canSeeEnemy(enemy:Enemy){return this.inInterior?this.storyEncounters.owns(enemy):this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
+  safeSkillPosition(point:Vec2){return this.inInterior?this.interiors.playerFeet(point.x,point.y):this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
   canTraverseGround(from:Vec2,to:Vec2){
+    if(this.inInterior)return this.interiors.clearPath(from,to);
     // Swept feet catch thin object/wall contours before the terrain sampling.
     return !fortificationBlocksPath(from,to,12)&&!this.worldSprites.blocksPath(from,to)
       &&this.worldGenerator.isWalkablePath(from,to);
@@ -165,6 +223,10 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
     this.lastSafe={...point};this.player.setDepth(point.y);
   }
+  prepareStoryArena(){this.contentManager.suspendCreatures();this.spearProjectiles.clear();this.wildlife.reset();}
+  cancelStoryEncounter(){this.storyEncounters?.clear();this.player.resetInput();this.spearProjectiles.clear();}
+  interactWithStory(){return this.storyEncounters.interact();}
+  playStoryIntro(id:string){return this.cinematicDirector.start('encounter-'+id);}
   skillLanding(target:Vec2,range:number):Vec2 {
     const from={x:this.player.x,y:this.player.y};
     const candidates=[32,48,64].flatMap(radius=>Array.from({length:16},(_,i)=>({x:target.x+Math.cos(i*Math.PI/8)*radius,y:target.y+Math.sin(i*Math.PI/8)*radius})));
@@ -208,7 +270,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const view={left:x-hw,right:x+hw,top:y-hh,bottom:y+hh};
     const ready=this.chunkManager.updateView(view,staged);
     this.contentManager.update(x,y,view);
-    const bossesReady=authoredBosses.every(boss=>{
+    const bossesReady=this.storyCombatActive||authoredBosses.every(boss=>{
       const state=this.contentManager.getState(boss.id),position=state??boss.world;
       return state?.defeated||position.x<view.left-128||position.x>view.right+128
         ||position.y<view.top-128||position.y>view.bottom+128||Boolean(this.contentManager.getActor(boss.id));
@@ -241,6 +303,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   canNpcVisit(from: { x: number; y: number }, to: { x: number; y: number }) {
+    if(this.inInterior)return this.interiors.combatPath(from,to);
     const distance = Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y);
     const steps = Math.max(1, Math.ceil(distance / 24));
     for (let i = 0; i <= steps; i++) {
@@ -377,6 +440,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.contentManager = new ContentChunkManager(WORLD_CONTENT, logical, {
       initialState: initialContentState,
       canActivate: (definition, runtime) => {
+        if(definition.kind==='creature'&&this.storyCombatActive)return false;
         if(definition.kind==='npc'&&NPC_INTERIOR_BY_ID[definition.npcId])return false;
         if(definition.kind==='npc'&&(NPC_BY_ID[definition.npcId].settlementResident||citizenModel(NPC_BY_ID[definition.npcId])!==undefined)){
           if(this.time.now<(this.regionalNpcRetryAt.get(definition.id)??0))return false;
@@ -456,6 +520,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     setSaveSnapshotProvider(() => this.syncState());
     this.interiors=new InteriorSession(this);
+    this.storyEncounters=new StoryEncounterSystem(this);
 
     this.registry.set('loadingStage','Drawing nearby terrain');
     this.chunkManager.update(this.player.x, this.player.y);
@@ -495,7 +560,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(this.cinematicDirector.active){this.updateCinematicPresentation(time,delta);return;}
     const travelStore=useGameStore.getState();
     if(this.interiors?.active){
-      this.enemySounds.pause(true);
+      this.enemySounds.pause(!this.focused||Boolean(travelStore.panel||travelStore.dialogue)||!this.storyCombatActive);
       if(travelStore.travelRequest||travelStore.passageRequest){
         travelStore.hydrate({travelRequest:null,passageRequest:null});this.notify('Leave the building before travelling.');
       }
@@ -526,6 +591,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       if(pending){if(!this.cinematicDirector.start(pending))story.hydrate({pendingCinematic:story.cinematicQueue[0]??null,cinematicQueue:story.cinematicQueue.slice(1)});else return;}
       if(this.worldGenerator.getTownAt(this.player.x,this.player.y)?.id==='highmere'
         && !story.storyFlags['scene:highmere-arrival'] && this.cinematicDirector.start('highmere-arrival'))return;
+    }
+    this.storyEncounters.update(time,delta,!this.focused||Boolean(story.panel||story.dialogue));
+    if(this.cinematicDirector.active){this.updateCinematicPresentation(time,delta);return;}
+    if(this.storyCombatActive&&(story.travelRequest||story.passageRequest)){
+      story.hydrate({travelRequest:null,passageRequest:null});this.notify('Leave the encounter area before travelling.');
     }
     this.handleShrineTravel();
     const uiBlocked = !this.focused || Boolean(useGameStore.getState().panel || useGameStore.getState().dialogue);
@@ -595,7 +665,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
     const regionId = this.worldGenerator.getRegionAt(this.player.x, this.player.y);
     this.m14Art.update(delta,regionId);
-    if (!uiBlocked) this.eventDirector.update(delta, regionId, this.dayNight.getHour(), this.player.x, this.player.y);
+    if (!uiBlocked&&!this.storyCombatActive) this.eventDirector.update(delta, regionId, this.dayNight.getHour(), this.player.x, this.player.y);
 
     if (!uiBlocked) this.spawnAccumulator += Math.min(delta,250);
     if (!uiBlocked && this.spawnAccumulator >= this.nextAmbientIntervalMs) {
@@ -783,6 +853,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   tryInteract(x: number, y: number) {
     if (useGameStore.getState().panel || useGameStore.getState().dialogue) return;
     if(this.interiors.active){this.interiors.interact();return;}
+    if(this.interactWithStory())return;
     const building=this.interiors.nearest(x,y);
     if(building){this.interiors.enter(building);return;}
     const elarionShrine=this.nearbyElarionShrine(x,y);
@@ -892,6 +963,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   spawnEnemy(enemyId: string, x: number, y: number, eventSpawn = false, summoner?: Enemy, encounterCap?: number) {
+    if(this.storyCombatActive)return false;
     // Legacy callers cannot bypass the wave ledger or request partial minions.
     if(summoner){
       const sequence=this.contentManager.getNextSpawnSequence();
@@ -1071,6 +1143,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   damagePlayer(amount: number) {
     if(this.cinematicDirector?.active)return;
+    const state=useGameStore.getState();if(!this.focused||state.panel||state.dialogue||this.inInterior&&!this.storyCombatActive)return;
+    this.storyEncounters?.interruptWork();
     this.player.takeDamage(amount);
   }
 
@@ -1082,7 +1156,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const animation = `effect-${kind}`;
     const effect = this.add.sprite(x, y, texture, 0).setOrigin(.5)
       .setScale(artScale(texture) * (kind === 'slash' || kind === 'teleport' ? 1.35 : 1))
-      .setDepth(y + 1).setName(`combat-effect:${kind}`);
+      .setDepth(this.playerRenderDepth(y) + 1).setName(`combat-effect:${kind}`);
     if (direction) effect.setRotation(Math.atan2(direction.y, direction.x) - Math.PI / 4);
     if(kind==='hit')this.playCombatImpact(.42);
     else if(kind==='heal')this.playAudio('sfx-heal-bell',.2);
@@ -1091,6 +1165,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   handleEnemyDefeated(enemy: Enemy) {
+    if(this.storyEncounters?.defeated(enemy))return;
     this.forgetOrcSpears(enemy.instanceId);
     const definition = enemy.definition;
     const rng = seededRandom(`${enemy.instanceId}:loot`);
@@ -1128,12 +1203,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   respawnPlayer() {
+    this.cancelStoryEncounter();this.interiors.leaveOnDefeat();
     const home = TOWN_BY_ID[LEIGNERON.homeTownId].world;
     this.spearProjectiles.clear();
     useGameStore.getState().showToast('Leigneron collapses and wakes in Oakmere.');
     this.player.restoreAt(home.x, home.y + 80);
     this.playEffect('teleport', this.player.x, this.player.y);
     this.lastSafe = { x: this.player.x, y: this.player.y };
+    this.cameras.main.centerOn(this.player.x,this.player.y).startFollow(this.player,true,1,1);
+    this.chunkManager.update(this.player.x,this.player.y);this.contentManager.update(this.player.x,this.player.y);
   }
 
   notify(message: string) {
@@ -1149,17 +1227,21 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     return this.enemies.size;
   }
 
-  isWalkable(x: number, y: number) { return this.worldGenerator.isWalkable(x, y); }
+  isWalkable(x: number, y: number) { return this.inInterior?this.interiors.combatFeet(x,y):this.worldGenerator.isWalkable(x, y); }
   interiorDoorClear(x:number,y:number){return this.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y);}
   isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y)
     &&!(useGameStore.getState().storyFlags['oakmere-road-open']&&Math.hypot(x-TOWN_BY_ID.oakmere.world.x,y-TOWN_BY_ID.oakmere.world.y)<5000&&this.worldGenerator.isRoad(x,y,30))
     &&!WILDERNESS_SITES.some(s=>((s.style==='camp'&&!s.hostile)||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
   canEnemyOccupy(x: number, y: number,enemy?:Enemy) {
+    if(enemy&&this.storyActor(enemy))return this.storyEncounters.owns(enemy)&&this.storyEncounters.allows({x,y})
+      &&(this.inInterior?this.interiors.combatFeet(x,y):this.worldGenerator.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y));
+    if(this.inInterior)return false;
     if(enemy&&isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home)
       &&(!onFlagshipDeck(x,y)||!flagshipWalkable(x,y,enemy.definition.bodyRadius??(enemy.definition.boss?24:11))))return false;
     return this.isEnemyTerritory(x,y) && !this.isBlockedByBuilding(x,y);
   }
   enemyNavigationPoint(enemy:Enemy,target:Vec2):Vec2 {
+    if(this.inInterior)return this.interiors.navigationPoint(enemy,target);
     if(!isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home))return target;
     const cached=this.shipPaths.get(enemy);
     if(cached&&this.time.now<cached.until&&Math.hypot(cached.target.x-target.x,cached.target.y-target.y)<48
@@ -1186,6 +1268,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   hasClearPath(ax: number, ay: number, bx: number, by: number, exclude?: Phaser.GameObjects.GameObject) {
+    if(this.inInterior)return this.interiors.combatPath({x:ax,y:ay},{x:bx,y:by});
     if(flagshipFootprint(ax,ay)||flagshipFootprint(bx,by)){
       const steps=Math.max(1,Math.ceil(Math.hypot(bx-ax,by-ay)/16));
       for(let i=0;i<=steps;i++)if(!this.worldGenerator.isWalkable(ax+(bx-ax)*i/steps,ay+(by-ay)*i/steps))return false;
@@ -1271,6 +1354,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         : d.kind === 'settlement' ? TOWN_BY_ID[d.townId].name : 'name' in d ? d.name : 'label' in d && d.label ? d.label : 'Building';
       markers.push({ id, kind, label, x: actor.x, y: actor.y });
     }
+    for(const enemy of this.enemies)if(this.storyActor(enemy)&&this.targeting.eligible(enemy))markers.push({
+      id:enemy.instanceId,kind:'enemy',label:enemy.definition.name,x:enemy.x,y:enemy.y});
     let interaction: string | null = null, distance = 72;
     const building=this.interiors.nearest(this.player.x,this.player.y);
     if(building){interaction=`Enter ${building.name}`;distance=0;}
@@ -1286,6 +1371,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,point.x,point.y);
       if (d < distance && this.hasClearPath(this.player.x,this.player.y,point.x,point.y,actor)) { distance = d; interaction = definition.name; }
     }
+    if(this.storyCombatActive)interaction=this.storyInteraction;
     store.setNavigation({ heading: Math.atan2(this.player.lastDirection.x,-this.player.lastDirection.y), target: this.questTarget,
       playerPosition:{x:this.player.x,y:this.player.y},markers,interaction });
   }
@@ -1357,6 +1443,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       this.groundShadows.register(npc);
       this.npcBodies.add(npc);
       npc.on('pointerdown', () => {
+        if(this.storyCombatActive)return;
         if (Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y) < 72 && this.hasClearPath(this.player.x, this.player.y, npc.x, npc.y)) {
           useGameStore.getState().startDialogue(npc.definition.id);
         }
@@ -1408,6 +1495,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         ? treeFootprint(texture,definition.frame,definition.scale) : definition.footprint;
       const actor = this.add.sprite(x,y,texture,definition.frame);
       actor.setName(definition.id);
+      if(definition.id.startsWith('story:signal-fire:'))actor.setVisible(Boolean(useGameStore.getState().storyFlags[
+        'encounter:'+definition.id.slice('story:signal-fire:'.length)+':complete']));
       if (definition.tint !== undefined) actor.setTint(definition.tint);
       this.presentWorldSprite(actor, texture, definition.frame, definition.scale, solid,treeBase,
         definition.rotation,definition.anchor);
@@ -1424,6 +1513,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const texture = definition.texture ?? 'world_objects';
     const solid = definition.solid ?? (definition.kind !== 'harvestable' || definition.texture === 'world_assets');
     const actor=this.add.sprite(x,y,texture,definition.frame).setName(definition.id).setInteractive({useHandCursor:true});
+    const signal=definition.id==='story:beacon-kit'?'mountain-signal':definition.id==='story:frost-lantern'?'winter-signal':undefined;
+    if(signal&&useGameStore.getState().storyFlags['encounter:'+signal+':complete'])actor.setVisible(false);
     if(definition.tint!==undefined)actor.setTint(definition.tint);
     const footprint = propFoundation(texture,definition.frame,definition.scale??.6);
     this.presentWorldSprite(actor, texture, definition.frame, definition.scale ?? .6, solid, footprint,
@@ -1471,6 +1562,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
     if(this.cinematicDirector?.active)return;
+    if(this.storyCombatActive){this.storyEncounters.interact();return;}
     if(definition.portId){useGameStore.getState().hydrate({panel:'harbor',harborPortId:definition.portId});this.player.resetInput();return;}
     if(definition.id==='clue:varkhul-ward'){
       const returnAt=this.contentManager.getState('boss:'+DRAGON_BOSS_ID)?.respawnAt;
@@ -1682,9 +1774,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.physics.world.pause();this.player.discardActions();this.enemySounds.pause(true);
     this.cinematicDirector.update(step);
     const camera=this.cameras.main;camera.preRender();
-    if(this.inInterior){this.interiors.update(time,delta,true);this.interiors.presentCinematic(camera.midPoint.x,camera.midPoint.y,paused);return;}
+    if(this.inInterior){this.interiors.update(time,delta,true);this.interiors.presentCinematic(camera.midPoint.x,camera.midPoint.y,paused,step);return;}
     for(const npc of this.npcs)if(npc.active){
-      if(npc.definition.formation&&!paused&&this.cinematicDirector.playing){npc.updatePatrol(time,step);npc.advanceCinematic(step);}
+      if((npc.definition.formation||npc.storyMoving)&&!paused&&this.cinematicDirector.playing){npc.updatePatrol(time,step);npc.advanceCinematic(step);}
       npc.updatePresentation(camera.midPoint.x,camera.midPoint.y,false,paused,true);npc.setDepth(npc.y);
     }
     for(const enemy of this.enemies)if(enemy.active)enemy.updatePresentation(camera.midPoint.x,camera.midPoint.y,true);
@@ -1702,6 +1794,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN,this.shutdown,this);
     this.events.off(Phaser.Scenes.Events.DESTROY,this.shutdown,this);
     this.cinematicDirector?.destroy();
+    this.storyEncounters?.destroy();
     this.interiors?.destroy();
     this.spearProjectiles?.clear();
     this.wildlife?.destroy();

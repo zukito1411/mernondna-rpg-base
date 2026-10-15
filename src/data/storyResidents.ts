@@ -3,6 +3,15 @@ import type { NpcDefinition } from '../game/types';
 /** Civilian witnesses, not disposable combat targets. Existing approved models. */
 export const STORY_RESIDENTS: NpcDefinition[] = [
   {
+    id:'maerwen-reedleaf',name:'Maerwen Reedleaf',title:'Missing Pilgrim',townId:'moonfall',ancestry:'elf',
+    spriteTexture:'npc_elven_woman_idle',spriteFrame:0,stationary:true,worldOffset:{x:900,y:900},
+    role:'Surviving pilgrim sheltering beyond the webbed grove approach',faction:'Moonfall Grove',
+    storyReturn:{questId:'eight-regions',objectiveId:'report:elarion',position:{x:360,y:280}},
+    relationshipToLeigneron:{kind:'acquaintance',trust:30,summary:'A stranger who stayed to open the pilgrims’ route home'},
+    schedule:[{startHour:0,activity:'Hides near the pilgrim clearing until the approach is safe'}],
+    dialogue:['I heard feet on the path and thought it was them again.','There are little ones with us. Please keep the men with tools away from this place.'],questIds:[],
+  },
+  {
     id:'lena-cartwright',name:'Lena Cartwright',title:'Oakmere Seed Carter',townId:'oakmere',
     ancestry:'human',spriteTexture:'npc_villager',spriteFrame:0,stationary:true,
     worldOffset:{x:2200,y:-700},homeLocation:{x:500,y:100},

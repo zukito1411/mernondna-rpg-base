@@ -15,7 +15,7 @@ function clearedCampCount(objective:QuestObjective,world?:ContentWorldState){
 export function advanceQuests(
   current: Record<string, QuestRuntimeState>,
   defeatedBosses: string[],
-  event?: { type: QuestObjective['type']; targetId: string; amount: number; contentId?:string },
+  event?: { type: QuestObjective['type']; targetId: string; amount: number; contentId?:string;questId?:string },
   storyFlags:Record<string,boolean>={},
   world?:ContentWorldState,
 ) {
@@ -44,7 +44,9 @@ export function advanceQuests(
       if ((progress[objective.id] ?? 0) >= objective.amount) continue;
       const wasComplete=(progress[objective.id]??0)>=objective.amount;
       const cleared=clearedCampCount(objective,world);
-      if(cleared>(progress[objective.id]??0)){
+      if(objective.completedByFlag&&storyFlags[objective.completedByFlag]){
+        progress[objective.id]=objective.amount;
+      }else if(cleared>(progress[objective.id]??0)){
         progress[objective.id]=Math.min(objective.amount,cleared);
       } else if (objective.bossId && !objective.requiresFreshDefeat && defeatedBosses.includes(objective.bossId)) {
         progress[objective.id] = objective.amount;
@@ -52,6 +54,7 @@ export function advanceQuests(
         ||(objective.type==='investigate'&&storyFlags['discovery:'+objective.targetId])){
         progress[objective.id]=objective.amount;
       } else if (!usedEvents.has(id) && event?.type === objective.type
+        &&(!event.questId||event.questId===id)
         && (objective.type==='kill'?(objective.enemyIds??[objective.targetId]).includes(event.targetId):event.targetId===objective.targetId)
         && (!objective.killContentPrefix||Boolean(event.contentId?.startsWith(objective.killContentPrefix)))) {
         // Scoped camps use their ledger, not repeated death notifications.

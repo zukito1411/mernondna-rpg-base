@@ -5,6 +5,7 @@ import { WILDERNESS_SITES } from './wildernessSites';
 import { WorldGenerator } from '../game/systems/WorldGenerator';
 import { findCreaturePlacement } from '../game/systems/creaturePlacement';
 import { WORLD_ASSET_FRAMES } from './art';
+import {ADVENTURE_CLUES} from './adventure';
 
 /** Authored, persistent mission content. No new global spawn loop or village raids. */
 export function addCampaignWorldContent(content: ContentDefinition[]) {
@@ -104,17 +105,30 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
   clue('story:varr-cargo',{x:varr.x+310,y:varr.y+310},'Sealed caravan cargo',
     'The recovered seal and road survey belong to the royal grain office. The margin bears Leigneron’s mother’s handwriting: keep the spring open for everyone.',9);
   const root=site('rootwater-watch');
+  const pilgrim=content.find(d=>d.kind==='npc'&&d.npcId==='maerwen-reedleaf'),grove=site('moon-pilgrim-grove');
+  if(pilgrim){
+    const p=placement({x:grove.x+280,y:grove.y+240});pilgrim.world=p;
+    const npc=NPC_BY_ID['maerwen-reedleaf'],town=TOWN_BY_ID[npc.townId];npc.worldOffset={x:p.x-town.world.x,y:p.y-town.world.y};
+  }
   camp('rootwater-rescue',{x:root.x+520,y:root.y+390},['marsh-wraith','marsh-wraith','marsh-wraith'],'bruni-stonevein');
   clue('story:relief-letter',{x:root.x+110,y:root.y+105},'The relief crew’s last account',
-    'The ferryman’s sworn account says Leigneron’s parents refused orders to abandon their passengers. Paid cutters removed the bridge pins before their last crossing. The children had reached shelter. The report calling it flood damage was written before the bodies were found.',6);
+    'The ferryman records a flood, a failing bridge, and families still on the far bank. Leigneron’s parents went back until the last children reached shelter. On their final crossing the bridge collapsed. Beside their names, a survivor has written: they came back for us.',6);
   const frost=site('ice-bay-outlook');
   camp('frost-stores',{x:frost.x+550,y:frost.y+350},Array<string>(5).fill('frost-wolf'));
   clue('story:beacon-kit',{x:site('pass-beacon').x+100,y:site('pass-beacon').y+95},'Mountain relief satchel',
     'A missing porter left his signal oil and route journal here. He escaped toward Starhold; the journal marks the safe beacon sequence.',9);
   clue('story:frost-lantern',{x:frost.x+130,y:frost.y+90},'Icebound signal lantern',
     'The fishermen’s signal lens is intact. Beside it, a dark shard has scorched the snow without melting it.',9);
+  for(const [eventId,clueId] of [['mountain-signal','story:beacon-kit'],['winter-signal','story:frost-lantern']]){
+    const p=content.find(d=>d.id===clueId)!.world;
+    content.push({id:'story:signal-fire:'+eventId,kind:'prop',world:{...p},texture:'world_assets',frame:6,scale:.36,solid:false});
+  }
   clue('story:forge-record',{x:site('darkav:burnt-chainworks').x+100,y:site('darkav:burnt-chainworks').y+80},'Chainworks charge book',
     'The account records ward iron purchased as scrap using the same grain-office seal. The Seer demanded unbound heat; the forge crews never consented.',11);
+  for(const entry of ADVENTURE_CLUES){
+    const origin=entry.siteId?site(entry.siteId):TOWN_BY_ID[entry.townId].world;
+    clue(entry.id,{x:origin.x+entry.dx,y:origin.y+entry.dy},entry.name,entry.text,9);
+  }
   const cargo=content.find(d=>d.id==='loot:pirate-flagship:cargo');
   if(cargo){
     // Keep the old chest and its one-time coins; the repeatable record is beside it.
@@ -126,8 +140,8 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
     'story-camp:rootwater-rescue:','story-camp:frost-stores:'])reinforce(prefix,15);
 
   const evidence:Record<string,[string,string]>={
-    'clue:grain-receipt':['Blood-marked transfer warrant','The watchman crossed out the order to transfer children into service. His blood stains the margin. Beneath the fresh date is an older curfew pass bearing a genuine crown signature.'],
-    'clue:weighhouse-ledger':['The watchman’s hidden testimony','A list of displaced households is disguised as cargo. The watchman wrote that he refused to deliver the children. Tovin’s stolen knife is listed as planted evidence; Sevrin’s seal authorizes the wagon.'],
+    'clue:grain-receipt':['Blood-marked transfer warrant','The inspector crossed out the order to transfer children into service. His blood stains the margin. Beneath the fresh date is an older curfew pass bearing a genuine crown signature.'],
+    'clue:weighhouse-ledger':['The inspector’s hidden testimony','A list of displaced households is disguised as cargo. The inspector wrote that he refused to deliver the children. Tovin’s stolen knife is listed as planted evidence; Sevrin’s seal authorizes the wagon.'],
     'clue:relief-tally':['Household and adoption rolls','Loving adoptions and forced-service debts were entered in the same book. Some parents are still searching under names the clerks crossed out. Aldren’s entry refuses payment and preserves Leigneron’s birth parents’ names.'],
     'clue:cibar-pump':['The memorial well mechanism','There are fresh knife scores inside the well housing. A broken bronze clasp was caught beneath the lever during a struggle. It is evidence of Celia’s brother’s murder, not ordinary wear.'],
   };

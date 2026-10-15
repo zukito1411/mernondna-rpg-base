@@ -112,7 +112,7 @@ export class ContentChunkManager<Actor> {
       const escortedNpc=d.kind==='npc'&&d.npcId==='tovin-reed';
       // Preserve health, drops, respawn timers, and quest history, but use
       // repaired authored boss arenas rather than old saved tree-bound positions.
-      this.states.set(id,{...state,...(fixedNpc&&!escortedNpc||(d.kind!=='npc'&&d.kind!=='creature')
+      this.states.set(id,{...state,...(fixedNpc&&!escortedNpc&&!npc?.storyReturn||(d.kind!=='npc'&&d.kind!=='creature')
         ||d.kind==='creature'&&Boolean(d.bossId)?d.world:{})});
       if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);
     }
@@ -373,6 +373,11 @@ export class ContentChunkManager<Actor> {
   snapshot(): ContentWorldState {
     for (const id of this.active.keys()) this.capture(id);
     return { states: Object.fromEntries(this.states), spawns: Object.fromEntries(this.spawns), nextSpawnSequence: this.nextSpawnSequence };
+  }
+  /** Preserve ordinary creatures' ledger while a finite story battle owns
+   * the local actor budget. Normal streaming restores them afterward. */
+  suspendCreatures(){
+    for(const id of [...this.active.keys()])if(this.definitions.get(id)?.kind==='creature')this.deactivate(id);
   }
 
   destroy() {

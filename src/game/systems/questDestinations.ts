@@ -10,6 +10,7 @@ import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import {PORT_BY_ID} from '../../data/ports';
 import {settlementAt} from '../../data/settlements';
 import {WorldGenerator} from './WorldGenerator';
+import {STORY_ENCOUNTER_BY_ID} from '../../data/adventure';
 
 interface QuestDestination {name:string;location:string;regionId:RegionId;townId?:string;building?:string}
 const geography=new WorldGenerator();
@@ -50,6 +51,14 @@ export function contentQuestLocation(content:ContentDefinition,regionOverride?:R
 export function questDestination(objective:QuestObjective):QuestDestination|null{
   if(destinations.has(objective))return destinations.get(objective)!;
   let destination:QuestDestination|undefined;
+  if(objective.type==='encounter'){
+    const e=STORY_ENCOUNTER_BY_ID[objective.targetId],town=e&&TOWN_BY_ID[e.townId];
+    if(e&&town){
+      const room=e.interiorNpcId?NPC_INTERIOR_BY_ID[e.interiorNpcId]?.entry:undefined;
+      destination={name:e.name,townId:town.id,regionId:town.regionId,building:room?.name,
+        location:(room?'inside '+room.name+' in ':'near ')+town.name+', '+regionName(town.regionId)};
+    }
+  }
   if(['talk','deliver','choice','puzzle','escort'].includes(objective.type))destination=npcQuestDestination(objective.targetId);
   if(objective.type==='quest'){
     const dependency=QUEST_BY_ID[objective.targetId];

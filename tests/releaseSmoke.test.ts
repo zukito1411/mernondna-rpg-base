@@ -10,6 +10,9 @@ import {ROAD_ROUTES} from '../src/data/roadRoutes';
 import {stoneBridgePath} from '../src/data/bridgeDeck';
 import {WorldGenerator} from '../src/game/systems/WorldGenerator';
 import {questObjectiveText,questTravelHint} from '../src/game/systems/questDestinations';
+import {STORY_ENCOUNTERS} from '../src/data/adventure';
+import {ENEMY_BY_ID} from '../src/data/enemies';
+import {NPC_INTERIOR_BY_ID} from '../src/data/interiors';
 
 describe('focused release smoke',()=>{
  it('loads campaign data with resolvable contacts, clues, scenes and encounter counts',()=>{
@@ -24,6 +27,16 @@ describe('focused release smoke',()=>{
     if(o.killContentPrefix)expect(WORLD_CONTENT.filter(d=>d.kind==='creature'&&d.id.startsWith(o.killContentPrefix!)
      &&(o.enemyIds??[o.targetId]).includes(d.enemyId)).length,q.id+'/'+o.id).toBeGreaterThanOrEqual(o.amount);
    }
+  }
+ });
+ it('resolves story encounter actors, indoor hosts and world anchors',()=>{
+  for(const event of STORY_ENCOUNTERS){
+   const objective=QUESTS.find(q=>q.id===event.questId)?.objectives.find(o=>o.id===event.objectiveId);
+   expect(objective?.type,event.id).toBe('encounter');expect(objective?.targetId).toBe(event.id);
+   if(event.interiorNpcId)expect(NPC_INTERIOR_BY_ID[event.interiorNpcId],event.id).toBeTruthy();
+   else expect(CONTENT_BY_ID[event.npcId?'npc:'+event.npcId:event.contentId!],event.id).toBeTruthy();
+   for(const enemyId of event.waves.flat())expect(ENEMY_BY_ID[enemyId],event.id+'/'+enemyId).toBeTruthy();
+   expect(CINEMATICS['encounter-'+event.id],event.id).toBeTruthy();
   }
  });
  it('keeps wilderness bridge centerlines walkable between sampled points',()=>{

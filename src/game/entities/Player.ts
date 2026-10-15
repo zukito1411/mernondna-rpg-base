@@ -189,7 +189,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const touchPressed = mobileInput.consume(action);
       const pressed = this.consumeAction(action) || touchPressed;
       const skill=equippedArts.find(s=>s.action===action);if(!skill)continue;
-      if (pressed && !scene.inInterior && !this.skills.isCasting && time >= this.nextAttackAt && time >= this.dashUntil) {
+      if (pressed && scene.combatAllowed && !this.skills.isCasting && time >= this.nextAttackAt && time >= this.dashUntil) {
         this.clearAttackVisual();
         if (this.skills.tryCast(skill.id)) this.nextAttackAt = time + skill.durationMs;
       }
@@ -197,7 +197,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileAttack = mobileInput.consume('attack');
     const attackPressed = this.consumeAction('attack') || mobileAttack;
-    if (attackPressed && !scene.inInterior && !this.skills.isCasting && time >= this.nextAttackAt) {
+    if (attackPressed && scene.combatAllowed && !this.skills.isCasting && time >= this.nextAttackAt) {
       const weapon = scene.getEquippedWeapon();
       const cooldown = weapon.cooldownMs * progression.cooldownMultiplier;
       if (this.spendStamina(weapon.staminaCost)) {
