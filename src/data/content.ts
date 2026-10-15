@@ -142,12 +142,12 @@ const near = (x: number, y: number) => ({ x: home.x + x, y: home.y + y });
 WORLD_CONTENT.push(
   { id: 'prop:east-watchtower', kind: 'prop', world: near(1400, -850), texture:'world_buildings',frame:4,scale:1.2,solid:true,footprint:propFoundation('world_buildings',4,1.2) },
   // The authored starter encounter is a complete five-wolf family, not a lone wolf.
-  { id: 'creature:oakmere-wolf-east', kind: 'creature', world: near(1300, 450), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack',wolfAlpha:true },
-  { id: 'creature:oakmere-wolf-east:1', kind: 'creature', world: near(1345, 480), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
-  { id: 'creature:oakmere-wolf-east:2', kind: 'creature', world: near(1255, 485), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
-  { id: 'creature:oakmere-wolf-east:3', kind: 'creature', world: near(1330, 405), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
-  { id: 'creature:oakmere-wolf-east:4', kind: 'creature', world: near(1235, 410), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
-  { id: 'creature:oakmere-boar-north', kind: 'creature', world: near(-650, -1150), enemyId: 'rindass-boar' },
+  { id: 'creature:oakmere-wolf-east', kind: 'creature', world: near(1300, 1350), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack',wolfAlpha:true },
+  { id: 'creature:oakmere-wolf-east:1', kind: 'creature', world: near(1345, 1380), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-wolf-east:2', kind: 'creature', world: near(1255, 1385), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-wolf-east:3', kind: 'creature', world: near(1330, 1305), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-wolf-east:4', kind: 'creature', world: near(1235, 1310), enemyId: 'gray-wolf',wolfPackId:'oakmere-wolf-pack' },
+  { id: 'creature:oakmere-boar-north', kind: 'creature', world: near(-650, -1350), enemyId: 'rindass-boar' },
   { id: 'sign:oakmere-east-road', kind: 'interactable', world: near(500, -100), texture: 'world_assets', frame: PROPS.sign, scale: .8, name: 'East road marker',
     description: 'Old watchtower: northeast of Oakmere. Highmere: follow the crown road north. Aldren marked the watchtower route on this stone.',
     repeatText: 'The watchtower stands northeast of Oakmere; the crown road runs north toward Highmere.' },
@@ -252,10 +252,10 @@ for (const plot of FARM_PLOTS) {
       ||![rect.left,rect.right].every(px=>[rect.top,rect.bottom].every(py=>insideDefense(town.id,town.world.x+px,town.world.y+py,-24)))) continue;
     WORLD_CONTENT.push({ id:`${plot.id}:fence:${fence++}`,kind:'prop',world:{ x,y },texture:'world_assets',frame:PROPS.fence,scale:.85,solid:true });
   }
-  for (let row = 0; row < 3; row++) for (let col = 0; col < 6; col++) {
-    const x = plot.x - plot.width / 2 + 44 + col * (plot.width - 88) / 5, y = plot.y - plot.height / 2 + 44 + row * (plot.height - 88) / 2;
+  for (let y = plot.y - plot.height / 2 + 44; y <= plot.y + plot.height / 2 - 44 && wheat < 18; y += 56)
+    for (let x = plot.x - plot.width / 2 + 44; x <= plot.x + plot.width / 2 - 44 && wheat < 18; x += 56) {
     const rect=spriteBounds('world_assets',PROPS.wheat,.75,x-town.world.x,y-town.world.y);
-    if (layout.streets.some(s => rectTouchesStreet(rect,s,12))) continue;
+    if (layout.streets.some(s => rectTouchesStreet(rect,s,30))) continue;
     WORLD_CONTENT.push({ id:`${plot.id}:wheat:${wheat++}`,kind:'prop',world:{ x,y },texture:'world_assets',frame:PROPS.wheat,scale:.75,solid:false });
   }
 }

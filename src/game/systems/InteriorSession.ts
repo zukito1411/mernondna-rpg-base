@@ -359,9 +359,9 @@ export class InteriorSession {
     return this.combatFeet(x,y,12,ignoreResident)&&!this.scene.getCombatEnemies().some(e=>e.active&&e.hp>0
       &&Math.hypot(e.x-x,e.y-y)<(e.definition.bodyRadius??11)+12);
   }
-  combatPath(a:Vec2,b:Vec2){
+  combatPath(a:Vec2,b:Vec2,radius=12){
     const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));
-    for(let i=0;i<=steps;i++)if(!this.combatFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,12,undefined,true))return false;
+    for(let i=0;i<=steps;i++)if(!this.combatFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,radius,undefined,true))return false;
     return true;
   }
   navigationPoint(enemy:Enemy,target:Vec2):Vec2{
@@ -435,7 +435,7 @@ export class InteriorSession {
     const store=useGameStore.getState();
     let target=resolveQuestTarget(store.quests,store.worldContent,player,id=>{
       const npc=id.startsWith('npc:')?this.getActor(id.slice(4)):undefined;return npc;
-    },store.trackedQuestId,this.entry.id);
+    },store.trackedQuestId,this.entry.id,store.storyFlags);
     if(target&&!(target.type==='encounter'&&target.interiorId===this.entry.id)&&!this.residents.some(n=>target!.contentId==='npc:'+n.definition.id))target={...target,worldLocation:{x:target.x,y:target.y},
       x:this.origin.x+exit.x,y:this.origin.y+exit.y,contentId:'interior:exit:'+this.entry.id,
       label:`Leave ${this.entry.name} — ${target.label}`};

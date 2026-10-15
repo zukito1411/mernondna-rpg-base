@@ -72,6 +72,17 @@ describe('content streaming', () => {
     expect(manager.getActiveIds()).toHaveLength(0);
     expect(counts().destroyed).toBe(definitions.length);
   });
+  it('activates a named story NPC when ambient admission temporarily refuses it', () => {
+    const { manager, counts } = fixture(empty(), 0);
+    manager.update(point(4).x, point(4).y);
+    expect(manager.getActor('npc:mentor')).toBeUndefined();
+    const actor=manager.activateNpcForPresentation('npc:mentor');
+    expect(actor).toMatchObject({id:'npc:mentor',trust:85});
+    expect(manager.getActor('npc:mentor')).toBe(actor);
+    expect(counts().created).toBe(1);
+    expect(manager.activateNpcForPresentation('npc:mentor')).toBe(actor);
+    expect(counts().created).toBe(1);
+  });
   it('preserves HP, location and NPC trust through unload, reload, and reconstructed save state', () => {
     const { manager } = fixture();
     manager.update(point(4).x, point(4).y);

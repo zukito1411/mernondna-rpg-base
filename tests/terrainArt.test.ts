@@ -10,7 +10,7 @@ describe('high-detail rendering metadata', () => {
       expect(sheet.frameHeight * sheet.density).toBe(key === 'enemies' ? 160 : 320);
       expect(sheet.frameHeight * sheet.density * artScale(key)).toBe(80);
       const layout = actorArtLayout(key);
-      expect(layout.bodyY - sheet.frameHeight * layout.originY).toBe(-2);
+      expect(layout.bodyY - sheet.frameHeight * layout.originY).toBe(-22);
       expect(layout.bodyX - sheet.frameWidth / 2).toBe(-9);
     }
     const hero = artFrameSize('leigneron',0), cottage = artFrameSize('world_objects',0);

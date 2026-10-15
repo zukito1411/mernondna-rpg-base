@@ -9,6 +9,9 @@ import {QUEST_SCENE_BINDINGS} from './questScenes';
 import {applyCampaign} from './campaign';
 import {applyStoryRevision} from './storyRevision';
 import {applyAdventure} from './adventure';
+import {CAMPAIGN_PLACEMENT_SHORTFALLS} from './campaignWorld';
+import {NPC_BY_ID} from './npcs';
+import './content'; // Populate exceptional placement reports before reconciling stages.
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -58,6 +61,18 @@ for (let i = 0; i < QUESTS.length; i += 1) {
 applyCampaign(QUESTS);
 applyStoryRevision(QUESTS);
 applyAdventure(QUESTS);
+// A catastrophic layout loss must not leave a bootable game with an impossible
+// kill quota. Ordinary maps retain their full authored 15–30-enemy objectives.
+for(const quest of QUESTS)for(const [index,objective] of quest.objectives.entries()){
+  const issue=objective.killContentPrefix&&CAMPAIGN_PLACEMENT_SHORTFALLS.get(objective.killContentPrefix);
+  if(!issue)continue;
+  objective.amount=1;
+  const contact=quest.objectives.slice(index+1).find(o=>['talk','deliver'].includes(o.type))?.targetId??quest.giverNpcId;
+  objective.type='talk';objective.targetId=contact;
+  objective.text=`Report the impassable approach to ${NPC_BY_ID[contact].name}.`;
+  objective.dialogue=['There is no safe way through that approach now. I will not send you looking for a fight where nobody can stand.',
+    'We will keep the way closed. Bring what you have learned; there is still work we can do for the people waiting here.'];
+}
 for(let i=0;i<QUESTS.length;i++)QUESTS[i]=rewriteNpcMentions(QUESTS[i],NPC_NAME_ALIASES);
 // Apply stable legacy scene bindings to their replacement story stages too.
 for(const quest of QUESTS)for(const objective of quest.objectives)

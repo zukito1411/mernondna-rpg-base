@@ -298,6 +298,20 @@ export class ContentChunkManager<Actor> {
   getActiveIds() { return [...this.active.keys()]; }
   getActiveKeys() { return [...this.wanted]; }
   getActor(id: string) { return this.active.get(id); }
+  /** A named story subject must be present even when ambient admission is
+   * temporarily suppressing residents. Actor creation still uses the world's
+   * normal placement and collision validation. */
+  activateNpcForPresentation(id:string) {
+    const active=this.active.get(id);
+    if(active)return active;
+    const definition=this.definitions.get(id);
+    if(definition?.kind!=='npc')return undefined;
+    const state=this.getState(id);
+    if(!state||state.defeated)return undefined;
+    const actor=this.host.create(definition,{...state});
+    this.active.set(id,actor);
+    return actor;
+  }
   getWolfPackActors(packId: string) { return this.groupActors(`wolf:${packId}`); }
   getEncounterActors(encounterId: string) { return this.groupActors(`encounter:${encounterId}`); }
   private groupActors(key: string): Actor[] {

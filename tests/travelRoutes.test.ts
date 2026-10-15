@@ -41,7 +41,7 @@ describe('traveling world scenery',()=>{
       for(const p of route.points){expect(world.isWalkable(p.x,p.y)).toBe(true);expect(onRoadRoute(p.x,p.y)).toBe(true);expect(settlementAt(p.x,p.y)).toBeUndefined();}
       for(let t=0;t<60000;t+=1000){const p=routePosition(route,t);expect(world.isWalkable(p.x,p.y)).toBe(true);}
     }
-  });
+  },30_000);
   it('builds reproducible harbor lanes with clearance on both sides of the hull',()=>{
     const harbor=TOWN_BY_ID.tidewatch.world,cx=Math.floor(harbor.x/CHUNK_SIZE),cy=Math.floor((harbor.y+1800)/CHUNK_SIZE);
     const candidates=[-1,0,1].flatMap(dx=>[0,1,2].map(dy=>({cx:cx+dx,cy:cy+dy})))

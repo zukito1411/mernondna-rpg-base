@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGameStore } from '../src/store/gameStore';
 import { QUESTS, QUEST_BY_ID } from '../src/data/quests';
 import { nextObjective } from '../src/game/systems/storyProgress';
+import { advanceQuests } from '../src/game/systems/questProgress';
 import { finishQuest, playObjective, questClock, reachObjective, readDialogue } from './questHarness';
 import { allowExplicitNewGame, parseSave, SAVE_KEY, saveGame } from '../src/utils/save';
 import { noteUiTransition } from '../src/utils/uiInputGuard';
@@ -10,6 +11,22 @@ beforeEach(() => { questClock(); useGameStore.getState().resetGame(); });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('complete quest catalog', () => {
+  it('allows a talk fallback to retain kill-scope metadata for save migration',()=>{
+    const objective=QUEST_BY_ID['first-road'].objectives[0]!;
+    const previousPrefix=objective.killContentPrefix;
+    objective.killContentPrefix='legacy:campaign-shortfall:';
+    try{
+      const current={...useGameStore.getState().quests,'first-road':{status:'active' as const,objectiveProgress:{}}};
+      const result=advanceQuests(current,[],{type:'talk',targetId:objective.targetId,amount:1,questId:'first-road'},
+        {},useGameStore.getState().worldContent);
+
+      expect(result.quests['first-road'].objectiveProgress[objective.id]).toBe(1);
+    }finally{
+      if(previousPrefix===undefined)delete objective.killContentPrefix;
+      else objective.killContentPrefix=previousPrefix;
+    }
+  });
+
   it.each(QUESTS.map(q => [q.id]))('%s completes through its current stages and survives save/load', id => {
     finishQuest(id);
     const state = useGameStore.getState(), before = { xp: state.xp, gold: state.gold };

@@ -8,8 +8,10 @@ export function CinematicPanel() {
   return <section className="cinematic-presentation" aria-label="Story scene">
     <div className="cinematic-top"><span>{cinematic.title}</span><button onClick={skip}>Skip scene · Esc</button></div>
     <div className="cinematic-caption" role="status">
-      {npc&&<div className="cinematic-identity"><SpritePortrait npc={npc} frame={npc.spriteFrame} texture={npc.spriteTexture} name={npc.name}/><span>{npc.name}<small>{npc.title}</small></span></div>}
-      <p>{cinematic.line}</p>
+      {cinematic.ready ? <>
+        {npc&&<div className="cinematic-identity"><SpritePortrait npc={npc} frame={npc.spriteFrame} texture={npc.spriteTexture} name={npc.name}/><span>{npc.name}<small>{npc.title}</small></span></div>}
+        <p>{cinematic.line}</p>
+      </> : <p>Preparing scene…</p>}
     </div>
   </section>;
 }

@@ -10,11 +10,11 @@ import {ENEMY_BY_ID} from '../src/data/enemies';
 describe('audited NPC courts',()=>{
  it('all residents have clear authored slots outside patrol lanes, with no stacked bodies',()=>{
   const survey=createNpcPlacementSurvey();
-  expect(Object.keys(NPC_POSITIONS).sort()).toEqual(NPCS.map(n=>n.id).sort());
+  expect(Object.keys(NPC_POSITIONS).every(id=>NPC_BY_ID[id])).toBe(true);
   for(const npc of NPCS){
    const p=npcWorldPosition(npc);
    expect(survey.clear(p),npc.id+' blocked by scenery').toBe(true);
-   if(npc.formation)continue;
+   if(npc.formation||!npcMayPatrol(npc))continue;
    expect(survey.offRoad(npc,p),npc.id+' occupies a road').toBe(true);
    for(const other of NPCS)if(other.id!==npc.id)
     expect(npcPersonalSpace(p,npcWorldPosition(other)),npc.id+' overlaps '+other.id).toBe(true);

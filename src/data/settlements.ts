@@ -381,7 +381,8 @@ function prepareLayout(layout:SettlementLayout,requestedGrowth=BUILDING_PRESENTA
     if(town.regionId==='darkav'||town.regionId==='rindass'&&original.id.startsWith('shelter:'))continue;
     const p=nearbySlots(tree,tree.wardId?128:tree.id.startsWith('shelter:')?448:1024).find(point=>{
       const r=spriteBounds(texture,tree.frame,tree.scale,point.x,point.y);
-      return (tree.wardId?enclosed(r):within(r))&&riverFree(r)&&highmereRiverFree(r)&&!layout.streets.some(s=>rectTouchesStreet(r,s,20))
+      return (tree.wardId?enclosed(r):within(r))&&riverFree(r)&&highmereRiverFree(r)
+        &&!layout.streets.some(s=>rectTouchesStreet(r,s,20)||onStreet(point.x,point.y,s,18))
         && ![...reserved,...occupied].some(other=>overlaps(r,other,18));
     });
     if(p){const placed={...tree,...p};layout.plantings.push(placed);occupied.push(spriteBounds(texture,tree.frame,tree.scale,p.x,p.y));}

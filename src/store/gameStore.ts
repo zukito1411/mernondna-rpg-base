@@ -91,7 +91,7 @@ export interface GameState {
   storyFlags:Record<string,boolean>;
   storyChoices:Record<string,string>;
   trackedQuestId:string|null;
-  cinematic:{id:string;title:string;line:string;focusNpcId?:string}|null;
+  cinematic:{id:string;title:string;line:string;ready:boolean;focusNpcId?:string}|null;
   pendingCinematic:string|null;
   cinematicQueue:string[];
   skipCinematicRequested:boolean;

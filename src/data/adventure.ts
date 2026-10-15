@@ -55,6 +55,12 @@ export const STORY_ENCOUNTERS:readonly StoryEncounter[]=[
 ];
 export const STORY_ENCOUNTER_BY_ID=Object.fromEntries(STORY_ENCOUNTERS.map(e=>[e.id,e])) as Record<string,StoryEncounter>;
 
+export const storyEncounterDefeated=(e:StoryEncounter,flags:Record<string,boolean>)=>
+  e.waves.flat().every((_,slot)=>flags[`encounter:${e.id}:defeated:${slot}`]);
+/** Only the battle relocates. Securing the records still happens indoors. */
+export const storyEncounterInCourtyard=(e:StoryEncounter,flags:Record<string,boolean>)=>
+  Boolean(e.interiorNpcId&&flags[`encounter:${e.id}:courtyard`]&&!storyEncounterDefeated(e,flags));
+
 /** Authored discoveries use existing world-art props, not abstract menu steps. */
 export const ADVENTURE_CLUES=[
   {id:'adventure:poacher-snare',townId:'oakmere',siteId:'',dx:2100,dy:1250,name:'Snares in the brush',

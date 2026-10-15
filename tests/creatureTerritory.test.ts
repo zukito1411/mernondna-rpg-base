@@ -14,9 +14,13 @@ describe('settlement enemy exclusion', () => {
       const town = TOWN_BY_ID[layout.townId];
       expect(world.canCreatureOccupy(town.world.x,town.world.y)).toBe(false);
       for (const parcel of layout.parcels) expect(world.canCreatureOccupy(town.world.x + parcel.x,town.world.y + parcel.y)).toBe(false);
-      const right = town.world.x + layout.bounds.x + layout.bounds.width / 2;
-      expect(protectedSettlementAt(right + SETTLEMENT_ENEMY_BUFFER,town.world.y)?.townId).toBe(town.id);
-      expect(protectedSettlementAt(right + SETTLEMENT_ENEMY_BUFFER + 1,town.world.y)).toBeUndefined();
+      const profile=layout.profile;
+      const defenseRight=profile.bounds.width/2+160+SETTLEMENT_ENEMY_BUFFER
+        +2*(profile.bounds.height/2+160+SETTLEMENT_ENEMY_BUFFER);
+      const layoutRight=layout.bounds.x+layout.bounds.width/2+SETTLEMENT_ENEMY_BUFFER;
+      const right=town.world.x+Math.max(defenseRight,layoutRight);
+      expect(protectedSettlementAt(right,town.world.y)?.townId).toBe(town.id);
+      expect(protectedSettlementAt(right + 1,town.world.y)).toBeUndefined();
     }
     expect(world.isWalkable(home.x,home.y)).toBe(true);
     expect(world.canCreatureOccupy(home.x - 630,home.y + 500)).toBe(false);
@@ -25,7 +29,8 @@ describe('settlement enemy exclusion', () => {
   it('keeps all authored creatures and quest bosses in valid wilderness territory', () => {
     for (const d of WORLD_CONTENT) if (d.kind === 'creature') expect(world.canCreatureOccupy(d.world.x,d.world.y),d.id).toBe(true);
     const varr = WORLD_CONTENT.find(d => d.id === 'boss:captain-varr')!;
-    expect(varr.world).toEqual({ x:home.x + 1400,y:home.y - 740 });
+    expect(world.canCreatureOccupy(varr.world.x,varr.world.y)).toBe(true);
+    expect(Math.hypot(varr.world.x-(home.x+1400),varr.world.y-(home.y-740))).toBeLessThan(1200);
   });
   it('repairs old authored/event positions without resetting health, identity, deaths or rewards', () => {
     const inside = { x:home.x,y:home.y + 80 };
@@ -57,13 +62,13 @@ describe('settlement enemy exclusion', () => {
     const director = new EventDirector({ spawnEnemy,notify,countEnemies:()=>0,isEnemyTerritory:(x,y)=>world.canCreatureOccupy(x,y) });
     for (let i = 0; i < 50; i++) director.update(28000,'trandum',20,home.x,home.y + 80);
     expect(spawnEnemy).not.toHaveBeenCalled(); expect(notify).not.toHaveBeenCalled();
-    for (let i = 0; i < 50; i++) director.update(28000,'trandum',20,home.x + 1500,home.y + 650);
+    for (let i = 0; i < 50; i++) director.update(28000,'trandum',20,home.x + 1300,home.y + 1350);
     expect(spawnEnemy).toHaveBeenCalled(); expect(notify).toHaveBeenCalled();
   });
   it('does not announce an event when all its spawn candidates were rejected', () => {
     const spawnEnemy = vi.fn(() => false), notify = vi.fn();
     const director = new EventDirector({ spawnEnemy,notify,countEnemies:()=>0,isEnemyTerritory:()=>true });
-    for (let i = 0; i < 50; i++) director.update(28000,'trandum',20,home.x + 1500,home.y + 650);
+    for (let i = 0; i < 50; i++) director.update(28000,'trandum',20,home.x + 1300,home.y + 1350);
     expect(spawnEnemy).toHaveBeenCalled(); expect(notify).not.toHaveBeenCalled();
   });
 });

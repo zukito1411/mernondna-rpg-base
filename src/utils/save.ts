@@ -17,6 +17,7 @@ import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES} from '../data/campaign';
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
+import {CAMPAIGN_PLACEMENT_SHORTFALLS} from '../data/campaignWorld';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
 
@@ -341,7 +342,11 @@ export function parseSave(raw: string): SaveData | null {
       }
       const objectiveProgress: Record<string, number> = {};
       for (const objective of definition.objectives) {
-        const value = progress[objective.id];
+        let value = progress[objective.id];
+        const recovery=objective.killContentPrefix&&CAMPAIGN_PLACEMENT_SHORTFALLS.get(objective.killContentPrefix);
+        if(recovery&&typeof value==='number'&&Number.isFinite(value)&&value>objective.amount&&value<=recovery.requested){
+          value=objective.amount;progress[objective.id]=value;
+        }
         if (value !== undefined && !numberIn(value, 0, objective.amount)) return null;
         if (typeof value === 'number') objectiveProgress[objective.id] = value;
       }

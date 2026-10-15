@@ -7,7 +7,7 @@ import { GUARD_MARCH_ART } from '../src/data/guardMarchArt';
 import { ART_SHEETS } from '../src/data/art';
 
 describe('Elarion residents',()=>{
-  const residents=NPCS.filter(npc=>npc.townId==='elarion');
+  const residents=NPCS.filter(npc=>npc.townId==='elarion'&&!npc.settlementResident);
 
   it('uses only the supplied elven resident art families',()=>{
     expect(residents.length).toBeGreaterThan(0);

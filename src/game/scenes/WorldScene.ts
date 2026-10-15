@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {InteriorSession} from '../systems/InteriorSession';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
-import type {StoryEncounter} from '../../data/adventure';
+import {storyEncounterInCourtyard,type StoryEncounter} from '../../data/adventure';
 import {citizenModel} from '../systems/RegionalCitizenArt';
 import {NPC_INTERIOR_BY_ID,INTERIOR_RESIDENTS,INTERIOR_ENTRIES} from '../../data/interiors';
 import type {StoryShot} from '../../data/cinematics';
@@ -159,6 +159,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   storyEncounterAnchor(e:StoryEncounter):Vec2|undefined{
     if(e.interiorNpcId){
       const room=NPC_INTERIOR_BY_ID[e.interiorNpcId];
+      if(room&&storyEncounterInCourtyard(e,useGameStore.getState().storyFlags))return this.inInterior?undefined:room.entry.door;
       if(!this.interiors.ready||this.activeInteriorId!==room?.entry.id)return;
       const npc=this.interiors.getActor(e.interiorNpcId);return npc?{x:npc.x,y:npc.y+80}:undefined;
     }
@@ -167,14 +168,42 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     return actor??(e.npcId?this.contentManager.getState('npc:'+e.npcId):e.contentId?
       this.contentManager.getState(e.contentId):undefined);
   }
-  storySpawnClear(p:Vec2,enemyId:string){
+  storySpawnClear(p:Vec2,enemyId:string,from:Vec2=this.player){
     const radius=ENEMY_BY_ID[enemyId].bodyRadius??11;
-    return this.inInterior?this.interiors.combatFeet(p.x,p.y,radius)&&this.interiors.combatPath(this.player,p)
+    return this.inInterior?this.interiors.combatFeet(p.x,p.y,radius)&&this.interiors.combatPath(from,p,radius)
       :this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y)
         &&!this.worldSprites.blocksPath({x:p.x-radius,y:p.y},{x:p.x+radius,y:p.y},radius*2,radius*2)
         &&[-radius,radius].every(dx=>[-radius*2,0].every(dy=>this.worldGenerator.isWalkable(p.x+dx,p.y+dy)))
-        &&this.hasClearPath(this.player.x,this.player.y,p.x,p.y)&&this.worldGenerator.isWalkablePath(this.player,p)
+        &&this.hasClearPath(from.x,from.y,p.x,p.y)&&this.worldGenerator.isWalkablePath(from,p)
         &&!this.npcs.some(n=>n.active&&Math.hypot(n.x-p.x,n.y-p.y)<65);
+  }
+  /** Walk a bounded connected component, not just straight rays from the player.
+   * This finds usable floor around furniture and through doorways. It runs only
+   * on a wave-placement retry, never on every enemy/frame. */
+  storySpawnCandidates(anchor:Vec2,radius:number,enemyId:string){
+    const step=32,nodes:Vec2[]=[{x:this.player.x,y:this.player.y}],seen=new Set<string>(['0:0']);
+    const candidates:Vec2[]=[];
+    for(let head=0;head<nodes.length&&head<900;head++){
+      const point=nodes[head];
+      if(head>0)candidates.push(point);
+      for(const [dx,dy] of [[step,0],[-step,0],[0,step],[0,-step]]){
+        const next={x:point.x+dx,y:point.y+dy};
+        const key=Math.round((next.x-this.player.x)/step)+':'+Math.round((next.y-this.player.y)/step);
+        if(seen.has(key)||Math.hypot(next.x-anchor.x,next.y-anchor.y)>radius)continue;
+        seen.add(key);
+        if(nodes.length<900&&this.storySpawnClear(next,enemyId,point))nodes.push(next);
+      }
+    }
+    return candidates.sort((a,b)=>Math.abs(Math.hypot(a.x-this.player.x,a.y-this.player.y)-240)
+      -Math.abs(Math.hypot(b.x-this.player.x,b.y-this.player.y)-240));
+  }
+  recoverStoryEncounter(e:StoryEncounter){
+    const room=e.interiorNpcId&&NPC_INTERIOR_BY_ID[e.interiorNpcId];
+    if(!room||this.activeInteriorId!==room.entry.id)return false;
+    useGameStore.getState().setStoryFlag(`encounter:${e.id}:courtyard`);
+    this.interiors.exit();
+    this.notify('There is no room to fight here. Meet the attackers outside, then return for the records.');
+    return true;
   }
   createStoryEnemy(id:string,p:Vec2,instanceId:string){
     const enemy=this.createContentActor({id:instanceId,kind:'creature',enemyId:id,world:p,eventSpawn:true},{...p}) as Enemy;
@@ -255,6 +284,18 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   cinematicTarget(shot:StoryShot){return (shot.focusNpcId?this.storyActorPosition(shot.focusNpcId):undefined)
     ??(this.inInterior?this.interiors.viewCenter:shot);}
   cinematicSubjectReady(id?:string){return !id||Boolean(this.inInterior?this.interiors.getActor(id):this.contentManager.getActor('npc:'+id));}
+  cinematicTransitionReady(target:Vec2,zoom:number,focusNpcId?:string){
+    if(this.inInterior)return this.interiors.ready&&this.cinematicSubjectReady(focusNpcId);
+    const camera=this.cameras.main;camera.preRender();
+    const halfWidth=Math.max(camera.width/camera.zoom,camera.width/zoom)/2;
+    const halfHeight=Math.max(camera.height/camera.zoom,camera.height/zoom)/2;
+    return this.chunkManager.hasView({
+      left:Math.min(camera.midPoint.x,target.x)-halfWidth,
+      right:Math.max(camera.midPoint.x,target.x)+halfWidth,
+      top:Math.min(camera.midPoint.y,target.y)-halfHeight,
+      bottom:Math.max(camera.midPoint.y,target.y)+halfHeight,
+    })&&this.cinematicSubjectReady(focusNpcId);
+  }
   streamCinematicView(x:number,y:number):boolean;
   streamCinematicView(staged?:boolean,focusNpcId?:string,checkSubjects?:boolean):boolean;
   streamCinematicView(viewOrX:boolean|number=false,focusOrY?:string|number,checkSubjects=true):boolean{
@@ -270,12 +311,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const view={left:x-hw,right:x+hw,top:y-hh,bottom:y+hh};
     const ready=this.chunkManager.updateView(view,staged);
     this.contentManager.update(x,y,view);
-    const bossesReady=this.storyCombatActive||authoredBosses.every(boss=>{
-      const state=this.contentManager.getState(boss.id),position=state??boss.world;
-      return state?.defeated||position.x<view.left-128||position.x>view.right+128
-        ||position.y<view.top-128||position.y>view.bottom+128||Boolean(this.contentManager.getActor(boss.id));
-    });
-    return ready&&(!checkSubjects||bossesReady&&this.cinematicSubjectReady(focusNpcId));
+    if(focusNpcId)this.contentManager.activateNpcForPresentation('npc:'+focusNpcId);
+    return ready&&(!checkSubjects||this.cinematicSubjectReady(focusNpcId));
   }
   resumeAfterCinematic(){
     this.player.resetInput();this.questGuide.setVisible(true);
@@ -479,6 +516,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       prepareCreatureGroup:members=>{
         if(!members[0]||!clearStageFor(members[0].definition.id)||members[0].definition.id.startsWith('pirate:flagship:crew:'))return true;
         const group=members[0].definition.encounterId!;
+        if(group.includes(':reserve:')&&members.some(({state})=>
+          Math.hypot(state.x-this.player.x,state.y-this.player.y)<160
+          ||[...this.enemies].some(enemy=>enemy.active&&enemy.hp>0&&Math.hypot(enemy.x-state.x,enemy.y-state.y)<240)))return false;
         const fits=(enemyId:string,point:Vec2)=>this.canEnemyOccupy(point.x,point.y)
           &&this.m14LocationAllowed(enemyId,point.x,point.y);
         if(members.every(({definition,state})=>fits(definition.enemyId,state)))return true;
@@ -1335,7 +1375,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private updateNavigation() {
     const store = useGameStore.getState();
     this.questTarget = resolveQuestTarget(store.quests, store.worldContent, this.player,
-      id => this.contentManager.getActor(id),store.trackedQuestId);
+      id => this.contentManager.getActor(id),store.trackedQuestId,undefined,store.storyFlags);
     const markers: NavigationMarker[] = [];
     for(const resident of INTERIOR_RESIDENTS){
       const p=resident.entry.door;
@@ -1772,7 +1812,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private updateCinematicPresentation(time:number,delta:number){
     const paused=!this.focused,step=paused?0:delta;
     this.physics.world.pause();this.player.discardActions();this.enemySounds.pause(true);
-    this.cinematicDirector.update(step);
+    // Preparation/reveal must progress while gameplay time is paused; only
+    // the shot's narration duration should freeze when the window loses focus.
+    this.cinematicDirector.update(delta,paused);
     const camera=this.cameras.main;camera.preRender();
     if(this.inInterior){this.interiors.update(time,delta,true);this.interiors.presentCinematic(camera.midPoint.x,camera.midPoint.y,paused,step);return;}
     for(const npc of this.npcs)if(npc.active){

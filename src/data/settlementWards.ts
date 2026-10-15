@@ -111,7 +111,7 @@ export function settlementWardPlan(town:TownDefinition):WardPlan {
       result.parcels.push({id:theme.use==='croft'?`farm:${town.id}:outer-common:${index}:${bank}`:id+':outer-garden:'+bank,
         purpose:theme.use==='croft'?'Protected household crop strips beside the public approach':ward+' planted commons and shaded approach',
         terrain:theme.use==='croft'?'farmland':theme.use==='grove'?'forest':town.regionId==='nardorous'||town.regionId==='frostlands'?'snow':'grass',
-        x:side*(half+hy*1.24),y:bank*hy*.16,width:hy*.45,height:hy*.2});
+        x:side*(half+hy*1.24),y:bank*hy*.16,width:hy*.45,height:hy*.3});
       if(theme.use==='croft')addStreet('common-harvest-access:'+bank,40,[toPoint(half+hy*1.24,0),toPoint(half+hy*1.24,bank*hy*.16)],'dirt');
     }
     // An avenue of spaced shade trees connects the borough to its outer outlook.

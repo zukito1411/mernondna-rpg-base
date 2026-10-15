@@ -1,6 +1,6 @@
 import { describe,it,expect } from 'vitest';
 import { SETTLEMENT_LAYOUTS,buildingBounds } from '../src/data/settlements';
-import { TOWN_BY_ID } from '../src/data/towns';
+import { TOWN_BY_ID, TOWNS } from '../src/data/towns';
 import { WORLD_CONTENT } from '../src/data/content';
 import { NPCS } from '../src/data/npcs';
 import { TOWN_SHRINES } from '../src/data/townShrines';
@@ -14,10 +14,11 @@ import { ART_BY_KEY,artFrameSize,worldPropOrigin } from '../src/data/art';
 describe('world visual repair',()=>{
   const world=new WorldGenerator();
   it('authors every settlement and keeps whole buildings off all roads',()=>{
-    expect(SETTLEMENT_LAYOUTS).toHaveLength(11);
+    expect(SETTLEMENT_LAYOUTS).toHaveLength(TOWNS.length);
     for(const layout of SETTLEMENT_LAYOUTS) {
       expect(layout.authored,layout.townId).toBe(true);
       for(const [i,lot] of layout.buildings.entries()) {
+        if(lot.omitted)continue;
         const rect=buildingBounds(lot);
         for(const road of layout.streets) expect(rectTouchesStreet(rect,road),layout.townId+'/'+i+'/'+road.id).toBe(false);
         for(const other of layout.buildings.slice(i+1)) expect(overlaps(rect,buildingBounds(other)),layout.townId+'/'+i+' overlaps '+other.label).toBe(false);
@@ -34,7 +35,8 @@ describe('world visual repair',()=>{
     for(const layout of SETTLEMENT_LAYOUTS) for(const tree of layout.plantings) {
       const rect=spriteBounds('world_assets',tree.frame,tree.scale,tree.x,tree.y);
       for(const road of layout.streets) expect(rectTouchesStreet(rect,road),layout.townId+'/'+tree.id+'/'+road.id).toBe(false);
-      for(const lot of layout.buildings) expect(overlaps(rect,buildingBounds(lot)),layout.townId+'/'+tree.id+' covers '+lot.label).toBe(false);
+      for(const lot of layout.buildings.filter(candidate=>!candidate.omitted))
+        expect(overlaps(rect,buildingBounds(lot)),layout.townId+'/'+tree.id+' covers '+lot.label).toBe(false);
     }
   });
   it('does not restore old static placements or retired colliders when streamed again',()=>{

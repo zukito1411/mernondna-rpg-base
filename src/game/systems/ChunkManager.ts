@@ -85,8 +85,8 @@ export class ChunkManager {
     this.updateOpenSeaStatus();
   }
 
-  /** Hidden cuts bake one texture per tick; visible pans guarantee their actual
-   * viewport, while offscreen margin chunks retain the staggered bake budget. */
+  /** Hidden cuts bake one texture per frame in visibility order; normal travel
+   * keeps the existing staggered budget for offscreen margin chunks. */
   updateView(view:StreamView,staged=false):boolean {
     // Covers complete mature trees beyond the edge, not just their ground anchors.
     const wanted=viewportChunks(view,768),visible=viewportChunks(view);
@@ -97,21 +97,29 @@ export class ChunkManager {
     }
     for(const key of this.pendingChunks.keys())if(!wanted.has(key))this.pendingChunks.delete(key);
     const ordered=[...wanted].sort((a,b)=>Number(visible.has(b))-Number(visible.has(a)));
+    const previousPending=new Map(this.pendingChunks);
+    this.pendingChunks.clear();
     for(const key of ordered)if(!this.active.has(key)){
       const [x,y]=key.split(':').map(Number);
       if(!staged&&visible.has(key)){this.pendingChunks.delete(key);this.load(x,y);}
-      else if(!this.pendingChunks.has(key))this.pendingChunks.set(key,{x,y});
+      else this.pendingChunks.set(key,previousPending.get(key)??{x,y});
     }
-    this.loadPendingChunk();this.updateOpenSeaStatus();
-    return [...wanted].every(key=>this.active.has(key));
+    this.loadPendingChunk(staged);this.updateOpenSeaStatus();
+    // Margin chunks are speculative canopy coverage. They continue loading
+    // after the shot is drawable, but must not hold the transition cover up.
+    return [...visible].every(key=>this.active.has(key));
+  }
+
+  hasView(view:StreamView):boolean {
+    return [...viewportChunks(view)].every(key=>this.active.has(key));
   }
 
   /** Each expensive canvas bake stays on the main thread, but never multiple
    * fresh 1536px terrain textures in a single frame during normal travel. */
-  private loadPendingChunk(){
+  private loadPendingChunk(staged=false){
     if(!this.pendingChunks.size)return;
     const now=this.scene.time.now;
-    if(now-this.lastChunkBakedAt<95)return;
+    if(!staged&&now-this.lastChunkBakedAt<95)return;
     const next=this.pendingChunks.entries().next().value as [string,{x:number;y:number}]|undefined;
     if(!next)return;
     const [key,point]=next;

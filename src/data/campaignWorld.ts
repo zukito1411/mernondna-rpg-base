@@ -7,8 +7,13 @@ import { findCreaturePlacement } from '../game/systems/creaturePlacement';
 import { WORLD_ASSET_FRAMES } from './art';
 import {ADVENTURE_CLUES} from './adventure';
 
+/** Exceptional layout failures are reconciled with quest data, never fatal at
+ * module load and never silently replaced with actors on invalid ground. */
+export const CAMPAIGN_PLACEMENT_SHORTFALLS=new Map<string,{requested:number;available:number}>();
+
 /** Authored, persistent mission content. No new global spawn loop or village raids. */
 export function addCampaignWorldContent(content: ContentDefinition[]) {
+  CAMPAIGN_PLACEMENT_SHORTFALLS.clear();
   const geography = new WorldGenerator();
   const bossHomes=content.flatMap(d=>d.kind==='creature'&&d.bossId?[d.world]:[]);
   const site = (id:string) => WILDERNESS_SITES.find(s=>s.id===id)!.world;
@@ -53,7 +58,10 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
   };
   const reinforce=(prefix:string,total:number)=>{
     const originals=content.filter(d=>d.kind==='creature'&&d.id.startsWith(prefix));
-    if(!originals.length)return;
+    if(!originals.length){
+      CAMPAIGN_PLACEMENT_SHORTFALLS.set(prefix,{requested:total,available:0});
+      console.warn('Campaign patrol has no authored ground:',prefix);return;
+    }
     const anchor=originals[0],origin=anchor.world,region=geography.getRegionAt(origin.x,origin.y);
     const species=originals.flatMap(d=>d.kind==='creature'?[d.enemyId]:[]);
     if(prefix.startsWith('creature:krag-warband:')){
@@ -79,8 +87,26 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
         &&centers.every(q=>Math.hypot(q.x-p.x,q.y-p.y)>=420)
         &&Array.from({length:count},(_,slot)=>station(p,slot)).every((q,slot)=>missionGround(q,species[(added+slot)%species.length])&&geography.getRegionAt(q.x,q.y)===region
           &&bossHomes.every(b=>Math.hypot(b.x-q.x,b.y-q.y)>620)));
-      // Authored quotas must never silently exceed their available actors.
-      if(!home)throw new Error(`No accessible ground for campaign encounter ${prefix}${group}`);
+      if(!home){
+        // A layout can lose space for another whole patrol while retaining a
+        // safe existing clearing. Keep the quota as staged, one-at-a-time
+        // reserves there; runtime admission prevents overlapping deployment.
+        const enemyId=species[added%species.length];
+        const safe=[...originals.map(d=>d.world),...candidates].find(p=>
+          geography.getRegionAt(p.x,p.y)===region&&missionGround(p,enemyId)
+          &&bossHomes.every(b=>Math.hypot(b.x-p.x,b.y-p.y)>620));
+        if(safe){
+          const encounterId=`${prefix}reserve:${added}`;
+          content.push({id:`${prefix}reinforcement:${added}`,kind:'creature',enemyId,world:{...safe},eventSpawn:true,
+            encounterId,...(enemyId==='frost-wolf'?{wolfPackId:encounterId,wolfAlpha:true}:{}),
+            encounterBehavior:{home:{...safe},station:{...safe},slot:0,leashRadius:700,
+              role:enemyId==='rindass-orc-spearman'?'ranged':'leader'}});
+          added++;continue;
+        }
+        CAMPAIGN_PLACEMENT_SHORTFALLS.set(prefix,{requested:total,available:added});
+        console.warn('Campaign patrol reduced: no validated ground remains.',prefix,added,total);
+        break;
+      }
       centers.push(home);
       for(let slot=0;slot<count;slot++){
         const enemyId=species[(added+slot)%species.length],world=station(home,slot);

@@ -4,7 +4,7 @@ import type { ContentWorldState, QuestObjective, QuestRuntimeState } from '../ty
 
 const campIds=new Map<string,string[]>();
 function clearedCampCount(objective:QuestObjective,world?:ContentWorldState){
-  if(!objective.killContentPrefix||!world)return 0;
+  if(objective.type!=='kill'||!objective.killContentPrefix||!world)return 0;
   const key=objective.killContentPrefix+'|'+(objective.enemyIds??[objective.targetId]).join(',');
   let ids=campIds.get(key);
   if(!ids){ids=WORLD_CONTENT.filter(d=>d.kind==='creature'&&d.id.startsWith(objective.killContentPrefix!)
@@ -56,9 +56,9 @@ export function advanceQuests(
       } else if (!usedEvents.has(id) && event?.type === objective.type
         &&(!event.questId||event.questId===id)
         && (objective.type==='kill'?(objective.enemyIds??[objective.targetId]).includes(event.targetId):event.targetId===objective.targetId)
-        && (!objective.killContentPrefix||Boolean(event.contentId?.startsWith(objective.killContentPrefix)))) {
+        && (objective.type!=='kill'||!objective.killContentPrefix||Boolean(event.contentId?.startsWith(objective.killContentPrefix)))) {
         // Scoped camps use their ledger, not repeated death notifications.
-        if(objective.killContentPrefix&&world)break;
+        if(objective.type==='kill'&&objective.killContentPrefix&&world)break;
         progress[objective.id] = Math.min(objective.amount, (progress[objective.id] ?? 0) + event.amount);
         usedEvents.add(id);
       } else break;

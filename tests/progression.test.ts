@@ -6,7 +6,7 @@ describe('character progression', () => {
   beforeEach(() => useGameStore.getState().resetGame());
 
   it('awards three status points and one skill point per earned level', () => {
-    useGameStore.getState().addRewards(500, 0);
+    useGameStore.getState().addRewards(525, 0);
     expect(useGameStore.getState()).toMatchObject({ level: 3, statPoints: 6, skillPoints: 2 });
   });
 
@@ -16,8 +16,8 @@ describe('character progression', () => {
     useGameStore.getState().allocateAttribute('vitality');
     useGameStore.getState().unlockSkill('heavy-strike');
     const state = useGameStore.getState();
-    expect(state).toMatchObject({ statPoints: 2, skillPoints: 0, maxHp: 112, learnedSkills: ['heavy-strike'] });
-    expect(progressionStats(state.attributes, state.learnedSkills).damageMultiplier).toBeCloseTo(1.2);
+    expect(state).toMatchObject({ statPoints: 2, skillPoints: 0, maxHp: 110, learnedSkills: ['heavy-strike'] });
+    expect(progressionStats(state.attributes, state.learnedSkills).damageMultiplier).toBeCloseTo(1.12);
   });
 
   it('does not allow unearned or duplicate skill purchases', () => {

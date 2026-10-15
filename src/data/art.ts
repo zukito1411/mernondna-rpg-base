@@ -162,7 +162,7 @@ export const ART_SHEETS: readonly ArtSheet[] = [
       [34,749,617,323],[669,738,743,334]],
     names:['elven-cottage','elven-manor','elven-watchtower','elven-gate','elven-chapel','elven-smithy',
       'elven-stable','elven-guildhall','elven-estate','elven-palace']},
-  {key:'flower_fence',path:'assets/sprites/flower-fence.png',columns:4,atlasColumns:4,density:2,frameWidth:600,frameHeight:320,blackBackground:false,
+  {key:'flower_fence',path:'assets/sprites/flower-fence.png',columns:4,atlasColumns:3,density:2,frameWidth:600,frameHeight:320,blackBackground:false,
     sources:[
       {path:'assets/sprites/flower-fence.png',cell:[0,0,910,265],imageSize:[1536,1024],renderScale:290/490,anchor:[455,150.5],name:'flower-fence-horizontal'},
       {path:'assets/sprites/flower-fence.png',cell:[958,12,155,474],imageSize:[1536,1024],renderScale:270/463,anchor:[1027,254.5],name:'flower-fence-vertical-a'},

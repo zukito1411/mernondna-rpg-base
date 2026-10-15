@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
-import {STORY_ENCOUNTER_BY_ID,type StoryEncounter} from '../../data/adventure';
+import {STORY_ENCOUNTER_BY_ID,storyEncounterDefeated,type StoryEncounter} from '../../data/adventure';
+import {ENEMY_BY_ID} from '../../data/enemies';
 import {QUESTS} from '../../data/quests';
 import {useGameStore} from '../../store/gameStore';
 import {nextObjective} from './storyProgress';
 import {MAX_LIVE_HOSTILES} from './encounterAdmission';
+import {pendingStoryWave} from './storyEncounterPlacement';
 import type {WorldScene} from '../scenes/WorldScene';
 import type {Enemy} from '../entities/Enemy';
 import type {Npc} from '../entities/Npc';
@@ -24,13 +26,18 @@ export class StoryEncounterSystem {
   private working=false;
   private label:Phaser.GameObjects.Text|null=null;
   private warned=false;
+  private placementFailures=0;
+  private placementPaused=false;
+  private retryPosition:Vec2={x:0,y:0};
   constructor(private readonly scene:WorldScene){}
   get active(){return this.encounter!==null;}
   get id(){return this.encounter?.id;}
   get prompt(){
-    const e=this.encounter;if(!e?.work||Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)>120)return null;
+    const e=this.encounter;if(!e)return null;
+    if(this.placementPaused)return 'Retry attackers from open ground';
+    if(!e.work||Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)>120)return null;
     const flags=useGameStore.getState().storyFlags;
-    return e.waves.flat().every((_,i)=>flags[this.key(i)])?e.work.label:null;
+    return !this.actors.size&&storyEncounterDefeated(e,flags)?e.work.label:null;
   }
   owns(enemy:Enemy){return this.actors.has(enemy);}
   allows(point:Vec2){return this.active&&this.roomId===this.scene.activeInteriorId
@@ -80,10 +87,15 @@ export class StoryEncounterSystem {
       if(candidates.some((_,i)=>!flags[this.key(start+i)])){wave=candidates;break;}
       start+=candidates.length;
     }
-    if(wave&&!this.actors.size&&time>=this.retryAt){
-      this.retryAt=time+650;
-      const pending=wave.map((enemyId,i)=>({enemyId,slot:start+i})).filter(s=>!flags[this.key(s.slot)]);
-      if(this.scene.countEnemies()+pending.length<=MAX_LIVE_HOSTILES&&pending.every(s=>this.scene.ensureStoryEnemy(s.enemyId))){
+    if(wave)this.interruptWork();
+    if(this.placementPaused&&Math.hypot(this.scene.player.x-this.retryPosition.x,this.scene.player.y-this.retryPosition.y)>=96){
+      this.placementPaused=false;this.placementFailures=0;this.retryAt=time;
+    }
+    if(wave&&!this.actors.size&&!this.placementPaused&&time>=this.retryAt){
+      this.retryAt=time+1200;
+      const capacity=Math.max(0,MAX_LIVE_HOSTILES-this.scene.countEnemies());
+      const pending=pendingStoryWave(e.id,wave,start,flags,capacity);
+      if(pending&&pending.every(s=>this.scene.ensureStoryEnemy(s.enemyId))){
         const positions:Vec2[]=[];
         for(const member of pending){
           let position:Vec2|undefined;
@@ -94,16 +106,37 @@ export class StoryEncounterSystem {
           }
           if(!position)break;positions.push(position);
         }
+        if(positions.length<pending.length){
+          const largest=pending.reduce((a,b)=>(ENEMY_BY_ID[a.enemyId].bodyRadius??11)>=(ENEMY_BY_ID[b.enemyId].bodyRadius??11)?a:b);
+          const nearby=this.scene.storySpawnCandidates(this.anchor,e.radius,largest.enemyId),recovered:Vec2[]=[];
+          for(const p of nearby){
+            if(Math.hypot(p.x-this.scene.player.x,p.y-this.scene.player.y)<128
+              ||recovered.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<80))continue;
+            recovered.push(p);if(recovered.length===pending.length)break;
+          }
+          if(recovered.length>positions.length)positions.splice(0,positions.length,...recovered);
+        }
+        let spawned=false;
         if(positions.length===pending.length){
           try{
-            pending.forEach((member,i)=>{
-              const enemy=this.scene.createStoryEnemy(member.enemyId,positions[i],`story-event:${e.id}:${member.slot}`);
+            positions.forEach((position,i)=>{const member=pending[i];
+              const enemy=this.scene.createStoryEnemy(member.enemyId,position,`story-event:${e.id}:${member.slot}`);
               this.actors.set(enemy,member.slot);
             });
-            this.react();this.warned=false;
+            this.react();this.warned=false;this.placementFailures=0;spawned=true;
           }catch(error){for(const actor of this.actors.keys())this.scene.releaseStoryEnemy(actor);this.actors.clear();
             console.error('Story wave creation failed:',e.id,error);}
-        }else if(!this.warned){this.warned=true;this.scene.notify('Keep to open ground near the marked encounter. The attackers need a clear approach.');}
+        }
+        if(!spawned){
+          this.placementFailures++;
+          if(this.placementFailures>=3){
+            if(this.scene.recoverStoryEncounter(e))return;
+            this.placementPaused=true;this.retryPosition={x:this.scene.player.x,y:this.scene.player.y};
+            this.label?.setText('No clear approach · move to open ground and interact');
+          }
+          if(!this.warned||this.placementPaused){this.warned=true;
+            this.scene.notify('The attackers have no clear approach. Move to open ground near the marker and interact to retry.');}
+        }
       }
     }
     if(time>=this.guardAt){this.guardAt=time+1600;this.assist();}
@@ -120,8 +153,12 @@ export class StoryEncounterSystem {
   }
   interact(){
     if(!this.encounter)return false;
+    if(this.placementPaused){this.placementPaused=false;this.placementFailures=0;this.retryAt=0;this.interruptWork();return true;}
+    if(this.actors.size||!storyEncounterDefeated(this.encounter,useGameStore.getState().storyFlags)){
+      this.interruptWork();this.scene.notify('Defeat all attackers before working.');return true;
+    }
     if(this.encounter.work&&Math.hypot(this.scene.player.x-this.anchor.x,this.scene.player.y-this.anchor.y)<=120){
-      this.working=true;this.scene.notify(this.actors.size?'Clear the attackers before working.':this.encounter.work.label+' — stay beside it until finished.');
+      this.working=true;this.scene.notify(this.encounter.work.label+' — stay beside it until finished.');
     }else this.scene.notify(this.actors.size?'Deal with the attackers before speaking or travelling.':'Return to the marked story site.');
     return true;
   }
@@ -178,6 +215,7 @@ export class StoryEncounterSystem {
     for(const npc of this.reactions)if(npc.active){npc.setStoryAlert();npc.endStoryMovement();}
     this.reactions.clear();this.guardDamage.clear();this.label?.destroy();this.label=null;
     this.encounter=null;this.roomId=null;this.interruptWork();this.scene.targeting.clear();
+    this.placementFailures=0;this.placementPaused=false;
   }
   destroy(){this.clear();}
 }

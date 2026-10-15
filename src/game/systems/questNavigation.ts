@@ -11,7 +11,7 @@ import { WorldGenerator } from './WorldGenerator';
 import {onFlagshipDeck,onFlagshipBoarding} from '../../data/pirateFlagship';
 import {questNpcLabel,contentQuestLocation} from './questDestinations';
 import {REGION_BY_ID} from '../../data/regions';
-import {STORY_ENCOUNTER_BY_ID} from '../../data/adventure';
+import {STORY_ENCOUNTER_BY_ID,storyEncounterInCourtyard} from '../../data/adventure';
 
 const geography=new WorldGenerator();
 const candidatesByObjective=new Map<string,ContentDefinition[]>();
@@ -56,23 +56,25 @@ function withTravelHint(target:QuestTarget,player:Vec2,interiorId?:string):Quest
 }
 /** One objective resolver shared by world, interiors, maps and journal. */
 export function resolveQuestTarget(quests:Record<string,QuestRuntimeState>,world:ContentWorldState,player:Vec2,
-  livePosition?:(id:string)=>Vec2|undefined,trackedQuestId?:string|null,interiorId?:string,visited=new Set<string>()):QuestTarget|null{
+  livePosition?:(id:string)=>Vec2|undefined,trackedQuestId?:string|null,interiorId?:string,
+  storyFlags:Record<string,boolean>={},visited=new Set<string>()):QuestTarget|null{
   const active=activeObjective(quests,trackedQuestId);
   if(!active||visited.has(active.questId))return null;
   const {objective:o,questId}=active;visited.add(questId);
   if(o.type==='encounter'){
     const e=STORY_ENCOUNTER_BY_ID[o.targetId];if(!e)return null;
-    const room=e.interiorNpcId?NPC_INTERIOR_BY_ID[e.interiorNpcId]:undefined;
+    const hostRoom=e.interiorNpcId?NPC_INTERIOR_BY_ID[e.interiorNpcId]:undefined;
+    const courtyard=storyEncounterInCourtyard(e,storyFlags),room=courtyard?undefined:hostRoom;
     const npcId=e.interiorNpcId??e.npcId,id=npcId?'npc:'+npcId:e.contentId!;
-    const location=room&&room.entry.id!==interiorId?room.entry.door
+    const location=courtyard?hostRoom?.entry.door:room&&room.entry.id!==interiorId?room.entry.door
       :livePosition?.(id)??world.states[id]??CONTENT_BY_ID[id]?.world;
     if(!location)return null;
     const p=room&&room.entry.id===interiorId?{x:location.x,y:location.y+80}:location,town=TOWN_BY_ID[e.townId];
-    return withTravelHint({...p,interiorId:room?.entry.id,contentId:'encounter:'+e.id,label:e.name+' — '+(room?'inside '+room.entry.name+', ':'')
+    return withTravelHint({...p,interiorId:room?.entry.id,contentId:'encounter:'+e.id,label:e.name+' — '+(courtyard?'outside '+hostRoom!.entry.name+', ':room?'inside '+room.entry.name+', ':'')
       +town.name+', '+(town.regionId==='dead-sea'?'Dead Sea':REGION_BY_ID[town.regionId].name),questId,objectiveId:o.id,type:o.type},player,interiorId);
   }
   if(o.type==='quest'){
-    if(quests[o.targetId]?.status==='active')return resolveQuestTarget(quests,world,player,livePosition,o.targetId,interiorId,visited);
+    if(quests[o.targetId]?.status==='active')return resolveQuestTarget(quests,world,player,livePosition,o.targetId,interiorId,storyFlags,visited);
     const dependency=QUEST_BY_ID[o.targetId],npc=dependency&&NPC_BY_ID[dependency.giverNpcId];
     if(!npc)return null;
     const id='npc:'+npc.id,room=NPC_INTERIOR_BY_ID[npc.id];

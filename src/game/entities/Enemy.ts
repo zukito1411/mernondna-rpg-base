@@ -359,7 +359,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   private returnToEncounter(scene:WorldScene,body:Phaser.Physics.Arcade.Body,delta:number) {
     const station=this.encounterBehavior!.station,home=this.encounterBehavior!.home;
-    const target=scene.canEnemyOccupy(station.x,station.y)?station:home;
+    const target=scene.canEnemyOccupy(station.x,station.y,this)?station:home;
     if (Math.hypot(target.x-this.x,target.y-this.y)<=40) {
       body.setVelocity(0,0);scene.encounterArrived(this);return;
     }
@@ -425,7 +425,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const speed=Math.hypot(vx,vy);
     const velocity=speed<5?0:this.definition.moveSpeed*(this.wolfAlpha?.97:1);
     const headingX=speed>0?vx/speed:0,headingY=speed>0?vy/speed:0;
-    const canStep=(sx:number,sy:number)=>scene.canEnemyOccupy(this.x+sx*30,this.y+sy*30)
+    const canStep=(sx:number,sy:number)=>scene.canEnemyOccupy(this.x+sx*30,this.y+sy*30,this)
       &&scene.hasClearPath(this.x,this.y,this.x+sx*30,this.y+sy*30);
     let steerX=headingX,steerY=headingY;
     if(velocity>0&&!canStep(steerX,steerY)){
