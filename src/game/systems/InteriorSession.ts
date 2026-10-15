@@ -155,7 +155,10 @@ export class InteriorSession {
     this.scene.load.once('filecomplete-image-'+SOURCE,complete);
     this.scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR,error);
     try{
-      this.scene.load.image({key:SOURCE,url:`assets/interiors/${entry.kit}/kit.png`,xhrSettings:{timeout:15000}});
+      this.scene.load.image({
+        key:SOURCE,url:`assets/interiors/${entry.kit}/kit.png`,
+        xhrSettings:{responseType:'blob',timeout:15000},
+      });
       if(!this.scene.load.isLoading())this.scene.load.start();
     }catch(error){fail(`Could not load interior: ${error instanceof Error?error.message:String(error)}`);}
     });
