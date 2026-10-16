@@ -19,6 +19,7 @@ import {BOSS_WEAPONS,POTIONS,merchantStock,itemName,type PotionId} from '../data
 import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
+import type {StoryPanelRef} from '../data/storyPanelArt';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -91,7 +92,7 @@ export interface GameState {
   storyFlags:Record<string,boolean>;
   storyChoices:Record<string,string>;
   trackedQuestId:string|null;
-  cinematic:{id:string;title:string;line:string;ready:boolean;focusNpcId?:string}|null;
+  cinematic:{id:string;title:string;line:string;ready:boolean;covered?:boolean;ending?:boolean;focusNpcId?:string;illustration?:StoryPanelRef}|null;
   pendingCinematic:string|null;
   cinematicQueue:string[];
   skipCinematicRequested:boolean;

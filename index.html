@@ -10,13 +10,28 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/tales-of-leighneron-32.png" />
     <link rel="apple-touch-icon" href="icons/tales-of-leighneron-192.png" />
+    <link rel="preload" as="image" href="assets/reference/game-load.png" />
     <title>Tales of Leighneron</title>
+    <style>
+      /* This screen must work before the JavaScript/CSS bundles arrive. */
+      #startup-splash { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; margin:0; padding:24px; background:#000; opacity:1; transition:opacity 450ms ease-in-out; }
+      #startup-splash img { display:block; width:min(76vw,68vh,520px); height:auto; max-height:100%; object-fit:contain; animation:startup-logo-in 650ms ease-out both; }
+      #startup-splash .startup-rights { position:absolute; left:24px; right:24px; bottom:max(24px,calc(env(safe-area-inset-bottom) + 16px)); margin:0; color:#a9a39a; font:12px/1.5 Georgia,serif; text-align:center; }
+      #startup-splash.is-complete { opacity:0; }
+      @keyframes startup-logo-in { from { opacity:0; } to { opacity:1; } }
+      @media (prefers-reduced-motion:reduce) { #startup-splash { transition:none; } #startup-splash img { animation:none; } }
+    </style>
   </head>
   <body>
-    <div id="root"><p style="padding:24px;color:#f4dfae;font-family:Georgia,serif">Preparing Tales of Leighneron…</p></div>
+    <div id="startup-splash" role="status" aria-label="Starting Tales of Leighneron">
+      <img src="assets/reference/game-load.png" alt="ZUKI" fetchpriority="high" decoding="async" />
+      <p class="startup-rights">All rights reserved 2026</p>
+    </div>
+    <div id="root"></div>
     <script>
       (()=>{
         const report=()=>{
+          document.getElementById('startup-splash')?.remove();
           const root=document.getElementById('root');if(!root)return;
           root.replaceChildren();const box=document.createElement('section');box.style.cssText='padding:24px;color:#f4dfae;font-family:Georgia,serif';
           const text=document.createElement('p');text.textContent='Tales of Leighneron could not finish loading. Reconnect to the app’s host and retry. Your save has not been deleted.';

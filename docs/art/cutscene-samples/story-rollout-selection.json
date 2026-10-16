@@ -1,0 +1,127 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-10-16",
+  "sourceDirectory": "C:\\Users\\nbernardo\\.codex\\generated_images\\01a1145d-acb6-7093-a7ce-9a11cb788b86",
+  "selections": [
+    {
+      "id": "varr-survey",
+      "source": "exec-9b6014b6-4d97-4a73-aaae-3ab8da3dbc33.png",
+      "output": "public/assets/cinematics/story/varr-survey-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "highmere-arrival",
+      "source": "exec-110f6256-1fd6-42a7-98e1-9c8442999ade.png",
+      "output": "public/assets/cinematics/story/highmere-arrival-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "crown-audience",
+      "source": "exec-747d083d-9774-4f79-b095-fefe42f9db56.png",
+      "output": "public/assets/cinematics/story/crown-audience-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "mourning-grove",
+      "source": "exec-66cd0acb-ea54-49a8-81c4-144c2f9adc11.png",
+      "output": "public/assets/cinematics/story/mourning-grove-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "last-beacon",
+      "source": "exec-a0a0a281-78c9-437e-a6f9-e7bacc8d1c60.png",
+      "output": "public/assets/cinematics/story/last-beacon-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "broken-clan",
+      "source": "exec-cac470a2-35a1-435d-b8d7-6f401e850865.png",
+      "output": "public/assets/cinematics/story/broken-clan-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "wounded-root",
+      "source": "exec-0af69060-73de-494a-aa58-497226263586.png",
+      "output": "public/assets/cinematics/story/wounded-root-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "witness-protected",
+      "source": "exec-0d07fd9a-becb-4b8b-957d-8daf4f562a54.png",
+      "output": "public/assets/cinematics/story/witness-protected-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "river-account",
+      "source": "exec-b5a8091c-2042-4e49-9e0b-ad4de9f97645.png",
+      "output": "public/assets/cinematics/story/river-account-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "stolen-sea",
+      "source": "exec-cd48c9ab-d883-4c90-ad25-e7c85b24d572.png",
+      "output": "public/assets/cinematics/story/stolen-sea-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "frozen-light",
+      "source": "exec-a39514c2-c0fe-4f1c-a8a3-cab8b3b681a8.png",
+      "output": "public/assets/cinematics/story/frozen-light-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "ashen-truth",
+      "source": "exec-1e04e47b-8ede-4388-8159-bb9b5d18e22b.png",
+      "output": "public/assets/cinematics/story/ashen-truth-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "crown-betrayal",
+      "source": "exec-01093168-7911-4279-a577-de433b246ad9.png",
+      "output": "public/assets/cinematics/story/crown-betrayal-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "returning-ember",
+      "source": "exec-8fd90836-540b-4d61-84f7-0299746419ad.png",
+      "output": "public/assets/cinematics/story/returning-ember-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "wards-rewoven",
+      "source": "exec-2b9b1815-65c1-4390-a313-5ea7afcc7a85.png",
+      "output": "public/assets/cinematics/story/wards-rewoven-v1.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "place-at-table",
+      "source": "exec-33e04619-6eaf-44ed-b7ce-88da15a0d559.png",
+      "output": "public/assets/cinematics/story/place-at-table-v1.png",
+      "width": 1672,
+      "height": 941
+    }
+  ],
+  "corrections": [
+    {
+      "id": "witness-protected",
+      "discardedSource": "exec-ac32f99a-fb5c-473f-af9a-5e251682cccc.png",
+      "supportingReference": "public/assets/npcs/adventurer_male/idle_adv.png",
+      "prompt": "Edit target Image 1: preserve this exact THREE-panel storyboard layout, warm medieval kitchen/weighhouse setting, Leigneron's adult design, palette, lighting, guard's document close-up, panel borders and art style. Change ONLY the age and body proportions of Thomas Reed (the small witness) and his mother. Thomas is a YOUNG ADULT working carter, about 19–22, NOT A CHILD: normal adult male proportions, approximately Leigneron's height when standing, mature adolescent/young-adult jaw and face, chestnut hair, cream tunic, green cloak and leather straps matching supporting reference Image 2. Keep his fear and vulnerability through expression rather than making him a child. In panel 1 the TWO young adult men crouch beside each other; Thomas's folded legs and torso must clearly be adult-sized. In panel 2 Thomas sits across from his mother as her grown son, adult shoulders and hands, not a boy; his mother is visibly middle-aged, around 45 with gentle fine facial lines, still chestnut side-bun/navy ribbon, cream/navy dress. Panel 3 background Thomas must also be young-adult-sized beside his mother, not a little boy. No changes to hero, no added people, no text, no logos. Maintain exactly original image dimensions and gutters."
+    }
+  ]
+}

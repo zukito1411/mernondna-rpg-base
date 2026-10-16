@@ -1828,6 +1828,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     // Preparation/reveal must progress while gameplay time is paused; only
     // the shot's narration duration should freeze when the window loses focus.
     this.cinematicDirector.update(delta,paused);
+    if(this.cinematicDirector.illustrated)return;
     const camera=this.cameras.main;camera.preRender();
     if(this.inInterior){this.interiors.update(time,delta,true);this.interiors.presentCinematic(camera.midPoint.x,camera.midPoint.y,paused,step);return;}
     for(const npc of this.npcs)if(npc.active){

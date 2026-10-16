@@ -5,7 +5,8 @@ import {BOSSES} from './enemies';
 import {DRAGON_LAIR} from './dragonLair';
 import {CONTENT_BY_ID} from './content';
 import {STORY_ENCOUNTERS} from './adventure';
-export interface StoryShot {x:number;y:number;zoom:number;duration:number;line:string;focusNpcId?:string;interiorId?:string;variants?:Array<{flag:string;line:string}>}
+import type {StoryPanelRef} from './storyPanelArt';
+export interface StoryShot {x:number;y:number;zoom:number;duration:number;line:string;focusNpcId?:string;interiorId?:string;illustration?:StoryPanelRef;variants?:Array<{flag:string;line:string}>}
 export interface StoryScene {id:string;title:string;shots:StoryShot[]}
 const npc=(id:string,line:string):StoryShot=>{const n=NPC_BY_ID[id],t=TOWN_BY_ID[n?.townId]??TOWN_BY_ID.oakmere;
   return {x:t.world.x+(n?.worldOffset.x??0),y:t.world.y+(n?.worldOffset.y??0)-35,zoom:1.15,duration:3400,line,focusNpcId:n?.id};};
@@ -45,7 +46,12 @@ const regions=[
 for(const [town,id,warning,resolution] of regions)for(const [suffix,line] of [['warning',warning],['resolution',resolution]])add('regional-'+town+'-'+suffix,TOWN_BY_ID[town].name+' · '+(suffix==='warning'?'What Is at Stake':'Evidence Recovered'),[npc(id,line)]);
 
 add('roadborn-opening','A Road Before a Sword',[
- at(oak.x,oak.y,'Leigneron grew up in Oakmere, where a late wagon meant a worried household long before it meant an adventure.'),
+ {...at(oak.x,oak.y,'Years ago, rain tapped against the windows of Marrow Inn. Leigneron waited beside a bowl of soup that had long since gone cold.'),
+   duration:7400,illustration:{page:'prologue-waiting',panel:0}},
+ {...at(oak.x,oak.y,'Then wheels rattled along the road. He was out of his chair before the wagon had stopped. Perhaps this time they had come home.'),
+   duration:7000,illustration:{page:'prologue-waiting',panel:1}},
+ {...at(oak.x,oak.y,'But the people at the door were strangers. His parents had not returned. Days became weeks. Still, he listened for their wagon.'),
+   duration:7400,illustration:{page:'prologue-waiting',panel:2}},
  npc('aldren-vale','When his parents failed to return from their relief journey, '+name('aldren-vale')+' raised him. He taught the boy to read roads, mend harnesses and notice who had been left behind.'),
  at(oak.x+380,oak.y+100,'Of his family, Leigneron kept a repaired sword and a compass whose needle sometimes forgot north. He wanted an answer. The village needed another pair of hands.'),
  npc('mira-fen','A messenger died under Lena’s roof before dawn. Now she is missing too. Her children wait upstairs at the inn, listening for the door.'),
@@ -112,6 +118,8 @@ add('wards-rewoven','A Promise Tempered in Iron',[
 ]);
 add('roadborn-epilogue','A Place at the Table',[
  npc('sena-marrow','At Marrow Inn, a warm bowl waits for someone who came home. Lena’s children no longer listen for every footstep with fear.'),
+ npc('aldren-vale','Edmund rests a hand on his shoulder. For years, Leigneron thought his parents had left him behind. Now he knows they stayed so other people could get home.'),
+ npc('mira-fen','Alice catches him looking out toward the road. “Not settling down, then?” He smiles. “Not yet.” “Just don’t forget where home is.”'),
  {...npc('renna-vale','The search riders still bring news. Families sit beside the judges, and some reunions begin with an argument about who has grown taller.'),variants:[{flag:'relief-household-charter',line:'The crown shelter has fewer occupied beds this week. Some families went home. Others found a new one without having to buy their freedom.'}]},
  {...npc('redmesa-beastmaster','Clan keepers and caravan witnesses share the water tally. Krag’s banner no longer decides whose children drink.'),variants:[{flag:'rindass-clan-water',line:'The clan watering turns are carved beside the well. No chief can quietly claim the spring again.'}]},
  {...npc('blackspire-forgemaster','The forge account is held by regional witnesses, beyond any one official’s reach.'),variants:[{flag:'darkav-open-account',line:'Blackspire’s public account names the smiths’ mistakes as well as the stolen seals. Its survivors are no longer asked to forget.'}]},
@@ -121,5 +129,47 @@ for(const event of STORY_ENCOUNTERS){
   const focus=event.interiorNpcId??event.npcId;
   const point=event.contentId?CONTENT_BY_ID[event.contentId]?.world:TOWN_BY_ID[event.townId].world;
   add('encounter-'+event.id,event.name,[focus?npc(focus,event.warning):at(point!.x,point!.y,event.warning)]);
+}
+// Art decorates the existing story beats; it never queues events, bypasses a
+// battle, changes a choice, or marks quest objectives complete. In particular,
+// aftermath panels remain on aftermath scenes rather than pre-battle reveals.
+const illustrate=(id:string,page:StoryPanelRef['page'],panels:Array<StoryPanelRef['panel']>)=>{
+  CINEMATICS[id].shots.forEach((shot,index)=>{
+    const panel=panels[index];
+    if(panel!==undefined){shot.illustration={page,panel};shot.duration=Math.max(shot.duration,6000);}
+  });
+};
+illustrate('varr-before','varr-survey',[0,1]);
+illustrate('road-cleared','varr-survey',[2]);
+illustrate('highmere-arrival','highmere-arrival',[0,1,2]);
+illustrate('lower-meeting','witness-protected',[0]);
+illustrate('grain-resolution','witness-protected',[1,2]);
+illustrate('charter-audience','crown-audience',[0,1]);
+illustrate('royal-audience','crown-audience',[2]);
+const regionalPages:Array<[string,string,string,StoryPanelRef['page']]>=[
+  ['elarion','warden-before','campaign-moonlit-warden-after','mourning-grove'],
+  ['starhold','stonejaw-before','campaign-stonejaw-after','last-beacon'],
+  ['redmesa','krag-before','campaign-iron-tusk-after','broken-clan'],
+  ['deepford','rootfather-before','campaign-rootfather-after','wounded-root'],
+  ['tidewatch','salt-before','campaign-salt-king-after','stolen-sea'],
+  ['skallheim','wyrm-before','campaign-frost-wyrm-after','frozen-light'],
+  ['blackspire','seer-before','campaign-ashen-seer-after','ashen-truth'],
+];
+for(const [town,before,after,page] of regionalPages){
+  illustrate('regional-'+town+'-warning',page,[0]);
+  illustrate(before,page,[1]);
+  illustrate(after,page,[2]);
+}
+illustrate('family-relief-account','river-account',[0,1,2]);
+illustrate('encounter-archive-fire','crown-betrayal',[0]);
+illustrate('walter-arrest','crown-betrayal',[1,2]);
+illustrate('varkhul-before','returning-ember',[0,1]);
+illustrate('ember-retreat','returning-ember',[2]);
+illustrate('wards-rewoven','wards-rewoven',[0,1]);
+illustrate('roadborn-epilogue','place-at-table',[0,1,2]);
+// The well's future belongs to the already-selected clan agreement, not to a
+// new ruler; the art is intentionally neutral to either water-sharing choice.
+for(const shot of CINEMATICS['roadborn-epilogue'].shots)if(shot.focusNpcId==='redmesa-beastmaster'){
+  shot.illustration={page:'wards-rewoven',panel:2};shot.duration=Math.max(shot.duration,6000);
 }
 for(const id of Object.keys(CINEMATICS))CINEMATICS[id]=rewriteNpcMentions(CINEMATICS[id],NPC_NAME_ALIASES);

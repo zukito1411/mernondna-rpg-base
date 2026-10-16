@@ -365,7 +365,7 @@ function makeAliases(npcs: readonly NpcDefinition[], namesById: ReadonlyMap<stri
 
 const STABLE_ID_KEYS = new Set([
   'id', 'giverNpcId', 'targetId', 'contentId', 'questTargetId', 'questEventType', 'discoveryId',
-  'npcId', 'questIds', 'townId', 'townShrineId', 'portId', 'regionId', 'bossId', 'enemyId',
+  'npcId', 'focusNpcId', 'interiorId', 'illustration', 'questIds', 'townId', 'townShrineId', 'portId', 'regionId', 'bossId', 'enemyId',
   'wolfPackId', 'prerequisiteQuestId', 'nextQuestId',
   'flag', 'kind', 'type', 'cinematicId', 'killContentPrefix', 'enemyIds', 'questId', 'objectiveId',
 ]);

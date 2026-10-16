@@ -16,6 +16,7 @@ import {HarborPanel} from './components/HarborPanel';
 import { mobileInput } from './game/input';
 import { useGameStore } from './store/gameStore';
 import {installUiInputGuard,noteUiTransition} from './utils/uiInputGuard';
+import {dismissStartupSplash} from './utils/startupSplash';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
 
 export default function App() {
@@ -23,6 +24,8 @@ export default function App() {
   const [canContinue, setCanContinue] = useState(hasSavedGame);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
   const resetGame = useGameStore(state => state.resetGame);
+
+  useEffect(dismissStartupSplash,[]);
 
   useEffect(()=>{
     const dispose=installUiInputGuard(()=>{
