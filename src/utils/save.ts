@@ -29,8 +29,10 @@ let syncSnapshot: (() => void) | undefined;
 let saving = false;
 let saveBlocked=false;
 let recoveryNotice:string|null=null;
+let saveFailureReason:string|null=null;
 export function getSaveRecoveryNotice(){return recoveryNotice;}
-export function allowExplicitNewGame(){saveBlocked=false;recoveryNotice=null;}
+export function getSaveFailureReason(){return saveFailureReason;}
+export function allowExplicitNewGame(){saveBlocked=false;recoveryNotice=null;saveFailureReason=null;}
 export function setSaveSnapshotProvider(provider?: () => void) { syncSnapshot = provider; }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -439,7 +441,11 @@ export function hasStoredSave(): boolean {
 }
 
 export function saveGame(): boolean {
-  if (saving||saveBlocked) return false;
+  if (saving) return false;
+  if (saveBlocked) {
+    saveFailureReason='Saving is blocked to protect an unreadable save. Start a new game only after securing the old save.';
+    return false;
+  }
   saving = true;
   try {
     syncSnapshot?.();
@@ -455,11 +461,24 @@ export function saveGame(): boolean {
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
       cinematicQueue:[...(s.cinematic?[s.cinematic.id]:s.pendingCinematic?[s.pendingCinematic]:[]),...s.cinematicQueue],
     } };
+    // A successful localStorage write is not proof that Continue can load it.
+    // Reject invalid snapshots before replacing the latest recoverable save.
+    const serialized=JSON.stringify(data);
+    if(!parseSave(serialized)){
+      saveFailureReason='Save validation failed. Your previous save was preserved.';
+      console.warn('[save] Rejected a snapshot that Continue could not load.');
+      return false;
+    }
     const prior=localStorage.getItem(SAVE_KEY);
     if(prior&&parseSave(prior))try{localStorage.setItem(SAVE_KEY+':last-good',prior);}catch{/* Keep saving available if the optional backup quota is full. */}
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    localStorage.setItem(SAVE_KEY,serialized);
+    saveFailureReason=null;
     return true;
-  } catch { return false; } finally { saving = false; }
+  } catch(error) {
+    saveFailureReason=error instanceof Error ? 'Could not save: '+error.message : 'Could not save the game on this device.';
+    console.warn('[save] Save failed:',error);
+    return false;
+  } finally { saving = false; }
 }
 
 export function loadGame(): boolean {
@@ -491,7 +510,12 @@ export function loadGame(): boolean {
 }
 
 export function watchProgressSaves() {
-  return useGameStore.subscribe((s, previous) => {
+  // World streaming and multi-step quests can update the store many times in
+  // one frame. Coalesce those requests instead of repeatedly serializing the
+  // entire world; pagehide/visibility checkpoints still save immediately.
+  let pending:ReturnType<typeof setTimeout>|null=null;
+  const unsubscribe=useGameStore.subscribe((s, previous) => {
+    if (saving) return;
     if (s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots
@@ -499,8 +523,12 @@ export function watchProgressSaves() {
       || s.statPoints !== previous.statPoints || s.skillPoints !== previous.skillPoints
       || s.learnedSkills !== previous.learnedSkills || s.worldContent !== previous.worldContent
       || s.unlockedTownShrines !== previous.unlockedTownShrines || s.storyFlags!==previous.storyFlags
-      || s.storyChoices!==previous.storyChoices || s.trackedQuestId!==previous.trackedQuestId) saveGame();
+      || s.storyChoices!==previous.storyChoices || s.trackedQuestId!==previous.trackedQuestId) {
+      if(pending!==null)clearTimeout(pending);
+      pending=setTimeout(()=>{pending=null;saveGame();},1000);
+    }
   });
+  return ()=>{if(pending!==null)clearTimeout(pending);unsubscribe();};
 }
 
 export function clearSave(): boolean {
