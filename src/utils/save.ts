@@ -623,6 +623,88 @@ export function watchProgressSaves() {
   return ()=>{if(pending!==null)clearTimeout(pending);unsubscribe();};
 }
 
+/** A portable JSON archive keeps *all* local recovery copies, including
+ * rejected snapshots. Nothing is uploaded; the user chooses where to store it. */
+export const SAVE_BACKUP_FORMAT='tales-of-leighneron-save-backup';
+export interface SaveBackupExport { filename:string; json:string; copies:number; }
+export interface SaveImportPreview { raw:string; savedAt:string; level:number; source:string; }
+const MAX_IMPORT_BYTES=64*1024*1024;
+
+export function createSaveBackupExport():SaveBackupExport {
+  const copies:{slot:string;raw:string}[]=[];
+  for(const key of RECOVERY_KEYS){
+    const raw=localStorage.getItem(key);
+    if(raw!==null)copies.push({slot:key===SAVE_KEY?'primary':key.slice(SAVE_KEY.length+1),raw});
+  }
+  // Even if a broken world record prevents an autosave, export the live
+  // session as evidence for later recovery. Never overwrite disk to do so.
+  if(syncSnapshot){
+    try{copies.push({slot:'current-session',raw:serializeCurrentSaveSnapshot()});}
+    catch(error){console.warn('[save] Live snapshot unavailable for backup:',error);}
+  }
+  if(!copies.length)throw new Error('No saved game or active session is available to export.');
+  const exportedAt=new Date().toISOString();
+  return {
+    filename:`Tales-of-Leigneron-Save-${exportedAt.replace(/[:.]/g,'-')}.json`,
+    json:JSON.stringify({format:SAVE_BACKUP_FORMAT,version:1,exportedAt,copies}),
+    copies:copies.length,
+  };
+}
+
+/** Accept either a portable backup or an older standalone game-save JSON. */
+export function inspectSaveImport(json:string):SaveImportPreview {
+  if(new Blob([json]).size>MAX_IMPORT_BYTES)throw new Error('Backup is larger than the supported 64 MB import limit.');
+  let parsed:unknown;
+  try{parsed=JSON.parse(json);}catch{throw new Error('The selected file does not contain valid JSON.');}
+  let entries:{slot:string;raw:string}[]=[];
+  if(record(parsed)&&parsed.format===SAVE_BACKUP_FORMAT&&parsed.version===1&&Array.isArray(parsed.copies)){
+    if(parsed.copies.length>16)throw new Error('Backup contains too many save copies.');
+    for(const copy of parsed.copies){
+      if(!record(copy)||typeof copy.slot!=='string'||typeof copy.raw!=='string')
+        throw new Error('Backup contains a malformed save copy.');
+      entries.push({slot:copy.slot,raw:copy.raw});
+    }
+  }else if(record(parsed)&&'state' in parsed&&'version' in parsed){
+    entries=[{slot:'standalone',raw:json}];
+  }else throw new Error('This is not a Tales of Leigneron save backup.');
+  const valid:SaveImportPreview[]=[];
+  for(const entry of entries){
+    const save=parseSave(entry.raw);
+    if(save)valid.push({raw:entry.raw,savedAt:save.savedAt,level:save.state.level,source:entry.slot});
+  }
+  if(!valid.length)throw new Error('No loadable saves were found in this backup. Original local saves are unchanged.');
+  const date=(s:SaveImportPreview)=>Number.isFinite(Date.parse(s.savedAt))?Date.parse(s.savedAt):0;
+  valid.sort((a,b)=>date(b)-date(a));
+  return valid[0];
+}
+
+/** Import is atomic as far as localStorage permits: retain the old primary in
+ * a separate recovery slot and verify it before replacing the selected save. */
+export function importSaveBackup(preview:SaveImportPreview):void {
+  if(!parseSave(preview.raw))throw new Error('Imported save failed validation. Existing progress was not changed.');
+  const previousBlocked=saveBlocked;
+  const previous=localStorage.getItem(SAVE_KEY);
+  if(previous!==null){
+    try{
+      localStorage.setItem(PRE_IMPORT_KEY,previous);
+      if(localStorage.getItem(PRE_IMPORT_KEY)!==previous)throw new Error('Could not verify the pre-import backup.');
+    }catch(error){
+      throw new Error('Cannot protect your existing save before import. Free device storage or export it first. '+(error instanceof Error?error.message:''));
+    }
+  }
+  // Prevent pagehide/blur/visibility autosaves from overwriting the imported
+  // file during navigation. A full reload reconstructs the game from it.
+  saveBlocked=true;
+  try{
+    localStorage.setItem(SAVE_KEY,preview.raw);
+    if(localStorage.getItem(SAVE_KEY)!==preview.raw)
+      throw new Error('The imported save could not be read back.');
+  }catch(error){
+    saveBlocked=previousBlocked;
+    throw new Error('Import failed. Your previous save backup was retained. '+(error instanceof Error?error.message:''));
+  }
+}
+
 export function clearSave(): boolean {
   try { localStorage.removeItem(SAVE_KEY);saveBlocked=false; return true; } catch { return false; }
 }
