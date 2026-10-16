@@ -246,3 +246,34 @@ jobs:
             "$GITHUB_REPOSITORY" \
             "$release_tag" \
             >> "$GITHUB_STEP_SUMMARY"
+
+      # GitHub Actions publishes releases with GITHUB_TOKEN, so a separate
+      # release:published workflow would not run. Prune in this job instead.
+      - name: Keep only the four newest Android releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Paginate the complete release list, then sort all pages together.
+          # Ignore drafts and unrelated releases; never delete Git tags.
+          mapfile -t old_tags < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+              jq -rs '
+                add
+                | map(select(.draft == false and (.tag_name | startswith("android-"))))
+                | sort_by(.published_at)
+                | reverse
+                | .[4:]
+                | .[].tag_name
+              '
+          )
+
+          for tag in "${old_tags[@]}"; do
+            echo "Removing older Android release: $tag"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+          done
+
+          printf 'Android release retention: kept the four most recent; deleted %s older releases.\n' "${#old_tags[@]}" \
+            >> "$GITHUB_STEP_SUMMARY"
