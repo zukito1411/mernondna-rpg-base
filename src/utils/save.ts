@@ -678,18 +678,28 @@ export function inspectSaveImport(json:string):SaveImportPreview {
   return valid[0];
 }
 
-/** Import is atomic as far as localStorage permits: retain the old primary in
- * a separate recovery slot and verify it before replacing the selected save. */
+/** Preserve the primary before import and verify it can be recovered before
+ * replacing the selected save. Local storage itself is not crash-transactional. */
 export function importSaveBackup(preview:SaveImportPreview):void {
   if(!parseSave(preview.raw))throw new Error('Imported save failed validation. Existing progress was not changed.');
   const previousBlocked=saveBlocked;
   const previous=localStorage.getItem(SAVE_KEY);
   if(previous!==null){
     try{
-      localStorage.setItem(PRE_IMPORT_KEY,previous);
-      if(localStorage.getItem(PRE_IMPORT_KEY)!==previous)throw new Error('Could not verify the pre-import backup.');
+      // If the primary is already unreadable, never replace a potentially
+      // valid pre-import recovery copy with that unreadable primary.
+      const preserveAt=parseSave(previous)
+        ? PRE_IMPORT_KEY
+        : [SAVE_KEY+':unreadable-backup',SAVE_KEY+':unreadable-backup-2',PRE_IMPORT_KEY]
+            .find(key=>localStorage.getItem(key)===previous
+              ||localStorage.getItem(key)===null);
+      if(!preserveAt)
+        throw new Error('No free recovery slot for the unreadable primary.');
+      localStorage.setItem(preserveAt,previous);
+      if(localStorage.getItem(preserveAt)!==previous)
+        throw new Error('Could not verify the pre-import backup.');
     }catch(error){
-      throw new Error('Cannot protect your existing save before import. Free device storage or export it first. '+(error instanceof Error?error.message:''));
+      throw new Error('Cannot protect your existing save before import. Export your backup before proceeding. '+(error instanceof Error?error.message:''));
     }
   }
   // Prevent pagehide/blur/visibility autosaves from overwriting the imported
