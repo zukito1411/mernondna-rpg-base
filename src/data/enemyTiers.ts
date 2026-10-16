@@ -8,6 +8,10 @@ const ROUTE=['oakmere','highmere','willowcross','elarion','moonfall','starhold',
 const REGION_FALLBACK:Record<Exclude<RegionId,'dead-sea'>,number>={
  trandum:5,narenthil:10,nardorous:15,rindass:20,druganwoods:25,portquill:30,frostlands:35,darkav:50,
 };
+// The maximum authored regional/route danger is also used to validate
+// persisted monster HP after player-level scaling.
+export const MAX_AREA_MONSTER_LEVEL=Math.max(...Object.values(REGION_FALLBACK),
+  5+Math.floor((ROUTE.length-1)/2)*5);
 export const BOSS_RESPAWN_MS=20*60*1000;
 export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
  if(regionId==='dead-sea')return 5;
