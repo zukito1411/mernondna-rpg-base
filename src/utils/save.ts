@@ -67,6 +67,11 @@ function maximumSavedEnemyHp(definition:CreatureContentDefinition):number {
   return definition.wolfAlpha?Math.round(scaled*1.35):scaled;
 }
 
+function invalidSave(reason:string):null {
+  lastSaveValidationProblem=reason;
+  return null;
+}
+
 function contentInvalid(id:string,reason:string):null {
   lastSaveValidationProblem=`World content ${id}: ${reason}`;
   return null;
@@ -90,7 +95,7 @@ function validateContent(value: unknown): ContentWorldState | null {
         || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,99}$/.test(d.encounterId)
         || (d.wolfPackId !== undefined && d.encounterId !== d.wolfPackId)))
       || (d.wolfPackId !== undefined && (!isWolfFamily(d.enemyId) || typeof d.wolfPackId !== 'string' || d.wolfPackId.length > 100))
-      || (d.wolfAlpha !== undefined && (!isWolfFamily(d.enemyId) || typeof d.wolfAlpha !== 'boolean'))) return null;
+      || (d.wolfAlpha !== undefined && (!isWolfFamily(d.enemyId) || typeof d.wolfAlpha !== 'boolean'))) return contentInvalid(id,'invalid generated spawn definition');
     const behavior = d.encounterBehavior;
     let parsedBehavior: EncounterBehavior | undefined;
     if (behavior !== undefined) {
@@ -100,13 +105,13 @@ function validateContent(value: unknown): ContentWorldState | null {
         || !numberIn(behavior.leashRadius,256,1600) || !numberIn(behavior.slot,0,15) || !Number.isInteger(behavior.slot)
         || typeof behavior.role !== 'string' || !['leader','melee','flanker','ranged','heavy'].includes(behavior.role)
         || Math.hypot(behavior.station.x-behavior.home.x,behavior.station.y-behavior.home.y)>behavior.leashRadius*.4
-        || d.wolfPackId && (behavior.role !== (d.wolfAlpha?'leader':'flanker') || (d.wolfAlpha ? behavior.slot!==0 : behavior.slot===0))) return null;
+        || d.wolfPackId && (behavior.role !== (d.wolfAlpha?'leader':'flanker') || (d.wolfAlpha ? behavior.slot!==0 : behavior.slot===0))) return contentInvalid(id,'invalid encounter behavior');
       const key=d.wolfPackId?`wolf:${d.wolfPackId}`:`encounter:${d.encounterId}`;
       const occupied=slots.get(key)??new Set<number>();
-      if(occupied.has(behavior.slot))return null;
+      if(occupied.has(behavior.slot))return contentInvalid(id,'duplicate encounter slot');
       occupied.add(behavior.slot);slots.set(key,occupied);
       const home=groupHomes.get(key);
-      if(home&&(home.x!==behavior.home.x||home.y!==behavior.home.y||home.radius!==behavior.leashRadius))return null;
+      if(home&&(home.x!==behavior.home.x||home.y!==behavior.home.y||home.radius!==behavior.leashRadius))return contentInvalid(id,'inconsistent encounter home');
       groupHomes.set(key,{x:behavior.home.x,y:behavior.home.y,radius:behavior.leashRadius});
       parsedBehavior={home:{x:behavior.home.x,y:behavior.home.y},station:{x:behavior.station.x,y:behavior.station.y},
         leashRadius:behavior.leashRadius,role:behavior.role as EncounterRole,slot:behavior.slot};
@@ -158,7 +163,7 @@ function validateContent(value: unknown): ContentWorldState | null {
       if(definition.kind!=='creature'||!definition.encounterBehavior||!record(p)||!record(p.home)||!record(p.station)
         ||!numberIn(p.home.x,0,WORLD_WIDTH-1)||!numberIn(p.home.y,0,WORLD_HEIGHT-1)
         ||!numberIn(p.station.x,0,WORLD_WIDTH-1)||!numberIn(p.station.y,0,WORLD_HEIGHT-1)
-        ||Math.hypot(p.station.x-p.home.x,p.station.y-p.home.y)>320)return null;
+        ||Math.hypot(p.station.x-p.home.x,p.station.y-p.home.y)>320)return contentInvalid(id,'invalid encounter placement');
       // An authored clearing may move in a later map revision. Discard only
       // stale placement metadata, not the player's save or real defeat flags.
       if(Math.hypot(p.home.x-definition.world.x,p.home.y-definition.world.y)<=3200
@@ -175,7 +180,7 @@ function validateContent(value: unknown): ContentWorldState | null {
         ||!wave.members.every(member=>Object.hasOwn(spawns,member)&&spawns[member].eventSpawn===true)
         ||!numberIn(wave.nextAt)||!Number.isInteger(wave.nextAt)
         ||wave.members.length>0&&wave.nextAt!==0
-        ||!wave.encounterId.endsWith(':legacy')&&wave.members.some(member=>spawns[member].encounterId!==wave.encounterId))return null;
+        ||!wave.encounterId.endsWith(':legacy')&&wave.members.some(member=>spawns[member].encounterId!==wave.encounterId))return contentInvalid(id,'invalid boss summon wave');
       summonWave={encounterId:wave.encounterId,members:[...wave.members],nextAt:wave.nextAt};
     }
     states[id] = { x: position.x, y: position.y,
@@ -189,7 +194,7 @@ function validateContent(value: unknown): ContentWorldState | null {
   }
   const owners=new Set<string>();
   for(const state of Object.values(states))for(const member of state.summonWave?.members??[]){
-    if(owners.has(member))return null;
+    if(owners.has(member))return contentInvalid(member,'summon assigned to multiple bosses');
     owners.add(member);
   }
   return { states, spawns, nextSpawnSequence: value.nextSpawnSequence };
@@ -297,21 +302,22 @@ export function migrateSave(data: unknown): unknown {
 }
 
 export function parseSave(raw: string): SaveData | null {
+  lastSaveValidationProblem=null;
   try {
     const data = migrateSave(JSON.parse(raw));
-    if (!record(data) || data.version !== 6 || !record(data.state)) return null;
+    if (!record(data) || data.version !== 6 || !record(data.state)) return invalidSave('unsupported save structure or version');
     const s = data.state;
-    if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return null;
+    if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return invalidSave('invalid cinematic queue');
     const savedFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
     if(!record(savedFlags)||!Object.values(savedFlags).every(v=>typeof v==='boolean')
       ||!record(storyChoices)||!Object.values(storyChoices).every(v=>typeof v==='string'&&v.length<100)
-      ||Object.keys(savedFlags).length>512||Object.keys(storyChoices).length>512) return null;
+      ||Object.keys(savedFlags).length>512||Object.keys(storyChoices).length>512) return invalidSave('invalid story flags or choices');
     const storyFlags={...savedFlags} as Record<string,boolean>;
     const legacyCampaign=!storyFlags[CAMPAIGN_REVISION_FLAG];
     if (!strings(s.unlockedTownShrines) || new Set(s.unlockedTownShrines).size !== s.unlockedTownShrines.length
-      || !s.unlockedTownShrines.every(id => Object.hasOwn(TOWN_BY_ID,id))) return null;
+      || !s.unlockedTownShrines.every(id => Object.hasOwn(TOWN_BY_ID,id))) return invalidSave('invalid unlocked shrines');
     if (!playerAttributes(s.attributes) || !numberIn(s.statPoints, 0, 10000) || !Number.isInteger(s.statPoints)
-      || !numberIn(s.skillPoints, 0, 10000) || !Number.isInteger(s.skillPoints) || !skillIds(s.learnedSkills)) return null;
+      || !numberIn(s.skillPoints, 0, 10000) || !Number.isInteger(s.skillPoints) || !skillIds(s.learnedSkills)) return invalidSave('invalid player attributes or skill points');
     const derived = progressionStats(s.attributes, s.learnedSkills);
     if (!numberIn(s.hp, 1, derived.maxHp) || !numberIn(s.stamina, 0, derived.maxStamina) || !numberIn(s.xp) || !numberIn(s.gold)
       || !numberIn(s.level, 1, MAX_PLAYER_LEVEL) || !Number.isInteger(s.level)
@@ -322,7 +328,7 @@ export function parseSave(raw: string): SaveData | null {
       || !strings(s.defeatedBosses) || !s.defeatedBosses.every(id => BOSSES.some(b => b.id === id))
       || (!REGIONS.some(r => r.id === s.regionId) && s.regionId !== 'dead-sea')
       || (s.townId !== null && (typeof s.townId !== 'string' || !Object.hasOwn(TOWN_BY_ID, s.townId)))
-      || !record(s.quests)) return null;
+      || !record(s.quests)) return invalidSave('invalid player vitals, equipment, position, or quest ledger');
     const quests: GameState['quests'] = {};
     for (const definition of QUESTS) {
       const quest = s.quests[definition.id];
@@ -330,7 +336,7 @@ export function parseSave(raw: string): SaveData | null {
         quests[definition.id] = { status: 'locked', objectiveProgress: {} };
         continue;
       }
-      if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return null;
+      if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return invalidSave(`invalid quest ${definition.id}`);
       const progress = {...quest.objectiveProgress};
       if(!storyFlags[COMBAT_CLEARANCE_REVISION_FLAG]){
         // A previous release could turn a 15-kill stage into a one-step report.
@@ -367,7 +373,7 @@ export function parseSave(raw: string): SaveData | null {
           'returning-ember':['vexa-warning','survey-ward','repel-varkhul','dain-report','vexa-resolution'],
         };
         const legacyStages=required[definition.id];
-        if(quest.status==='completed'&&legacyStages&&!legacyStages.every(id=>progress[id]===1))return null;
+        if(quest.status==='completed'&&legacyStages&&!legacyStages.every(id=>progress[id]===1))return invalidSave(`legacy quest ${definition.id} is missing objectives`);
         // Grandfather additions only behind the player's saved frontier. Never
         // reset rewards, invent choices, or skip newly introduced future work.
         const frontier=quest.status==='completed'?definition.objectives.length-1:
@@ -395,10 +401,10 @@ export function parseSave(raw: string): SaveData | null {
       const objectiveProgress: Record<string, number> = {};
       for (const objective of definition.objectives) {
         const value = progress[objective.id];
-        if (value !== undefined && !numberIn(value, 0, objective.amount)) return null;
+        if (value !== undefined && !numberIn(value, 0, objective.amount)) return invalidSave(`invalid quest progress ${definition.id}/${objective.id}`);
         if (typeof value === 'number') objectiveProgress[objective.id] = value;
       }
-      if (quest.status === 'completed' && !definition.objectives.every(o => (Number(progress[o.id]) || 0) >= o.amount)) return null;
+      if (quest.status === 'completed' && !definition.objectives.every(o => (Number(progress[o.id]) || 0) >= o.amount)) return invalidSave(`completed quest ${definition.id} is missing objectives`);
       quests[definition.id] = { status: quest.status as 'locked' | 'active' | 'completed', objectiveProgress };
     }
     if(['active','completed'].includes(quests['eight-regions']?.status??'')&&s.quests['crown-summons']===undefined){
@@ -411,14 +417,14 @@ export function parseSave(raw: string): SaveData | null {
     // Additive equipment schema: old installations keep their four original
     // arts and receive no repeat free items when these fields are absent.
     const consumables=s.consumables===undefined?{'healing-potion':0,'stamina-potion':0}:s.consumables;
-    if(!record(consumables)||!Object.keys(POTIONS).every(id=>numberIn(consumables[id],0,99)&&Number.isInteger(consumables[id])))return null;
+    if(!record(consumables)||!Object.keys(POTIONS).every(id=>numberIn(consumables[id],0,99)&&Number.isInteger(consumables[id])))return invalidSave('invalid consumables');
     const learnedCombatArts=s.learnedCombatArts??[];
     if(!strings(learnedCombatArts)||new Set(learnedCombatArts).size!==learnedCombatArts.length
-      ||!learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id)&&Boolean(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost)))return null;
+      ||!learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id)&&Boolean(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost)))return invalidSave('invalid learned combat arts');
     const skillSlots=s.skillSlots===undefined?[...DEFAULT_SKILL_SLOTS]:s.skillSlots;
     if(!Array.isArray(skillSlots)||skillSlots.length!==4||!skillSlots.every(id=>id===null||typeof id==='string'&&Object.hasOwn(ACTIVE_SKILL_BY_ID,id)
       &&(!ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost||learnedCombatArts.includes(id)))
-      ||new Set(skillSlots.filter(Boolean)).size!==skillSlots.filter(Boolean).length)return null;
+      ||new Set(skillSlots.filter(Boolean)).size!==skillSlots.filter(Boolean).length)return invalidSave('invalid equipped skill slots');
     const validatedSkills=s.learnedSkills;
     const allocatedLearningPoints=SKILLS.filter(skill=>validatedSkills.includes(skill.id)).reduce((sum,skill)=>sum+skill.cost,0)
       +learnedCombatArts.reduce((sum,id)=>sum+(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost??0),0)+s.skillPoints;
@@ -430,9 +436,9 @@ export function parseSave(raw: string): SaveData | null {
     const needsCompletionPoint=s.level>=29&&allocatedLearningPoints===previousBudget;
     if(s.level!==levelForExperience(s.xp)||s.xp>xpTotalForLevel(MAX_PLAYER_LEVEL)
       ||Object.values(s.attributes).reduce((sum,n)=>sum+Number(n),0)+s.statPoints!==attributeBudget(s.level)
-      ||allocatedLearningPoints!==skillBudget(s.level)&&!needsCompletionPoint)return null;
+      ||allocatedLearningPoints!==skillBudget(s.level)&&!needsCompletionPoint)return invalidSave('level, XP, or allocated-point budget mismatch');
     const worldContent = validateContent(s.worldContent);
-    if (!worldContent) return null;
+    if (!worldContent) return invalidSave(lastSaveValidationProblem??'invalid world-content ledger');
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
     storyFlags[INDOOR_STORY_FLAG]=true;
     storyFlags[ADVENTURE_REVISION_FLAG]=true;
@@ -453,7 +459,9 @@ export function parseSave(raw: string): SaveData | null {
       level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
       skillPoints: state.skillPoints + learningPointsGained + (needsCompletionPoint?1:0),
     } };
-  } catch { return null; }
+  } catch(error) {
+    return invalidSave(error instanceof Error?`save parser error: ${error.message}`:'save parser error');
+  }
 }
 
 export function hasSavedGame(): boolean {
@@ -499,8 +507,10 @@ export function saveGame(): boolean {
     // Reject invalid snapshots before replacing the latest recoverable save.
     const serialized=JSON.stringify(data);
     if(!parseSave(serialized)){
-      saveFailureReason='Save validation failed. Your previous save was preserved.';
-      console.warn('[save] Rejected a snapshot that Continue could not load.');
+      saveFailureReason=lastSaveValidationProblem
+        ? `Cannot save: ${lastSaveValidationProblem}. Earlier save kept.`
+        : 'Save validation failed. Your previous save was preserved.';
+      console.warn('[save] Rejected snapshot:',lastSaveValidationProblem);
       return false;
     }
     const prior=localStorage.getItem(SAVE_KEY);
