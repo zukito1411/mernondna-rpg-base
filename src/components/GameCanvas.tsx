@@ -5,6 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import type Phaser from 'phaser';
 import {TitleArtwork} from './TitleArtwork';
 import {refreshOfflineGameFiles} from '../utils/appStartup';
+import {saveGame} from '../utils/save';
 
 declare global { interface Window { __mernondnaGame?: Phaser.Game } }
 
@@ -46,7 +47,7 @@ export function GameCanvas() {
       game = createMernondnaGame(ref.current);
     }catch(reason){failed(reason);}
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('e2e')) window.__mernondnaGame = game;
-    let lastAdvance=Date.now(),lastProgress=-1,stalled=false;
+    let lastAdvance=Date.now(),lastProgress=-1,stalled=false,initialCheckpointSaved=false;
     const onVisible=()=>{if(!document.hidden)lastAdvance=Date.now();};
     document.addEventListener('visibilitychange',onVisible);
     const readinessPoll=window.setInterval(()=>{
@@ -55,7 +56,15 @@ export function GameCanvas() {
       if(typeof assetError==='string'){setError(assetError);return;}
       const progress=game.registry.get('loadingProgress');
       const ready=game.registry.get('worldReady')===true;
-      if(ready)setError(null);
+      if(ready){
+        setError(null);
+        // Capture the fully initialized world once, after its first rendered
+        // frame. The menu's early save does not yet contain live world state.
+        if(!initialCheckpointSaved){
+          initialCheckpointSaved=true;
+          if(!saveGame())console.warn('[save] World-ready checkpoint could not be saved.');
+        }
+      }
       if(typeof progress==='number'&&progress>lastProgress+.001){lastProgress=progress;lastAdvance=Date.now();}
       if(!ready&&!document.hidden&&!stalled&&Date.now()-lastAdvance>90000){
         stalled=true;
