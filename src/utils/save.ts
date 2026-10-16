@@ -19,7 +19,7 @@ import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES,COMBAT_CLEA
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
-import {globalMonsterBonus,scaledEnemy} from '../data/enemyTiers';
+import {MAX_AREA_MONSTER_LEVEL,globalMonsterBonus,scaledEnemy} from '../data/enemyTiers';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -59,10 +59,9 @@ function skillIds(value: unknown): value is SkillId[] {
 // 8x-base-HP validator rejected legitimate level-30 alpha wolves and all
 // higher-level monsters, blocking saves after encounters or world streaming.
 // Validate against the maximum attainable scaling rather than a fixed ratio.
-const MAX_REGION_MONSTER_LEVEL=50; // Darkav: highest authored region tier
 function maximumSavedEnemyHp(definition:CreatureContentDefinition):number {
   const enemy=ENEMY_BY_ID[definition.enemyId];
-  const level=MAX_REGION_MONSTER_LEVEL+(enemy.boss?10:5)+globalMonsterBonus(MAX_PLAYER_LEVEL);
+  const level=MAX_AREA_MONSTER_LEVEL+(enemy.boss?10:5)+globalMonsterBonus(MAX_PLAYER_LEVEL);
   const scaled=scaledEnemy(enemy,level).hp;
   return definition.wolfAlpha?Math.round(scaled*1.35):scaled;
 }
