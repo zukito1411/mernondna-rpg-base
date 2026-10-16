@@ -10,7 +10,7 @@ import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
 import type { ContentState, ContentWorldState, CreatureContentDefinition, EncounterBehavior, EncounterRole } from '../game/types';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, legacySkillBudget, earnedRewards, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
@@ -234,7 +234,8 @@ export function migrateSave(data: unknown): unknown {
     // longer fits. Never truncate invested points without returning them.
     if(Object.values(attributes).some(n=>!Number.isInteger(n)||n<0||n>ATTRIBUTE_CAP)
       ||Object.values(attributes).reduce((sum,n)=>sum+n,0)>attributeBudget(level))attributes={...BASE_ATTRIBUTES};
-    let remaining=skillBudget(level);
+    // Legacy players at level 30 may have already spent their old final point.
+    let remaining=legacySkillBudget(level);
     const learnedCombatArts:ActiveSkillId[]=[];
     if(old.learnedCombatArts!==undefined&&(!strings(old.learnedCombatArts)||!old.learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id))))return migrated;
     for(const id of (old.learnedCombatArts??[]) as ActiveSkillId[]){
@@ -394,10 +395,13 @@ export function parseSave(raw: string): SaveData | null {
       &&(!ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost||learnedCombatArts.includes(id)))
       ||new Set(skillSlots.filter(Boolean)).size!==skillSlots.filter(Boolean).length)return null;
     const validatedSkills=s.learnedSkills;
+    const allocatedLearningPoints=SKILLS.filter(skill=>validatedSkills.includes(skill.id)).reduce((sum,skill)=>sum+skill.cost,0)
+      +learnedCombatArts.reduce((sum,id)=>sum+(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost??0),0)+s.skillPoints;
+    // Old level-30 saves had one extra point. Both their spent talents and
+    // unspent balance remain loadable; newly earned points stop before level 30.
     if(s.level!==levelForExperience(s.xp)||s.xp>xpTotalForLevel(MAX_PLAYER_LEVEL)
       ||Object.values(s.attributes).reduce((sum,n)=>sum+Number(n),0)+s.statPoints!==attributeBudget(s.level)
-      ||SKILLS.filter(skill=>validatedSkills.includes(skill.id)).reduce((sum,skill)=>sum+skill.cost,0)
-        +learnedCombatArts.reduce((sum,id)=>sum+(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost??0),0)+s.skillPoints!==skillBudget(s.level))return null;
+      ||allocatedLearningPoints!==skillBudget(s.level)&&allocatedLearningPoints!==legacySkillBudget(s.level))return null;
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
@@ -410,6 +414,7 @@ export function parseSave(raw: string): SaveData | null {
     const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);
     const xp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + rewards.xp);
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
+    const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state,consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
@@ -417,7 +422,7 @@ export function parseSave(raw: string): SaveData | null {
       trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
         QUESTS.find(q=>q.kind==='main'&&result.quests[q.id]?.status==='active')?.id??null,
       level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
-      skillPoints: state.skillPoints + levelsGained,
+      skillPoints: state.skillPoints + learningPointsGained,
     } };
   } catch { return null; }
 }
