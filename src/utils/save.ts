@@ -464,22 +464,20 @@ export function parseSave(raw: string): SaveData | null {
   }
 }
 
+const RECOVERY_KEYS=[SAVE_KEY,SAVE_KEY+':last-good',SAVE_KEY+':unreadable-backup',SAVE_KEY+':unreadable-backup-2'] as const;
+
 export function hasSavedGame(): boolean {
   try {
-    const current = localStorage.getItem(SAVE_KEY);
-    const previous = localStorage.getItem(SAVE_KEY + ':last-good');
-    return Boolean((current && parseSave(current)) || (previous && parseSave(previous)));
-  } catch {
-    return false;
-  }
+    return RECOVERY_KEYS.some(key=>{
+      const raw=localStorage.getItem(key);
+      return Boolean(raw&&parseSave(raw));
+    });
+  } catch { return false; }
 }
 
 export function hasStoredSave(): boolean {
-  try {
-    return localStorage.getItem(SAVE_KEY) !== null || localStorage.getItem(SAVE_KEY + ':last-good') !== null;
-  } catch {
-    return false;
-  }
+  try { return RECOVERY_KEYS.some(key=>localStorage.getItem(key)!==null); }
+  catch { return false; }
 }
 
 export function saveGame(): boolean {
@@ -527,16 +525,53 @@ export function saveGame(): boolean {
 
 export function loadGame(): boolean {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    let data = raw ? parseSave(raw) : null;
-    if(raw&&!data){
-      try{localStorage.setItem(SAVE_KEY+':unreadable-backup',raw);}catch{saveBlocked=true;}
-      const previous=localStorage.getItem(SAVE_KEY+':last-good');data=previous?parseSave(previous):null;
-      if(!data){saveBlocked=true;recoveryNotice='Your save could not be restored. It is preserved; automatic saving is blocked until you explicitly start a new game.';useGameStore.getState().showToast(recoveryNotice);return false;}
-      recoveryNotice=saveBlocked?'Recovered a valid previous save, but storage could not preserve the unreadable file separately. Automatic saving remains blocked.':'Recovered the previous valid save. The unreadable save was preserved separately.';
+    // A past release may have called a perfectly valid scaled-HP snapshot
+    // unreadable. Recheck *all* retained copies with today's parser and
+    // restore the most recent valid timestamp rather than blindly rolling
+    // back to the last-good slot.
+    const copies=RECOVERY_KEYS.map(key=>{
+      const raw=localStorage.getItem(key);
+      return {key,raw,data:raw?parseSave(raw):null};
+    });
+    const candidates=copies.filter((entry):entry is typeof entry & {data:SaveData}=>entry.data!==null);
+    candidates.sort((a,b)=>{
+      const time=(value:SaveData)=>Number.isFinite(Date.parse(value.savedAt))?Date.parse(value.savedAt):0;
+      return time(b.data)-time(a.data);
+    });
+    const chosen=candidates[0];
+    const primary=copies[0];
+    saveBlocked=false;
+    recoveryNotice=null;
+    if(primary.raw&&!primary.data){
+      // Never discard the rejected primary. Preserve it in a separate slot
+      // before any subsequent autosave can replace it. Do not overwrite an
+      // older unreadable snapshot either; it may become readable in a later
+      // update.
+      const backupKeys=[SAVE_KEY+':unreadable-backup',SAVE_KEY+':unreadable-backup-2'];
+      try {
+        if(!backupKeys.some(key=>localStorage.getItem(key)===primary.raw)){
+          const free=backupKeys.find(key=>localStorage.getItem(key)===null);
+          if(!free)throw new Error('No available recovery slot');
+          localStorage.setItem(free,primary.raw);
+        }
+      }catch(error){
+        saveBlocked=true;
+        console.warn('[save] Could not preserve rejected primary save:',error);
+      }
+    }
+    if(!chosen){
+      saveBlocked=true;
+      recoveryNotice='No loadable save was found. Existing save data was left untouched; automatic saving is blocked to prevent overwriting it.';
+      useGameStore.getState().showToast(recoveryNotice);
+      return false;
+    }
+    if(chosen.key!==SAVE_KEY || saveBlocked){
+      recoveryNotice=saveBlocked
+        ? 'A recoverable save was found, but the unreadable primary could not be backed up. Saving is blocked until it is safely exported.'
+        : 'Recovered the most recent loadable save copy. Your other save copies were preserved.';
       useGameStore.getState().showToast(recoveryNotice);
     }
-    if (!data) return false;
+    const data=chosen.data;
     // Explicit selection prevents a save replacing store actions or transient UI state.
     const s = data.state;
     const derived = progressionStats(s.attributes, s.learnedSkills);
