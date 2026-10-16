@@ -586,3 +586,15 @@ kbd { font-size: 10px; opacity: .65; }
     z-index: 10;
   }
 }
+
+/* Save transfer controls are shared by the main menu and in-game pause panel. */
+.save-transfer-controls { display:grid;gap:7px;min-width:0;width:100%; }
+.save-transfer-buttons { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px; }
+.save-transfer-buttons button { min-width:0;min-height:42px;border:1px solid #a98951;border-radius:7px;background:#49351f;color:#f5e5c2;font:600 12px Georgia,serif;cursor:pointer;padding:7px 5px; }
+.save-transfer-buttons button:disabled {opacity:.55;cursor:wait;}
+.save-transfer-message {margin:0!important;padding:4px 2px!important;color:#f3d5a4!important;font-size:11px!important;line-height:1.35;overflow-wrap:anywhere;}
+.home-options { max-height:calc(100dvh - 28px);overflow-y:auto; }
+@media (max-width:450px) {
+  .save-transfer-buttons {gap:5px;}
+  .save-transfer-buttons button {font-size:11px;}
+}
