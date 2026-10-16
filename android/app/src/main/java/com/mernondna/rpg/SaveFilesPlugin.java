@@ -68,7 +68,10 @@ public class SaveFilesPlugin extends Plugin {
     public void importJson(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
+        // Some Android document providers label JSON files as text/plain
+        // or application/octet-stream. Let the player select their file and
+        // validate the contents in the game before importing anything.
+        intent.setType("*/*");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivityForResult(call, intent, "readDocument");
     }
