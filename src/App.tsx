@@ -41,8 +41,13 @@ export default function App() {
 
   useEffect(() => {
     if (!playing) return;
+    // Periodic autosave, plus progress-triggered saves and a checkpoint
+    // whenever the player opens the pause menu.
     const interval = window.setInterval(saveGame, 12000);
     const unsubscribe = watchProgressSaves();
+    const unsubscribePause = useGameStore.subscribe((next,previous)=>{
+      if(next.panel==='pause'&&previous.panel!=='pause')saveGame();
+    });
     const onPageHide = () => { mobileInput.reset(); saveGame(); };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
@@ -51,14 +56,17 @@ export default function App() {
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('freeze',onPageHide);
     window.addEventListener('pagehide', onPageHide);
     window.addEventListener('blur', onPageHide);
     return () => {
       window.clearInterval(interval);
       unsubscribe();
+      unsubscribePause();
       window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('blur', onPageHide);
       document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('freeze',onPageHide);
     };
   }, [playing]);
 
