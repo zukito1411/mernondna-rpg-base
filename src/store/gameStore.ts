@@ -177,12 +177,13 @@ function experienceProgress(state: GameState, xp: number) {
   const totalXp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + xp);
   const level = levelForExperience(totalXp);
   const levelsGained = Math.max(0, level - state.level);
+  const learningPointsGained=Math.max(0,skillBudget(level)-skillBudget(state.level));
   return {
     xp: totalXp,
     level,
     statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
-    skillPoints: state.skillPoints + levelsGained,
-    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} status points and +${levelsGained} skill point${levelsGained === 1 ? '' : 's'}.` } : {}),
+    skillPoints: state.skillPoints + learningPointsGained,
+    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} attribute points${learningPointsGained ? ` and +${learningPointsGained} learning point${learningPointsGained === 1 ? '' : 's'}` : ''}.` } : {}),
   };
 }
 
@@ -373,7 +374,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const gained=Math.max(0,MAX_PLAYER_LEVEL-level);
     return {...partial,level:MAX_PLAYER_LEVEL,xp:xpTotalForLevel(MAX_PLAYER_LEVEL),
       statPoints:(partial.statPoints??state.statPoints)+gained*STAT_POINTS_PER_LEVEL,
-      skillPoints:(partial.skillPoints??state.skillPoints)+gained,
+      skillPoints:(partial.skillPoints??state.skillPoints)
+        +Math.max(0,skillBudget(MAX_PLAYER_LEVEL)-skillBudget(level)),
       gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id)};
   }),
   resetGame: () => set(baseState()),
