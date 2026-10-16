@@ -463,7 +463,8 @@ export function parseSave(raw: string): SaveData | null {
   }
 }
 
-const RECOVERY_KEYS=[SAVE_KEY,SAVE_KEY+':last-good',SAVE_KEY+':unreadable-backup',SAVE_KEY+':unreadable-backup-2'] as const;
+const PRE_IMPORT_KEY=SAVE_KEY+':pre-import-backup';
+const RECOVERY_KEYS=[SAVE_KEY,SAVE_KEY+':last-good',SAVE_KEY+':unreadable-backup',SAVE_KEY+':unreadable-backup-2',PRE_IMPORT_KEY] as const;
 
 export function hasSavedGame(): boolean {
   try {
@@ -479,14 +480,8 @@ export function hasStoredSave(): boolean {
   catch { return false; }
 }
 
-export function saveGame(): boolean {
-  if (saving) return false;
-  if (saveBlocked) {
-    saveFailureReason='Saving is blocked to protect an unreadable save. Start a new game only after securing the old save.';
-    return false;
-  }
-  saving = true;
-  try {
+/** Capture the current session without modifying the disk save slot. */
+function serializeCurrentSaveSnapshot():string {
     syncSnapshot?.();
     const s = useGameStore.getState();
     const data: SaveData = { version: 6, savedAt: new Date().toISOString(), state: {
@@ -500,9 +495,20 @@ export function saveGame(): boolean {
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
       cinematicQueue:[...(s.cinematic?[s.cinematic.id]:s.pendingCinematic?[s.pendingCinematic]:[]),...s.cinematicQueue],
     } };
+  return JSON.stringify(data);
+}
+
+export function saveGame(): boolean {
+  if (saving) return false;
+  if (saveBlocked) {
+    saveFailureReason='Saving is blocked to protect an unreadable save. Start a new game only after securing the old save.';
+    return false;
+  }
+  saving = true;
+  try {
+    const serialized=serializeCurrentSaveSnapshot();
     // A successful localStorage write is not proof that Continue can load it.
     // Reject invalid snapshots before replacing the latest recoverable save.
-    const serialized=JSON.stringify(data);
     if(!parseSave(serialized)){
       saveFailureReason=lastSaveValidationProblem
         ? `Cannot save: ${lastSaveValidationProblem}. Earlier save kept.`
@@ -543,8 +549,10 @@ export function loadGame(): boolean {
       const time=(value:SaveData)=>Number.isFinite(Date.parse(value.savedAt))?Date.parse(value.savedAt):0;
       return time(b.data)-time(a.data);
     });
-    const chosen=candidates[0];
     const primary=copies[0];
+    // An imported save may be older than the prior game. Prefer a valid
+    // primary; use the newest dated backup only when primary fails parsing.
+    const chosen=primary.data?{key:SAVE_KEY,data:primary.data}:candidates[0];
     saveBlocked=false;
     recoveryNotice=null;
     if(primary.raw&&!primary.data){
