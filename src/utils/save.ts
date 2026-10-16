@@ -397,11 +397,15 @@ export function parseSave(raw: string): SaveData | null {
     const validatedSkills=s.learnedSkills;
     const allocatedLearningPoints=SKILLS.filter(skill=>validatedSkills.includes(skill.id)).reduce((sum,skill)=>sum+skill.cost,0)
       +learnedCombatArts.reduce((sum,id)=>sum+(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost??0),0)+s.skillPoints;
-    // Old level-30 saves had one extra point. Both their spent talents and
-    // unspent balance remain loadable; newly earned points stop before level 30.
+    // Previous level-50 builds gave only 28 learning points at 29 and above;
+    // the old level-30 build gave 29 points at level 30. Both are legitimate
+    // saves. Grant exactly one missing completion point to the former, without
+    // changing purchased arts, talents, or an existing 29-point allocation.
+    const previousBudget=skillBudget(s.level)-(s.level>=29?1:0);
+    const needsCompletionPoint=s.level>=29&&allocatedLearningPoints===previousBudget;
     if(s.level!==levelForExperience(s.xp)||s.xp>xpTotalForLevel(MAX_PLAYER_LEVEL)
       ||Object.values(s.attributes).reduce((sum,n)=>sum+Number(n),0)+s.statPoints!==attributeBudget(s.level)
-      ||allocatedLearningPoints!==skillBudget(s.level)&&allocatedLearningPoints!==legacySkillBudget(s.level))return null;
+      ||allocatedLearningPoints!==skillBudget(s.level)&&!needsCompletionPoint)return null;
     const worldContent = validateContent(s.worldContent);
     if (!worldContent) return null;
     storyFlags[CAMPAIGN_REVISION_FLAG]=true;
@@ -422,7 +426,7 @@ export function parseSave(raw: string): SaveData | null {
       trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
         QUESTS.find(q=>q.kind==='main'&&result.quests[q.id]?.status==='active')?.id??null,
       level: levelForExperience(xp), statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
-      skillPoints: state.skillPoints + learningPointsGained,
+      skillPoints: state.skillPoints + learningPointsGained + (needsCompletionPoint?1:0),
     } };
   } catch { return null; }
 }
