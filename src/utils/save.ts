@@ -514,6 +514,11 @@ export function saveGame(): boolean {
     const prior=localStorage.getItem(SAVE_KEY);
     if(prior&&parseSave(prior))try{localStorage.setItem(SAVE_KEY+':last-good',prior);}catch{/* Keep saving available if the optional backup quota is full. */}
     localStorage.setItem(SAVE_KEY,serialized);
+    // Verify that this exact validated snapshot can be read back before
+    // telling the player that the save succeeded.
+    if(localStorage.getItem(SAVE_KEY)!==serialized){
+      throw new Error('Storage did not retain the saved snapshot');
+    }
     saveFailureReason=null;
     return true;
   } catch(error) {
