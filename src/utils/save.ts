@@ -537,7 +537,8 @@ export function loadGame(): boolean {
       const raw=localStorage.getItem(key);
       return {key,raw,data:raw?parseSave(raw):null};
     });
-    const candidates=copies.filter((entry):entry is typeof entry & {data:SaveData}=>entry.data!==null);
+    const candidates: Array<{key:string;data:SaveData}>=[];
+    for(const copy of copies)if(copy.data)candidates.push({key:copy.key,data:copy.data});
     candidates.sort((a,b)=>{
       const time=(value:SaveData)=>Number.isFinite(Date.parse(value.savedAt))?Date.parse(value.savedAt):0;
       return time(b.data)-time(a.data);
