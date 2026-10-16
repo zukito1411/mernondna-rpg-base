@@ -18,7 +18,12 @@ export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
  const routeLevel=nearby&&nearby.distance<15000&&index>=0?5+Math.floor(index/2)*5:REGION_FALLBACK[regionId];
  return Math.max(routeLevel,REGION_FALLBACK[regionId]);
 }
-export function globalMonsterBonus(playerLevel:number){return playerLevel>=30?15:playerLevel>=25?10:playerLevel>=20?5:0;}
+/** Raise encounter danger in +5-level steps every five player levels from 20
+ * through 50. Clamp invalid or out-of-range values to the playable cap. */
+export function globalMonsterBonus(playerLevel:number){
+ const level=Math.max(1,Math.min(50,Number.isFinite(playerLevel)?Math.floor(playerLevel):1));
+ return level<20?0:5*(Math.floor((level-20)/5)+1);
+}
 /** One shared level rule for live actors and saved crew upgrades. Elite roles
  * are always five levels above regular members from the same encounter home. */
 export function enemyLevelAt(definition:EnemyDefinition,x:number,y:number,regionId:RegionId,wolfAlpha=false,playerLevel=1):number {
