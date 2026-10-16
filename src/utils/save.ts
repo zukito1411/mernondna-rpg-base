@@ -19,6 +19,7 @@ import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES,COMBAT_CLEA
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
+import {globalMonsterBonus,scaledEnemy} from '../data/enemyTiers';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -30,6 +31,7 @@ let saving = false;
 let saveBlocked=false;
 let recoveryNotice:string|null=null;
 let saveFailureReason:string|null=null;
+let lastSaveValidationProblem:string|null=null;
 export function getSaveRecoveryNotice(){return recoveryNotice;}
 export function getSaveFailureReason(){return saveFailureReason;}
 export function allowExplicitNewGame(){saveBlocked=false;recoveryNotice=null;saveFailureReason=null;}
@@ -53,9 +55,27 @@ function skillIds(value: unknown): value is SkillId[] {
   return strings(value) && value.every(id => allowed.some(skillId => skillId === id)) && new Set(value).size === value.length;
 }
 
+// Enemy HP is level-scaled and alpha wolves get another 35% HP. The old
+// 8x-base-HP validator rejected legitimate level-30 alpha wolves and all
+// higher-level monsters, blocking saves after encounters or world streaming.
+// Validate against the maximum attainable scaling rather than a fixed ratio.
+const MAX_REGION_MONSTER_LEVEL=50; // Darkav: highest authored region tier
+function maximumSavedEnemyHp(definition:CreatureContentDefinition):number {
+  const enemy=ENEMY_BY_ID[definition.enemyId];
+  const level=MAX_REGION_MONSTER_LEVEL+(enemy.boss?10:5)+globalMonsterBonus(MAX_PLAYER_LEVEL);
+  const scaled=scaledEnemy(enemy,level).hp;
+  return definition.wolfAlpha?Math.round(scaled*1.35):scaled;
+}
+
+function contentInvalid(id:string,reason:string):null {
+  lastSaveValidationProblem=`World content ${id}: ${reason}`;
+  return null;
+}
+
 function validateContent(value: unknown): ContentWorldState | null {
   if (!record(value) || !record(value.states) || !record(value.spawns)
-    || !numberIn(value.nextSpawnSequence) || !Number.isInteger(value.nextSpawnSequence)) return null;
+    || !numberIn(value.nextSpawnSequence) || !Number.isInteger(value.nextSpawnSequence))
+    return contentInvalid('ledger','invalid structure or spawn sequence');
   const spawns: Record<string, CreatureContentDefinition> = {};
   const geography=new WorldGenerator();
   const slots = new Map<string, Set<number>>();
@@ -115,11 +135,16 @@ function validateContent(value: unknown): ContentWorldState | null {
     if (!definition || !record(s) || !numberIn(s.x, 0, WORLD_WIDTH - 1) || !numberIn(s.y, 0, WORLD_HEIGHT - 1)
       || (s.defeated !== undefined && typeof s.defeated !== 'boolean') || (s.used !== undefined && typeof s.used !== 'boolean')
       || (s.trust !== undefined && !numberIn(s.trust, 0, 100))
-      || (s.hp !== undefined && (definition.kind !== 'creature' || !numberIn(s.hp, 0, ENEMY_BY_ID[definition.enemyId].hp*8)))
-      || (s.hpMax!==undefined&&(definition.kind!=='creature'||!numberIn(s.hpMax,1,ENEMY_BY_ID[definition.enemyId].hp*8)))
       || (s.respawnAt!==undefined && (!numberIn(s.respawnAt)||!Number.isInteger(s.respawnAt)||s.defeated!==true
         ||definition.kind!=='creature'||!definition.id.startsWith('pirate:flagship:crew:')&&!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs)))
-      || (s.hp === 0 && s.defeated !== true)) return null;
+      || (s.hp === 0 && s.defeated !== true))
+      return contentInvalid(id,'invalid actor state, coordinates, or respawn flag');
+    if(s.hp!==undefined || s.hpMax!==undefined){
+      if(definition.kind!=='creature')return contentInvalid(id,'non-creature has combat health');
+      const maxHp=maximumSavedEnemyHp(definition);
+      if(s.hp!==undefined&&!numberIn(s.hp,0,maxHp))return contentInvalid(id,`HP ${s.hp} is outside the scaled limit ${maxHp}`);
+      if(s.hpMax!==undefined&&!numberIn(s.hpMax,1,maxHp))return contentInvalid(id,`maximum HP ${s.hpMax} is outside the scaled limit ${maxHp}`);
+    }
     // Salt King moved from the inland/shore camps onto his flagship.
     // Repair legacy/off-deck positions only; retain valid deck movement, wounds,
     // defeat state and the exact existing respawn deadline.
