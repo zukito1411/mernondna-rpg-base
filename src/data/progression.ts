@@ -3,15 +3,18 @@ export const PLAYER_ACTOR_HEIGHT = 76;
 export const MAX_PLAYER_LEVEL = 50;
 export const ATTRIBUTE_CAP = 40;
 export const STAT_POINTS_PER_LEVEL = 3;
-// Learning points buy both passive talents and unlockable combat arts.
-// The passive tree is designed for levels below 30: the last new point is
-// earned on reaching level 29. Levels 30-50 still grant attribute points.
+// Learning points are shared by passive talents and purchased combat arts.
+// All 12 talents cost 22 points and the 3 optional combat arts cost 7, so
+// award the last two points together at 29. None are earned at levels 30-50.
 export const LAST_LEARNING_POINT_LEVEL = 29;
 export const attributeBudget = (level:number) => (Math.max(1,Math.min(MAX_PLAYER_LEVEL,Math.floor(level)))-1)*STAT_POINTS_PER_LEVEL;
-export const skillBudget = (level:number) => Math.max(1,Math.min(LAST_LEARNING_POINT_LEVEL,Math.floor(level)))-1;
-// Saves made under the old level-30 cap could already have earned the level-30
-// learning point. Preserve it without awarding one in the new progression.
-export const legacySkillBudget = (level:number) => skillBudget(level)+(level>=30?1:0);
+export const skillBudget = (level:number) => {
+  const capped=Math.max(1,Math.min(LAST_LEARNING_POINT_LEVEL,Math.floor(level)));
+  return capped-1+(capped===LAST_LEARNING_POINT_LEVEL?1:0);
+};
+// Older versions awarded 28 points by level 29 and sometimes an additional
+// point at 30. Keep the old budget recognizable when restoring saved games.
+export const legacySkillBudget = (level:number) => Math.max(1,Math.min(30,Math.floor(level)))-1;
 export function xpNeededForLevel(level: number) { return XP_PER_LEVEL+25*Math.max(0,Math.floor(level)-1); }
 export function xpTotalForLevel(level: number) {
   const completed=Math.max(0,Math.floor(level)-1);
