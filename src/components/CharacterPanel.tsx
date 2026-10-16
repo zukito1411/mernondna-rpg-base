@@ -50,11 +50,11 @@ export function CharacterPanel(){
         </section>:tab==='attributes'?<section>
           <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round((WEAPON_BY_ID[weaponId]?.damage??18)*stats.damageMultiplier*playerDamageGrowth(level))}</b></span></div>
           <div className="progression-heading"><h3>Attributes</h3><span>{statPoints} points available</span></div>
-          <p className="equipment-help">Gain three attribute points when you level up. Spending a point is permanent.</p>
+          <p className="equipment-help">Gain three attribute points per level all the way to level 50. Spending a point is permanent.</p>
           {ATTRIBUTES.map(a=><article className="progression-row" key={a.id}><div><strong>{a.name} · {attributes[a.id]} / {ATTRIBUTE_CAP}</strong><p>{a.description}</p></div><button type="button" disabled={statPoints<=0||attributes[a.id]>=ATTRIBUTE_CAP} onClick={()=>allocate(a.id)} aria-label={`Add one ${a.name} point`}>{attributes[a.id]>=ATTRIBUTE_CAP?'Max':'+1'}</button></article>)}
         </section>:<section>
           <div className="progression-heading"><h3>Passive talents</h3><span>{skillPoints} learning points</span></div>
-          <p className="equipment-help">Always-on bonuses. These do not use your four combat slots. Talents and new usable skills spend the same learning points.</p>
+          <p className="equipment-help">Always-on bonuses. These do not use your four combat slots. Talents and learnable combat arts share learning points. You earn them through level 29; there are no new learning points at level 30 or beyond.</p>
           <div className="skill-tree">{(['Might','Survival','Mobility'] as const).map(branch=><section className="skill-branch" key={branch}><h4>{branch}</h4>{SKILLS.filter(s=>s.branch===branch).map(skill=>{
             const learned=learnedSkills.includes(skill.id),missing=skill.requires&&!learnedSkills.includes(skill.requires),canLearn=!learned&&skillPoints>=skill.cost&&level>=skill.minLevel&&!missing;
             return <article className="progression-row" key={skill.id}><div><strong>{skill.name}</strong><p>{skill.description}</p><small>Lv {skill.minLevel} · {skill.cost} points{skill.requires?` · Requires ${SKILLS.find(s=>s.id===skill.requires)?.name}`:''}</small></div>
