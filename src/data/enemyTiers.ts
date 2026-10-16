@@ -1,4 +1,5 @@
 import { TOWNS } from './towns';
+import {MAX_PLAYER_LEVEL} from './progression';
 import type { EnemyDefinition, RegionId } from '../game/types';
 
 /** Settlement-route danger tiers. There are twelve settlements but eight regions. */
@@ -21,7 +22,7 @@ export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
 /** Raise encounter danger in +5-level steps every five player levels from 20
  * through 50. Clamp invalid or out-of-range values to the playable cap. */
 export function globalMonsterBonus(playerLevel:number){
- const level=Math.max(1,Math.min(50,Number.isFinite(playerLevel)?Math.floor(playerLevel):1));
+ const level=Math.max(1,Math.min(MAX_PLAYER_LEVEL,Number.isFinite(playerLevel)?Math.floor(playerLevel):1));
  return level<20?0:5*(Math.floor((level-20)/5)+1);
 }
 /** One shared level rule for live actors and saved crew upgrades. Elite roles
