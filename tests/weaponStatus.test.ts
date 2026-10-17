@@ -37,6 +37,16 @@ describe('weapon status balance',()=>{
     expect(s.tryApply(p,100,'road-bandit',false,()=>0)).toBe(false);
     advance(s,3000);expect(s.tryApply(p,100,'road-bandit',false,()=>0)).toBe(true);
   });
+  it('weights individual light combat-art hits so multi-hit flurries do not guarantee effects',()=>{
+    const p=WEAPON_PROFILES['varkhul-emberfang'].proc!;
+    const light=new WeaponStatusSystem();
+    // The usual 18% roll would pass .08, but a quarter-strength
+    // flurry hit only has 4.5% chance.
+    expect(light.tryApply(p,100,'road-bandit',false,()=>.08,.25)).toBe(false);
+    expect(light.tryApply(p,100,'road-bandit',false,()=>.04,.25)).toBe(true);
+    const heavy=new WeaponStatusSystem();
+    expect(heavy.tryApply(p,100,'road-bandit',false,()=>.17,1)).toBe(true);
+  });
   it('uses real fire weaknesses and halves boss damage without scaling to victim HP',()=>{
     const p=WEAPON_PROFILES['varkhul-emberfang'].proc!;
     const normal=new WeaponStatusSystem(),boss=new WeaponStatusSystem();
@@ -51,9 +61,9 @@ describe('weapon status balance',()=>{
   it('slows movement and attacks, with a smaller and shorter effect on bosses',()=>{
     const p=WEAPON_PROFILES['wyrm-frostedge'].proc!,normal=new WeaponStatusSystem(),boss=new WeaponStatusSystem();
     normal.tryApply(p,50,'road-bandit',false,()=>0);boss.tryApply(p,50,'bandit-captain',true,()=>0);
-    expect(normal.movementMultiplier).toBe(.65);expect(normal.attackSpeedMultiplier).toBe(.65);
-    expect(boss.movementMultiplier).toBe(.85);expect(boss.attackSpeedMultiplier).toBe(.85);
-    advance(normal,700);expect(normal.movementMultiplier).toBe(.65);
+    expect(normal.movementMultiplier).toBe(.55);expect(normal.attackSpeedMultiplier).toBe(.55);
+    expect(boss.movementMultiplier).toBe(.80);expect(boss.attackSpeedMultiplier).toBe(.80);
+    advance(normal,700);expect(normal.movementMultiplier).toBe(.55);
     advance(boss,1400);expect(boss.active).toBe(false);expect(boss.movementMultiplier).toBe(1);
   });
   it('makes poison resistance reduce damage and frost resistance shorten control',()=>{
@@ -70,9 +80,9 @@ describe('weapon status balance',()=>{
     const stalled=new WeaponStatusSystem();stalled.tryApply(WEAPON_PROFILES['varr-rededge'].proc!,100,'road-bandit',false,()=>0);
     expect(stalled.update(60000)).toBe(0);expect(stalled.active).toBe(true);
   });
-  it('limits expose to 12% on ordinary foes and 6% on bosses',()=>{
+  it('limits expose to 20% on ordinary foes and 10% on bosses',()=>{
     for(const boss of [false,true]){const s=new WeaponStatusSystem();s.tryApply(WEAPON_PROFILES['stonejaw-edge'].proc!,100,'road-bandit',boss,()=>0);
-      expect(s.directDamageMultiplier).toBe(boss?1.06:1.12);expect(advance(s,4000)).toBe(0);expect(s.directDamageMultiplier).toBe(1);
+      expect(s.directDamageMultiplier).toBe(boss?1.10:1.20);expect(advance(s,4000)).toBe(0);expect(s.directDamageMultiplier).toBe(1);
     }
   });
 });
