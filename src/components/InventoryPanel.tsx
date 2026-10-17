@@ -6,6 +6,7 @@ import {ItemIcon} from './ItemIcon';
 import {goldLabel} from '../utils/localPlayCheats';
 import {WEAPON_PROFILES,weaponProcDescription} from '../data/weaponProfiles';
 import {enhancedWeapon,MAX_WEAPON_ENHANCEMENT} from '../data/forge';
+import {progressionStats} from '../data/progression';
 
 export function InventoryPanel(){
   const [tab,setTab]=useState<'weapons'|'potions'>('weapons');
@@ -15,8 +16,10 @@ export function InventoryPanel(){
   const gold=useGameStore(s=>s.gold),potions=useGameStore(s=>s.consumables);
   const weaponUpgrades=useGameStore(s=>s.weaponUpgrades),forgeMaterials=useGameStore(s=>s.forgeMaterials);
   const equip=useGameStore(s=>s.equipWeapon),drink=useGameStore(s=>s.usePotion);
+  const attributes=useGameStore(s=>s.attributes),learnedSkills=useGameStore(s=>s.learnedSkills);
   const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),stamina=useGameStore(s=>s.stamina),maxStamina=useGameStore(s=>s.maxStamina),casting=useGameStore(s=>s.activeSkillStatus.casting);
   if(panel!=='inventory')return null;
+  const stats=progressionStats(attributes,learnedSkills);
   const currentBase=WEAPON_BY_ID[weaponId];
   const current=currentBase?enhancedWeapon(currentBase,weaponUpgrades[weaponId]??0):null;
   const weapons=inventory.map(id=>WEAPON_BY_ID[id]).filter(w=>w&&w.name.toLowerCase().includes(search.toLowerCase()))
@@ -41,7 +44,7 @@ export function InventoryPanel(){
             const equipped=w.id===weaponId,change=upgraded.damage-(current?.damage??upgraded.damage);
             return <article className={`weapon-card item-row ${equipped?'is-equipped':''}`} key={w.id}>
               <ItemIcon id={w.id}/><div><strong>{w.name}{(weaponUpgrades[w.id]??0)>0?` +${weaponUpgrades[w.id]}`:''}</strong><small>Tier {w.tier} · {w.kind} · Enhancement {weaponUpgrades[w.id]??0} / {MAX_WEAPON_ENHANCEMENT}</small>
-                {weaponEffect(w.id)&&<small>Skill effects: {weaponEffect(w.id)!.effectName}</small>}
+                {WEAPON_PROFILES[w.id]?.proc&&<small>{WEAPON_PROFILES[w.id].proc!.name}: {Math.round(Math.min(.5,WEAPON_PROFILES[w.id].proc!.chance+stats.statusChanceBonus+(weaponUpgrades[w.id]??0)*.01)*1000)/10}% chance per full weapon hit, including damaging arts</small>}
                 <div className="weapon-comparison"><b>{upgraded.damage} damage</b>{!equipped&&<span className={change>0?'stat-gain':change<0?'stat-loss':''}>{change>=0?'+':''}{change}</span>}</div>
                 <small>{(upgraded.cooldownMs/1000).toFixed(2)}s recovery · {upgraded.staminaCost} stamina · {(upgraded.reach/32).toFixed(1)} paces reach</small>
                 <details><summary>Profile & unique effect</summary><div className="weapon-profile-text"><p>{w.description}</p><p>{WEAPON_PROFILES[w.id]?.origin} · {WEAPON_PROFILES[w.id]?.appearance}</p><p>{WEAPON_PROFILES[w.id]?.history}</p><p>{weaponProcDescription(w.id)}</p></div></details>
