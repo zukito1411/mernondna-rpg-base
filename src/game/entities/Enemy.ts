@@ -16,8 +16,7 @@ import {pirateAttackPhase,piratePhaseDuration} from '../../data/pirateMotion';
 import {isPirateEnemy} from '../../data/pirateArt';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
-import {WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
-import {WEAPON_PROFILES} from '../../data/weaponProfiles';
+import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
 import {WEAPON_BY_ID} from '../../data/weapons';
 
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
