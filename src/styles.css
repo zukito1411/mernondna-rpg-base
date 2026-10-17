@@ -224,6 +224,20 @@ kbd { font-size: 10px; opacity: .65; }
 .dialogue-panel p { margin: 10px 0; line-height: 1.55; }
 .relationship-note { color: #a89678; font-size: 11px; margin-bottom: 12px; border-left: 2px solid rgba(227,189,113,.4); padding-left: 8px; }
 .dialogue-panel button { float: right; }
+/* NPC services share the dialogue card. Keep controls scrollable, legible,
+   and reachable by touch even on short landscape phone screens. */
+.dialogue-panel .forge-services { clear: both; display: grid; gap: 9px; border-top: 1px solid rgba(236,199,127,.22); margin: 12px 0; padding-top: 12px; }
+.dialogue-panel .forge-services h3 { margin: 0; color: #f1d69b; font-size: 15px; }
+.dialogue-panel .forge-services p { margin: 0; font-size: 13px; line-height: 1.5; }
+.dialogue-panel .forge-services .item-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 12px; }
+.dialogue-panel .forge-services .item-row > div { display: grid; gap: 8px; min-width: 0; }
+.dialogue-panel .forge-services label { display: grid; gap: 4px; font-size: 12px; color: #e6d6b6; }
+.dialogue-panel .forge-services select { min-width: 0; max-width: 100%; width: 100%; background: #322719; color: #f6e6c6; border: 1px solid #8d744e; border-radius: 7px; padding: 8px; min-height: 40px; }
+.dialogue-panel .forge-services button { float: none; justify-self: start; }
+.dialogue-panel .forge-services button:disabled { opacity: .55; cursor: not-allowed; }
+.dialogue-panel .forge-services small { color: #d7c7a8; line-height: 1.4; }
+@media (max-width: 520px) { .dialogue-panel .forge-services .item-row { grid-template-columns: 1fr; } .dialogue-panel .forge-services .item-row button { width: 100%; } }
+
 
 .pause-panel { width: min(560px, 94vw); }
 .menu-actions { display: grid; gap: 10px; padding: 16px; }
