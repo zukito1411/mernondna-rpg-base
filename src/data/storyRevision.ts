@@ -111,36 +111,36 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     {id:'joint',text:'Bind the guilds to fund guarded reunions, with families overseeing each case.',response:'All right. Nobody is being moved while we find their families. I'll make sure the families are there when decisions are made.',flag:'relief-joint-council'},
   ]});
   talk(council,'return','Bring the crown’s decision to Mairin at Morrow Kitchen, Highmere.',
-    'I have made up the spare bed. Whoever comes through that door will not have to earn their supper.',
-    'Tovin asked to help the search riders. I said yes. Then I sat down for a little while. Let me be proud and frightened at the same time.');
+    'I've made up the spare room. Anyone who needs somewhere to sleep can stay here.',
+    'Tovin wants to help look for the missing families. I said yes, but I'm worried sick. I suppose that's being his mother.');
   talk(council,'closure','Return to Renna in Highmere’s Royal Archive.',
-    'Your parents’ relief party carried children out of the flooded valley. Someone later used that same list to find the ward settlements.',
-    'The missing iron, the warrants and Varr’s dispatch belong together. Take the rubbings to Narenthil. Ask the elves what was taken, not what you have been told to fear.');
+    'Your parents helped families escape the flood. Someone later used the list of those families to find the old ward-stones. I'm sorry, Leigneron.',
+    'These papers all mention the same iron. I've seen similar marks in Narenthil's records. Maybe Ilyra can tell us more.');
   quest(council).resolution='The crown recognizes the displaced families as people rather than debts. Their freedom, shelter and search for relatives are now obligations the households themselves can enforce.';
 
   quest(well).name='The Well That Kept Their Names';quest(well).chapter='Cibar · A brother’s last witness';
   quest(well).rewardXp=400;quest(well).rewardGold=95;
   quest(well).summary='Celia’s brother died at Cibar’s well while hiding three travelers from the men who collected service debts. His death was called an accident. Recover what the travelers left behind and decide whether to expose their new names or protect the families who sheltered them.';
   talk(well,'grain-keeper','Speak with Celia at Cibar Plains about her brother’s death.',
-    'They said he slipped. My brother worked that well for thirty years. He tied his boots before he tied his breeches.',
-    'Three travelers slept in our stores the night he died. Iren helped them escape. Look at the well, then ask her what she was too frightened to tell me.');
+    'They said my brother fell at the well. He worked there for thirty years. He knew every stone. I never believed it.',
+    'There were three travelers hiding in the storehouse that night. Iren helped them escape. She knows something about his death, but she won't talk to me.');
   stage(well,'inspect-pump',{text:'Inspect the scored well mechanism at Cibar Plains for signs of the struggle.'});
   talk(well,'field-report','Ask Iren at Cibar Plains about the travelers she hid.',
-    'He held the door while I took them through the fields. I heard the blow. I kept running. You can hate me after they are safe.',
-    'Each left something in a different store: a broken clasp, a child’s ribbon, a signet pressed into wax. Bring all three to Asha. She knew who followed them.');
+    'He kept the men at the door while I took the travelers out through the fields. I heard him get hit. I was so scared I kept running. I'm sorry.',
+    'They left things behind in the old sheds. A broken clasp, a ribbon, and a wax seal. Asha might recognize them. She knew the men who came after us.');
   stage(well,'fittings',{text:'Recover the three travelers’ keepsakes from Cibar Plains’ old stores.',amount:3});
   talk(well,'delivery','Bring the keepsakes to Asha at Cibar Plains.',
-    'This clasp was cut, not broken. That wax carries a household seal from Highmere. Celia’s brother was killed for opening a door, not for coin.',
-    'I can fit the clasp to the mark in the well housing. It will prove the struggle. The ribbon and seal may also reveal where the survivors live now.');
+    'Someone cut this clasp with a blade. And that wax seal's from Highmere. He died trying to help those people. I think we can prove it.',
+    'The clasp fits the damage on the well. I'll write down what I found. The ribbon might tell us where the children ended up.');
   stage(well,'decision',{text:'Decide with Celia what to reveal about the surviving travelers.',dialogue:[
-    'I want his name cleared. I want someone to answer. But if naming the people he saved brings those men to another door, what have I done for him?'],choices:[
-    {id:'public',text:'Publish the murder evidence, but let each survivor choose whether to be named.',response:'Then his courage is public, and their homes remain theirs. I will ask for justice without buying it with another frightened family.',flag:'cibar-public-water'},
-    {id:'cooperative',text:'Keep their names with the sworn households; send only the evidence to Yselle.',response:'Iren will carry the sealed account. Let his killers worry about a knock at their own door for once.',flag:'cibar-growers-cooperative'},
+    'I want everyone to know my brother didn't fall. He was murdered. But I'm scared those men will hurt the people he saved. What do we do?'],choices:[
+    {id:'public',text:'Publish the murder evidence, but let each survivor choose whether to be named.',response:'All right. We can tell people what happened without naming the families. They should get to choose if they want to speak.',flag:'cibar-public-water'},
+    {id:'cooperative',text:'Keep their names with the sworn households; send only the evidence to Yselle.',response:'Iren can take the evidence to Yselle. I'll keep the families' names safe. Thank you for understanding.',flag:'cibar-growers-cooperative'},
   ]});
   stage(well,'repair-pump',{text:'Match the broken clasp to the scored well housing at Cibar Plains and record the murder evidence.'});
   talk(well,'return','Return to Celia at Cibar Plains with her brother’s last witness.',
-    'I thought learning the truth would make me less angry. It has not. But I can speak about him without repeating their lie.',
-    'Tell Agnes the travelers reached shelter. Tell her he held the door. That is the part I want the children to remember.');
+    'I thought I'd feel better knowing what happened. I don't. I'm still angry. But at least people will know he didn't just fall.',
+    'Would you tell Agnes the travelers got away safely? I want the children to know their uncle helped them.');
   quest(well).resolution='The broken clasp proves Celia’s brother died defending fugitives. His name is cleared, the murder evidence goes to the watch, and your choice governs how the survivors’ identities are protected.';
 
   // Wider operations are separated patrols, not fifteen actors piled at
@@ -155,51 +155,51 @@ export function applyStoryRevision(quests:QuestDefinition[]){
   ];
   for(const [id,text,amount] of hunts)stage(regions,id,{amount:Number(amount),text,rewardXp:110});
   talk(regions,'bowyer-witness','Hear the bowyer inside Bowyer Hall, Elarion, Narenthil.',
-    'A pilgrim’s ribbon turned up in a thornling’s roots. The knot was tied by a child. Nobody here will cut it loose.',
-    'Fifteen thornlings infest the Greenward approaches in scattered knots. Clear the trail so our searchers can follow it. The missing are not all dead until we have found them.');
+    'We found a child's ribbon caught in one of those thornlings. It belongs to one of the missing pilgrims. I'm scared to think why it's there.',
+    'There are thornlings all along the Greenward trail. My searchers can't get through. Please help us reach the missing pilgrims.');
   talk(regions,'field-scribe','Compare the broken seal with Lysa’s copy near Elarion, Narenthil.',
-    'These tool marks were made from our side of the boundary. Someone the sentries trusted led the cutters in.',
-    'I know what that accusation costs. My own teacher copied their safe-passage mark. I will give the lorekeeper my name as witness before I give you his as a suspect.');
+    'These cuts were made with our own tools. Someone must have let those men past the sentries. I can't believe it.',
+    'My teacher copied a pass for them. I saw it. It hurts to say that, but I'll tell Ilyra myself.');
   talk(regions,'moonfall-remedy','Ask the herbalist inside Moonfall’s cottage, Narenthil, about the vanished pilgrims.',
-    'They left a supper pot warm enough to burn my fingers. That is not a party choosing to travel before dawn.',
-    'Spiders have webbed the shaded approaches, fifteen across the nests. Clear those paths and read the ribbons. If a child hid there, I mean to find the place before the rain does.');
+    'Their dinner was still warm when I got there. They wouldn't have left like that unless something frightened them.',
+    'The shaded paths are full of spiders and webbing. I think one of the children hid there. Please help us search before the rain washes away the tracks.');
   talk(regions,'brief:starhold','Ask the quartermaster inside Starhold Stores, Nardorous, about the sabotaged beacon.',
-    'Our beacon went dark before the convoy vanished. The watch calls it storm damage. I have packed enough winter journeys to know when a rope was cut.',
-    'Halla brought the last porter down alive. Ask her what he heard before the light failed. Stonejaw did not learn to forge a watch order.');
+    'The beacon went out just before the convoy disappeared. Everyone says it was the storm, but that rope was cut. I saw it.',
+    'Halla found one of the porters alive. He said someone rang the wrong signal. She knows more than I do.');
   talk(regions,'porter-names','Question Sister Halla near Starhold’s beacon watch, Nardorous.',
-    'The porter heard the alarm bell and turned back. The bell was ours. Someone used our own warning to send them into Stonejaw’s path.',
+    'They heard our bell and turned back. Somebody gave the wrong signal. I can't stop thinking about what happened to them.',
     'I will bury the dead when I have named every one. His journal and satchel are still on the ridge. I want to know who changed the signal before another family climbs that pass.');
   talk(regions,'brief:redmesa','Hear Ugra outside Red Mesa’s Clan Assembly, Rindass.',
-    'Krag calls us weak for taking in travelers. My sister’s boy was carried home by a human. Let him tell her whose blood is worth sheltering.',
-    'His warbands hold the shared well and the southern shelter: fifteen at each, scattered through their approaches. Break those holds before he can force the smaller clans to join him.');
+    'Krag says we shouldn't help outsiders. A human carried my nephew home after he was hurt. I won't forget that.',
+    'His men have taken over the well and the southern shelter. The smaller clans are too frightened to argue. We need to get them out.');
   talk(regions,'well-forge','Question the forgewright inside Red Mesa’s Clan Forge, Rindass.',
-    'Krag ordered me to mend the well chain. I found the ward binding sawn away beneath it. He knew the water would turn bitter.',
-    'His own brother refused to drive the shelter families out. Now nobody will tell Ugra where that brother is buried. Do not call every orc on this road his soldier.');
+    'Krag told me to repair the well chain. When I got there, the old binding had been cut off. He knew. I swear he knew.',
+    'Even Krag's brother tried to stop him. They killed him for it. Please don't think everyone here supports Krag.');
   talk(regions,'brief:deepford','Bring the regional evidence inside Deepford’s Hall Archive, Druganwoods.',
-    'The guild called those missing miners deserters. Bruni found their names scratched beneath the Rootwater seal. Then she stopped coming home.',
-    'Fifteen spirits hold the escape approaches. Clear them and find her. I will argue with the guild when she can stand beside me.');
+    'The guild says the missing miners ran away. Bruni found their names at Rootwater, and now she's missing too. I'm scared for her.',
+    'There are spirits all along the path where she went. I can't send another miner in there alone. Please help me find her.');
   talk(regions,'bruni-rescued','Speak with Bruni after clearing Rootwater’s escape route in Druganwoods.',
-    'They sealed the waste gallery with men still inside it. My father was one of them. I spent twenty years being told he ran.',
-    'The Rootfather grew around their spring. It is holding the names we buried. Take my survey. Read the river account beside it too. Your parents went back for the last families when the crossing flooded.');
+    'They closed the gallery while men were still inside. My father was one of them. For years they told me he'd run away.',
+    'The Rootfather started growing after the spring was poisoned. Here's my survey. I found an old account about your parents' last crossing too. I think you should read it.');
   stage(regions,'seed-road-repair',{text:'Resolve Celia’s murder inquiry at Cibar Plains so the surviving relief witnesses can testify safely.'});
   talk(regions,'mine-account','Arrange the reckoning inside Deepford’s Hall Archive before facing the Rootfather.',
-    'Celia’s account and Bruni’s survey agree. People were made to disappear wherever the survey marked a ward.',
-    'The guild will open the sealed gallery and name its dead. That is my promise, witnessed here. Give us a path past the guardian; I will not ask another miner to pay for our shame.');
+    'Celia's story matches what Bruni found. People went missing near those old wards. This wasn't an accident.',
+    'I'll make the guild open that gallery. Those families deserve to know what happened. The workers can repair the spring once it's safe to go back.');
   talk(regions,'brief:tidewatch','Speak inside Tidewatch’s Harbor Guild, Portquill; take a boat from Highmere if needed.',
-    'The Salt King took more than iron. Families vanished from the passenger lists while their debts appeared in his freight books.',
+    'The Salt King wasn't just stealing iron. People went missing from those ships. I've seen their names in his cargo books.',
     'Those are my signatures. I told myself the passengers were willing. Orren hid a copy of the manifest; I could not bear to keep it here. There is another aboard the Salt King’s ship.');
   talk(regions,'ship-warning','Meet the sailmaker inside Tidewatch’s Sailmaker House, Portquill.',
-    'My niece was on that ship. No, I do not know whether she still is. I have spent every tide imagining both answers.',
-    'Five crew hold the deck, including two boatswains. Clear them before searching the manifest by the cargo chest. It names a landing in the Frostlands. Bring me a place to start looking.');
+    'My niece was on that ship. I don't know if she's alive. Every time a boat comes in, I look for her.',
+    'The boatswains guard the ship's cargo hold. The manifest's kept by the cargo chest. I think it says where they took the passengers. Please, I need to know.');
   talk(regions,'brief:skallheim','Meet the hunter outside Skallheim, Frostlands; reach the island by boat.',
-    'The people from that ship are here. They came ashore without boots, with children too frightened to cry. We put them in our own beds.',
-    'The Wyrm drove fifteen wolves into the bay approaches. Clear them, then bring our signal lantern home. Their families need to see a light when the search boats return.');
+    'Some people from that ship made it here. They had no shoes, and the children were freezing. We took them into the longhouse.',
+    'The wolves have taken over the bay path since the Wyrm came down. We lost our signal lantern out there too. Without it the search boats can't find us.');
   talk(regions,'winter-households','Visit Fish Traders Hall, Skallheim, Frostlands, and ask about the refugees.',
-    'One little girl keeps saving the crust from her supper. She thinks we will send her away when she has eaten too much.',
+    'There's a girl staying with us who hides bread in her pockets. She thinks we'll throw her out if she eats too much. I don't know how to reassure her.',
     'The wolves have driven the hunters off the bay path. Our lantern is still out there. I cannot promise that child her mother is on the next boat. I can promise we will be waiting when it comes.');
   talk(regions,'ash-road-survivors','Question the warder outside Blackspire, Darkav; arrive at Ashen Landing by boat.',
-    'The chainworks did not burn empty. The Seer barred the doors when the workers tried to flee. We broke one open; I still hear the other.',
-    'The charge book names the buyers and the men who carried the keys. Get it from the burnt chainworks. Then we can stop calling this an accident.');
+    'There were people inside when the chainworks caught fire. The doors were locked. We broke one open, but the others... I can still hear them shouting.',
+    'The charge book was left inside. It has the names of the men who locked those doors. I want their families to know the truth.');
   talk(regions,'capital-return','Return the regional testimonies to Renna inside Highmere’s Royal Archive.',
     'The missing families were witnesses. Your mother’s survey showed where they lived; the forged warrants let the buyers move them without anyone asking why.',
     'The river account describes a terrible flood. Your parents returned for the last families. The bridge collapsed beneath them after the children reached shelter. They died saving people, Leigneron.',
