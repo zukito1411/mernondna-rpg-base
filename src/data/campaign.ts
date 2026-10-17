@@ -146,102 +146,102 @@ export function applyCampaign(quests:QuestDefinition[]) {
   ]);
   chapter('Rindass · Water is not a throne',[
     speak('brief:redmesa','redmesa-beastmaster','Hear the clans’ account of Krag’s seizure of their wells.',[
-      'Krag calls every clan outside his banner an enemy. Do not make his argument for him by cutting down our people on sight.',
-      'He seized the shared well, then the southern caravan shelter. Drive out those warbands. Our forgewright can tell you what changed their water.']),
+      'Krag says anyone outside his clan is an enemy. Please don’t believe him. Most of us just want our families safe.',
+      'His men took the well and the southern shelter. Dorga found something wrong with the water. She’s been trying to figure it out.']),
     speak('well-forge','redmesa-forgewright','Ask the Clan Forge about the well’s missing iron.',[
-      'I repaired your family’s cart. They paid with work when their coin ran short. There is no shame in that.',
-      'The well’s iron was sold under a royal freight mark. Krag used the bitter water to promise his own protection. Fear is cheaper than a new well.']),
+      'I remember fixing your family’s cart. Your parents helped me around the forge when they couldn’t afford to pay.',
+      'Someone sold the iron from our well. The water went bad, and Krag started charging people for protection. It makes me sick.']),
     site('evidence:redmesa','clan-road-muster','Examine the stolen ward socket at the shared well.'),
     clear('well-warband','creature:krag-warband:clan-road-muster:',['rindass-orc-raider','rindass-orc-spearman'],3,'Clear the three hostile Iron-Tusk warriors holding the shared well.'),
     site('southern-shelter','southern-caravan-rest','Search the occupied southern caravan shelter.'),
     clear('shelter-warband','creature:krag-warband:southern-caravan-rest:',['rindass-orc-raider','rindass-orc-spearman'],3,'Clear the second three-warrior camp on the southern road.'),
     {...decision('well-treaty','redmesa-beastmaster','Negotiate custody of the reopened well.',
-      'The clans will stand against Krag, but not kneel to a distant grain office. Who keeps this water open after you leave?',[
-        {id:'clans',text:'Each clan keeps a public watering turn; no chief owns the well.',response:'We will mark the turns where every rider can read them.',flag:'rindass-clan-water'},
-        {id:'joint',text:'Clan keepers and caravan witnesses share the well’s tally.',response:'Then travelers may speak, but they may not buy our water.',flag:'rindass-road-treaty'},
+      'The clans will help stop Krag. But what happens to the well afterward? We need to decide who’s going to look after it.',[
+        {id:'clans',text:'Each clan keeps a public watering turn; no chief owns the well.',response:'All right. We’ll put the watering times up where everyone can see them.',flag:'rindass-clan-water'},
+        {id:'joint',text:'Clan keepers and caravan witnesses share the well’s tally.',response:'The travelers can help us keep records. But the water will still belong to the clans.',flag:'rindass-road-treaty'},
       ]),cinematicId:'krag-before'},boss('iron-tusk'),
     report('redmesa','redmesa-beastmaster',[
-      'Krag lost his claim, not our people their dignity. The well will be guarded under the promise you helped us make.',
-      'The ward iron went downriver toward Deepford. You have heard what a stolen stone does above ground. Now ask what it does beneath it.'],240),
+      'Krag’s men are gone from the well. Thank you. The clans have agreed to share it again.',
+      'The iron from our well went to Deepford. That’s what the forge records say. Maybe Mara can tell you what happened to it.'],240),
   ]);
   chapter('Druganwoods · What the mine remembers',[
     speak('brief:deepford','deepford-runesmith','Bring the well and beacon rubbings to Deepford’s archive.',[
-      'These are not separate ornaments. They keep springs, roots and roads in balance. Your mother carried relief here when the river works failed.',
-      'My cousin Bruni surveyed the Rootwater seal. Hungry spirits cut off her return. Find her before the guild files another empty name.']),
+      'The marks on these stones match. I think they were all part of the same old system. Your mother helped us after the river flooded.',
+      'My cousin Bruni went to check the spring, and she hasn’t returned. There are spirits all along the path. I’m frightened for her.']),
     speak('river-witness','deepford-boatwright','Hear the boatwright’s memory of your family’s relief journey.',[
-      'Your father built a landing for our stranded crews. Your mother refused to leave the flour on the wrong bank. They stayed when a paid escort would have gone.',
-      'That was the last season I saw them. Their survey made this spring a public stop. Bruni went there because the water had begun to fail again.']),
+      'Your father helped us build a landing when the river flooded. Your mother stayed to bring food across. They could’ve left, but they didn’t.',
+      'That was the last time I saw your parents. Bruni went to the same spring recently. Something’s wrong with the water there.']),
     site('evidence:deepford','rootwater-watch','Read the damaged Rootwater seal beside the mine spring.'),
     clear('spring-rescue','story-camp:rootwater-rescue:',['marsh-wraith'],3,'Defeat the three hungry spirits trapping Bruni at Rootwater.'),
     speak('bruni-rescued','bruni-stonevein','Recover the survey from Bruni after clearing the approach.',[
-      'A relief wagon once brought my crew flour. Your mother did not ask what our guild could pay. I remember her because I was hungry.',
-      'The Rootfather grew around this spring to hold it open. The stolen seal let the mine’s waste into its roots. It is protecting a wound nobody admitted making.']),
+      'Your mother brought us food once when the mine was short on supplies. She didn’t ask for payment. I remember that.',
+      'The Rootfather started growing here after the old iron was taken. Waste from the mine got into the roots. I don’t think it caused this.']),
     {...inspect('family-relief-record','story:relief-letter','Read the river guild’s account of your parents’ final relief crossing.'),cinematicId:'family-relief-account'},
     depends('seed-road-repair','water-stops','Help Cibar’s growers restore their pump so the relief road has food again.'),
     {...speak('mine-account','deepford-runesmith','Agree the mine’s repair before confronting the Rootfather.',[
-      'The pump can carry clean water again. Our guild will seal the waste channel and record the repair, rather than call the guardian our only mistake.',
-      'Free the working route from the Rootfather’s grip. I will stay with the surveyors; no miner descends until the spring is inspected.']),cinematicId:'rootfather-before'},boss('rootfather'),
+      'We can fix the waste channel. I’ve already spoken to the workers. The guild needs to take responsibility for this.',
+      'The workers are scared of the Rootfather. I won’t send them in until it’s safe. Please be careful.']),cinematicId:'rootfather-before'},boss('rootfather'),
     report('deepford','deepford-runesmith',[
-      'Bruni’s account is in the archive, and the spring survey will not be buried with a guild embarrassment.',
+      'Bruni’s survey is in the archive now. I made sure they couldn’t quietly throw it away.',
       'The freight records end at Tidewatch. I would ask the harbor masters who moved that iron before I believed any more tales about missing grain.'],280),
   ]);
   chapter('Portquill · The cargo of a crown',[
     speak('brief:tidewatch','tidewatch-harbor-master','Ask the Harbor Guild who profits from the missing relief cargo.',[
-      'The Salt King sells the safe return of what he stole. His crews take grain, signal lenses and chains from the same marked cargo.',
-      'Orren saw the cargo being taken. From Salt Bay Outlook you can see the flagship at anchor, its eastern gangplank hanging over the water like a dare.']),
+      'The Salt King’s been taking grain, tools, anything he can sell. He’s holding the ships until people pay him.',
+      'Orren saw them loading the stolen goods. The ship’s anchored near Salt Bay Outlook. You can see its gangplank from shore.']),
     speak('ship-warning','tidewatch-sailmaker','Learn the flagship’s boarding approach and the crew’s strength.',[
-      'His boatswains do not let strangers near the hold. I saw a ledger taken below, then heard a man begging to be let off that ship.',
-      'The eastern gangplank is rotten at the edge. Watch your footing. I have pulled enough sailors out of that water.']),
+      'The boatswains guard the hold. I saw someone carrying the freight book below deck. Then I heard a man shouting to be let off the ship.',
+      'Be careful on the east gangplank. The edge is rotten, and I’ve already pulled two men out of that water.']),
     site('evidence:tidewatch','salt-bay-outlook','Read the coastal signal at Salt Bay Outlook.'),
     clear('flagship-deck','pirate:flagship:crew:',['cutlass-pirate','pirate-boatswain'],5,'Secure the flagship’s deck by defeating its five crew.'),
     inspect('cargo-manifest','story:flagship-manifest','Read the freight manifest beside the flagship’s cargo chest.'),
     {...decision('harbor-account','tidewatch-harbor-master','Decide how the recovered cargo will be accounted for.',
-      'The Salt King will deny every debt when cornered. How should the harbors hold the recovery, so nobody steals it twice?',[
-        {id:'public',text:'Publish each cargo claim; return food to the households first.',response:'Every quay will receive the same account. Hunger has waited long enough.',flag:'portquill-public-cargo'},
-        {id:'bond',text:'Have the guild guard deliveries under a witnessed bond.',response:'The guild will answer for every chain and sack until it reaches its owner.',flag:'portquill-guild-bond'},
+      'We’ve found the stolen cargo. How do we make sure it actually gets back to the families? I don’t trust those merchants.',[
+        {id:'public',text:'Publish each cargo claim; return food to the households first.',response:'We’ll put the cargo lists up at every harbor. People have a right to know what’s theirs.',flag:'portquill-public-cargo'},
+        {id:'bond',text:'Have the guild guard deliveries under a witnessed bond.',response:'All right. We’ll have the guild sign for every shipment until it reaches the right family.',flag:'portquill-guild-bond'},
       ]),cinematicId:'salt-before'},boss('salt-king'),
     report('tidewatch','tidewatch-harbor-master',[
-      'The stolen cargo will go back under witness. I will sign the ledger myself, even if the Salt King sails into this harbor tomorrow.',
-      'One of those lenses was sent as far as Skallheim. Their boats have been coming home in darkness since it disappeared. I know a captain who can carry a letter.'],320),
+      'I’ll oversee the cargo myself. If the Salt King comes back, he can come and argue with me.',
+      'One of the lenses was sent to Skallheim. They’ve had trouble bringing their boats in since it disappeared. I can send a letter with the next captain.'],320),
   ]);
   chapter('Frostlands · A hearth still lit',[
     speak('brief:skallheim','skallheim-hunter','Learn why the Frost Wyrm came down to the fishing coast.',[
-      'It belongs to the ice cliffs, not our drying sheds. A dark fragment tore its scales after the old beacon was stripped.',
-      'The wolves came down after it and have gathered around the stores. Eyvind has children waiting for those supplies. He can tell you how bad it has become.']),
+      'The Wyrm used to stay up in the cliffs. Now it’s coming down to the fishing huts. Someone found a black shard near the old beacon.',
+      'Wolves followed it down from the cliffs. They’ve been prowling near the food stores. Eyvind’s family is worried.']),
     speak('winter-households','skallheim-trader','Hear what the loss of the winter signal means to the fishing families.',[
-      'A harbor light is a promise that someone will be awake when you return. Without it our boats stay home, and their children eat the winter stores now.',
-      'The wolves keep us from the bay cache. Our lantern lies near the outlook, beyond their tracks. I would go for it myself, but the children cannot lose another parent.']),
+      'The boats won’t come in without a light. Their families are here waiting. I don’t know how much longer our food will last.',
+      'The wolves are near the bay stores, and our lantern’s still out by the lookout. I’d go myself, but my children need me here.']),
     site('evidence:skallheim','ice-bay-outlook','Examine the stripped beacon at Ice Bay Outlook.'),
     clear('frost-store-defense','story-camp:frost-stores:',['frost-wolf'],5,'Clear the five wolves blocking the fishermen’s bay supplies.'),
     inspect('recover-lantern','story:frost-lantern','Recover the icebound signal lantern beside the outlook.'),
     speak('winter-signal-return','skallheim-trader','Return the lantern before the next boats seek the shore.',[
-      'The lens is sound. We can light it tonight. My children will see that a late boat can still come home.',
-      'The black shard is not ice. The hunter saw the same material beneath the Wyrm’s scales. Take the evidence, not a tale that the snow itself is cursed.'],'deliver'),
+      'The lens is fine! We can light the beacon tonight. My children will be so relieved.',
+      'Runa found a shard like this beneath the Wyrm’s scales. It’s not ice. I think it came from somewhere else.'],'deliver'),
     {...speak('wyrm-preparation','skallheim-hunter','Prepare to drive the injured Wyrm away from the coast.',[
-      'A grounded wyrm lunges; it does not need wings to cross a clearing faster than you can. Give its charge room, then answer from the flank.',
-      'You have kept the stores open and the lamp ready. Now free the coast from the creature the broken ward drove here.']),cinematicId:'wyrm-before'},boss('frost-wyrm'),
+      'The Wyrm moves faster than it looks. I’ve seen it charge straight through a fishing shed. Don’t stand in front of it.',
+      'The stores are safe, and we’ve got our lantern back. But the Wyrm’s still scaring the boats away. We need help.']),cinematicId:'wyrm-before'},boss('frost-wyrm'),
     report('skallheim','skallheim-hunter',[
-      'The shard matches the beacon’s missing binding. We will guard the shore while the lamp burns; the winter belongs to no single hunter.',
-      'The fragment was forged in volcanic heat. Blackspire’s smiths know that work. Take passage to Ashen Landing and follow the ash road north.'],360),
+      'The shard matches the old beacon. We’ll keep watch by the shore now. People are exhausted, but at least the boats can come back.',
+      'The metal looks like something made at Blackspire. Vexa and the other smiths might recognize it.'],360),
   ]);
   chapter('Darkav · Iron without a promise',[
     speak('brief:blackspire','blackspire-forgemaster','Ask the Forge Hall to identify the recovered binding iron.',[
-      'That is ward iron. I recognize the temper. Whoever melted it asked for heat without a keeper, without a limit, without anyone left to answer for it.',
-      'The Seer promised command over the vents. We got wraiths and broken roads. Ask the warder which crews escaped before you read the chainworks account.']),
+      'That’s ward iron. I know because I’ve worked with it. Someone melted it down, and they must’ve known it was important.',
+      'The Seer said she’d fix the furnace vents. Instead we got spirits on the roads. Dain’s been helping people escape.']),
     speak('ash-road-survivors','blackspire-warder','Hear the warder’s account of the evacuated chainworks.',[
-      'The crews reached shelter, but the charge book is still at the burnt chainworks. It names whoever paid for the removed iron.',
-      'Read the ash vent watch as well. The Seer is binding spirits to a power she cannot safely hold. Do not confuse her with the dragon beyond the ridge.']),
+      'The workers made it to shelter, but we left the charge book in the burnt chainworks. It names the people who bought the iron.',
+      'The old watch-stone has marks from the Seer’s work. She’s been drawing spirits toward the vents. The dragon’s a different problem.']),
     site('evidence:blackspire','ash-vent-watch','Compare the ash vent seal with the recovered regional rubbings.'),
     site('chainworks-search','darkav:burnt-chainworks','Search the burnt chainworks along the outer ash road.'),
     inspect('chainworks-account','story:forge-record','Recover the chainworks charge book.'),
     {...decision('forge-truth','blackspire-forgemaster','Decide how the forbidden forging will be recorded.',
-      'Some want the account burned. I helped temper these chains before I knew what had been sold. What should the survivors hear?',[
-        {id:'open',text:'Publish the account, including the smiths’ mistakes.',response:'Then my name stays in it. The crews deserve a true account.',flag:'darkav-open-account'},
-        {id:'witness',text:'Keep witnessed copies in every regional archive.',response:'No one forge will be able to bury the evidence again.',flag:'darkav-shared-archives'},
+      'Some smiths want to burn the records. I helped make those chains, and I didn’t ask enough questions. What should we tell the workers?',[
+        {id:'open',text:'Publish the account, including the smiths’ mistakes.',response:'Then leave my name in the report too. I don’t want anyone thinking I had nothing to do with it.',flag:'darkav-open-account'},
+        {id:'witness',text:'Keep witnessed copies in every regional archive.',response:'Good. Send copies to the other towns. I don’t want those records disappearing.',flag:'darkav-shared-archives'},
       ]),cinematicId:'seer-before'},boss('ashen-seer'),
     report('blackspire','blackspire-forgemaster',[
-      'The Seer lost her hold over this work. The dragon still guards the furnace shelf, and the ward cannot be reforged while its crews are exposed.',
-      'Bring the charge book to Highmere with the regional agreements. The crown must understand that a new chain is worthless without someone keeping its promise.'],400),
+      'The Seer’s gone for now, but Varkhul is still near the furnace. My workers can’t get close enough to repair it.',
+      'Renna needs to see this charge book. She’ll want to know who paid for the iron. I can start preparing the new chains.'],400),
   ]);
   chapter('Act IV · An inheritance, not a destiny',[
     speak('capital-return','renna-vale','Return the seven regional accounts to the Royal Archive.',[
