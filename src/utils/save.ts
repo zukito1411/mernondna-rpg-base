@@ -4,6 +4,7 @@ import { QUESTS } from '../data/quests';
 import { REGIONS } from '../data/regions';
 import { TOWN_BY_ID } from '../data/towns';
 import { WEAPON_BY_ID } from '../data/weapons';
+import {BOSS_FORGE_MATERIAL_IDS,MAX_FORGE_MATERIALS,MAX_WEAPON_ENHANCEMENT,isBossForgeMaterial} from '../data/forge';
 import { WORLD_HEIGHT, WORLD_WIDTH } from '../data/world';
 import { advanceQuests } from '../game/systems/questProgress';
 import { CONTENT_BY_ID, initialContentState } from '../data/content';
@@ -24,7 +25,7 @@ import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
-export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'>>;
+export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'forgeMaterials'>>;
 export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState} }
 
 let syncSnapshot: (() => void) | undefined;
@@ -420,6 +421,19 @@ export function parseSave(raw: string): SaveData | null {
     // arts and receive no repeat free items when these fields are absent.
     const consumables=s.consumables===undefined?{'healing-potion':0,'stamina-potion':0}:s.consumables;
     if(!record(consumables)||!Object.keys(POTIONS).every(id=>numberIn(consumables[id],0,99)&&Number.isInteger(consumables[id])))return invalidSave('invalid consumables');
+    // Version 6 kept: these optional ledgers are initialized for older saves.
+    // Reject impossible levels/materials instead of silently correcting or
+    // overwriting the player's previous good save.
+    const weaponUpgrades=s.weaponUpgrades??{};
+    const forgeMaterials=s.forgeMaterials??{};
+    if(!record(weaponUpgrades)||Object.keys(weaponUpgrades).length>Object.keys(WEAPON_BY_ID).length
+      ||!Object.entries(weaponUpgrades).every(([id,level])=>Object.hasOwn(WEAPON_BY_ID,id)
+        &&s.inventory.includes(id)&&numberIn(level,0,MAX_WEAPON_ENHANCEMENT)&&Number.isInteger(level)))
+      return invalidSave('invalid weapon enhancements');
+    if(!record(forgeMaterials)||Object.keys(forgeMaterials).length>BOSS_FORGE_MATERIAL_IDS.length
+      ||!Object.entries(forgeMaterials).every(([id,count])=>isBossForgeMaterial(id)
+        &&numberIn(count,0,MAX_FORGE_MATERIALS)&&Number.isInteger(count)))
+      return invalidSave('invalid duplicate boss forging materials');
     const learnedCombatArts=s.learnedCombatArts??[];
     if(!strings(learnedCombatArts)||new Set(learnedCombatArts).size!==learnedCombatArts.length
       ||!learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id)&&Boolean(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost)))return invalidSave('invalid learned combat arts');
@@ -453,7 +467,7 @@ export function parseSave(raw: string): SaveData | null {
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state,journal:restoreJournal(journal,state),consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
+      ...state,journal:restoreJournal(journal,state),weaponUpgrades:weaponUpgrades as Record<string,number>,forgeMaterials:forgeMaterials as Record<string,number>,consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
       trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
@@ -491,7 +505,8 @@ function serializeCurrentSaveSnapshot():string {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       journal:restoreJournal(s.journal,s),
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
-      inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
+      inventory: s.inventory, weaponUpgrades:s.weaponUpgrades, forgeMaterials:s.forgeMaterials,
+      worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
       day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,
@@ -599,7 +614,8 @@ export function loadGame(): boolean {
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
       learnedSkills: s.learnedSkills, gold: s.gold,
       consumables:s.consumables??{'healing-potion':0,'stamina-potion':0},learnedCombatArts:s.learnedCombatArts??[],skillSlots:s.skillSlots??[...DEFAULT_SKILL_SLOTS],vitalRevision:0,
-      weaponId: s.weaponId, inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
+      weaponId: s.weaponId, inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},forgeMaterials:s.forgeMaterials??{},
+      worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
       townId: s.townId, day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,unlockedTownShrines:s.unlockedTownShrines,
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
@@ -624,6 +640,7 @@ export function watchProgressSaves() {
     }
     if (s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
+      || s.weaponUpgrades !== previous.weaponUpgrades || s.forgeMaterials !== previous.forgeMaterials
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots
       || s.xp !== previous.xp || s.gold !== previous.gold || s.attributes !== previous.attributes
       || s.statPoints !== previous.statPoints || s.skillPoints !== previous.skillPoints
