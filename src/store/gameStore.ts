@@ -260,9 +260,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
     const outcome=state.storyFlags['relief-household-charter']?'The service warrants are void. There are crown rooms for anyone leaving, and the search riders are still looking for their kin.':state.storyFlags['relief-joint-council']?'The families sit beside the judges now. No employer can move them while their relatives are being sought.':null;
-    const localOutcome=npc.townId==='cibar-plains'&&state.storyFlags['cibar-irrigation-repaired']?
+    const localOutcome=['celia-brook','asha-stonevein','iren-copperwake'].includes(npcId)
+      &&state.storyFlags['cibar-irrigation-repaired']?
       state.storyFlags['cibar-public-water']?'They have cleared his name. The travelers choose for themselves whether to speak; nobody is trading their safety for justice.':'The sworn households keep the survivors’ names. Yselle has the evidence, and the men who came to that well will answer for it.':null;
-    const highmereOutcome=state.quests['crown-summons']?.status==='completed'&&npc.townId==='highmere'?
+    // News travels unevenly. The archive and watch know official reports;
+    // every shopkeeper in Highmere should not recite the same announcement.
+    const highmereOutcome=state.quests['crown-summons']?.status==='completed'
+      &&['renna-vale','captain-yselle-ward','davin-bridge'].includes(npcId)?
       state.storyFlags['main-public-reports']?'The warning has been spoken in every town square. Folk are watching the old roads.':state.storyFlags['main-watch-reports']?'The riders carry the warning from town to town, unseen by the danger.':'The signs from the far roads have reached Highmere. The crown knows what threatens them.':null;
     const reaction=reactiveStoryDialogue(npcId,state.quests,state.storyFlags);
     const lines=context?.objective.dialogue ?? (reaction??(highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue));
