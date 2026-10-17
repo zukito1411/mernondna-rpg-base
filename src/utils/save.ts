@@ -311,7 +311,14 @@ export function parseSave(raw: string): SaveData | null {
     const data = migrateSave(JSON.parse(raw));
     if (!record(data) || data.version !== 6 || !record(data.state)) return invalidSave('unsupported save structure or version');
     const s = data.state;
-    const journal=parseJournal(s.journal);
+    // The short-lived duplicate Edmund was discoverable and could be saved in
+    // the character journal. Retire only that exact old ID before strict
+    // validation; all other unknown or malformed entries still fail safely.
+    const savedJournal=s.journal;
+    const safeJournal=record(savedJournal)&&Array.isArray(savedJournal.characters)
+      ?{...savedJournal,characters:savedJournal.characters.filter((id:unknown)=>id!=='edmund-hale')}
+      :savedJournal;
+    const journal=parseJournal(safeJournal);
     if(!journal)return invalidSave('invalid journal records');
     if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return invalidSave('invalid cinematic queue');
     const savedFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};

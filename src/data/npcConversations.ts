@@ -148,7 +148,7 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
 
     'meral-gull':["Celia's short on seed again. I've given her what I can.","I can live with a bad harvest. I can't stand seeing families skip meals."],
 
-    'aldren-vale':["There you are. I was starting to worry.","Lena's missing, and her kids are scared. Please be careful out there. I don't want to lose you too.","Want to change the way you've trained? I can help you reset your attributes for 1,500 gold."],
+    'aldren-vale':["There you are. I was starting to worry.","Lena's missing, and her kids are scared. Please be careful out there. I don't want to lose you too."],
     'mira-fen':["You're heading out again? At least tell me where you're going this time.","I've seen wolves closer to the farms. I don't think they're hunting there by choice."],
     'elara-voss':["I need someone who'll listen when I tell them to fall back. Can you do that?","We've got enough trouble near the farms without anyone trying to be a hero."],
     'orin-bell':["Is that your mother's compass? May I see it?","That's odd. The needle moved when you came in. Has it been doing that long?"],
