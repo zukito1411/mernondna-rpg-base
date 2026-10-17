@@ -4,6 +4,7 @@ import {useGameStore} from '../store/gameStore';
 import {POTIONS,weaponEffect,type PotionId} from '../data/economy';
 import {ItemIcon} from './ItemIcon';
 import {goldLabel} from '../utils/localPlayCheats';
+import {WEAPON_PROFILES,weaponProcDescription} from '../data/weaponProfiles';
 
 export function InventoryPanel(){
   const [tab,setTab]=useState<'weapons'|'potions'>('weapons');
@@ -31,6 +32,7 @@ export function InventoryPanel(){
         {tab==='weapons'?<>
           <label className="equipment-search">Find a weapon<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name" type="search"/></label>
           <p className="equipment-help">Equip a weapon to change your attacks and skill damage. Green numbers mean more damage than your current weapon.</p>
+          <button type="button" onClick={()=>useGameStore.getState().openPanel('codex')}>Open bestiary & weapon lore</button>
           <div className="weapon-cards">{weapons.map(w=>{
             const equipped=w.id===weaponId,change=w.damage-(current?.damage??w.damage);
             return <article className={`weapon-card item-row ${equipped?'is-equipped':''}`} key={w.id}>
@@ -38,7 +40,7 @@ export function InventoryPanel(){
                 {weaponEffect(w.id)&&<small>Skill effects: {weaponEffect(w.id)!.effectName}</small>}
                 <div className="weapon-comparison"><b>{w.damage} damage</b>{!equipped&&<span className={change>0?'stat-gain':change<0?'stat-loss':''}>{change>=0?'+':''}{change}</span>}</div>
                 <small>{(w.cooldownMs/1000).toFixed(2)}s recovery · {w.staminaCost} stamina · {(w.reach/32).toFixed(1)} paces reach</small>
-                <details><summary>About this weapon</summary><p>{w.description}</p></details>
+                <details><summary>Profile & unique effect</summary><div className="weapon-profile-text"><p>{w.description}</p><p>{WEAPON_PROFILES[w.id]?.origin} · {WEAPON_PROFILES[w.id]?.appearance}</p><p>{WEAPON_PROFILES[w.id]?.history}</p><p>{weaponProcDescription(w.id)}</p></div></details>
               </div><button type="button" disabled={equipped||Boolean(casting)} onClick={()=>equip(w.id)}>{equipped?'Equipped':'Equip'}</button>
             </article>;
           })}</div>

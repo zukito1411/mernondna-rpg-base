@@ -5,6 +5,7 @@ import './fantasy-ui.css';
 import './map-layout-fix.css';
 import './map-regional-navigation.css';
 import './inventory-column.css';
+import './lore-journal.css';
 import {prepareOfflineStartup} from './utils/appStartup';
 
 async function start(){

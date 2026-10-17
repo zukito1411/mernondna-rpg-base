@@ -12,6 +12,7 @@ export function QuestJournal() {
   return <div className="overlay-backdrop"><section className="quest-journal" aria-label="Quest journal">
     <header><h2>Leigneron’s journal</h2><button onClick={closePanel}>Close</button></header>
     <div className="journal-content">
+    <button type="button" onClick={()=>useGameStore.getState().openPanel('codex')}>Bestiary, characters & weapon lore · B</button>
     {flags['campaign-complete']&&<p className="journal-resolution">The roads have keepers again. Your campaign is concluded; exploration, unfinished side quests and repeat boss battles remain available.</p>}
     <details><summary>Reaching the islands</summary><p>At Highmere, follow the river to the quay east of the Lower Ward. Interact with the pier to board a crewed boat. Tidewatch and Skallheim have return passages. For Darkav, choose Ashen Landing, then follow the ash road north to Blackspire. Helping a region attunes its shrine for later journeys.</p></details>
     {QUESTS.filter(q=>quests[q.id]?.status==='active'||quests[q.id]?.status==='completed').map(q=>{

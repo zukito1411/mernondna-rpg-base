@@ -145,6 +145,30 @@ The base also works directly in mobile browsers, so Android packaging is not req
 - role-specific Oakmere architecture, with original streets/foundations and persistent content IDs retained
 - Vitest integrity tests
 
+## Bestiary, lore and weapon effects
+
+Press **B**, choose **Lore** in the HUD, or open **Bestiary & lore** from the
+pause menu or quest journal. Visible creatures, defeated bosses, conversations,
+visited regions and acquired weapons unlock searchable records. The journal
+includes creature habits, travelers’ observations of weaknesses, boss legends,
+character backgrounds, regional history and weapon provenance. Its pages are
+written as world lore; exact weapon statistics and chances stay in the bag.
+Existing saves retain owned-weapon and defeated-boss knowledge.
+
+Weapon profiles in the bag describe their appearance, origin and unique effect.
+Normal strikes can trigger burning, poison, bleeding, frost or an exposed guard.
+Triggers have a 12–18% chance, never stack, and share a six-second cooldown on
+each target. Arts and damage-over-time ticks do not trigger effects. Bosses take
+half damage over time; frost slows their movement and attacks by 15% for at most
+1.4 seconds. Ordinary foes move and attack 35% slower while chilled. Burning
+adds a light red tint, frost blue, and poison violet; burning and poison deal
+brief periodic damage. Colors return to normal when the effect ends.
+
+Regional traders stock the **Verdant Adderblade** in Narenthil, **Skallheim
+Rimeblade** in the Frostlands, and **Cinder-forged Sabre** in Darkav. These crafted
+variants reuse the matching vine, crystal and flame artwork; boss relics retain
+their original identities and drop chances. See [the feature notes](docs/BESTIARY_AND_WEAPON_EFFECTS.md).
+
 ## Audio
 
 The in-game **Music & world sounds** option controls the licensed medieval

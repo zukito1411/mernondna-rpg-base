@@ -27,6 +27,9 @@ WEAPONS.push(
   sword('wyrm-frostedge','Wyrm Frostedge',59,'Blue scales encase a shard of everlasting frost.','frostlands',5),
   sword('seer-obsidian-edge','Seer Obsidian Edge',63,'Purple embers whisper beneath the oracle’s black glass blade.','darkav',5),
   sword('varkhul-emberfang','Varkhul Emberfang',72,'A shed dragon fang forged into black steel; its edge remembers fire.','darkav',5),
+  sword('verdant-adderblade','Verdant Adderblade',35,'A woodland-crafted vine blade carrying a mild thorn sap. Sold by Narenthil weapon traders.','narenthil',3),
+  sword('skallheim-rimeblade','Skallheim Rimeblade',43,'A hunter’s crystal-edged sword, cooled in glacial waters. Sold by Frostlands weapon traders.','frostlands',3),
+  sword('cinder-forged-sabre','Cinder-forged Sabre',46,'Blackspire steel with a small ember sealed in its fuller. Sold by Darkav weapon traders.','darkav',4),
 );
 
 export const WEAPON_BY_ID = Object.fromEntries(WEAPONS.map((weapon) => [weapon.id, weapon])) as Record<string, WeaponDefinition>;

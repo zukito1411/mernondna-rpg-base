@@ -20,10 +20,11 @@ import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
 import type {StoryPanelRef} from '../data/storyPanelArt';
+import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type JournalState} from '../data/journal';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
-type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'harbor' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -42,6 +43,9 @@ export interface BossEncounter {
 }
 
 export interface GameState {
+  journal:JournalState;
+  discoverCreature:(enemyId:string,bossId?:string,defeated?:boolean)=>void;
+  discoverRecord:(kind:'characters'|'regions'|'weapons',id:string)=>void;
   playerName: string;
   hp: number;
   maxHp: number;
@@ -132,6 +136,7 @@ export interface GameState {
 const initialQuestState = initialQuests;
 
 const baseState = () => ({
+  journal:restoreJournal(emptyJournal(),{inventory:localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],defeatedBosses:[],regionId:'trandum'}),
   playerName: LEIGNERON.name,
   hp: 100,
   maxHp: 100,
@@ -189,6 +194,13 @@ function experienceProgress(state: GameState, xp: number) {
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
+  discoverCreature:(enemyId,bossId,defeated=false)=>set(state=>{
+    const journal=discoverCreature(state.journal,enemyId,bossId,defeated);
+    return journal===state.journal?state:{journal};
+  }),
+  discoverRecord:(kind,id)=>set(state=>{
+    const journal=discoverJournalEntry(state.journal,kind,id);return journal===state.journal?state:{journal};
+  }),
   buyItem:(npcId,itemId)=>set(state=>{
     const dialogue=state.dialogue,npc=NPC_BY_ID[npcId];
     if(dialogue?.npcId!==npcId||!npc||state.cinematic||state.panel||dialogue.choices?.length
@@ -197,7 +209,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(!offer||state.gold<offer.price||state.level<offer.minLevel)return {toast:'You need more gold or experience for that purchase.'};
     if(WEAPON_BY_ID[itemId]){
       if(state.inventory.includes(itemId))return {toast:'That blade is already in your bag.'};
-      return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,inventory:[...state.inventory,itemId],toast:`Purchased ${itemName(itemId)}. Equip it in your bag.`};
+      return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,inventory:[...state.inventory,itemId],journal:discoverJournalEntry(state.journal,'weapons',itemId),toast:`Purchased ${itemName(itemId)}. Equip it in your bag.`};
     }
     const id=itemId as PotionId;if(!POTIONS[id]||state.consumables[id]>=99)return {toast:'You cannot carry any more of that draught.'};
     return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,consumables:{...state.consumables,[id]:state.consumables[id]+1},toast:`Purchased ${itemName(id)}.`};
@@ -222,7 +234,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   setVitals: (hp, stamina) => set({ hp, stamina }),
   damagePlayer: (amount) => set((state) => ({ hp: Math.max(0, state.hp - amount) })),
-  setWorldStatus: (worldX, worldY, regionId, townId) => set({ worldX, worldY, regionId, townId }),
+  setWorldStatus: (worldX, worldY, regionId, townId) => set(state=>({ worldX, worldY, regionId, townId,journal:discoverJournalEntry(state.journal,'regions',regionId) })),
   setClock: (day, minuteOfDay) => set({ day, minuteOfDay }),
   openPanel: (panel) => {if(!get().cinematic)set({ panel });},
   closePanel: () => set({ panel: null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
@@ -270,7 +282,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       state.storyFlags['main-public-reports']?'We’ve sent warnings to the towns. I hope people take them seriously.':state.storyFlags['main-watch-reports']?'Isabel’s riders have been carrying letters to the other towns. I hope they get through safely.':'We’ve had some worrying reports from the other towns. I’m still trying to find out what’s true.':null;
     const reaction=reactiveStoryDialogue(npcId,state.quests,state.storyFlags);
     const lines=context?.objective.dialogue ?? (reaction??(highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue));
-    set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
+    set({quests,trackedQuestId,journal:discoverJournalEntry(state.journal,'characters',npcId),dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
   },
   advanceDialogue: () => set((state) => state.dialogue&&acceptUiAction()
     &&state.dialogue.lineIndex<(state.dialogue.lines??NPC_BY_ID[state.dialogue.npcId]?.dialogue??[]).length-1
@@ -345,7 +357,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const dropped=trophy&&Math.random()<.1?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
     const salvage=duplicate&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
-    return { defeatedBosses, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
+    let journal=discoverCreature(state.journal,enemyId,bossId,true);
+    if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
+    return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
         gold:state.gold+rewards.gold+salvage,
         toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),

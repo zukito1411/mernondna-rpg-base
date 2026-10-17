@@ -101,6 +101,7 @@ export function HUD() {
         <nav id="hud-main-actions" className="hud-actions" aria-label="Game menus" aria-hidden={!menuExpanded}>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="World Map" onClick={() => openPanel('map')}><span className="hud-icon"><GameIcon name="map" /></span><span>Map</span><kbd>M</kbd></button>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Quest Journal" onClick={() => openPanel('journal')}><span className="hud-icon"><GameIcon name="quest" /></span><span>Quest</span><kbd>J</kbd></button>
+          <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Bestiary and lore" onClick={() => openPanel('codex')}><span className="hud-icon"><GameIcon name="quest" /></span><span>Lore</span><kbd>B</kbd></button>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Gear" onClick={() => openPanel('inventory')}><span className="hud-icon"><GameIcon name="bag" /></span><span>Bag</span><kbd>I</kbd></button>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Status" onClick={() => openPanel('character')}><span className="hud-icon"><GameIcon name="status" /></span><span>Status</span><kbd>C</kbd></button>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Menu" onClick={() => openPanel('pause')}><span className="hud-icon"><GameIcon name="menu" /></span><span>Menu</span><kbd>Esc</kbd></button>

@@ -20,11 +20,12 @@ import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
 import {MAX_AREA_MONSTER_LEVEL,globalMonsterBonus,scaledEnemy} from '../data/enemyTiers';
+import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'>>;
-export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[]} }
+export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -306,6 +307,8 @@ export function parseSave(raw: string): SaveData | null {
     const data = migrateSave(JSON.parse(raw));
     if (!record(data) || data.version !== 6 || !record(data.state)) return invalidSave('unsupported save structure or version');
     const s = data.state;
+    const journal=parseJournal(s.journal);
+    if(!journal)return invalidSave('invalid journal records');
     if(s.cinematicQueue!==undefined&&(!strings(s.cinematicQueue)||s.cinematicQueue.length>64))return invalidSave('invalid cinematic queue');
     const savedFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
     if(!record(savedFlags)||!Object.values(savedFlags).every(v=>typeof v==='boolean')
@@ -450,7 +453,7 @@ export function parseSave(raw: string): SaveData | null {
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state,consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
+      ...state,journal:restoreJournal(journal,state),consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
       trackedQuestId:typeof s.trackedQuestId==='string'&&result.quests[s.trackedQuestId]?.status==='active'?s.trackedQuestId:
@@ -486,6 +489,7 @@ function serializeCurrentSaveSnapshot():string {
     const s = useGameStore.getState();
     const data: SaveData = { version: 6, savedAt: new Date().toISOString(), state: {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
+      journal:restoreJournal(s.journal,s),
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
@@ -589,6 +593,7 @@ export function loadGame(): boolean {
     const s = data.state;
     const derived = progressionStats(s.attributes, s.learnedSkills);
     useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
+      journal:s.journal!,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
       learnedSkills: s.learnedSkills, gold: s.gold,
       consumables:s.consumables??{'healing-potion':0,'stamina-potion':0},learnedCombatArts:s.learnedCombatArts??[],skillSlots:s.skillSlots??[...DEFAULT_SKILL_SLOTS],vitalRevision:0,
@@ -608,7 +613,7 @@ export function watchProgressSaves() {
   let pending:ReturnType<typeof setTimeout>|null=null;
   const unsubscribe=useGameStore.subscribe((s, previous) => {
     if (saving) return;
-    if (s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
+    if (s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots
       || s.xp !== previous.xp || s.gold !== previous.gold || s.attributes !== previous.attributes

@@ -15,10 +15,18 @@ import {actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../..
 import {pirateAttackPhase,piratePhaseDuration} from '../../data/pirateMotion';
 import {isPirateEnemy} from '../../data/pirateArt';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
+import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
+import {WEAPON_PROFILES} from '../../data/weaponProfiles';
+import {WEAPON_BY_ID} from '../../data/weapons';
 
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
+  readonly weaponStatus=new WeaponStatusSystem();
+  private statusAttackRate=1;
+  private attackWindupTimer:Phaser.Time.TimerEvent|null=null;
+  private attackTimingActive=false;
+  private hitFlashUntil=0;
   definition: EnemyDefinition;
   private readonly authoredDefinition: EnemyDefinition;
   private readonly regionalLevel:number;
@@ -71,6 +79,43 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private wolfFlankSlot: number | null = null;
   private wolfHuntBearing = 0;
   get canBeTargeted(){return !this.dragonCombat?.airborne;}
+  get movementSpeed(){return this.definition.moveSpeed*this.weaponStatus.movementMultiplier;}
+  get attackSpeedMultiplier(){return this.weaponStatus.attackSpeedMultiplier;}
+  /** Multiply a light status wash into the species tint, preserving its art. */
+  get presentationTint(){
+    const base=this.definition.spriteTint??0xffffff,overlay=this.weaponStatus.tint;
+    const channel=(shift:number)=>Math.round((base>>shift&255)*(overlay>>shift&255)/255);
+    return channel(16)<<16|channel(8)<<8|channel(0);
+  }
+  private applyStatusTint(){
+    if(!this.active||this.scene.time.now<this.hitFlashUntil)return;
+    const tint=this.presentationTint;
+    const apply=(sprite:Phaser.GameObjects.Sprite|null|undefined)=>{
+      if(!sprite?.active)return;if(tint===0xffffff)sprite.clearTint();else sprite.setTint(tint);
+    };
+    apply(this);apply(this.leapVisual);
+    const dragonVisual=this.dragonCombat?.visual;if(dragonVisual!==this)apply(dragonVisual);
+  }
+  private syncStatusAttackSpeed(time:number){
+    const rate=this.attackSpeedMultiplier;
+    if(time>=this.visualUntil)this.attackTimingActive=false;
+    if(rate===this.statusAttackRate)return;
+    const remainingScale=this.statusAttackRate/rate;
+    if(this.nextAttackAt>time)this.nextAttackAt=time+(this.nextAttackAt-time)*remainingScale;
+    if(this.attackTimingActive){
+      this.lockedUntil=time+Math.max(0,this.lockedUntil-time)*remainingScale;
+      this.visualUntil=time+Math.max(0,this.visualUntil-time)*remainingScale;
+      this.anims.timeScale/=remainingScale;
+      if(this.leapVisual?.active)this.leapVisual.anims.timeScale/=remainingScale;
+      if(this.leapTween)this.leapTween.timeScale=rate;
+    }
+    if(this.attackWindupTimer){
+      this.attackWindupTimer.timeScale=rate;
+      this.attackTelegraphStartedAt=time-this.attackWindupTimer.elapsed/rate;
+      this.attackTelegraphWindup=this.attackWindupTimer.delay/rate;
+    }
+    this.statusAttackRate=rate;
+  }
   get isStaggered(){return this.flurrySuppressed||this.scene.time.now<this.hitStunUntil;}
   get facingLeft(){return this.visualDirection==='left';}
   get isRangedAttacker(){return this.definition.combatStyle==='spear-thrower'||this.definition.combatStyle==='stone-thrower';}
@@ -151,6 +196,17 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   updateEnemy(time: number,delta=16) {
+    if(!this.active||this.hp<=0)return;
+    const damage=this.weaponStatus.update(delta,this.canBeTargeted);
+    if(damage>0){
+      this.hp=Math.max(0,this.hp-damage);this.lastDamagedAt=time;
+      if(this.hp<=0){this.weaponStatus.clear();this.interruptAttack();(this.scene as WorldScene).handleEnemyDefeated(this);return;}
+    }
+    this.syncStatusAttackSpeed(time);this.applyStatusTint();
+    this.updateEnemyBehavior(time,delta);
+  }
+
+  private updateEnemyBehavior(time: number,delta:number) {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
@@ -265,7 +321,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
       const speed=this.wander.length(),ahead={x:this.x+this.wander.x/Math.max(1,speed)*24,y:this.y+this.wander.y/Math.max(1,speed)*24};
       if(scene.canEnemyOccupy(ahead.x,ahead.y,this)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
-        body.setVelocity(approachVelocity(body.velocity.x,this.wander.x,delta,120),approachVelocity(body.velocity.y,this.wander.y,delta,120));
+        body.setVelocity(approachVelocity(body.velocity.x,this.wander.x*this.weaponStatus.movementMultiplier,delta,120),approachVelocity(body.velocity.y,this.wander.y*this.weaponStatus.movementMultiplier,delta,120));
       else {body.setVelocity(0,0);this.nextWanderAt=time+1000;this.wander.set(0,0);}
     }
     if(!this.directionalCombat&&Math.abs(body.velocity.x)>Math.max(2,Math.abs(body.velocity.y)*.3)) this.setFlipX(body.velocity.x<0);
@@ -352,7 +408,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
       if(clear){steerX=sx;steerY=sy;break;}
     }
-    const speed=Math.min(this.definition.moveSpeed,Math.max(distance,crowded?12:0)*6);
+    const speed=Math.min(this.movementSpeed,Math.max(distance,crowded?12:0)*6);
     body.setVelocity(approachVelocity(body.velocity.x,steerX*speed,delta,90),
       approachVelocity(body.velocity.y,steerY*speed,delta,90));
   }
@@ -370,7 +426,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     for(const offset of [0,-.6,.6,-1.2,1.2]) {
       const dx=Math.cos(angle+offset),dy=Math.sin(angle+offset),x=this.x+dx*24,y=this.y+dy*24;
       if(scene.canEnemyOccupy(x,y,this)&&scene.hasClearPath(this.x,this.y,x,y)) {
-        vx=dx*this.definition.moveSpeed*.75;vy=dy*this.definition.moveSpeed*.75;break;
+        vx=dx*this.movementSpeed*.75;vy=dy*this.movementSpeed*.75;break;
       }
     }
     body.setVelocity(approachVelocity(body.velocity.x,vx,delta,90),approachVelocity(body.velocity.y,vy,delta,90));
@@ -423,7 +479,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       vy+=dy/dist*repel;
     }
     const speed=Math.hypot(vx,vy);
-    const velocity=speed<5?0:this.definition.moveSpeed*(this.wolfAlpha?.97:1);
+    const velocity=speed<5?0:this.movementSpeed*(this.wolfAlpha?.97:1);
     const headingX=speed>0?vx/speed:0,headingY=speed>0?vy/speed:0;
     const canStep=(sx:number,sy:number)=>scene.canEnemyOccupy(this.x+sx*30,this.y+sy*30,this)
       &&scene.hasClearPath(this.x,this.y,this.x+sx*30,this.y+sy*30);
@@ -442,19 +498,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private beginAttack(scene: WorldScene, player: WorldScene['player'], time: number) {
     const windup = this.definition.attackWindupMs ?? 220;
     const recovery = this.definition.attackRecoveryMs ?? 320;
+    const rate=this.attackSpeedMultiplier;
     const radius = this.definition.attackRadius ?? this.definition.attackRange;
     const ranged=this.isRangedAttacker;
     const attackAim={x:player.x,y:player.y};
     if(this.directionalCombat)this.visualDirection=actorTravelDirection(player.x-this.x,player.y-this.y,this.visualDirection);
     const attackStyle = ranged?'melee':this.definition.combatStyle==='troll'?'slam':this.boss?.attackStyle ?? (isWolfFamily(this.definition.id) ? 'pounce' : 'melee');
-    this.lockedUntil = time + windup + recovery;
-    this.nextAttackAt = this.lockedUntil + this.definition.attackCooldownMs;
+    this.lockedUntil = time + (windup + recovery)/rate;
+    this.nextAttackAt = this.lockedUntil + this.definition.attackCooldownMs/rate;
     this.attackTelegraph?.destroy();
     this.attackTelegraphStyle=attackStyle;
     this.attackTelegraphRadius=radius;
     this.attackTelegraphAngle=this.facing.angle();
     this.attackTelegraphStartedAt=time;
-    this.attackTelegraphWindup=windup;
+    this.attackTelegraphWindup=windup/rate;
     const layout=enemyAttackWarningLayout(attackStyle,radius,this.attackTelegraphAngle);
     this.attackTelegraph=null;
     if(!ranged)this.attackTelegraph=scene.add.image(this.x,this.y,ATTACK_WARNING_TEXTURE,layout.frame)
@@ -467,16 +524,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.playMonsterAttackFoley('windup');
     this.nextGrowlAt=time+2800;
     this.playAction('attack');
+    this.attackTimingActive=true;
     const windupClip=pirateAttackPhase(this.definition.spriteFrame,'windup');
     const recoveryClip=pirateAttackPhase(this.definition.spriteFrame,'recovery');
     if(windupClip){
       this.anims.play(windupClip.key);
-      this.anims.timeScale=piratePhaseDuration(windupClip)/Math.max(1,windup);
-    }else this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery);
-    if(this.definition.combatStyle==='troll')this.anims.timeScale=(attackAnimation.frames.length-1)*1000/(attackAnimation.frameRate*windup);
-    this.visualUntil=time+windup+recovery;
+      this.anims.timeScale=piratePhaseDuration(windupClip)/Math.max(1,windup)*rate;
+    }else this.anims.timeScale=animationDuration(attackAnimation)/(windup+recovery)*rate;
+    if(this.definition.combatStyle==='troll')this.anims.timeScale=(attackAnimation.frames.length-1)*1000/(attackAnimation.frameRate*windup)*rate;
+    this.visualUntil=time+(windup+recovery)/rate;
     if (attackStyle === 'pounce' && this.definition.spriteFrame === 0) this.playWolfLeap(attackAnimation);
-    scene.time.delayedCall(windup, () => {
+    if(this.leapTween)this.leapTween.timeScale=rate;
+    this.attackWindupTimer=scene.time.delayedCall(windup, () => {
+      this.attackWindupTimer=null;
       if(epoch!==this.attackEpoch)return;
       this.attackTelegraph?.destroy();
       this.attackTelegraph = null;
@@ -486,7 +546,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
       if(recoveryClip){
         this.anims.play(recoveryClip.key);
-        this.anims.timeScale=piratePhaseDuration(recoveryClip)/Math.max(1,recovery);
+        this.anims.timeScale=piratePhaseDuration(recoveryClip)/Math.max(1,recovery)*this.attackSpeedMultiplier;
       }
       if(ranged){
         scene.fireOrcSpear(this,attackAim);
@@ -507,6 +567,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       scene.playEffect('hit', player.x, player.y, toPlayer);
       scene.damagePlayer(this.definition.damage);
     });
+    this.attackWindupTimer.timeScale=rate;
   }
 
   private updateAttackTelegraph(time:number){
@@ -638,6 +699,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   private interruptAttack(){
     this.attackEpoch++;
+    this.attackWindupTimer?.remove(false);this.attackWindupTimer=null;this.attackTimingActive=false;
     this.attackTelegraph?.destroy();this.attackTelegraph=null;
     this.clearWolfLeap();
   }
@@ -658,11 +720,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally'}={}) {
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally';weaponId?:string}={}) {
     if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     const state=useGameStore.getState();
     const support=options.nonLethal||options.source==='story-ally';
-    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills))*(1-(this.definition.defense??0))));
+    if(!support)state.discoverCreature(this.definition.id,this.boss?.id);
+    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills)*this.weaponStatus.directDamageMultiplier)*(1-(this.definition.defense??0))));
     const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
     if(applied<=0)return;
     this.hp -= applied;
@@ -674,6 +737,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Small NPC support hits must not interrupt telegraphs or stun-lock a foe.
     const staggered=!support&&!fatal&&this.stagger(Boolean(options.forceStagger));
     if(fatal)this.interruptAttack();
+    const proc=options.weaponId?WEAPON_PROFILES[options.weaponId]?.proc:undefined;
+    if(!fatal&&!support&&proc&&this.weaponStatus.tryApply(proc,WEAPON_BY_ID[options.weaponId!]?.damage??0,this.definition.id,Boolean(this.definition.boss))){
+      this.syncStatusAttackSpeed(this.scene.time.now);
+    }
     scene.playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
     // Flurry keeps its targets inside the sweep instead of knocking them out
@@ -683,8 +750,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       body.setVelocity(this.dragonCombat?0:knockback.x*force,
         this.dragonCombat?0:knockback.y*force);
     }
-    this.setTintFill(0xffffff);
-    this.scene.time.delayedCall(70, () => { if (this.active) {this.clearTint();if(this.definition.spriteTint!==undefined)this.setTint(this.definition.spriteTint);} });
+    this.hitFlashUntil=this.scene.time.now+70;this.setTintFill(0xffffff);
+    this.scene.time.delayedCall(70, () => this.applyStatusTint());
     if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
   }
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
@@ -694,11 +761,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.dragonCombat?.pause(paused);
     if(paused)this.leapTween?.pause();else if(this.leapTween?.isPaused())this.leapTween.resume();
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
+    this.applyStatusTint();
     const distance = Phaser.Math.Distance.Between(playerX, playerY, this.x, this.y);
     const visible = this.hp > 0 && distance < 700 && (Boolean(this.definition.boss) || this.hp < this.definition.hp || distance < this.definition.aggroRange);
     const width = this.definition.boss ? 48 : this.definition.id === 'road-bandit' ? 35 : 30;
     const scene=this.scene as WorldScene;
     const eligible=!paused&&scene.targeting.eligible(this)&&scene.cameras.main.worldView.contains(this.x,this.y);
+    if(eligible&&!useGameStore.getState().cinematic)useGameStore.getState().discoverCreature(this.definition.id,this.boss?.id);
     const selected=eligible&&scene.targeting.selected===this;
     const model=this.dragonCombat?.visual??(this.leapVisual?.active?this.leapVisual:this);
     const bounds=(model.frame.customData as {visibleBounds?:{top:number;height:number}}).visibleBounds;
@@ -716,11 +785,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
           Math.max(this.definition.boss?56:34,(this.definition.bodyRadius??0)*2.2),Math.max(10,(this.definition.bodyRadius??0)*.45));}
     }
     this.healthBar.clear().setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
-    this.nameLabel.setPosition(this.x, top - 4).setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
+    this.nameLabel.setText(`Lv.${this.level} ${this.boss?.name??this.definition.name}${this.weaponStatus.name?' · '+this.weaponStatus.name:''}`)
+      .setPosition(this.x, top - 4).setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
     if (visible&&eligible) {
       this.healthBar.fillStyle(0x16110c,.85).fillRoundedRect(this.x - width / 2 - 2, top - 1, width + 4, 6, 2);
       this.healthBar.fillStyle(this.definition.boss ? 0xd89557 : 0xbb6550,1)
         .fillRect(this.x - width / 2, top + 1, width * Math.max(0,this.hp / this.definition.hp), 3);
+      if(this.weaponStatus.active)this.healthBar.fillStyle(this.weaponStatus.color,1).fillCircle(this.x+width/2+6,top+2,3);
     }
   }
 }

@@ -7,3 +7,5 @@ playwright-report/
 .vscode/*.log
 android/.gradle/
 android/app/build/
+android/gradle/wrapper/gradle-wrapper.properties
+package-lock.json

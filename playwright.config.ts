@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: 'http://127.0.0.1:5174',
-    channel: 'chrome',
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'chrome',
     headless: true,
     viewport: { width: 1280, height: 720 },
     screenshot: 'only-on-failure',

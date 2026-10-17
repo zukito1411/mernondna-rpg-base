@@ -10,6 +10,7 @@ import { PausePanel } from './components/PausePanel';
 import { Toast } from './components/Toast';
 import { ShrineTravelPanel } from './components/ShrineTravelPanel';
 import { QuestJournal } from './components/QuestJournal';
+import { LoreJournal } from './components/LoreJournal';
 import { CinematicPanel } from './components/CinematicPanel';
 import { HomeMenu } from './components/HomeMenu';
 import {HarborPanel} from './components/HarborPanel';
@@ -116,6 +117,7 @@ export default function App() {
         <PausePanel />
         <ShrineTravelPanel />
         <QuestJournal />
+        <LoreJournal />
         <HarborPanel />
         <CinematicPanel />
         <Toast />

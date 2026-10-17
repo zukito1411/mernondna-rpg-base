@@ -142,7 +142,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly shipPaths=new WeakMap<Enemy,{until:number;target:Vec2;point:Vec2}>();
   private focused = true;
   private wasBlocked = false;
-  private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue' | 'journal'>();
+  private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue' | 'journal' | 'codex'>();
   private readonly heldPanelKeys = new Set<string>();
   private questGuide!: Phaser.GameObjects.Graphics;
   private questTarget: QuestTarget | null = null;
@@ -594,8 +594,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.updateNavigation();
 
     if (!this.input.keyboard) throw new Error('Keyboard input is unavailable.');
-    for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['character', 'C'], ['pause', 'ESC'],['journal','J']] as const) {
+    for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['character', 'C'], ['pause', 'ESC'],['journal','J'],['codex','B']] as const) {
       this.input.keyboard.addKey(key).setEmitOnRepeat(false).on('down', () => {
+        if(action!=='pause'&&document.activeElement?.matches('input,textarea,select,[contenteditable="true"]'))return;
         this.panelActions.add(action);
       });
     }
@@ -774,7 +775,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       toEnemy.normalize();
       if (facing.dot(toEnemy) < 0.25) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level))), facing);
+      enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level))), facing,{weaponId:weapon.id});
     }
   }
 
@@ -1209,7 +1210,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   handleEnemyDefeated(enemy: Enemy) {
-    if(this.storyEncounters?.defeated(enemy))return;
+    if(this.storyEncounters?.defeated(enemy)){useGameStore.getState().discoverCreature(enemy.definition.id,undefined,true);return;}
     this.forgetOrcSpears(enemy.instanceId);
     const definition = enemy.definition;
     const rng = seededRandom(`${enemy.instanceId}:loot`);
@@ -1812,6 +1813,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (actions.has('inventory')) store.panel === 'inventory' ? store.closePanel() : store.openPanel('inventory');
     if (actions.has('character')) store.panel === 'character' ? store.closePanel() : store.openPanel('character');
     if (actions.has('journal')) store.panel === 'journal' ? store.closePanel() : store.openPanel('journal');
+    if (actions.has('codex')) store.panel === 'codex' ? store.closePanel() : store.openPanel('codex');
   }
 
   private updateCameraZoom() {

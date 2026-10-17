@@ -53,7 +53,7 @@ export class DragonCombat {
   update(delta:number){
     const e=this.enemy,body=e.body as Phaser.Physics.Arcade.Body,player=this.scene.player;
     if(e.hp<=0){this.warningArt.setVisible(false);this.fire.hide();return;}
-    const dt=Math.min(Math.max(0,delta),100);this.age+=dt;this.clock+=dt;
+    const dt=Math.min(Math.max(0,delta),100)*(this.airborne?1:e.attackSpeedMultiplier);this.age+=dt;this.clock+=dt;
     const distance=Math.hypot(player.x-e.x,player.y-e.y);
     const engaged=inDragonArena(player.x,player.y,80)&&Math.hypot(player.x-DRAGON_LAIR.x,player.y-DRAGON_LAIR.y)<1100;
     if(!engaged&&this.phase!=='rest'){
@@ -65,7 +65,7 @@ export class DragonCombat {
       const goal=engaged?{x:player.x,y:player.y}:{x:DRAGON_LAIR.x+Math.cos(this.clock*.00018)*150,y:DRAGON_LAIR.y+Math.sin(this.clock*.00018)*110};
       const dx=goal.x-e.x,dy=goal.y-e.y,length=Math.hypot(dx,dy);
       if(length>(engaged?170:35)){
-        const vx=dx/length*e.definition.moveSpeed*(engaged?1:.45),vy=dy/length*e.definition.moveSpeed*(engaged?1:.45);
+        const vx=dx/length*e.movementSpeed*(engaged?1:.45),vy=dy/length*e.movementSpeed*(engaged?1:.45);
         const ahead={x:e.x+vx*.7,y:e.y+vy*.7};
         if(inDragonArena(ahead.x,ahead.y)&&this.scene.canEnemyOccupy(ahead.x,ahead.y)&&this.scene.hasClearPath(e.x,e.y,ahead.x,ahead.y)){
           body.setVelocity(vx,vy);e.setFlipX(dx<0);this.groundAnimation('walk');

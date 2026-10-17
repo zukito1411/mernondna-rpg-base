@@ -1,0 +1,56 @@
+import type {RegionId} from '../game/types';
+
+export type WeaponStatus = 'burn'|'poison'|'bleed'|'frost'|'expose';
+export interface WeaponProc {
+  status:WeaponStatus; name:string; chance:number; durationMs:number; cooldownMs:number;
+  /** Total damage is based on the blade's base damage, never the victim's HP. */
+  damagePerSecond:number; color:number;
+}
+export interface WeaponProfile {origin:string; appearance:string; history:string; technique:string; icon:number; proc?:WeaponProc}
+const proc=(status:WeaponStatus,name:string,chance:number,color:number,durationMs=3000,damagePerSecond=0):WeaponProc=>
+  ({status,name,chance,color,durationMs,damagePerSecond,cooldownMs:6000});
+export const WEAPON_PROFILES:Record<string,WeaponProfile>={
+  'roadwarden-sword':{icon:0,origin:'Oakmere, Trandum',appearance:'Plain iron, a brown leather grip and a worn, practical guard.',history:'Roadwardens carry blades that a village smith can repair. Leigneron inherited the same preference for reliability.',technique:'A dependable starting blade; no random enchantment.'},
+  'oak-shield-blade':{icon:1,origin:'Trandum watch forges',appearance:'A green grip and emerald-set gold guard beneath a reinforced blade.',history:'The green stone is a watch insignia. The reinforced spine can open a gap in an opponent’s guard.',technique:'Guard Nick makes follow-up hits more effective.',proc:proc('expose','Guard Nick',.12,0x95c680)},
+  'steel-roadblade':{icon:2,origin:'Trandum caravan smiths',appearance:'Polished steel, a blue grip and a small blue guardstone.',history:'Caravan smiths temper the point for precise cuts through straps and armor seams.',technique:'Surepoint briefly exposes an enemy to follow-up hits.',proc:proc('expose','Surepoint',.14,0xb1d5ef)},
+  'dwarven-forged-sword':{icon:3,origin:'Deepford, Druganwoods',appearance:'Gold runes cut into dark steel, with a squared dwarven guard.',history:'Deepford smiths inscribe stress lines into their steel. A lucky impact sends a jolt through armor joints.',technique:'Runic Fracture opens armor without bypassing it entirely.',proc:proc('expose','Runic Fracture',.16,0xe4b75a,4000)},
+  'royal-tempered-sword':{icon:2,origin:'Highmere royal armory',appearance:'Silver steel, a blue wrapped grip and a crown-blue jewel.',history:'Issued to proven crown guards. Its narrow point favors disciplined follow-through over wild swings.',technique:'Crown Mark rewards a short sequence of accurate hits.',proc:proc('expose','Crown Mark',.18,0xd8e8ff,3500)},
+  'varr-rededge':{icon:4,origin:'Captain Varr’s ruined watchtower',appearance:'A chipped, sawlike edge with crimson cloth around the grip.',history:'Varr kept the edge deliberately ragged; wounds from its teeth close poorly.',technique:'Raider’s Wound can cause a short bleed.',proc:proc('bleed','Raider’s Wound',.18,0xe56565,3000,.12)},
+  'moonlit-oathblade':{icon:5,origin:'The Moonlit Warden, Narenthil',appearance:'A luminous violet edge, crescent guard and round moonstone.',history:'An old woodland oath is sealed in the moonstone. Its pale chill briefly stills living enemies.',technique:'Moonchill can slow an enemy?s movement and attacks.',proc:proc('frost','Moonchill',.12,0xc5b0ff,2400)},
+  'stonejaw-edge':{icon:6,origin:'Stonejaw’s mountain pass, Nardorous',appearance:'Cracked stone bound to a thick iron hilt.',history:'A fragment of the pass guardian’s stony strength remains in the blade. Heavy impacts prise armor apart.',technique:'Faultline exposes a target for follow-up strikes.',proc:proc('expose','Faultline',.18,0xd8c29a,4000)},
+  'iron-tusk-fang':{icon:7,origin:'Iron-Tusk’s warband, Rindass',appearance:'Jagged metal, tusk projections, bone fittings and red bindings.',history:'Clan smiths shape the cutting teeth after a charging boar’s tusks. The hooked edge tears on withdrawal.',technique:'Tusk Tear can inflict bleeding.',proc:proc('bleed','Tusk Tear',.18,0xf39a71,4000,.1)},
+  'rootfather-thornblade':{icon:8,origin:'The Rootfather’s grove, Druganwoods',appearance:'Living vines and green crystals encircle an ancient stone edge.',history:'The roots survive the forge. Their thorn sap is poisonous to flesh, but cannot sicken stone or spirits.',technique:'Thorn Sap can poison susceptible enemies.',proc:proc('poison','Thorn Sap',.18,0x8fde6f,4000,.12)},
+  'portquill-cutlass':{icon:9,origin:'Portquill shipyards',appearance:'A curved gold-toned blade with a blue grip and a guarded hilt.',history:'Deck fighters favor a curved edge that cuts ropes and clothing in the same close swing.',technique:'Deck Cut can cause a short bleed.',proc:proc('bleed','Deck Cut',.12,0xd3b46d,3000,.09)},
+  'salt-kings-cutlass':{icon:9,origin:'The Salt King’s flagship, Portquill',appearance:'An ornate golden curve with a blue jewel and a protective knuckle guard.',history:'A trophy of the sea-lord’s raids. The gilding hides a finely honed edge, not a fire enchantment.',technique:'King’s Due leaves a brief bleeding wound.',proc:proc('bleed','King’s Due',.18,0xffd676,3000,.14)},
+  'wyrm-frostedge':{icon:10,origin:'The Frost Wyrm, Frostlands',appearance:'Jagged blue ice crystals and a dark, scale-like grip.',history:'A shard of the wyrm’s enduring cold forms the blade. Creatures born to the ice resist its chill.',technique:'Deep Rime can slow an enemy?s movement and attacks.',proc:proc('frost','Deep Rime',.18,0x83ddff,3000)},
+  'seer-obsidian-edge':{icon:11,origin:'The Ashen Seer, Darkav',appearance:'Black glass split by violet cracks and a purple guardstone.',history:'The oracle’s kiln sealed a violet flame in the obsidian. The witchfire burns briefly when the glass rings true.',technique:'Violet Pyre can burn enemies vulnerable to fire.',proc:proc('burn','Violet Pyre',.16,0xc58aff,3000,.12)},
+  'varkhul-emberfang':{icon:12,origin:'Varkhul’s ash ridge, Darkav',appearance:'Black dragon steel, a red core and a flame-shaped cutting edge.',history:'A shed dragon fang remembers the heat of its former master. Fire-born creatures are unimpressed by that memory.',technique:'Dragon Ember can ignite a short burn.',proc:proc('burn','Dragon Ember',.18,0xff774a,3000,.15)},
+  'verdant-adderblade':{icon:8,origin:'Narenthil woodland apothecaries',appearance:'A vine-bound stone blade set with green crystals.',history:'Woodland makers cultivate a mild thorn sap along the edge. This crafted blade is distinct from the Rootfather’s relic.',technique:'Adder Sap offers modest poison before the boss relic is found.',proc:proc('poison','Adder Sap',.12,0x8fde6f,3000,.1)},
+  'skallheim-rimeblade':{icon:10,origin:'Skallheim ice-smiths, Frostlands',appearance:'Blue crystal teeth on a dark, insulated grip.',history:'Ice-smiths bind glacial crystals to steel for hunters who must hold a charging beast at bay.',technique:'Hunter’s Rime occasionally chills susceptible foes.',proc:proc('frost','Hunter’s Rime',.12,0x83ddff,2200)},
+  'cinder-forged-sabre':{icon:12,origin:'Blackspire forge halls, Darkav',appearance:'Dark steel with a red furnace core and a flame-shaped edge.',history:'Blackspire artisans cool the edge in ash while leaving a small ember in the fuller. It echoes dragon craft without requiring a dragon trophy.',technique:'Forge Spark can ignite a modest burn.',proc:proc('burn','Forge Spark',.12,0xff995c,3000,.1)},
+  'narenthil-longbow':{icon:0,origin:'Narenthil bowyers',appearance:'Smooth forest timber and a carefully balanced draw.',history:'A hunting bow made for patient shots along woodland paths.',technique:'No weapon status enchantment.'},
+  'nardorous-spear':{icon:0,origin:'Nardorous pass watch',appearance:'A long shaft tipped with mountain-forged steel.',history:'Pass sentries use its reach to hold narrow approaches.',technique:'No weapon status enchantment.'},
+  'rindass-cleaver':{icon:0,origin:'Rindass clan forges',appearance:'A broad, heavy field-axe edge.',history:'An everyday clan tool adapted for committed combat swings.',technique:'No weapon status enchantment.'},
+  'deepford-crossbow':{icon:0,origin:'Deepford workshops',appearance:'Compact timber and a geared dwarven draw mechanism.',history:'A trade-road weapon built to keep a drawn bolt ready.',technique:'No weapon status enchantment.'},
+  'darkav-emberstaff':{icon:0,origin:'Darkav volcanic foundries',appearance:'A volcanic focus banded in black iron.',history:'The focus stores a small pocket of furnace heat.',technique:'Cinder Touch can cause a brief burn on a normal hit.',proc:proc('burn','Cinder Touch',.12,0xff995c,3000,.1)},
+};
+export const REGIONAL_SWORDS:Array<{id:string;region:RegionId;price:number;minLevel:number}>=[
+  {id:'verdant-adderblade',region:'narenthil',price:480,minLevel:12},
+  {id:'skallheim-rimeblade',region:'frostlands',price:850,minLevel:18},
+  {id:'cinder-forged-sabre',region:'darkav',price:980,minLevel:22},
+];
+/** In-world observations belong in the journal; exact rules belong in the bag. */
+export function weaponLegend(id:string):string {
+  const status=WEAPON_PROFILES[id]?.proc?.status;
+  if(status==='burn')return 'Most blows leave only the mark of steel. Sometimes, though, a buried ember wakes: a red heat clings to the wounded creature and continues to bite after the blade has passed. The old smiths say a fire-born beast cannot be frightened by its own inheritance.';
+  if(status==='frost')return 'Hunters tell of a blue pallor spreading from wounds made by this blade. Feet drag and even an enemy’s next swing seems to move through winter water. The chill passes soon, and creatures raised among enduring ice scarcely feel it.';
+  if(status==='poison')return 'The vines hold their sap close until an edge opens the skin. Now and then a violet sickness follows the wound, returning in painful waves before fading. Stone has no blood to carry it, and wandering spirits offer it no flesh.';
+  if(status==='bleed')return 'A cruel edge need not cut deeply to leave a lasting memory. Some wounds from this blade keep weeping after the first pain has passed. Against a body of root, stone or mist, its teeth find little purchase.';
+  if(status==='expose')return 'Its makers favored certainty over spectacle. A well-placed stroke can catch a buckle, pry a seam or turn a guarded edge aside, leaving a fleeting opening for the next blow. Veterans prize those quiet moments more than any flash of light.';
+  return 'No charm is bound into this weapon. Its story belongs to the hands that carried it: watch shifts, repairs beside the road, and journeys made safer by honest craft. A smith’s care has kept it useful where a richer blade might have failed.';
+}
+export function weaponProcDescription(id:string):string {
+  const p=WEAPON_PROFILES[id]?.proc;if(!p)return 'No random status effect.';
+  const effect=p.status==='frost'?'chill a foe, slowing movement and attacks by 35% (bosses: 15% for at most 1.4s)':p.status==='expose'?'expose a foe to 12% more direct damage (bosses: 6%)':`inflict ${p.status==='bleed'?'bleeding':p.status==='burn'?'burning':'poison'}, dealing ${Math.round(p.damagePerSecond*100)}% of base weapon damage per second`;
+  return `${p.name}: ${Math.round(p.chance*100)}% chance on a normal hit to ${effect}. Lasts ${(p.durationMs/1000).toFixed(1)}s. One weapon effect per target; 6s between triggers. Boss damage over time is halved. Arts do not trigger effects.`;
+}
