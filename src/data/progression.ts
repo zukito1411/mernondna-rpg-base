@@ -66,7 +66,8 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
  const points=(id:AttributeId)=>Math.max(0,Math.min(ATTRIBUTE_CAP,attributes[id]??0));
  const str=points('strength'),vit=points('vitality'),agi=points('agility'),eva=points('evasion'),luk=points('luck');
  return {
-  maxHp:100+vit*10+(has('iron-heart') ? 25:0)+(has('last-stand') ? 20:0),
+  // STR grants a little toughness, while VIT is the primary survival stat.
+  maxHp:100+str*2+vit*10+(has('iron-heart') ? 25:0)+(has('last-stand') ? 20:0),
   maxStamina:100+agi*2+(has('deep-reserves') ? 30:0)+(has('second-wind') ? 20:0),
   damageMultiplier:1+str*.035+(has('heavy-strike') ? .12:0)+(has('steady-edge') ? .06:0)+(has('veteran-strike') ? .08:0),
   speedMultiplier:1+Math.min(20,agi)*.01+(has('fleet-foot') ? .06:0)+(has('windrunner') ? .04:0),
@@ -75,9 +76,22 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
   evasionChance:eva*.01,
   luckChance:luk*.00625,
   rewardMultiplier:1+luk*.01,
+  rareDropChance:.10+luk*.005, // 10% -> 30% boss weapon chance at LUK 40
+  supplyDropChance:.06+luk*.0025, // 6% -> 16% on eligible ordinary enemies
   skillDamageMultiplier:1+(has('battle-focus') ? .05:0),
-  incomingDamageMultiplier:has('iron-guard') ? .95:1,
+  incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1),
  };
+}
+
+/** The only rare weapon loot table is the boss trophy table. Use the same
+ * capped attribute math as the stat screen so the published chance is real. */
+export function bossWeaponDropChance(attributes:PlayerAttributes):number {
+ const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
+ return .10+luk*.005;
+}
+export function supplyDropChance(attributes:PlayerAttributes):number {
+ const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
+ return .06+luk*.0025;
 }
 
 /** One roll per outgoing hit; luck is not a second independent damage multiplier. */
