@@ -135,7 +135,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
   stage(well,'decision',{text:'Decide with Celia what to reveal about the surviving travelers.',dialogue:[
     'I want everyone to know my brother didn’t fall. He was murdered. But I’m scared those men will hurt the people he saved. What do we do?'],choices:[
     {id:'public',text:'Publish the murder evidence, but let each survivor choose whether to be named.',response:'All right. We can tell people what happened without naming the families. They should get to choose if they want to speak.',flag:'cibar-public-water'},
-    {id:'cooperative',text:'Keep their names with the sworn households; send only the evidence to Yselle.',response:'Iren can take the evidence to Yselle. I’ll keep the families' names safe. Thank you for understanding.',flag:'cibar-growers-cooperative'},
+    {id:'cooperative',text:'Keep their names with the sworn households; send only the evidence to Yselle.',response:'Iren can take the evidence to Yselle. I’ll keep the families’ names safe. Thank you for understanding.',flag:'cibar-growers-cooperative'},
   ]});
   stage(well,'repair-pump',{text:'Match the broken clasp to the scored well housing at Cibar Plains and record the murder evidence.'});
   talk(well,'return','Return to Celia at Cibar Plains with her brother’s last witness.',
@@ -180,7 +180,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'There are spirits all along the path where she went. I can’t send another miner in there alone. Please help me find her.');
   talk(regions,'bruni-rescued','Speak with Bruni after clearing Rootwater’s escape route in Druganwoods.',
     'They closed the gallery while men were still inside. My father was one of them. For years they told me he’d run away.',
-    'The Rootfather started growing after the spring was poisoned. Here’s my survey. I found an old account about your parents' last crossing too. I think you should read it.');
+    'The Rootfather started growing after the spring was poisoned. Here’s my survey. I found an old account about your parents’ last crossing too. I think you should read it.');
   stage(regions,'seed-road-repair',{text:'Resolve Celia’s murder inquiry at Cibar Plains so the surviving relief witnesses can testify safely.'});
   talk(regions,'mine-account','Arrange the reckoning inside Deepford’s Hall Archive before facing the Rootfather.',
     'Celia’s story matches what Bruni found. People went missing near those old wards. This wasn’t an accident.',
@@ -242,7 +242,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'A boat came in last night, and Orren’s niece was on it. He just held her and cried. I don’t think I’ve ever seen him like that.',
     'There’s a forge mark on the shard from the Wyrm. It looks like the iron they make at Blackspire. Maybe the smiths there can explain it.');
   talk(regions,'report:blackspire','Return to Forge Hall, Blackspire, Darkav, with the Seer’s charge book.',
-    'I gave the workers' families the keys to the chainworks. Nobody should’ve been locked in there. I won’t let that happen again.',
+    'I gave the workers’ families the keys to the chainworks. Nobody should’ve been locked in there. I won’t let that happen again.',
     'The names in this book belong beside the accounts in Highmere. And Leigneron... Renna has found something about the last crossing. You deserve to hear it from her, not from a rumor.');
   stage('royal-guard-trial','report',{dialogue:[
     'Iven found the warrant under a floorboard. Thanks for keeping an eye on the door while he searched. We couldn’t have done it safely without you.',
