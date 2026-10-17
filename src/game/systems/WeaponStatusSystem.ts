@@ -14,13 +14,13 @@ export class WeaponStatusSystem {
   get name(){return this.effect?.proc.name??null;}
   get color(){return this.effect?STATUS_COLOR[this.effect.proc.status]:0xffffff;}
   get tint(){return this.effect?STATUS_TINT[this.effect.proc.status]:0xffffff;}
-  get movementMultiplier(){return this.effect?.proc.status==='frost'?(this.effect.boss ? .85 : .65):1;}
+  get movementMultiplier(){return this.effect?.proc.status==='frost'?(this.effect.boss ? .80 : .55):1;}
   get attackSpeedMultiplier(){return this.movementMultiplier;}
-  get directDamageMultiplier(){return this.effect?.proc.status==='expose'?(this.effect.boss?1.06:1.12):1;}
-  tryApply(proc:WeaponProc,baseDamage:number,enemyId:string,boss:boolean,random:()=>number=Math.random):boolean {
+  get directDamageMultiplier(){return this.effect?.proc.status==='expose'?(this.effect.boss?1.10:1.20):1;}
+  tryApply(proc:WeaponProc,baseDamage:number,enemyId:string,boss:boolean,random:()=>number=Math.random,hitWeight=1):boolean {
     if(this.effect||this.clock<this.nextProcAt||!Number.isFinite(baseDamage)||baseDamage<=0)return false;
     const susceptibility=statusSusceptibility(enemyId,proc.status);
-    if(susceptibility===0||random()>=proc.chance)return false;
+    if(susceptibility===0||random()>=proc.chance*Math.max(0,Math.min(1,hitWeight)))return false;
     const duration=proc.status==='frost'?(boss?Math.min(1400,proc.durationMs):proc.durationMs)*Math.min(1,susceptibility):proc.durationMs;
     this.effect={proc,started:this.clock,ends:this.clock+duration,nextTick:this.clock+1000,
       damage:baseDamage*proc.damagePerSecond*susceptibility*(boss ? .5 : 1),boss};
