@@ -80,13 +80,13 @@ const approaches:Array<[string,string,string,string]>=[
  ['seer-before','ashen-seer','ashen-seer','The chainworks book shows where the stolen iron went. Vexa recognizes several names on the list. She’s furious.'],
 ];
 const regionalAftermath:Record<string,{title:string;line:string}>={
- 'moonlit-warden':{title:'After the Silence',line:'The guardian lies still, but the grove does not grow quiet. Beneath the roots, Leigneron finds an old iron mark where the soil should be clean.'},
- stonejaw:{title:'The Pass at Dawn',line:'Stonejaw no longer blocks the road. Above the shattered wagons, the beacon catches the morning light. Someone in Starhold rings a bell for the missing porters.'},
- 'iron-tusk':{title:'The Well Without a Banner',line:'Krag’s banner has fallen into the dust. At the well, an old woman fills two clay cups and offers the first to a child from the rival clan.'},
- rootfather:{title:'Water Beneath the Roots',line:'The Rootfather sinks into the tangled earth. The spring still smells of mine waste. Bruni’s survey rests beside the channel the guild has promised to mend.'},
- 'salt-king':{title:'Names in the Cargo Hold',line:'The deck is empty of guards. Under a torn sail, the names of inland villages are still stamped on the stolen crates. A deckhand lowers his eyes as Leigneron reads them.'},
- 'frost-wyrm':{title:'The Shore Lantern',line:'The Wyrm retreats among the ice. On the far shore, a small light appears, then another. The hunters answer from the beacon with their own lamps.'},
- 'ashen-seer':{title:'Ash on the Ledger',line:'The Seer’s fire fades. Beneath the ash, the furnace book survives with every stolen load marked in the same careful hand. The families waiting outside have not forgotten those names.'},
+ 'moonlit-warden':{title:'After the Silence',line:'The Warden stops moving. Leigneron finds a cut mark beneath the roots. Someone removed an old piece of iron from the grove.'},
+ stonejaw:{title:'The Pass at Dawn',line:'The pass is open again. The porters come down from the mountain one at a time. Their families are waiting at the gate.'},
+ 'iron-tusk':{title:'The Well Without a Banner',line:'Krag’s men have gone. People from both clans line up at the well. An older woman offers a cup of water to a child she doesn’t know.'},
+ rootfather:{title:'Water Beneath the Roots',line:'The Rootfather falls back into the roots. The water is still polluted. Bruni shows the miners where the damaged channel needs repairing.'},
+ 'salt-king':{title:'Names in the Cargo Hold',line:'The ship’s guards have fled. Leigneron finds stolen crates from several villages. A deckhand admits the crew knew where the cargo came from.'},
+ 'frost-wyrm':{title:'The Shore Lantern',line:'The Wyrm moves back toward the cliffs. The hunters light the beacon, and a boat answers with its own lantern.'},
+ 'ashen-seer':{title:'Ash on the Ledger',line:'The Seer is gone for now. The forge records survived the fire. The waiting families crowd around to see whether their missing relatives are named.'},
 };
 for(const [before,bossId,objectiveId,line] of approaches){
  const p=CONTENT_BY_ID['boss:'+bossId].world;
@@ -95,43 +95,43 @@ for(const [before,bossId,objectiveId,line] of approaches){
  add('campaign-'+objectiveId+'-after',aftermath.title,[at(p.x,p.y,aftermath.line)]);
 }
 add('inheritance-revealed','An Inheritance, Not a Destiny',[
- npc('aldren-vale','Edmund has heard the river account. He had kept hoping there might be another road to search. Now he sits beside the young man he raised, and lets them both grieve.'),
- {...npc('mira-fen','You went looking for an answer and kept finding people who needed help. Perhaps those were never separate roads.'),variants:[
-   {flag:'leigneron-protector',line:'You said you wanted Lena’s children to stop waiting in fear. That promise traveled farther than you imagined.'},
-   {flag:'leigneron-seeker',line:'You found what your family’s work meant to people who remembered it. You did not have to abandon them to find an answer.'},
+ npc('aldren-vale','Edmund has read what happened at the river. He sits beside Leigneron for a long time. Neither knows what to say.'),
+ {...npc('mira-fen','You went looking for your parents. And you helped a lot of people along the way. I think they’d be proud of you.'),variants:[
+   {flag:'leigneron-protector',line:'Remember how worried you were about Lena’s children? You helped bring them home. You’ve done a lot of good since then.'},
+   {flag:'leigneron-seeker',line:'You found out what your parents did. I know it hurts. I’m glad you didn’t have to face it all alone.'},
  ]},
 ]);
 add('family-relief-account','The Names Beside the Crossing',[
- npc('bruni-stonevein','“Your mother brought food when our crossing flooded. Your father helped us get people out. They went back again when the rest of us could hardly stand.”'),
- npc('deepford-boatwright','The ferryman recorded the last crossing. The families reached shelter before the flooded bridge collapsed. Leigneron’s parents could have left earlier. They stayed to save strangers.'),
- at(TOWN_BY_ID.deepford.world.x,TOWN_BY_ID.deepford.world.y+340,'Leigneron folds the account beside the old compass. There is no enemy here to strike. For a while he simply listens to the river.'),
+ npc('bruni-stonevein','Your mother brought food after the flood. Your father helped us get the children out. They went back for the last family. I remember that.'),
+ npc('deepford-boatwright','The ferry records say the families made it to shelter. Leigneron’s parents were going back across the bridge when it collapsed.'),
+ at(TOWN_BY_ID.deepford.world.x,TOWN_BY_ID.deepford.world.y+340,'Leigneron reads the account once more. Then he puts it away and sits by the river. He needs a moment alone.'),
 ]);
 add('walter-arrest','The Crown’s Betrayal',[
- npc('sevrin-hale','“I did what was necessary.” Walter waits for an answer that does not come. Then Leigneron speaks. “You kept doing it after you knew what it cost.”'),
- npc('captain-yselle-ward','Isabel takes custody of Walter’s orders. His seal will not silence the witnesses again. The regions still need their iron—and someone willing to keep the roads.'),
+ npc('sevrin-hale','Walter says he was trying to feed the city. Leigneron asks why he kept selling the iron after people started dying. Walter has no answer.'),
+ npc('captain-yselle-ward','Isabel takes Walter’s papers and has the guards escort him away. Renna starts preparing copies of the evidence for the families.'),
 ]);
 add('varkhul-before','The Last Furnace',[
- npc('blackspire-warder','Dain counts the last furnace crew through the shelter door. The ridge shudders overhead. Nobody volunteers to go back for the tools.'),
- at(DRAGON_LAIR.x,DRAGON_LAIR.y,'Varkhul turns on the basalt shelf. Heat rolls over the black stone as he opens his wings. Far below, Vexa’s people are waiting for the sky to clear.'),
+ npc('blackspire-warder','Dain counts the workers as they reach the shelter. One person is missing. He asks the others if anyone saw where they went.'),
+ at(DRAGON_LAIR.x,DRAGON_LAIR.y,'Varkhul sees Leigneron approaching. He spreads his wings above the lava. The workers below are still trying to reach safety.'),
 ]);
 add('ember-retreat','Wings Above the Ridge',[
- at(DRAGON_LAIR.x,DRAGON_LAIR.y,'Varkhul rises into the smoke, and the mountain seems to inhale. Along the lower road, voices call out names. The crews are still alive.'),
+ at(DRAGON_LAIR.x,DRAGON_LAIR.y,'Varkhul flies away. Dain runs down the road calling for the missing workers. He hears someone answer and goes to help.'),
 ]);
 add('wards-rewoven','A Promise Tempered in Iron',[
- at(DRAGON_LAIR.x-1150,DRAGON_LAIR.y+180,'The reforged chain joins the cinder ward. Leigneron’s compass settles—not toward a throne, but toward the roads whose keepers have agreed to answer one another.'),
- {...npc('renna-vale','Matching covenant records travel to every region. No single seal can sell away a public spring again without witnesses.'),variants:[
-   {flag:'covenant-local-keepers',line:'Local keepers publish their accounts and answer to their neighbors. The crown records their promises; it does not own their roads.'},
-   {flag:'covenant-shared-watch',line:'A shared road watch answers to witnesses from the regions it serves. Its duty is passage and shelter, not possession.'},
+ at(DRAGON_LAIR.x-1150,DRAGON_LAIR.y+180,'The workers fix the new chain to the old ward. Leigneron’s compass stops shaking. For the first time, it points in one direction.'),
+ {...npc('renna-vale','We’ve sent copies of the new agreement to every region. This time the villages will know exactly what the crown has promised them.'),variants:[
+   {flag:'covenant-local-keepers',line:'The villages have agreed to look after their own roads and springs. We’ll help when they need us.'},
+   {flag:'covenant-shared-watch',line:'The regions have agreed to share a road watch. I hope having them work together means no one gets ignored again.'},
  ]},
 ]);
 add('roadborn-epilogue','A Place at the Table',[
- npc('sena-marrow','At Marrow Inn, a warm bowl waits for someone who came home. Lena’s children no longer listen for every footstep with fear.'),
- npc('aldren-vale','Edmund rests a hand on his shoulder. For years, Leigneron thought his parents had left him behind. Now he knows they stayed so other people could get home.'),
- npc('mira-fen','Alice catches him looking out toward the road. “Not settling down, then?” He smiles. “Not yet.” “Just don’t forget where home is.”'),
- {...npc('renna-vale','The search riders still bring news. Families sit beside the judges, and some reunions begin with an argument about who has grown taller.'),variants:[{flag:'relief-household-charter',line:'The crown shelter has fewer occupied beds this week. Some families went home. Others found a new one without having to buy their freedom.'}]},
- {...npc('redmesa-beastmaster','Clan keepers and caravan witnesses share the water tally. Krag’s banner no longer decides whose children drink.'),variants:[{flag:'rindass-clan-water',line:'The clan watering turns are carved beside the well. No chief can quietly claim the spring again.'}]},
- {...npc('blackspire-forgemaster','The forge account is held by regional witnesses, beyond any one official’s reach.'),variants:[{flag:'darkav-open-account',line:'Blackspire’s public account names the smiths’ mistakes as well as the stolen seals. Its survivors are no longer asked to forget.'}]},
- npc('aldren-vale','The dragon will return. Storms will close passes. Roads will always need tending. Leigneron is free to travel again—and now knows why he would.'),
+ npc('sena-marrow','Sena sets a bowl on the table when Leigneron walks into the inn. Lena’s children are playing nearby. They seem happy again.'),
+ npc('aldren-vale','Edmund sits down beside Leigneron. They talk about his parents for a while. Some of the stories make them laugh; others don’t.'),
+ npc('mira-fen','Alice catches him looking toward the road again. She laughs. 'You’re leaving already?' He smiles. 'Not yet.''),
+ {...npc('renna-vale','Families are still arriving from the search. Last week a mother found her grown daughter. She barely recognized her.'),variants:[{flag:'relief-household-charter',line:'Some of the families have gone home. The others can stay in the shelter as long as they need to.'}]},
+ {...npc('redmesa-beastmaster','The clans have been taking turns at the well. I still hear arguments, but nobody’s drawing a weapon over water.'),variants:[{flag:'rindass-clan-water',line:'We wrote the watering turns on a board by the well. People can check it for themselves now.'}]},
+ {...npc('blackspire-forgemaster','The other regions have copies of the forge records. I don’t want the truth disappearing again.'),variants:[{flag:'darkav-open-account',line:'I’ve told the workers exactly what happened. Some of them are angry with me. I understand.'}]},
+ npc('aldren-vale','Edmund smiles when Leigneron looks toward the road. 'You’ll be leaving again, won’t you?' He nods. 'Then come home safe.''),
 ]);
 for(const event of STORY_ENCOUNTERS){
   const focus=event.interiorNpcId??event.npcId;
