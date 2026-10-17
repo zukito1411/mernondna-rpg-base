@@ -104,16 +104,16 @@ export function applyAdventure(quests:QuestDefinition[]){
   const talk=(id:string,npc:string,text:string,...dialogue:string[]):QuestObjective=>({id,type:'talk',targetId:npc,text,dialogue,amount:1});
   const inspect=(id:string,text:string):QuestObjective=>({id,type:'investigate',targetId:id,contentId:id,amount:1,text});
   insert('first-road','watch-plan',event('oakmere-raid'));
-  stage('first-road','watch-plan').dialogue=['They weren't after the money. Look, they even left the horses. There's something about your mother's survey in this order.',
-    'I'll put guards at the inn. You be careful around Varr's men, all right? I don't want them coming back for Lena.'];
+  stage('first-road','watch-plan').dialogue=['They weren’t after the money. Look, they even left the horses. There’s something about your mother’s survey in this order.',
+    'I’ll put guards at the inn. You be careful around Varr’s men, all right? I don’t want them coming back for Lena.'];
   // Optional family memories do not hold the opening rescue hostage.
   q('first-road').objectives=q('first-road').objectives.filter(o=>o.id!=='caravan-hearth');
   insert('shadows-highmere','escort',event('witness-ambush'));
   q('shadows-highmere').name='A Body at the Bridge';
   insert('eight-regions','grove-oath',talk('pilgrim-safe','maerwen-reedleaf','Find Maerwen hiding near the Moon Pilgrims’ Clearing in Narenthil.',
-    'Wait! Please, stay there. I'm sorry. I thought you were one of them.',
+    'Wait! Please, stay there. I’m sorry. I thought you were one of them.',
     'They were digging up the iron beneath the trees. I saw the Warden nearby. Then the roots started moving and we all ran.',
-    'It's safe now? Thank you. I just need a minute. Could you tell the others the children are all right?'));
+    'It’s safe now? Thank you. I just need a minute. Could you tell the others the children are all right?'));
   insert('eight-regions','mountain-code',event('mountain-signal'));
   insert('eight-regions','well-treaty',event('redmesa-defense'));
   insert('eight-regions','winter-signal-return',event('winter-signal'));
@@ -124,62 +124,62 @@ export function applyAdventure(quests:QuestDefinition[]){
     stage('eight-regions',id).chapter='Act V · The crown’s betrayal';
   insert('returning-ember','survey-ward',event('furnace-escape'));
   // Cibar remains a full optional investigation, not a compulsory detour from
-  // a rescued surveyor's very personal revelation.
+  // a rescued surveyor’s very personal revelation.
   q('eight-regions').objectives=q('eight-regions').objectives.filter(o=>o.id!=='seed-road-repair');
   stage('eight-regions','seal-account').cinematicId='walter-arrest';
   stage('eight-regions','seal-account').dialogue=[
     'You think I wanted this? I had people begging me for food every day. I thought I could fix it.',
-    'I sold the iron. I knew where it came from. When people started getting hurt, I should've stopped. But I didn't. I was afraid of being found out.',
-    'All right. I'll go with Isabel. I won't ask you to hide what I did.'];
+    'I sold the iron. I knew where it came from. When people started getting hurt, I should’ve stopped. But I didn’t. I was afraid of being found out.',
+    'All right. I’ll go with Isabel. I won’t ask you to hide what I did.'];
   stage('eight-regions','capital-return').dialogue=[
     'Wait. Put those two books together. Look at the signatures. Walter paid for every shipment. He knew the wards were failing.',
-    'Leigneron... I'm sorry. I found the account from the flood. Your parents went back for the last families. The bridge collapsed before they could return.',
-    'That's enough to bring him in. Isabel's coming. Would you help me carry these books upstairs?'];
+    'Leigneron... I’m sorry. I found the account from the flood. Your parents went back for the last families. The bridge collapsed before they could return.',
+    'That’s enough to bring him in. Isabel’s coming. Would you help me carry these books upstairs?'];
   stage('eight-regions','capital-return').text='Bring the charge book to Cecily inside the Royal Archive, Highmere, Trandum.';
   stage('eight-regions','return-aldren-after-regions').dialogue=[
-    'For years I thought maybe they'd survived. Somewhere we hadn't looked. I knew it was unlikely. I still hoped.',
-    'They helped those families. That's who they were. I'm proud of them. I just wish they'd come home to you.',
-    'You're going back out, aren't you? I thought so. Just promise you'll ask for help when you need it.'];
+    'For years I thought maybe they’d survived. Somewhere we hadn’t looked. I knew it was unlikely. I still hoped.',
+    'They helped those families. That’s who they were. I’m proud of them. I just wish they’d come home to you.',
+    'You’re going back out, aren’t you? I thought so. Just promise you’ll ask for help when you need it.'];
   q('eight-regions').resolution='The regions expose Walter’s trade in stolen ward iron. He is arrested after the archive attack. Leigneron learns that his parents died saving families from a flood. Their work—and the communities’ covenant—lead to the final repair at Darkav.';
-  stage('eight-regions','mine-account').dialogue=['Bruni showed me where the waste went into the spring. We caused this. I don't know how I missed it.',
-    'The workers can fix the channel, but they're scared of the Rootfather. I'll stay with them. Please keep them safe.'];
+  stage('eight-regions','mine-account').dialogue=['Bruni showed me where the waste went into the spring. We caused this. I don’t know how I missed it.',
+    'The workers can fix the channel, but they’re scared of the Rootfather. I’ll stay with them. Please keep them safe.'];
   const side=(id:string,name:string,giverNpcId:string,prerequisiteQuestId:string,summary:string,objectives:QuestObjective[],resolution:string):QuestDefinition=>
     ({id,name,giverNpcId,kind:'side',prerequisiteQuestId,summary,objectives,resolution,rewardXp:340,rewardGold:100});
   quests.push(
     side('hunters-promise','The Hunter’s Promise','mira-fen','first-road',
       'Alice suspects someone is driving frightened animals toward Oakmere. Follow the snares, not the rumors.',[
-        talk('tracks','mira-fen','Speak to Alice outside Oakmere, Trandum.','These animals were hurt before they reached the village. Look at the cuts. Someone's been setting traps out there.','I found some wire near the southeast path. Will you come and look? I hope I'm wrong about this.'),
+        talk('tracks','mira-fen','Speak to Alice outside Oakmere, Trandum.','These animals were hurt before they reached the village. Look at the cuts. Someone’s been setting traps out there.','I found some wire near the southeast path. Will you come and look? I hope I’m wrong about this.'),
         inspect('adventure:poacher-snare','Find the snares southeast of Oakmere, Trandum.'),event('poacher-camp'),
-        talk('home','mira-fen','Return to Alice outside Oakmere.','You found the traps? Good. Elara can take it from here. I'm just glad no one else got hurt.','Remember when you were scared of every wolf in the woods? Don't look at me like that. You were.'),
+        talk('home','mira-fen','Return to Alice outside Oakmere.','You found the traps? Good. Elara can take it from here. I’m just glad no one else got hurt.','Remember when you were scared of every wolf in the woods? Don’t look at me like that. You were.'),
       ],'The poachers are exposed. Alice and the watch remove their snares rather than blame the forest.'),
     side('home-for-two','A Home for Two','willowcross-keeper','first-road',
       'Two children have lost their parents. An uncle claims their inheritance, but their mother left different wishes.',[
-        talk('hearth','willowcross-keeper','Speak to the keeper in Willowcross, Trandum.','The children hardly talk at supper anymore. I don't know what to say to them.','Their uncle showed up asking for the deed to the house. Their mother kept papers at the old shelter southwest of town. I think we should see what she wrote.'),
+        talk('hearth','willowcross-keeper','Speak to the keeper in Willowcross, Trandum.','The children hardly talk at supper anymore. I don’t know what to say to them.','Their uncle showed up asking for the deed to the house. Their mother kept papers at the old shelter southwest of town. I think we should see what she wrote.'),
         inspect('adventure:family-deed','Recover the family deed southwest of Willowcross, Trandum.'),
         {id:'protect-deed',type:'choice',targetId:'willowcross-keeper',amount:1,text:'Bring the deed to the keeper in Willowcross before confronting the uncle.',dialogue:[
-          'Two men came asking where the children sleep. It frightened me. I won't let them near the house, but what if they come back?'],choices:[
-          {id:'watch',text:'Give the watch a witnessed copy. Let them arrest the hired men.',response:'I'll get Tovan to sign as a witness. I want this settled without anyone getting hurt.',flag:'siblings-guarded-deed'},
+          'Two men came asking where the children sleep. It frightened me. I won’t let them near the house, but what if they come back?'],choices:[
+          {id:'watch',text:'Give the watch a witnessed copy. Let them arrest the hired men.',response:'I’ll get Tovan to sign as a witness. I want this settled without anyone getting hurt.',flag:'siblings-guarded-deed'},
           {id:'defend',text:'Keep the children here. I will confront his men at the roadside shelter.',response:'All right. The children can stay here. Please be careful out there.',flag:'siblings-defend-deed'},
         ]},
         {...event('false-inheritance'),completedByFlag:'siblings-guarded-deed'},
-        {id:'belonging',type:'choice',targetId:'willowcross-keeper',amount:1,text:'Return to the keeper in Willowcross about the children’s future.',dialogue:['The widow wants to take them in. The children want to stay with her. I don't know why their uncle won't listen. What should we tell the watch?'],choices:[
-          {id:'widow',text:'Honor their mother’s wishes. Let the children stay together with the widow.',response:'I'll go to the hearing with them. They're not going in there by themselves.',flag:'siblings-widow'},
-          {id:'hearing',text:'Ask Isabel to hear the children and protect their home before settling the guardianship.',response:'Yes. The children should get a chance to speak. I'll make sure someone listens.',flag:'siblings-hearing'},
+        {id:'belonging',type:'choice',targetId:'willowcross-keeper',amount:1,text:'Return to the keeper in Willowcross about the children’s future.',dialogue:['The widow wants to take them in. The children want to stay with her. I don’t know why their uncle won’t listen. What should we tell the watch?'],choices:[
+          {id:'widow',text:'Honor their mother’s wishes. Let the children stay together with the widow.',response:'I’ll go to the hearing with them. They’re not going in there by themselves.',flag:'siblings-widow'},
+          {id:'hearing',text:'Ask Isabel to hear the children and protect their home before settling the guardianship.',response:'Yes. The children should get a chance to speak. I’ll make sure someone listens.',flag:'siblings-hearing'},
         ]},
       ],'The children keep their home and each other. Their wishes, not the uncle’s hired swords, decide the hearing.'),
     side('soldier-return','The Soldier Who Never Returned','starhold-templar','crown-summons',
       'A mother still waits for a mountain soldier. Halla asks you to find an answer, not invent a comforting one.',[
-        talk('waiting','starhold-templar','Speak with Halla beside Starhold, Nardorous.','His mother still puts his cloak by the door. Every morning. I can't bring myself to tell her to stop.','His last post was west of the beacon. If there's a letter there, I'd like to give it to her myself.'),
+        talk('waiting','starhold-templar','Speak with Halla beside Starhold, Nardorous.','His mother still puts his cloak by the door. Every morning. I can’t bring myself to tell her to stop.','His last post was west of the beacon. If there’s a letter there, I’d like to give it to her myself.'),
         inspect('adventure:soldier-letter','Find the soldier’s letter west of the pass beacon near Starhold, Nardorous.'),
-        talk('letter','starhold-templar','Return the letter to Halla at Starhold.','He gave them the last of his firewood? Yes... yes, that's just like him.','I'll take the letter to his mother. I don't know how she'll take it. Could you stay a little while?'),
+        talk('letter','starhold-templar','Return the letter to Halla at Starhold.','He gave them the last of his firewood? Yes... yes, that’s just like him.','I’ll take the letter to his mother. I don’t know how she’ll take it. Could you stay a little while?'),
       ],'His mother learns that he stayed with the refugees. The letter gives her an answer, not a grand reward.'),
     side('tidewatch-debt','The Last Debt of Tidewatch','tidewatch-sailmaker','crown-summons',
       'A former pirate wants forgiveness from a sailor’s daughter. First, someone must tell her what actually happened.',[
-        talk('debt','tidewatch-sailmaker','Visit Sailmaker House in Tidewatch, Portquill; travel there by boat.','He keeps saying he's sorry, but he won't tell me what he did. I don't trust that.','Her father had a locket. I heard the smugglers took the other half to Salt Bay Outlook. That might tell us what really happened.'),
+        talk('debt','tidewatch-sailmaker','Visit Sailmaker House in Tidewatch, Portquill; travel there by boat.','He keeps saying he’s sorry, but he won’t tell me what he did. I don’t trust that.','Her father had a locket. I heard the smugglers took the other half to Salt Bay Outlook. That might tell us what really happened.'),
         inspect('adventure:sailor-locket','Search Salt Bay Outlook south of Tidewatch, Portquill.'),event('last-debt'),
-        {id:'truth',type:'choice',targetId:'tidewatch-sailmaker',amount:1,text:'Return to Sailmaker House, Tidewatch, with the sailor’s account.',dialogue:['He sold her father's route to the smugglers, then lied and blamed the storm. Now he wants her forgiveness. I don't even know if she'll want to speak to him.'],choices:[
-          {id:'confession',text:'Give her the truth. Let her decide whether she wants his apology.',response:'I'll give her the letter. He can wait until she decides whether she wants to answer.',flag:'pirate-confession'},
-          {id:'watch',text:'Give her the account and send a copy to the harbor watch.',response:'All right. I'll make a copy for her and one for the harbor watch. He doesn't get to hide what he did.',flag:'pirate-accountability'},
+        {id:'truth',type:'choice',targetId:'tidewatch-sailmaker',amount:1,text:'Return to Sailmaker House, Tidewatch, with the sailor’s account.',dialogue:['He sold her father’s route to the smugglers, then lied and blamed the storm. Now he wants her forgiveness. I don’t even know if she’ll want to speak to him.'],choices:[
+          {id:'confession',text:'Give her the truth. Let her decide whether she wants his apology.',response:'I’ll give her the letter. He can wait until she decides whether she wants to answer.',flag:'pirate-confession'},
+          {id:'watch',text:'Give her the account and send a copy to the harbor watch.',response:'All right. I’ll make a copy for her and one for the harbor watch. He doesn’t get to hide what he did.',flag:'pirate-accountability'},
         ]},
       ],'The daughter receives the true account. Forgiveness belongs to her, not to the man asking for it.'),
   );
