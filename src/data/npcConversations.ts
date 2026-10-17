@@ -67,23 +67,34 @@ export function residentConversation(region:string,index:number,visitor:boolean,
 
 export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMap<string,string>){
   const lines:Record<string,string[]>={
-    'joren-pike':['There you are. I have plain steel for honest work, and better blades if your purse has grown braver than you.','Try the balance before you buy. A pretty sword that fights your wrist is only expensive trouble.'],
+
+    'joren-pike':["Hold on. Let me see that sword before you go.","That edge is a mess. Sit down. I'll fix it while you eat something."],
+
     'lena-cartwright':['They wanted the letter, not my purse. I hid it where nobody would look for anything worth stealing.','Please. My children are at the inn. Clear the watchers before you go after their captain.'],
     'mairin-reed':['No, he has not come home. If you have news of my son, say it before you ask me for anything.','There is soup on the hearth. I keep making too much. It gives my hands something to do.'],
     'tovin-reed':['Keep your voice down. I have heard my name shouted often enough for one week.','I did not kill that man. I tried to stop the bleeding. That is all I knew how to do.'],
     'pell-rusk':['You did not see me. Unless you have an apple, in which case I was here all along.','Do not laugh too loudly. The watch has been taking an interest in anyone who still does.'],
-    'davin-bridge':['There was a time I knew the people crossing this bridge. Now I spend the day looking at seals.','Some nights I remember a wagon I should have looked inside.'],
-    'maela-quill':['You can bargain, but do not tell me what I paid for it. I was there.','My brother has taken in a girl from the flooded villages. She has him wrapped round one little finger. He has never looked happier.'],
+
+    'davin-bridge':["Yes, I was on duty that night. I've been asked about it a dozen times.","There was a wagon. It had the right papers. I should've looked inside."],
+
+    'maela-quill':["If you're buying, tell me what you need. If you're here to complain, take a number.","I'm joking. Mostly. What's happened?"],
+
     'nella-harrow':['Sit a moment. I can finish this seam while you tell me your news.','My sister is still working off a debt she never agreed to. I sew for fine houses and wonder which one has her.'],
     'sevrin-hale':['If you have come to shout, close the door. The clerk has a headache already.','No, a royal seal does not make every decision wise. Some of us learn that later than we should.'],
-    'renna-vale':['Aldren writes three lines when one would do, and then leaves out the thing I asked him. Sit down. Tell me how he really is.','If you need an old record, ask. A cupboard is not much use to anyone if I guard it like a dragon.'],
+
+    'renna-vale':["Oh, you're here. Did Edmund send another letter, or have you come to worry me in person?","Sit down. Start at the beginning. I don't want to miss anything."],
+
     'celia-brook':['My brother used to whistle at that well. Dreadful tune. I would give a great deal to hear it once more.','Stay for a little while, if you can. The fields get very quiet after everyone has gone home.'],
     'iren-copperwake':['There is mud on your boots. Good. I trust people who have walked the path they are talking about.','I have said “I should have” so often lately that Asha has forbidden it at supper.'],
     'asha-stonevein':['Set it on the bench, not the clean cloth. That cloth is older than your sword and rather more useful.','Broken things usually leave a mark. People do too, though it can take longer to find.'],
-    'redmesa-beastmaster':['Easy near the pens. The big boar is gentle; the little one has strong opinions about hats.','You are a guest here. If someone tells you otherwise, bring them to me.'],
-    'deepford-runesmith':['That shelf? Family histories. The locked one? Guild histories. Draw your own conclusion.','I am trying to make the second as honest as the first. It is not making me popular.'],
-    'tidewatch-sailmaker':['Do not lean on that sail unless you mean to help sew it. Sit on the stool instead.','I make every seam as though someone I love will need it in a storm. Someone always does.'],
-    'blackspire-forgemaster':['You can ask about the chains. I will not like every answer I give you, but I will give it.','The young smiths deserve better teachers than silence.'],
+
+    'redmesa-beastmaster':["Don't stand behind the boar. He kicked a bucket clear across the pen yesterday.","Krag's men have been taking water from the smaller clans. People are getting angry, and I don't blame them."],
+
+    'deepford-runesmith':["You found those markings where? Near the mine?","I know that symbol. I wish I didn't. Give me a moment to find my notes."],
+
+    'tidewatch-sailmaker':["Watch that needle. I dropped it somewhere near your feet.","A sailor came in asking for a new sail. Wouldn't give me his name. I recognized his ship anyway."],
+
+    'blackspire-forgemaster':["I made those chains. I thought they'd keep everyone safe.","Now they're broken, and people are scared. I wish I knew how to fix it faster."],
 
     'lady-adria-vale':['People keep asking me to sign their papers before I have heard their names. Sit down. We have time to hear yours.','My sister says I am too slow to anger. She did not see what I found in the service ledgers.'],
     'ser-caldus-rowe':['The lad by the targets thinks a wooden sword cannot hurt him. Would you tell him what that bruise is called?','Isabel was much the same at his age. Only she listened when I told her to put the blade away.'],
@@ -109,6 +120,42 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
     'kellan-ashfield':['A wagon left without guards yesterday. I have been looking up the road every hour since.','My uncle Torren says the harvest is worth protecting even when the sacks look empty. He is usually right.'],
     'meral-gull':['Celia counts the seed bags and I count the hands waiting for them. One of us always comes up short.','My cousin Jessa says I should trade nearer the sea. Saltwater never fed a field.'],
 
+    'aldren-vale':["There you are. I was starting to worry.","Lena's missing, and her kids are scared. Please be careful out there. I don't want to lose you too."],
+    'mira-fen':["You're heading out again? At least tell me where you're going this time.","I've seen wolves closer to the farms. I don't think they're hunting there by choice."],
+    'elara-voss':["I need someone who'll listen when I tell them to fall back. Can you do that?","We've got enough trouble near the farms without anyone trying to be a hero."],
+    'orin-bell':["Is that your mother's compass? May I see it?","That's odd. The needle moved when you came in. Has it been doing that long?"],
+    'torren-ashfield':["I've got three wagons sitting idle and drivers asking me when they can go home.","I can't send them east with bandits out there. I just can't."],
+    'silas-crowe':["Back already? Don't tell me you took the easy trail.","Something's chasing the deer toward the farms. I haven't worked out what yet."],
+    'sena-marrow':["Sit down. You look hungry, and I'm not asking twice.","A traveler came in before dawn, shaking like a leaf. Wouldn't even touch his breakfast."],
+    'nella-brook':["Leigneron! Watch where you put those boots. I only planted that row yesterday.","And if you see Lena, tell her I'm keeping her seed sacks dry. I'm worried about her."],
+    'captain-yselle-ward':["I've got guards working double shifts and none of us has slept much.","If you've heard something about the missing grain, tell me. Even a little detail might help."],
+    'barric-thorne':["Mind the horses near the gate. They're jumpy today.","Someone's been moving wagons after curfew. I want to know who gave them permission."],
+    'osric-flint':["Careful, that metal's still hot.","I've got carts lined up outside, and half the repairs are for wheels broken on the eastern road. Something's wrong out there."],
+    'tamsin-reed':["I've been cooking since sunrise and we're still short of flour.","Mairin says she'll send more when she can. I'm trying not to think about why she hasn't."],
+    'lina-farrow':["Those apples are fresh. The bruised ones are cheaper if you don't mind cutting a bit off.","My brother hasn't come back from the river. It's hard to sell fruit while I keep watching the road."],
+    'sera-lorn':["You're blocking the courier lane. Sorry. I'm in a hurry.","Isabel's waiting on this message, and it's already late."],
+    'garron-holt':["Could you move a step to the left? The carts need to get through.","Thank you. Nobody looks where they're going until a wheel's on their foot."],
+    'maren-voss':["I lit a candle for my sister this morning. She won't admit she's frightened, but I know her.","If you're going past Oakmere, would you check that she's all right?"],
+    'eddan-ford':["The western bridge needs repairs again. I told the council weeks ago.","One good rain and we'll have carts stuck on both sides. I'm not waiting for that to happen."],
+    'faye-merrow':["Fresh fish. It really is fresh, despite what Maela says.","My boy's helping on the boats this week. I keep hoping he'll come home early."],
+    'halden-pike':["Joren still sends word about your sword. He worries about it more than you do.","I've got a caravan looking for an escort. The driver won't go near the east road."],
+    'kael-rusk':["Can I see your sword? Just the handle. I've been practicing that kind of grip.","Osric says I spend too much time on blades and not enough on wagon hinges."],
+    'tilda-brook':["Watch the baskets. Those pears bruise if you look at them wrong.","Nella's delivery hasn't arrived yet. Do you know if the road's open?"],
+    'willowcross-keeper':["The bridge is fine for now. I checked it myself this morning.","It's the road past the bridge I'm worried about. A family came through last night and wouldn't tell me why they were running."],
+    'willowcross-fletcher':["I can make you some arrows, but it'll take until morning.","I've been working on Mira's bow. She said she wasn't in a hurry, then asked me twice when it'd be ready."],
+    'elarion-lorekeeper':["I'm glad you came. I've been staring at these carvings all day.","Something's happening to the trees, and the old records aren't helping as much as I'd hoped."],
+    'elarion-bowyer':["Don't touch that bow yet. The glue's still drying.","We've been hearing wolves near the river. We never used to hear them this close."],
+    'moonfall-herbalist':["I haven't been sleeping well. The herbs keep dying, no matter what I try.","If you go into the grove, please don't go alone. People have stopped coming back."],
+    'moonfall-ranger':["Wait. Did you hear that?","I keep seeing someone near the stones, but every time I get close they're gone. I don't like it."],
+    'starhold-quartermaster':["If you need rope, ask now. I've got too many people waiting for supplies.","We lost another wagon in the pass. I still don't know whether the driver made it."],
+    'starhold-templar':["I've been keeping the beacon lit every night. I'm so tired I can barely see it.","Someone's mother came asking about the missing porters. I didn't know what to tell her."],
+    'redmesa-forgewright':["If you're here for a weapon, give me a moment. The forge has been busy.","Krag keeps demanding more iron. I'm sick of making things for men who threaten their own neighbors."],
+    'deepford-boatwright':["I've got a ferry that needs patching and a crew that needs paying.","People keep coming down from the mine looking frightened. Nobody will tell me what happened."],
+    'tidewatch-harbor-master':["I've got three captains shouting at me about the harbor fees. Believe me, I've heard enough.","The Salt King's men are taking cargo again. I'm tired of telling families there's nothing I can do."],
+    'skallheim-hunter':["You need a warmer coat. No, really, you do.","We saw tracks above the fishing huts this morning. Too big for a wolf. I've told the children to stay inside."],
+    'skallheim-trader':["Come in. You're letting all the cold air through the door.","We haven't had a supply boat in days. I'm trying not to worry the children."],
+    'blackspire-warder':["You came through the ash road? Was anyone hurt?","I've sent scouts out twice. Two of them still haven't come back. I don't want to send a third group."],
+    'elarion-king':["You're welcome here, but please excuse the guards. Everyone's nervous.","Something's wrong in the grove. I can't keep telling my people everything is fine."],
   };
   for(const npc of npcs)if(lines[npc.id])npc.dialogue=rewriteNpcMentions(lines[npc.id],aliases);
 }
