@@ -50,12 +50,12 @@ export const DRAGON_QUEST:QuestDefinition={
   summary:'Varkhul has broken Blackspire’s cinder wards. Vexa asks Leigneron to discover his lair and drive him away long enough to repair the ash-road defenses. The dragon survives and will return.',
   objectives:[
     {id:'vexa-warning',type:'talk',targetId:'blackspire-forgemaster',amount:1,text:'Hear Vexa Cinder’s warning in Blackspire.',
-      dialogue:['I made those chains myself. I thought they'd hold. Now people are hurt because I was wrong.','Dain found the old ward-stone near the dragon's lair. Some of his scouts didn't make it back. I don't know what to tell their families.','We're not going to kill that dragon. I just need him away from the road long enough to get our people out.']},
+      dialogue:['I made those chains myself. I thought they’d hold. Now people are hurt because I was wrong.','Dain found the old ward-stone near the dragon’s lair. Some of his scouts didn’t make it back. I don’t know what to tell their families.','We’re not going to kill that dragon. I just need him away from the road long enough to get our people out.']},
     {id:'survey-ward',type:'investigate',targetId:'varkhul-ward',contentId:'clue:varkhul-ward',amount:1,text:'Inspect the Cinderwatch Ward beside the lava-ringed lair.'},
     {id:'repel-varkhul',type:'kill',targetId:'ash-dragon',bossId:DRAGON_BOSS_ID,amount:1,text:'Force Varkhul to retreat from his basalt lair.'},
     {id:'dain-report',type:'talk',targetId:'blackspire-warder',amount:1,text:'Tell Dain Emberfall that the ash road has a respite.',
-      dialogue:['I saw him leave. I could hardly believe it. We got the workers out, thank goodness.','Yeah, I saw him fly off. Thank you for giving us a chance to get everyone out. I don't know when he'll come back, and I don't want to be here when he does.']},
+      dialogue:['I saw him leave. I could hardly believe it. We got the workers out, thank goodness.','Yeah, I saw him fly off. Thank you for giving us a chance to get everyone out. I don’t know when he’ll come back, and I don’t want to be here when he does.']},
     {id:'vexa-resolution',type:'talk',targetId:'blackspire-forgemaster',amount:1,text:'Return to Vexa as the ward chains are reforged.',
-      dialogue:['Dain says everyone's back. I made him count twice. I was so scared we'd lost someone else.','I know he'll come back. But the workers are safe tonight. Let me be happy about that for a little while.']},
+      dialogue:['Dain says everyone’s back. I made him count twice. I was so scared we’d lost someone else.','I know he’ll come back. But the workers are safe tonight. Let me be happy about that for a little while.']},
   ],rewardGold:300,rewardXp:650,
 };
