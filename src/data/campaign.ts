@@ -183,15 +183,15 @@ export function applyCampaign(quests:QuestDefinition[]) {
       'Free the working route from the Rootfather’s grip. I will stay with the surveyors; no miner descends until the spring is inspected.']),cinematicId:'rootfather-before'},boss('rootfather'),
     report('deepford','deepford-runesmith',[
       'Bruni’s account is in the archive, and the spring survey will not be buried with a guild embarrassment.',
-      'The freight records send the removed iron out by sea. Go to Highmere’s quay and take passage to Tidewatch. The Salt King has been holding more than stolen flour.'],280),
+      'The freight records end at Tidewatch. I would ask the harbor masters who moved that iron before I believed any more tales about missing grain.'],280),
   ]);
   chapter('Portquill · The cargo of a crown',[
     speak('brief:tidewatch','tidewatch-harbor-master','Ask the Harbor Guild who profits from the missing relief cargo.',[
       'The Salt King sells the safe return of what he stole. His crews take grain, signal lenses and chains from the same marked cargo.',
-      'Your crown seal opens an account, not the sea. Speak to the sailmaker, read the bay outlook, then board the flagship by its eastern gangplank.']),
+      'Orren saw the cargo being taken. From Salt Bay Outlook you can see the flagship at anchor, its eastern gangplank hanging over the water like a dare.']),
     speak('ship-warning','tidewatch-sailmaker','Learn the flagship’s boarding approach and the crew’s strength.',[
-      'Two boatswains keep his deck watches. Clear the five crew holding the deck before you search the freight manifest.',
-      'The gangplank is on the eastern side. Keep your feet on the boards; a painted railing is not another shore.']),
+      'His boatswains do not let strangers near the hold. I saw a ledger taken below, then heard a man begging to be let off that ship.',
+      'The eastern gangplank is rotten at the edge. Watch your footing. I have pulled enough sailors out of that water.']),
     site('evidence:tidewatch','salt-bay-outlook','Read the coastal signal at Salt Bay Outlook.'),
     clear('flagship-deck','pirate:flagship:crew:',['cutlass-pirate','pirate-boatswain'],5,'Secure the flagship’s deck by defeating its five crew.'),
     inspect('cargo-manifest','story:flagship-manifest','Read the freight manifest beside the flagship’s cargo chest.'),
@@ -201,16 +201,16 @@ export function applyCampaign(quests:QuestDefinition[]) {
         {id:'bond',text:'Have the guild guard deliveries under a witnessed bond.',response:'The guild will answer for every chain and sack until it reaches its owner.',flag:'portquill-guild-bond'},
       ]),cinematicId:'salt-before'},boss('salt-king'),
     report('tidewatch','tidewatch-harbor-master',[
-      'The deck is clear for recovery. We will honor the account you chose, even if the captain returns to challenge the bay again.',
-      'One lens was sent onward to Skallheim. Its fishermen lost their winter signal when the same ward iron vanished. Take passage to the Frostlands.'],320),
+      'The stolen cargo will go back under witness. I will sign the ledger myself, even if the Salt King sails into this harbor tomorrow.',
+      'One of those lenses was sent as far as Skallheim. Their boats have been coming home in darkness since it disappeared. I know a captain who can carry a letter.'],320),
   ]);
   chapter('Frostlands · A hearth still lit',[
     speak('brief:skallheim','skallheim-hunter','Learn why the Frost Wyrm came down to the fishing coast.',[
       'It belongs to the ice cliffs, not our drying sheds. A dark fragment tore its scales after the old beacon was stripped.',
-      'The frightened wolves followed it down. Five now hold the bay stores. Speak to the trader; families are waiting for those provisions.']),
+      'The wolves came down after it and have gathered around the stores. Eyvind has children waiting for those supplies. He can tell you how bad it has become.']),
     speak('winter-households','skallheim-trader','Hear what the loss of the winter signal means to the fishing families.',[
       'A harbor light is a promise that someone will be awake when you return. Without it our boats stay home, and their children eat the winter stores now.',
-      'Clear the five wolves at the bay cache. Recover our signal lantern at the outlook; do not chase every animal across the snow.']),
+      'The wolves keep us from the bay cache. Our lantern lies near the outlook, beyond their tracks. I would go for it myself, but the children cannot lose another parent.']),
     site('evidence:skallheim','ice-bay-outlook','Examine the stripped beacon at Ice Bay Outlook.'),
     clear('frost-store-defense','story-camp:frost-stores:',['frost-wolf'],5,'Clear the five wolves blocking the fishermen’s bay supplies.'),
     inspect('recover-lantern','story:frost-lantern','Recover the icebound signal lantern beside the outlook.'),
