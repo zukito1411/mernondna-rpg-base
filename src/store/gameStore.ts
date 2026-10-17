@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { ContentWorldState, NavigationState, QuestObjective, QuestRuntimeState, RegionId } from '../game/types';
 import { LEIGNERON } from '../data/player';
-import { NPC_BY_ID } from '../data/npcs';
+import { NPC_BY_ID,EDMUND_TRAINER_ID } from '../data/npcs';
 import {BOSS_BY_ID} from '../data/enemies';
 import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
@@ -15,7 +15,8 @@ import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,COMBAT_CLEARANCE_REVISION_FLAG}
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
-import {BOSS_WEAPONS,POTIONS,canDropPotion,merchantStock,itemName,type PotionId} from '../data/economy';
+import {BOSS_WEAPONS,POTIONS,canDropPotion,merchantStock,isBlacksmith,itemName,type PotionId} from '../data/economy';
+import {MAX_WEAPON_UPGRADE,MAX_BOSS_MATERIALS,BOSS_WEAPON_IDS,type WeaponUpgradeLedger} from '../data/weaponUpgrades';
 import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
@@ -60,6 +61,10 @@ export interface GameState {
   gold: number;
   weaponId: string;
   inventory: string[];
+  weaponUpgrades:WeaponUpgradeLedger;
+  bossMaterials:Record<string,number>;
+  resetAttributes:(npcId:string)=>void;
+  enhanceBossWeapon:(npcId:string,weaponId:string)=>void;
   consumables:Record<PotionId,number>;
   vitalRevision:number;
   learnedCombatArts:ActiveSkillId[];
@@ -151,6 +156,7 @@ const baseState = () => ({
   gold: localPlayCheatsEnabled()?LOCAL_TEST_GOLD:18,
   weaponId: LEIGNERON.starterWeaponId,
   inventory: localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],
+  weaponUpgrades:{} as WeaponUpgradeLedger,bossMaterials:{} as Record<string,number>,
   consumables:{'healing-potion':2,'stamina-potion':1},vitalRevision:0,
   learnedCombatArts:[] as ActiveSkillId[],skillSlots:[...DEFAULT_SKILL_SLOTS] as (ActiveSkillId|null)[],
   worldX: LEIGNERON.spawn.x,
@@ -213,6 +219,34 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const id=itemId as PotionId;if(!POTIONS[id]||state.consumables[id]>=99)return {toast:'You cannot carry any more of that draught.'};
     return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,consumables:{...state.consumables,[id]:state.consumables[id]+1},toast:`Purchased ${itemName(id)}.`};
+  }),
+  resetAttributes:npcId=>set(state=>{
+    const dialogue=state.dialogue,lines=dialogue?.lines??NPC_BY_ID[npcId]?.dialogue??[];
+    if(npcId!==EDMUND_TRAINER_ID||dialogue?.npcId!==npcId||dialogue.choices?.length||state.panel||state.cinematic
+      ||!dialogue||dialogue.lineIndex<lines.length-1||state.activeSkillStatus.casting)return {};
+    const spent=Object.values(state.attributes).reduce((sum,n)=>sum+n,0);
+    if(!spent)return {toast:'You have not assigned any attributes yet.'};
+    if(state.gold<1500)return {toast:'Edmund needs 1,500 gold to retrain you.'};
+    const derived=progressionStats({...BASE_ATTRIBUTES},state.learnedSkills);
+    return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-1500,
+      attributes:{...BASE_ATTRIBUTES},statPoints:state.statPoints+spent,
+      maxHp:derived.maxHp,maxStamina:derived.maxStamina,
+      hp:Math.max(1,Math.min(derived.maxHp,Math.round(state.hp/state.maxHp*derived.maxHp))),
+      stamina:Math.max(0,Math.min(derived.maxStamina,Math.round(state.stamina/state.maxStamina*derived.maxStamina))),
+      vitalRevision:state.vitalRevision+1,
+      toast:`Edmund returned ${spent} attribute points for 1,500 gold. Your skills are unchanged.`};
+  }),
+  enhanceBossWeapon:(npcId,weaponId)=>set(state=>{
+    const dialogue=state.dialogue,lines=dialogue?.lines??NPC_BY_ID[npcId]?.dialogue??[];
+    if(dialogue?.npcId!==npcId||!isBlacksmith(npcId)||!dialogue||dialogue.choices?.length
+      ||dialogue.lineIndex<lines.length-1||state.panel||state.cinematic||state.activeSkillStatus.casting
+      ||!BOSS_WEAPON_IDS.has(weaponId)||!state.inventory.includes(weaponId))return {};
+    const rank=state.weaponUpgrades[weaponId]??0,materials=state.bossMaterials[weaponId]??0;
+    if(rank>=MAX_WEAPON_UPGRADE)return {toast:'This boss weapon is already fully enhanced.'};
+    if(materials<1)return {toast:'Bring a duplicate of this same boss weapon to the forge.'};
+    return {weaponUpgrades:{...state.weaponUpgrades,[weaponId]:rank+1},
+      bossMaterials:{...state.bossMaterials,[weaponId]:materials-1},
+      toast:`${itemName(weaponId)} enhanced to +${rank+1}!`};
   }),
   equipWeapon:id=>set(state=>state.panel==='inventory'&&!state.dialogue&&!state.cinematic&&!state.activeSkillStatus.casting&&state.inventory.includes(id)&&Object.hasOwn(WEAPON_BY_ID,id)
     ?{weaponId:id,toast:`Equipped ${WEAPON_BY_ID[id].name}.`}:{}),
@@ -356,7 +390,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
     const dropped=trophy&&Math.random()<bossWeaponDropChance(state.attributes)?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
-    const salvage=duplicate&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
+    const excess=Boolean(duplicate&&dropped&&(state.bossMaterials[dropped.id]??0)>=MAX_BOSS_MATERIALS);
+    const salvage=excess&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
     // Ordinary enemies can occasionally drop a carried draught. No extra
     // potion rolls for temporary boss summons, wildlife or story-only fights.
     const supplyRoll=!bossId&&lootEligible&&canDropPotion(enemyId)
@@ -369,8 +404,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
+        ...(duplicate&&!excess?{bossMaterials:{...state.bossMaterials,[dropped.id]:(state.bossMaterials[dropped.id]??0)+1}}:{}),
         gold:state.gold+rewards.gold+salvage,
-        toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
+        toast:duplicate?(excess?`Material storage full: ${itemName(dropped.id)} sold for ${salvage} gold.`:`Duplicate ${itemName(dropped.id)}! Take it to a blacksmith to enhance your weapon.`):`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
       ...(potion?{consumables:{...state.consumables,[potion]:state.consumables[potion]+1},
         toast:`Found ${itemName(potion)}! Check your bag.`}:{}),
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
