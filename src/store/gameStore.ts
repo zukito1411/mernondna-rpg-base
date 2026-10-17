@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { ContentWorldState, NavigationState, QuestObjective, QuestRuntimeState, RegionId } from '../game/types';
 import { LEIGNERON } from '../data/player';
-import { NPC_BY_ID,EDMUND_TRAINER_ID } from '../data/npcs';
+import { NPC_BY_ID,EDMUND_ATWOOD_ID } from '../data/npcs';
 import {BOSS_BY_ID} from '../data/enemies';
 import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
@@ -222,7 +222,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   resetAttributes:npcId=>set(state=>{
     const dialogue=state.dialogue,lines=dialogue?.lines??NPC_BY_ID[npcId]?.dialogue??[];
-    if(npcId!==EDMUND_TRAINER_ID||dialogue?.npcId!==npcId||dialogue.choices?.length||state.panel||state.cinematic
+    if(npcId!==EDMUND_ATWOOD_ID||dialogue?.npcId!==npcId||dialogue.choices?.length||state.panel||state.cinematic
       ||!dialogue||dialogue.lineIndex<lines.length-1||state.activeSkillStatus.casting)return {};
     const spent=Object.values(state.attributes).reduce((sum,n)=>sum+n,0);
     if(!spent)return {toast:'You have not assigned any attributes yet.'};

@@ -131,6 +131,9 @@ function validateContent(value: unknown): ContentWorldState | null {
   for (const [id, s] of Object.entries(value.states)) {
     // Cosmetic perimeter walls/gates were retired. Keep all gameplay records.
     if (retiredBoundaryId(id)) continue;
+    // A prior release mistakenly created a second Edmund. Ignore its stale NPC
+    // snapshot so removing that duplicate cannot invalidate existing saves.
+    if (id === 'npc:edmund-hale') continue;
     const definition = Object.hasOwn(CONTENT_BY_ID, id) ? CONTENT_BY_ID[id] : spawns[id];
     if(!definition&&(/^defense:[^:]+:(curtain|tower|entrance):/.test(id)||/^fort:highmere:(curtain|return|corner):/.test(id)))continue;
     // Cosmetic infill may be omitted/repositioned by a later layout. It must

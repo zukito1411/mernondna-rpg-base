@@ -257,20 +257,9 @@ for(const npc of NPCS.filter(resident=>resident.townId==='elarion')){
       ||npc.spriteTexture==='npc_general'||npc.id==='elarion-bowyer'?'npc_elven_man_idle':'npc_elven_woman_idle';
   }
 }
-// Dedicated training service, accessible from the Oakmere starting settlement.
-export const EDMUND_TRAINER_ID='edmund-hale';
-NPCS.push({
-  id:EDMUND_TRAINER_ID,name:'Edmund',title:'Retired Combat Trainer',townId:'oakmere',
-  role:'Retrains roadwardens for a different combat style',spriteFrame:0,spriteTexture:'npc_general',
-  worldOffset:{x:-160,y:-120},stationary:true,patrolRadius:0,
-  schedule:[{startHour:6,activity:'Trains travelers near the yard'},
-    {startHour:12,activity:'Takes a break at the yard'},
-    {startHour:19,activity:'Closes the training yard'}],
-  relationshipToLeigneron:{kind:'mentor',trust:55,summary:'A practical veteran who helps Leigneron rethink his training.'},
-  dialogue:["Thinking of fighting differently? I can help.",
-    "Retraining costs 1,500 gold. I'll return all your spent attribute points, and you'll keep your level and learned skills."],
-  questIds:[],
-});
+// Edmund Atwood is the existing mentor (legacy content ID must remain stable).
+// Do not spawn a second Edmund or rename his persisted NPC ID.
+export const EDMUND_ATWOOD_ID='aldren-vale';
 export const NPC_NAME_ALIASES = prepareNpcPresentation(NPCS);
 // Authored household identities retain their dialogue and do not consume the
 // legacy name palette or change any approved citizen's display-name allocation.

@@ -1,5 +1,5 @@
 import {useGameStore} from '../store/gameStore';
-import {EDMUND_TRAINER_ID} from '../data/npcs';
+import {EDMUND_ATWOOD_ID} from '../data/npcs';
 import {BOSS_WEAPONS,isBlacksmith,itemName} from '../data/economy';
 import {MAX_WEAPON_UPGRADE,enhancedWeapon,weaponUpgradeRank} from '../data/weaponUpgrades';
 import {goldLabel} from '../utils/localPlayCheats';
@@ -13,10 +13,10 @@ export function NpcServices({npcId}:{npcId:string}){
  const reset=useGameStore(s=>s.resetAttributes),upgrade=useGameStore(s=>s.enhanceBossWeapon);
  const spent=Object.values(attributes).reduce((sum,n)=>sum+n,0);
  const smith=isBlacksmith(npcId);
- if(npcId!==EDMUND_TRAINER_ID&&!smith)return null;
+ if(npcId!==EDMUND_ATWOOD_ID&&!smith)return null;
  const ownedBossWeapons=bossIds.filter(id=>inventory.includes(id));
  return <section className="merchant-stock" aria-label="NPC services">
-   {npcId===EDMUND_TRAINER_ID&&<>
+   {npcId===EDMUND_ATWOOD_ID&&<>
      <h3>Retrain attributes</h3>
      <p>Return {spent} spent attribute points to redistribute freely. Keep your level, talents, skills and equipment.</p>
      <button type="button" disabled={spent===0||gold<1500} onClick={()=>{
