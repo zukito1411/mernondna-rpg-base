@@ -48,7 +48,7 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
   }
   if(quests['water-stops']?.status==='completed'&&['celia-brook','asha-stonevein','iren-copperwake','kellan-ashfield','meral-gull'].includes(id))return after(flags['cibar-public-water']?
     'Celia told everyone what happened to her brother. She didn’t name the families he helped. I think he would’ve wanted that.'
-    :'We sent the evidence to Isabel, but kept the families' names private. I don’t want those people hurt again.');
+    :'We sent the evidence to Isabel, but kept the families’ names private. I don’t want those people hurt again.');
   if(quests['first-road']?.status==='active'&&id==='aldren-vale'){
     const current=nextObjective('first-road',quests);
     const concerns:Record<string,string>={
@@ -93,10 +93,10 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
     const reactions:Record<string,string>={
       elarion:flags['narenthil-grove-keepers']?'Ilyra and the other lorekeepers have started repairing the stones. I hope the paths will be safe again soon.':'The bowyers are helping guard the path. It’s been a relief to see people working together.',
       redmesa:flags['rindass-clan-water']?'We’ve put the watering times up by the well. At least the children don’t have to wait for Krag’s men anymore.':'We’ve agreed to share the well. I hope nobody tries to take it over again.',
-      tidewatch:flags['portquill-public-cargo']?'The missing passengers' families can check the lists now. I hope they find someone they’re looking for.':'The guild’s paying for the search, but the families are keeping the names. I think that’s fair.',
+      tidewatch:flags['portquill-public-cargo']?'The missing passengers’ families can check the lists now. I hope they find someone they’re looking for.':'The guild’s paying for the search, but the families are keeping the names. I think that’s fair.',
       blackspire:flags['darkav-open-account']?'We finally told the workers what happened. They were angry. I don’t blame them.':'We sent copies of the forge records to the other towns. I’d feel better if no one could hide them again.',
       starhold:'The beacon’s working again. Someone still has to keep watch every night, but at least the wagons are getting through.',
-      deepford:'Bruni’s been reading the missing miners' names at the gallery. Some people come to listen. Others aren’t ready.',
+      deepford:'Bruni’s been reading the missing miners’ names at the gallery. Some people come to listen. Others aren’t ready.',
       skallheim:'The lantern’s lit again. The children keep running outside every time a boat comes in.',
     };
     if(reactions[npc.townId])return after(reactions[npc.townId]);
