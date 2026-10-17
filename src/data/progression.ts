@@ -73,6 +73,11 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
   speedMultiplier:1+Math.min(20,agi)*.01+(has('fleet-foot') ? .06:0)+(has('windrunner') ? .04:0),
   // Weapon recovery continues improving through AGI 40, independently of movement.
   cooldownMultiplier:1-agi*.006-(has('spell-tempo') ? .06:0),
+  staminaRegenMultiplier:1+agi*.02, // Agile fighters recover stamina faster between attacks.
+  dashCooldownMultiplier:1-agi*.004,
+  staggerChance:str*.005, // STR can break ordinary enemies' stagger resistance.
+  dodgeGraceMs:eva*1.5, // EVA rewards a properly timed dash as well as lucky misses.
+  statusChanceBonus:luk*.0015, // LUK can trigger a weapon's unique effect more often.
   evasionChance:eva*.01,
   luckChance:luk*.00625,
   rewardMultiplier:1+luk*.01,
