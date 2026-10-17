@@ -259,15 +259,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
-    const outcome=state.storyFlags['relief-household-charter']?'The service warrants are void. There are crown rooms for anyone leaving, and the search riders are still looking for their kin.':state.storyFlags['relief-joint-council']?'The families sit beside the judges now. No employer can move them while their relatives are being sought.':null;
+    const outcome=state.storyFlags['relief-household-charter']?'The old warrants have been cancelled. The palace is letting families stay there while we try to find their relatives.':state.storyFlags['relief-joint-council']?'The families are allowed into the hearings now. Nobody can move them away while we’re still looking for their relatives.':null;
     const localOutcome=['celia-brook','asha-stonevein','iren-copperwake'].includes(npcId)
       &&state.storyFlags['cibar-irrigation-repaired']?
-      state.storyFlags['cibar-public-water']?'They have cleared his name. The travelers choose for themselves whether to speak; nobody is trading their safety for justice.':'The sworn households keep the survivors’ names. Yselle has the evidence, and the men who came to that well will answer for it.':null;
+      state.storyFlags['cibar-public-water']?'People know what happened to Celia’s brother now. The people he helped don’t have to give their names unless they want to.':'We’ve sent the evidence to Isabel. The families are keeping the survivors’ names private.':null;
     // News travels unevenly. The archive and watch know official reports;
     // every shopkeeper in Highmere should not recite the same announcement.
     const highmereOutcome=state.quests['crown-summons']?.status==='completed'
       &&['renna-vale','captain-yselle-ward','davin-bridge'].includes(npcId)?
-      state.storyFlags['main-public-reports']?'The warning has been spoken in every town square. Folk are watching the old roads.':state.storyFlags['main-watch-reports']?'The riders carry the warning from town to town, unseen by the danger.':'The signs from the far roads have reached Highmere. The crown knows what threatens them.':null;
+      state.storyFlags['main-public-reports']?'We’ve sent warnings to the towns. I hope people take them seriously.':state.storyFlags['main-watch-reports']?'Isabel’s riders have been carrying letters to the other towns. I hope they get through safely.':'We’ve had some worrying reports from the other towns. I’m still trying to find out what’s true.':null;
     const reaction=reactiveStoryDialogue(npcId,state.quests,state.storyFlags);
     const lines=context?.objective.dialogue ?? (reaction??(highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue));
     set({quests,trackedQuestId,dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
@@ -279,7 +279,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const dialogue=get().dialogue;
     if(!dialogue||!acceptUiAction())return;
     set({dialogue:null});
-    // Opening/abandoning a conversation isn't delivering evidence or hearing it.
+    // Opening/abandoning a conversation isn’t delivering evidence or hearing it.
     if(!dialogue||dialogue.choices?.length||!dialogue.questId
       ||dialogue.lineIndex<(dialogue.lines?.length??1)-1)return;
     const context=conversationObjective(dialogue.npcId,get().quests,dialogue.questId);
@@ -332,7 +332,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const id=`boss:${bossId}`,previous=state.worldContent.states[id],defeated=worldContent?.states[id];
       // Permanent quest history is not a repeat-battle reward token. A boss
       // must actually return alive in the content ledger, then transition to
-      // defeated in the scene's snapshot. Replaying a death notification (or
+      // defeated in the scene’s snapshot. Replaying a death notification (or
       // submitting the same defeated snapshot) cannot pay XP/gold again.
       if(!BOSS_BY_ID[bossId!]?.respawns||!previous||previous.defeated||!(typeof previous.hp==='number'&&previous.hp>0)
         ||!defeated?.defeated||defeated.hp!==0)return {};
