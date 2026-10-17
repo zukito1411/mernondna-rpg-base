@@ -21,7 +21,7 @@ export function ForgeServices({npcId}:{npcId:string}){
 
   if(npcId==='aldren-vale'){
     const points=Object.values(attributes).reduce((sum,n)=>sum+n,0);
-    return <section className="merchant-stock" aria-label="Attribute retraining">
+    return <section className="merchant-stock forge-services" aria-label="Attribute retraining">
       <h3>Retrain your attributes · {ATTRIBUTE_RESET_COST.toLocaleString()} gold</h3>
       <p>Want to try a different fighting style? I'll help you start over. Your level, talents and equipment won't change. You'll get all {points} spent attribute points back.</p>
       <button type="button" disabled={points===0||gold<ATTRIBUTE_RESET_COST}
@@ -42,7 +42,7 @@ export function ForgeServices({npcId}:{npcId:string}){
   const current=base?enhancedWeapon(base,level):null;
   const next=base?enhancedWeapon(base,level+1):null;
 
-  return <section className="merchant-stock" aria-label="Weapon enhancement">
+  return <section className="merchant-stock forge-services" aria-label="Weapon enhancement">
     <h3>Improve a weapon · {gold.toLocaleString()} gold</h3>
     <p>If you've found a second boss weapon, I can use the spare blade to strengthen one of yours. Each weapon can be improved up to +{MAX_WEAPON_ENHANCEMENT}. It takes one spare weapon and some gold each time.</p>
     {materials.length>0&&owned.length>0?<div className="item-row">
