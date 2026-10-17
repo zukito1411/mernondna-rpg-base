@@ -7,7 +7,7 @@ import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
 import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
@@ -15,7 +15,7 @@ import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,COMBAT_CLEARANCE_REVISION_FLAG}
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
-import {BOSS_WEAPONS,POTIONS,merchantStock,itemName,type PotionId} from '../data/economy';
+import {BOSS_WEAPONS,POTIONS,canDropPotion,merchantStock,itemName,type PotionId} from '../data/economy';
 import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
@@ -124,7 +124,7 @@ export interface GameState {
   progressQuest: (type: QuestObjective['type'], targetId: string, amount?: number,questId?:string) => void;
   addRewards: (xp: number, gold: number) => void;
   markBossDefeated: (bossId: string) => void;
-  recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState, contentId?:string) => void;
+  recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState, contentId?:string, lootEligible?:boolean) => void;
   allocateAttribute: (attribute: AttributeId) => void;
   unlockSkill: (skillId: SkillId) => void;
   setContentWorld: (worldContent: ContentWorldState) => void;
@@ -338,7 +338,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { ...experienceProgress(state, rewards.xp), gold: state.gold + rewards.gold };
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
-  recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent, contentId) => set((state) => {
+  recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent, contentId, lootEligible=true) => set((state) => {
     const known=bossId&&state.defeatedBosses.includes(bossId);
     if(known){
       const id=`boss:${bossId}`,previous=state.worldContent.states[id],defeated=worldContent?.states[id];
@@ -354,15 +354,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     const rewards=earnedRewards(xp+result.xp,gold+result.gold,state.attributes,state.learnedSkills);
     const progression = experienceProgress(state, rewards.xp);
     const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
-    const dropped=trophy&&Math.random()<.1?trophy:undefined;
+    const dropped=trophy&&Math.random()<bossWeaponDropChance(state.attributes)?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
     const salvage=duplicate&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
+    // Ordinary enemies can occasionally drop a carried draught. No extra
+    // potion rolls for temporary boss summons, wildlife or story-only fights.
+    const supplyRoll=!bossId&&lootEligible&&canDropPotion(enemyId)
+      &&Math.random()<supplyDropChance(state.attributes);
+    const primaryPotion:PotionId=Math.random()<.65?'healing-potion':'stamina-potion';
+    const otherPotion:PotionId=primaryPotion==='healing-potion'?'stamina-potion':'healing-potion';
+    const potion=supplyRoll?(state.consumables[primaryPotion]<99?primaryPotion:
+      state.consumables[otherPotion]<99?otherPotion:null):null;
     let journal=discoverCreature(state.journal,enemyId,bossId,true);
     if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
         gold:state.gold+rewards.gold+salvage,
         toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
+      ...(potion?{consumables:{...state.consumables,[potion]:state.consumables[potion]+1},
+        toast:`Found ${itemName(potion)}! Check your bag.`}:{}),
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
       ...(worldContent ? { worldContent } : {}) };
   }),
@@ -370,7 +380,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.statPoints <= 0 || !Object.hasOwn(BASE_ATTRIBUTES,attribute) || state.attributes[attribute]>=ATTRIBUTE_CAP) return {};
     const attributes = { ...state.attributes, [attribute]: state.attributes[attribute] + 1 };
     const derived = progressionStats(attributes, state.learnedSkills);
+    const addedHp=Math.max(0,derived.maxHp-state.maxHp);
     return { attributes, statPoints: state.statPoints - 1, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
+      ...(addedHp?{hp:Math.min(derived.maxHp,state.hp+addedHp),vitalRevision:state.vitalRevision+1}:{}),
       toast: `${attribute[0].toUpperCase()}${attribute.slice(1)} increased.` };
   }),
   unlockSkill: (skillId) => set((state) => {
@@ -378,7 +390,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!skill || state.skillPoints < skill.cost || state.level < skill.minLevel || (skill.requires&&!state.learnedSkills.includes(skill.requires)) || state.learnedSkills.includes(skillId)) return {};
     const learnedSkills = [...state.learnedSkills, skillId];
     const derived = progressionStats(state.attributes, learnedSkills);
+    const addedHp=Math.max(0,derived.maxHp-state.maxHp);
     return { learnedSkills, skillPoints: state.skillPoints - skill.cost, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
+      ...(addedHp?{hp:Math.min(derived.maxHp,state.hp+addedHp),vitalRevision:state.vitalRevision+1}:{}),
       toast: `Skill learned: ${skill.name}.` };
   }),
   setContentWorld: (worldContent) => set({ worldContent }),
