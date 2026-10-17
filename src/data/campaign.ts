@@ -246,7 +246,7 @@ export function applyCampaign(quests:QuestDefinition[]) {
   chapter('Act IV · An inheritance, not a destiny',[
     speak('capital-return','renna-vale','Return the seven regional accounts to the Royal Archive.',[
       'We’ve found where the iron went. The grain office sold it, the Salt King moved it, and the Seer bought some of it. They all knew it was stolen.',
-      'Leigneron, I found the record of your parents' last trip. They went back to help the people who were stranded. The bridge collapsed. I’m so sorry.',
+      'Leigneron, I found the record of your parents’ last trip. They went back to help the people who were stranded. The bridge collapsed. I’m so sorry.',
       'Someone used your mother’s map to find the stones. She only made it so people could find water and shelter. She never knew what they’d do with it.',
       'The towns have agreed to help repair the roads. You should talk to Edmund before heading out again. You’ve been through so much.'],'deliver'),
     speak('seal-account','sevrin-hale','Confront the grain official with the regional freight accounts.',[
