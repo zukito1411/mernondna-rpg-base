@@ -10,7 +10,7 @@ const ATTRIBUTES:Array<{id:AttributeId;name:string;description:string}>=[
   {id:'vitality',name:'VIT · Vitality',description:'+10 maximum HP and 0.5% damage reduction per point (20% at VIT 40).'},
   {id:'agility',name:'AGI · Agility',description:'+1% movement through 20 points; +2 stamina and 0.6% faster recovery through 40.'},
   {id:'evasion',name:'EVA · Evasion',description:'+1% chance to evade an enemy hit per point, up to 40%.'},
-  {id:'luck',name:'LUK · Luck',description:'+0.625% critical chance, +1% gold/XP, +0.5% rare boss weapon drop chance, and +0.25% carried-potion drop chance per point.'},
+  {id:'luck',name:'LUK · Luck',description:'+0.625% critical chance, +1% gold/XP, +0.5 percentage points to rare boss weapon drops and +0.25 percentage points to carried-potion drops per point.'},
 ];
 export function CharacterPanel(){
   const [tab,setTab]=useState<'arts'|'attributes'|'talents'>('arts');
