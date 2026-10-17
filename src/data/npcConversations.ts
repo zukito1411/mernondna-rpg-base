@@ -70,23 +70,29 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
 
     'joren-pike':["Hold on. Let me see that sword before you go.","That edge is a mess. Sit down. I'll fix it while you eat something."],
 
-    'lena-cartwright':['They wanted the letter, not my purse. I hid it where nobody would look for anything worth stealing.','Please. My children are at the inn. Clear the watchers before you go after their captain.'],
-    'mairin-reed':['No, he has not come home. If you have news of my son, say it before you ask me for anything.','There is soup on the hearth. I keep making too much. It gives my hands something to do.'],
-    'tovin-reed':['Keep your voice down. I have heard my name shouted often enough for one week.','I did not kill that man. I tried to stop the bleeding. That is all I knew how to do.'],
-    'pell-rusk':['You did not see me. Unless you have an apple, in which case I was here all along.','Do not laugh too loudly. The watch has been taking an interest in anyone who still does.'],
+    'lena-cartwright':["You're here. Thank goodness. I thought nobody was coming.","Please tell my children I'm alive. I know they're scared. I'm scared too."],
+
+    'mairin-reed':["Have you heard anything about Tovin? Anything at all?","Sorry. I know you've just arrived. I haven't slept much."],
+
+    'tovin-reed':["Please don't say my name so loudly. Someone might hear.","I didn't kill him. I tried to help, and now everyone thinks I did it."],
+
+    'pell-rusk':["Oh, it's you. You scared me.","I saw who took Tovin. I want to help, but those men know where my brother lives."],
 
     'davin-bridge':["Yes, I was on duty that night. I've been asked about it a dozen times.","There was a wagon. It had the right papers. I should've looked inside."],
 
     'maela-quill':["If you're buying, tell me what you need. If you're here to complain, take a number.","I'm joking. Mostly. What's happened?"],
 
-    'nella-harrow':['Sit a moment. I can finish this seam while you tell me your news.','My sister is still working off a debt she never agreed to. I sew for fine houses and wonder which one has her.'],
-    'sevrin-hale':['If you have come to shout, close the door. The clerk has a headache already.','No, a royal seal does not make every decision wise. Some of us learn that later than we should.'],
+    'nella-harrow':["I'll be with you in a moment. Just need to finish this seam.","I'm worried about my sister. She's working off a debt that wasn't hers. Nobody will tell me where they've sent her."],
+
+    'sevrin-hale':["I'm busy. What is it?","No, I haven't forgotten the missing grain. I'm dealing with it. That's all I can tell you."],
 
     'renna-vale':["Oh, you're here. Did Edmund send another letter, or have you come to worry me in person?","Sit down. Start at the beginning. I don't want to miss anything."],
 
-    'celia-brook':['My brother used to whistle at that well. Dreadful tune. I would give a great deal to hear it once more.','Stay for a little while, if you can. The fields get very quiet after everyone has gone home.'],
-    'iren-copperwake':['There is mud on your boots. Good. I trust people who have walked the path they are talking about.','I have said “I should have” so often lately that Asha has forbidden it at supper.'],
-    'asha-stonevein':['Set it on the bench, not the clean cloth. That cloth is older than your sword and rather more useful.','Broken things usually leave a mark. People do too, though it can take longer to find.'],
+    'celia-brook':["My brother used to sing while he worked on that pump. Drove me mad.","I wish I'd told him I liked hearing it."],
+
+    'iren-copperwake':["We've been carrying water by hand since the pump stopped.","Celia won't complain, but she's exhausted. I wish she'd let someone else take a turn."],
+
+    'asha-stonevein':["Put that on the table, please. Not next to the hot iron.","Sorry. I'm a bit on edge. The pump keeps breaking, and everyone thinks I can fix it overnight."],
 
     'redmesa-beastmaster':["Don't stand behind the boar. He kicked a bucket clear across the pen yesterday.","Krag's men have been taking water from the smaller clans. People are getting angry, and I don't blame them."],
 
@@ -96,29 +102,51 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
 
     'blackspire-forgemaster':["I made those chains. I thought they'd keep everyone safe.","Now they're broken, and people are scared. I wish I knew how to fix it faster."],
 
-    'lady-adria-vale':['People keep asking me to sign their papers before I have heard their names. Sit down. We have time to hear yours.','My sister says I am too slow to anger. She did not see what I found in the service ledgers.'],
-    'ser-caldus-rowe':['The lad by the targets thinks a wooden sword cannot hurt him. Would you tell him what that bruise is called?','Isabel was much the same at his age. Only she listened when I told her to put the blade away.'],
-    'iven-harrow':['Aunt Nella says I check the grain sacks more carefully than I check my own supper. She is right.','See this stitch? Someone opened the sack and sewed it back up badly. I kept the thread.'],
-    'bela-reed':['You can sit by the stove, but move your wet boots off the good rug first.','My sister Pella sends half the bridge crew here when the rain comes in sideways. I ought to charge her.'],
-    'rowan-marr':['That mare kicks the stable door whenever I sing. Tovan says she has good taste.','Give her an apple and she will follow you anywhere. Give her a command and she will think about it first.'],
-    'aeris-thorneleaf':['My cousin Ilyra has her nose in the old stones again. I brought her tea. She has not noticed.','Your parents passed through here once. They stayed to help replant after the floods. I remember their hands, not their names.'],
-    'haleth-virdan':['Sael can tell which bow you used from the splinters it leaves. I wish he would stop proving it.','The watch has been uneasy since the animals stopped crossing the little bridge. Even the birds avoid it.'],
-    'suri-mosswalk':['My uncle says I pick herbs too young. I say the plants do not ask my age.','Alice taught me to leave enough behind for the next rain. A good remedy ought not ruin its own garden.'],
-    'dael-vale':['There is room by the fire, traveler. Unless my sister has filled it with drying leaves again.','We used to hear singing beyond the grove at night. I miss it, though the pilgrims were never very good.'],
-    'freya-skell':['Hold that rope. No, not the frayed end. Borin will skin me if I let anyone climb with it.','I spent last night unpicking knots by candlelight. My fingers still think they are at work.'],
-    'tor-beacon':['Halla stayed at the beacon through the worst of last winter. I brought her soup and she forgot to eat it.','The snow has settled strangely on the western face. I do not like the silence beneath it.'],
-    'torga-ashhand':['Dorga says I bargain too hard. She is not the one dragging ore across three roads.','Your smith in Oakmere still owes me a letter. He says he paid in nails. Nails cannot write.'],
-    'kesh-flintmane':['My aunt Ugra says a rider should know when to walk. I did not believe her until the boar threw me.','Krag keeps calling the younger riders cowards. Funny how he never stays to muck out the pens.'],
-    'ketra-copperwake':['My father can mend a ferry with a hammer and a very bad temper. I bring the bread.','The miners came down before sunrise. None of them touched the hot stew. That frightened me more than their stories.'],
-    'brann-stonevein':['Mara told me to copy the marks exactly. I sneezed and gave an ancient rune a second tail.','Your mother drew these signs in the margins of a river map. I have kept that page tucked inside my own notes.'],
-    'finn-gull':['Mind your step. That crate is heavier than the dockmaster says, and I am the one with the bruised feet.','Jessa will hear about this load. She always does. I suspect the gulls report to her.'],
-    'lysa-vane':['Feel this canvas. Thick enough to keep the rain out, light enough that a sailor will not curse me.','I stitched Alice a traveling cloak years ago. She brought it back with a hole through both shoulders and no explanation.'],
-    'assa-icevein':['Come inside before your eyelashes freeze together. We have broth, and nobody is counting the bowls.','Runa took a whole caravan through that blizzard. They were frightened enough to eat my cooking without complaint.'],
-    'stenn-harrow':['If you hear ice cracking near the quay, come inland. That is not a sound to argue with.','Eyvind keeps asking when his letters reached Oakmere. Some people cannot believe a message is safe until someone answers.'],
-    'nia-cinder':['My mother can tell a bad weld without looking at it. She says the hammer sounds ashamed.','These chains should never have been sold. I helped count them. I wish I had asked where they were going.'],
-    'orren-emberfall':['The ash gets into everything. Last week I found it inside a jar that had not been opened.','Dain has been on the lower road since first light. I saved him a meal. I hope he remembers to come for it.'],
-    'kellan-ashfield':['A wagon left without guards yesterday. I have been looking up the road every hour since.','My uncle Torren says the harvest is worth protecting even when the sacks look empty. He is usually right.'],
-    'meral-gull':['Celia counts the seed bags and I count the hands waiting for them. One of us always comes up short.','My cousin Jessa says I should trade nearer the sea. Saltwater never fed a field.'],
+    'lady-adria-vale':["Come in. Please, sit down.","I've heard three different stories about that wagon today. Tell me what you actually saw."],
+
+    'ser-caldus-rowe':["Keep your feet apart. There. Try it again.","And don't look so embarrassed. I've been teaching guards for thirty years. Everyone falls over at first."],
+
+    'iven-harrow':["Aunt Nella wants me home for supper. I've still got twenty sacks to count.","Wait. This one was opened. Look at the stitching. That's not ours."],
+
+    'bela-reed':["There's a spot by the fire if you're cold. Mind the wet floor.","Pella says the bridge is safe. I wish she'd stop checking it alone at night."],
+
+    'rowan-marr':["Careful with that horse. She's in a bad mood today.","Tovan laughs when I talk to her, but she listens better than most people."],
+
+    'aeris-thorneleaf':["I brought Ilyra her lunch. She forgot to eat again.","Your parents were kind when they passed through. I remember them helping us after the flood."],
+
+    'haleth-virdan':["I've been watching that path since dawn. Hardly a bird in sight.","Sael says the wolves have moved closer. I believe him. I've seen their tracks."],
+
+    'suri-mosswalk':["Are you looking for Neris? She's at the herb beds.","I've been helping her, but half the plants are dying. She's trying not to show how worried she is."],
+
+    'dael-vale':["You're welcome to stay by the fire. We've got room.","It used to be noisy here when the pilgrims came. I miss that. Even the terrible singing."],
+
+    'freya-skell':["Hold this rope for me. Just a second.","Thanks. Dad says every knot needs checking twice. After what happened to the wagons, I'm starting to agree."],
+
+    'tor-beacon':["Halla's been awake since yesterday. I've asked her to rest, but she won't.","I'm worried she'll be the next person we have to carry down the mountain."],
+
+    'torga-ashhand':["Dorga sent you? Tell her the iron's not ready yet.","I've had soldiers asking for weapons all morning. Some of them are still boys. I hate that."],
+
+    'kesh-flintmane':["Did you see that? I almost stayed on the boar this time.","Ugra says I need more practice. Maybe I should try a smaller boar first."],
+
+    'ketra-copperwake':["Sit down if you're waiting for the ferry. It'll be a while.","The miners came through earlier. They were covered in mud, and one of them was crying. I didn't ask why."],
+
+    'brann-stonevein':["Mara asked me to copy these runes. I've already made two mistakes.","This mark was in your mother's old notes. Did you know she wrote about our mines?"],
+
+    'finn-gull':["Could you give me a hand with this crate? No? Fair enough.","My back's killing me. Jessa keeps telling me to get help, then sending me twice as much cargo."],
+
+    'lysa-vane':["That cloak's holding up well. I made one just like it for Alice.","She brought it back torn to pieces. Wouldn't tell me what happened. Still hasn't."],
+
+    'assa-icevein':["Come inside before you freeze. There's soup on the stove.","Runa's out hunting again. I know she can look after herself, but I still worry."],
+
+    'stenn-harrow':["Careful on those steps. The ice hasn't melted.","I'm waiting for a boat from the east. They said it would be here yesterday."],
+
+    'nia-cinder':["You looking for my mother? She's at the forge.","She's hardly sleeping. I've offered to help with the chains, but she keeps saying it's too dangerous."],
+
+    'orren-emberfall':["Wipe your boots, please. There's ash all over the house already.","Dain hasn't been home since yesterday. If you see him, tell him I've saved him a plate."],
+
+    'kellan-ashfield':["I'm meant to guard the next wagon. Trouble is, nobody knows when it's leaving.","My uncle says to be patient. Easy for him. He's not the one standing here in the heat."],
+
+    'meral-gull':["Celia's short on seed again. I've given her what I can.","I can live with a bad harvest. I can't stand seeing families skip meals."],
 
     'aldren-vale':["There you are. I was starting to worry.","Lena's missing, and her kids are scared. Please be careful out there. I don't want to lose you too."],
     'mira-fen':["You're heading out again? At least tell me where you're going this time.","I've seen wolves closer to the farms. I don't think they're hunting there by choice."],
@@ -156,6 +184,10 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
     'skallheim-trader':["Come in. You're letting all the cold air through the door.","We haven't had a supply boat in days. I'm trying not to worry the children."],
     'blackspire-warder':["You came through the ash road? Was anyone hurt?","I've sent scouts out twice. Two of them still haven't come back. I don't want to send a third group."],
     'elarion-king':["You're welcome here, but please excuse the guards. Everyone's nervous.","Something's wrong in the grove. I can't keep telling my people everything is fine."],
+    'bruni-stonevein':["I tried to warn the guild. They wouldn't listen.","Now the spring's ruined and people are blaming the forest. I don't know how to put it right."],
+    'maerwen-reedleaf':["Please don't come any closer. Sorry, I thought you were someone else.","There are children hiding with us. I just need to know it's safe before I bring them out."],
+    'eda-ashfield':["I'm checking the old marker. Someone's been moving stones along this road.","I told Torren about it. He thinks I'm worrying too much. Maybe I am."],
+    'lysa-thorneleaf':["Don't touch that carving. Some of the stone is loose.","Ilyra asked me to write down what I found. I'd rather she came and saw it herself."],
   };
   for(const npc of npcs)if(lines[npc.id])npc.dialogue=rewriteNpcMentions(lines[npc.id],aliases);
 }
