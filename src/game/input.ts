@@ -2,6 +2,7 @@ import type { ActiveSkillAction } from '../data/activeSkills';
 export type MobileAction = 'attack' | 'dash' | 'interact' | 'healPotion' | 'staminaPotion' | ActiveSkillAction;
 
 const mobile = {
+  attackHeld:false,
   moveX: 0,
   moveY: 0,
   attack: false,
@@ -13,6 +14,8 @@ const mobile = {
 };
 
 export const mobileInput = {
+  get attackHeld(){return mobile.attackHeld;},
+  setAttackHeld(held:boolean){mobile.attackHeld=held;},
   get moveX() { return mobile.moveX; },
   get moveY() { return mobile.moveY; },
   get sprint() { return mobile.sprint; },
@@ -40,6 +43,7 @@ export const mobileInput = {
     return pressed;
   },
   reset() {
+    mobile.attackHeld=false;
     mobile.moveX = 0;
     mobile.moveY = 0;
     mobile.attack = false;

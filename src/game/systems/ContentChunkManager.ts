@@ -56,6 +56,7 @@ export interface CreatureActivation {
 export interface EncounterSpawnMember { enemyId: string; world: Vec2; role?: EncounterRole }
 
 export interface ContentHost<Actor> {
+  keepActive?(definition:ContentDefinition,actor:Actor):boolean;
   initialState(definition: ContentDefinition): ContentState;
   canActivate?(definition: ContentDefinition, state: ContentState): boolean;
   canRespawn?(definition:ContentDefinition):boolean;
@@ -161,7 +162,8 @@ export class ContentChunkManager<Actor> {
       const position = this.host.position(actor);
       const key = contentChunkKey(position.x, position.y);
       this.index(id, key);
-      if (!this.wanted.has(key)&&!this.sceneryWanted.has(id)&&!this.nearOversized(id,position,x,y,view)) { this.deactivate(id); changed = true; }
+      if (!this.wanted.has(key)&&!this.sceneryWanted.has(id)&&!this.nearOversized(id,position,x,y,view)
+        &&!this.host.keepActive?.(this.definitions.get(id)!,actor)) { this.deactivate(id); changed = true; }
     }
     const checkedGroups = new Set<string>();
     for (const key of this.wanted) {

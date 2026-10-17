@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {NPC_COMBAT_DIRECTIONS,npcCombatKey,NPC_ARROW_TEXTURE,NPC_ARROW_PATH,type NpcCombatSpec} from '../../data/npcCombatArt';
 import {npcCombatSourceKey,prepareNpcCombatSheet,prepareNpcArrow} from './NpcCombatArt';
+const artOwners=new WeakMap<Phaser.Scene,Set<NpcCombatResidency>>();
 
 /** Shared loader, bounded cache. Never evict a sheet still used by a fighter
  * or a regional sentry walking back to its post. No world-wide NPC preload. */
@@ -12,11 +13,15 @@ export class NpcCombatResidency {
   private disposed=false;
   private nextTrim=0;
   constructor(private readonly scene:Phaser.Scene,private readonly referenced:(spec:NpcCombatSpec)=>boolean,
-    private readonly report:(message:string)=>void){}
+    private readonly report:(message:string)=>void){
+    const owners=artOwners.get(scene)??new Set<NpcCombatResidency>();owners.add(this);artOwners.set(scene,owners);
+  }
   ensure(spec:NpcCombatSpec){
     if(this.disposed)return false;
     if(this.scene.anims.exists(npcCombatKey(spec,'attack','down'))
-      &&(spec.mode!=='bow'||this.scene.textures.exists(NPC_ARROW_TEXTURE)))return true;
+      &&(spec.mode!=='bow'||this.scene.textures.exists(NPC_ARROW_TEXTURE))){
+      if(!spec.eager)this.resident.set(spec.id,spec);return true;
+    }
     if(this.scene.time.now<(this.failures.get(spec.id)??0))return false;
     if(this.loading?.id===spec.id)return false;
     this.pending.set(spec.id,spec);return false;
@@ -29,6 +34,10 @@ export class NpcCombatResidency {
     }
     if(this.loading||this.scene.load.isLoading())return;
     const spec=this.pending.values().next().value as NpcCombatSpec|undefined;if(!spec)return;
+    if(this.scene.anims.exists(npcCombatKey(spec,'attack','down'))
+      &&(spec.mode!=='bow'||this.scene.textures.exists(NPC_ARROW_TEXTURE))){
+      this.pending.delete(spec.id);this.resident.set(spec.id,spec);return;
+    }
     if(this.resident.size>=6){
       const unused=[...this.resident.values()].find(s=>!this.referenced(s));
       if(!unused)return;this.release(unused);
@@ -64,15 +73,18 @@ export class NpcCombatResidency {
     }
   }
   private release(spec:NpcCombatSpec){
+    this.resident.delete(spec.id);
+    // A road party and Alice can use the same huntress sheet. One loader must
+    // not remove its frames while another system still needs them.
+    if([...artOwners.get(this.scene)??[]].some(owner=>owner!==this&&owner.referenced(spec)))return;
     for(const direction of NPC_COMBAT_DIRECTIONS)for(const state of ['attack','walk'] as const){
       const key=npcCombatKey(spec,state,direction);if(this.scene.anims.exists(key))this.scene.anims.remove(key);
     }
     if(this.scene.textures.exists(spec.texture))this.scene.textures.remove(spec.texture);
-    this.resident.delete(spec.id);
   }
   cancelPending(){this.pending.clear();}
   destroy(){
-    if(this.disposed)return;this.disposed=true;
+    if(this.disposed)return;this.disposed=true;artOwners.get(this.scene)?.delete(this);
     this.scene.load.off(Phaser.Loader.Events.COMPLETE,this.complete,this);
     if(this.loading)for(const [i] of this.loading.sources.entries()){
       const key=npcCombatSourceKey(this.loading,i);if(this.scene.textures.exists(key))this.scene.textures.remove(key);
@@ -81,6 +93,6 @@ export class NpcCombatResidency {
     if(this.scene.textures.exists('npc-arrow-source'))this.scene.textures.remove('npc-arrow-source');
     for(const spec of this.resident.values())this.release(spec);
     this.pending.clear();this.failures.clear();
-    if(this.scene.textures.exists(NPC_ARROW_TEXTURE))this.scene.textures.remove(NPC_ARROW_TEXTURE);
+    if(!artOwners.get(this.scene)?.size&&this.scene.textures.exists(NPC_ARROW_TEXTURE))this.scene.textures.remove(NPC_ARROW_TEXTURE);
   }
 }

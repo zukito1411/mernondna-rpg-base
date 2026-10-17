@@ -83,6 +83,9 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .boss-encounter-card strong { color: #f0d8b5; font: 600 13px Georgia, serif; letter-spacing: .12em; text-shadow: 0 1px 3px #000; }
 .boss-health-meter { height: 11px; margin-top: 7px; overflow: hidden; border: 1px solid rgba(239,198,160,.4); border-radius: 2px; background: #170e0d; box-shadow: inset 0 1px 3px #000; }
 .boss-health-meter div { height: 100%; background: linear-gradient(180deg, #df7356, #873229 72%, #5a201c); box-shadow: inset 0 1px rgba(255,218,184,.28); transition: width 180ms ease-out; }
+.boss-attack-timing {margin-top:5px;color:#f1d4a8;font-size:10px;}
+.boss-windup-meter {height:4px;margin-top:3px;background:#241c18;border-radius:3px;overflow:hidden;}
+.boss-windup-meter i {display:block;height:100%;background:linear-gradient(90deg,#e8ae50,#ff6a58);}
 .quest-card strong { color: #f4dca6; font-family: Georgia, serif; }
 .quest-card span { font-size: 12px; color: #e6ddcc; line-height: 1.35; }
 .quest-guidance { display: flex; align-items: center; gap: 8px; padding-top: 7px; margin-top: 5px; border-top: 1px solid var(--line); }
@@ -239,6 +242,15 @@ kbd { font-size: 10px; opacity: .65; }
 .shrine-destinations button:disabled { background: #27241e; color: #a4967c; cursor: default; }
 
 .toast { position: absolute; z-index: 50; left: 50%; bottom: 112px; transform: translateX(-50%); max-width: min(620px, 88vw); border: 1px solid rgba(239,204,135,.3); background: rgba(29,23,15,.94); color: #f7e7c1; border-radius: 11px; padding: 10px 14px; box-shadow: 0 8px 28px rgba(0,0,0,.3); text-align: center; font-size: 13px; pointer-events: none; }
+.rare-loot-popup {position:absolute;z-index:49;top:max(112px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));display:flex;align-items:center;gap:12px;width:min(300px,calc(100vw - 32px));padding:12px 15px;box-sizing:border-box;border:1px solid #d9b25a;border-radius:10px;background:linear-gradient(120deg,rgba(55,37,18,.97),rgba(20,25,29,.97));box-shadow:0 5px 24px #0008;color:#f9eac8;pointer-events:none;animation:rare-loot-enter .25s ease-out;}
+.rare-loot-popup .item-icon {flex:0 0 56px;width:56px;height:64px;margin:0;}
+.rare-loot-popup div {display:grid;gap:4px;min-width:0;}
+.rare-loot-popup small {color:#ffd47a;font-size:11px;letter-spacing:.04em;}
+.rare-loot-popup strong {font-size:15px;overflow-wrap:anywhere;}
+.rare-loot-popup span {color:#d5c9af;font-size:11px;}
+@keyframes rare-loot-enter {from {opacity:0;transform:translateY(-10px);}to {opacity:1;transform:translateY(0);}}
+@media(max-width:640px) {.rare-loot-popup {top:max(102px,env(safe-area-inset-top));right:8px;width:min(260px,calc(100vw - 16px));padding:9px;gap:8px;}.rare-loot-popup strong {font-size:13px;}}
+@media(prefers-reduced-motion:reduce) {.rare-loot-popup {animation:none;}}
 
 @media (hover: none), (pointer: coarse) {
   .mobile-controls { display: block; }
@@ -598,3 +610,9 @@ kbd { font-size: 10px; opacity: .65; }
   .save-transfer-buttons {gap:5px;}
   .save-transfer-buttons button {font-size:11px;}
 }
+/* Level gains have their own banner so loot and quest toasts cannot hide them. */
+.level-up-notice{position:fixed;z-index:75;top:calc(env(safe-area-inset-top,0px) + 20px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:calc(100vw - 28px);width:max-content;padding:15px 24px;border:1px solid #d9ad52;border-radius:12px;background:linear-gradient(135deg,#302719f5,#141c19f5);box-shadow:0 6px 28px #0008,0 0 24px #efbc4c30;color:#fff0c1;text-align:center;pointer-events:none;animation:level-up-arrive .55s ease-out}
+.level-up-notice div{display:flex;flex-direction:column;gap:3px}.level-up-notice small{font-size:12px;letter-spacing:.18em;color:#f6cf78}.level-up-notice strong{font:700 28px Georgia,serif}.level-up-notice div>span{font-size:12px;color:#e3d8b8}.level-up-crest{font-size:42px;color:#ffe193;text-shadow:0 0 18px #f5bd56aa}
+@keyframes level-up-arrive{from{opacity:0;transform:translate(-50%,-16px) scale(.94)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@media(max-width:600px){.level-up-notice{top:calc(env(safe-area-inset-top,0px) + 116px);padding:12px 16px;gap:8px}.level-up-notice strong{font-size:23px}.level-up-notice div>span{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.level-up-notice{animation:none}}

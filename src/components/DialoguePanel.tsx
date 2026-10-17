@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { SpritePortrait } from './SpritePortrait';
 import {MerchantStock} from './MerchantStock';
 import {NpcServices} from './NpcServices';
+import {AliceCompanionService} from './AliceCompanionService';
 
 export function DialoguePanel() {
   const dialogue = useGameStore((s) => s.dialogue);
@@ -32,7 +33,7 @@ export function DialoguePanel() {
         </div>
         <p>{line}</p>
         <div className="relationship-note">{npc.relationshipToLeigneron.kind}: {npc.relationshipToLeigneron.summary}</div>
-        {finalLine&&!dialogue.choices?.length&&<>{!dialogue.questId&&<NpcServices npcId={npc.id}/>}<MerchantStock npcId={npc.id}/></>}
+        {finalLine&&!dialogue.choices?.length&&<><AliceCompanionService npcId={npc.id}/>{!dialogue.questId&&<NpcServices npcId={npc.id}/>}<MerchantStock npcId={npc.id}/></>}
         {finalLine&&dialogue.choices?.length ? <div className="dialogue-choices">
           {dialogue.choices.map(choice=><button type="button" key={choice.id} onClick={()=>choose(choice.id)}>{choice.text}</button>)}
           <button type="button" onClick={end}>Decide later</button>

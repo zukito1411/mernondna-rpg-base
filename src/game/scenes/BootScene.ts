@@ -1,16 +1,17 @@
 import Phaser from 'phaser';
 import {heroBodySource,heroGrip} from '../../data/modularHero';
 import {heroFrameData} from '../systems/heroFrameData';
+import {isolateAtlasFrames} from '../systems/AtlasFrameIsolation';
 import {SWORD_SOURCE,prepareEquippedSwords} from '../systems/EquippedSwordVisual';
 import {COMBAT_EFFECT_TEXTURE,DISTINCT_EFFECT_TEXTURE,prepareCombatArtEffects,prepareSlashWeaponEffect} from '../systems/CombatArtEffects';
 import {applySkillWeaponPalette} from '../systems/WeaponSkillPalette';
 import {CITIZEN_SOURCES,prepareCitizenArt} from '../systems/RegionalCitizenArt';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIBLE_HEIGHT } from '../../data/art';
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
-import { PLAYER_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
+import { PLAYER_COMBO_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
 import { PLAYER_SKILL_ANIMATIONS } from '../../data/playerSkillArt';
 import { alphaFrameBounds,createSpriteCropper,spriteSubjectCanvas } from '../systems/spriteArt';
-import {actorSpriteSubjects,type ActorSpriteSubject} from '../systems/spriteComponents';
+import {actorSpriteSubjects,actorSpriteGridSubjects,type ActorSpriteSubject} from '../systems/spriteComponents';
 import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
 import { prepareBridgeRail } from '../systems/BridgeArt';
 import { prepareTreeArt } from '../systems/TreeArt';
@@ -251,6 +252,7 @@ export class BootScene extends Phaser.Scene {
       const isHeroArt = isHeroWalk || sheet.key === 'leigneron_idle' ||
         sheet.key === 'leigneron_idle_sides' || sheet.key === 'leigneron_running';
       let spearmanSubjects:ActorSpriteSubject[]|undefined;
+      let attackSubjects:ActorSpriteSubject[]|undefined;
       let spearmanFit:number|undefined;
 
       for (let frame = 0; frame < sheet.columns; frame++) {
@@ -321,6 +323,8 @@ export class BootScene extends Phaser.Scene {
           spearmanFit=neutral.visibleBounds.height/spearmanSubjects[0].region[3];
         }
         const subject=spearmanSubjects?.[frame];
+        if(sheet.key==='leigneron_attack'&&data&&!attackSubjects)
+          attackSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4);
         const region = subject?.region ?? (data && cell
           ? isHeroArt
             ? heroVisibleBounds(data.data, data.width, cell)
@@ -411,15 +415,39 @@ export class BootScene extends Phaser.Scene {
         // Tiny original pixel sprites must not be blurred by an interpolated
         // upscale before the renderer samples them a second time.
         const enemySheet=sheet.key==='enemies'||sheet.key.startsWith('enemy_');
+        const scenery=Boolean(sheet.regions)&&sheet.key!=='terrain'&&!enemySheet
+          &&!sheet.key.startsWith('npc')&&!sheet.key.startsWith('effect_')&&!sheet.key.startsWith('skill_')
+          &&!sheet.key.startsWith('leigneron');
         ctx.imageSmoothingEnabled=!enemySheet||drawHeight<=(region?.[3]??frameSource.height);
         if(subject&&region)drawEnemyPose(ctx,spriteSubjectCanvas(subject),[0,0,region[2],region[3]],drawX,drawY,drawWidth,drawHeight);
-        else if(enemySheet&&region&&packed)drawEnemyPose(ctx,frameSource,region,drawX,drawY,drawWidth,drawHeight);
-        else ctx.drawImage(
-          frameSource,
+        else if(attackSubjects&&region){
+          // The expanded rear-attack crops contain boots from the row above.
+          // Keep the original crop/registration, but copy only this whole pose.
+          const owned=attackSubjects[frame],clean=document.createElement('canvas');
+          clean.width=region[2];clean.height=region[3];
+          clean.getContext('2d')!.drawImage(spriteSubjectCanvas(owned),owned.region[0]-region[0],owned.region[1]-region[1]);
+          drawEnemyPose(ctx,clean,[0,0,region[2],region[3]],drawX,drawY,drawWidth,drawHeight);
+        }
+        else if(scenery&&region){
+          // Irregular prop crops can include a cut sliver of an adjacent object.
+          // Retain detached interior leaves/flame sparks; remove foreign pieces
+          // cut by the crop edge without changing the prop's registration.
+          const clean=document.createElement('canvas');
+          clean.width=Math.round(region[2]*scaleX);clean.height=Math.round(region[3]*scaleY);
+          const read=clean.getContext('2d',{willReadFrequently:true})!;
+          read.drawImage(frameSource,region[0]*scaleX,region[1]*scaleY,clean.width,clean.height,0,0,clean.width,clean.height);
+          const owned=actorSpriteGridSubjects(read.getImageData(0,0,clean.width,clean.height).data,
+            clean.width,clean.height,1,1,{rejectEdgeFragments:true,keepDetachedDetails:true})[0];
+          read.clearRect(0,0,clean.width,clean.height);
+          read.drawImage(spriteSubjectCanvas(owned),owned.region[0],owned.region[1]);
+          drawEnemyPose(ctx,clean,[0,0,clean.width,clean.height],drawX,drawY,drawWidth,drawHeight);
+        }
+        else drawEnemyPose(
+          ctx,frameSource,[
           region ? region[0] * (packed ? 1 : scaleX) : frame * sourceWidth + inset,
           region ? region[1] * (packed ? 1 : scaleY) : inset,
           region ? region[2] * (packed ? 1 : scaleX) : sourceWidth - inset * 2,
-          region ? region[3] * (packed ? 1 : scaleY) : source.height - inset * 2,
+          region ? region[3] * (packed ? 1 : scaleY) : source.height - inset * 2],
           drawX, drawY, drawWidth, drawHeight
         );
         ctx.restore();
@@ -450,7 +478,6 @@ export class BootScene extends Phaser.Scene {
       }
       texture.refresh();
       texture.setFilter(sheet.key==='enemies'||sheet.key.startsWith('enemy_')?Phaser.Textures.FilterMode.NEAREST:Phaser.Textures.FilterMode.LINEAR);
-      applySkillWeaponPalette(this,sheet.key,undefined,true);
       if(sheet.key!=='elarion_tree')prepareEnvironmentLightArt(this, sheet.key);
       // Avoid retaining decoded RGBA buffers from every character sheet and
       // remove source textures as soon as the last dependent atlas is ready.
@@ -502,7 +529,7 @@ export class BootScene extends Phaser.Scene {
       ...saltKingAnimations,
       ...pirateAnimations,
       ...PIRATE_ATTACK_PHASES,
-      ...PLAYER_ATTACK_ANIMATIONS,
+      ...PLAYER_COMBO_ATTACK_ANIMATIONS.flat(),
       ...PLAYER_EFFECT_ANIMATIONS,
       ...PLAYER_SKILL_ANIMATIONS
     ];
@@ -518,6 +545,16 @@ export class BootScene extends Phaser.Scene {
       });
     }
     prepareSlashWeaponEffect(this);
+    // All derived layers are ready. Repack runtime atlases with clear sampling
+    // gutters; terrain and tile textures are deliberately excluded.
+    for(const key of this.textures.getTextureKeys()){
+      const texture=this.textures.get(key);
+      if(key!=='terrain'&&texture instanceof Phaser.Textures.CanvasTexture){
+        isolateAtlasFrames(texture);
+        // Palette indices address atlas pixels; cache them after final packing.
+        applySkillWeaponPalette(this,key,undefined,true);
+      }
+    }
     this.registry.set('loadingStage','Preparing world');
     this.scene.start('world');
   }

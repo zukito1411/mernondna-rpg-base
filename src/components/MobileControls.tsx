@@ -9,6 +9,7 @@ import {POTIONS,type PotionId} from '../data/economy';
 export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
   const pointerId = useRef<number | null>(null);
+  const attackPointer=useRef<number|null>(null);
   const sprintPointer = useRef<{id:number;startedAt:number;timer:number}|null>(null);
   const panel = useGameStore(s => s.panel);
   const dialogue = useGameStore(s => s.dialogue);
@@ -23,6 +24,7 @@ export function MobileControls() {
   useEffect(() => {
     const reset = () => {
       pointerId.current = null;
+      attackPointer.current=null;
       if(sprintPointer.current)window.clearTimeout(sprintPointer.current.timer);
       sprintPointer.current = null;
       joystickRef.current?.style.setProperty('--stick-x', '0px');
@@ -55,6 +57,10 @@ export function MobileControls() {
     joystickRef.current?.style.setProperty('--stick-x', '0px');
     joystickRef.current?.style.setProperty('--stick-y', '0px');
     mobileInput.releaseMove();
+  };
+  const releaseAttack=(id:number)=>{
+    if(attackPointer.current!==id)return;
+    attackPointer.current=null;mobileInput.setAttackHeld(false);
   };
 
   const releaseSprint = (pointerId: number, dashOnTap: boolean) => {
@@ -124,7 +130,13 @@ export function MobileControls() {
         {interaction && <button type="button" aria-label={`Interact: ${interaction}`} title={interaction} className="touch-button interact" onPointerDown={() => mobileInput.press('interact')}>
           <span className="touch-glyph">E</span><small>Interact</small>
         </button>}
-        <button type="button" aria-label="Attack" className="touch-button attack" onPointerDown={() => mobileInput.press('attack')}>
+        <button type="button" aria-label="Attack" title="Hold to keep attacking" className="touch-button attack"
+          onPointerDown={event=>{
+            if(attackPointer.current!==null)return;
+            attackPointer.current=event.pointerId;event.currentTarget.setPointerCapture(event.pointerId);
+            mobileInput.press('attack');mobileInput.setAttackHeld(true);
+          }} onPointerUp={event=>releaseAttack(event.pointerId)} onPointerCancel={event=>releaseAttack(event.pointerId)}
+          onLostPointerCapture={event=>releaseAttack(event.pointerId)}>
           <span className="touch-glyph"><img src="/icons/basic_attack.png" alt="" /></span><small>Attack</small>
         </button>
         <button type="button" aria-label="Tap to dash, hold to sprint" title="Tap to dash · Hold to sprint" className="touch-button sprint"

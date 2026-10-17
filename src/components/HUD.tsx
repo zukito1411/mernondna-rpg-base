@@ -89,6 +89,12 @@ export function HUD() {
           aria-valuemin={0} aria-valuemax={bossEncounter.maxHp} aria-valuenow={bossEncounter.hp}>
           <div style={{ width: barPercent(bossEncounter.hp, bossEncounter.maxHp) }} />
         </div>
+        {bossEncounter.attackName&&<div className="boss-attack-timing"><span>{bossEncounter.attackName}</span>
+          {bossEncounter.windup!=null&&<div className="boss-windup-meter" role="progressbar" aria-label="Boss attack windup"
+            aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(bossEncounter.windup*100)}>
+            <i style={{width:`${bossEncounter.windup*100}%`}}/>
+          </div>}
+        </div>}
       </section>}
       <MiniMap />
       {!blocked && interaction && <button type="button" className="interaction-hint"

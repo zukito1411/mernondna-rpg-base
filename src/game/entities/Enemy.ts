@@ -18,6 +18,10 @@ import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningS
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
 import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
 import {enhancedWeapon,enhancedProcChance} from '../../data/weaponUpgrades';
+import {BOSS_COMBAT_PROFILES} from '../../data/bossCombatProfiles';
+import {BossCombat} from '../systems/BossCombat';
+import {AttackTelegraph} from '../systems/AttackTelegraph';
+import type {Npc} from './Npc';
 
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
@@ -31,6 +35,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly authoredDefinition: EnemyDefinition;
   private readonly regionalLevel:number;
   hp: number;
+  playerContributed=false;
+  ambientDefeat=false;
   readonly eventSpawn: boolean;
   readonly wolfPackId: string | null;
   readonly wolfAlpha: boolean;
@@ -59,6 +65,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private leapShadow: Phaser.GameObjects.Ellipse | null = null;
   private leapTween: Phaser.Tweens.Tween | null = null;
   private attackTelegraph: Phaser.GameObjects.Image | null = null;
+  private attackShade:AttackTelegraph|null=null;
   private attackTelegraphStyle:EnemyAttackWarningStyle='melee';
   private attackTelegraphRadius=0;
   private attackTelegraphAngle=0;
@@ -74,6 +81,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private lastEngagedAt=0;
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
   private readonly dragonCombat:DragonCombat|undefined;
+  private readonly bossCombat:BossCombat|undefined;
+  get bossAttackName(){return this.bossCombat?.attackName??this.dragonCombat?.attackName??null;}
+  get bossWindupFraction(){return this.bossCombat?.windupFraction??this.dragonCombat?.windupFraction??null;}
   private visualDirection:ActorDirection='right';
   // Each pack member claims a stable hunting lane until it is unloaded.
   private wolfFlankSlot: number | null = null;
@@ -98,7 +108,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
   private syncStatusAttackSpeed(time:number){
     const rate=this.attackSpeedMultiplier;
-    if(time>=this.visualUntil)this.attackTimingActive=false;
+    if(time>=this.visualUntil&&!this.bossCombat?.isAttacking)this.attackTimingActive=false;
     if(rate===this.statusAttackRate)return;
     const remainingScale=this.statusAttackRate/rate;
     if(this.nextAttackAt>time)this.nextAttackAt=time+(this.nextAttackAt-time)*remainingScale;
@@ -185,6 +195,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
     this.targetIndicator=scene.add.graphics().setName('enemy-target:'+instanceId);
     if(definition.combatStyle==='dragon')this.dragonCombat=new DragonCombat(this,scene);
+    else if(this.boss&&BOSS_COMBAT_PROFILES[this.boss.id])this.bossCombat=new BossCombat(this,scene,BOSS_COMBAT_PROFILES[this.boss.id]);
     this.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
       const state=useGameStore.getState();if(!state.panel&&!state.dialogue&&!state.cinematic)scene.targeting.select(this);
     });
@@ -192,6 +203,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.interruptAttack();this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
       (this.scene as WorldScene).forgetEnemySound(this.instanceId);
       this.dragonCombat?.destroy();
+      this.bossCombat?.destroy();
     });
   }
 
@@ -248,18 +260,51 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (!scene.canEnemyOccupy(this.x,this.y,this)) {
+      this.bossCombat?.cancel();
       body.reset(this.lastSafe.x,this.lastSafe.y);
       body.setVelocity(0,0); this.nextWanderAt = 0;
       this.updateVisual(time);
       return;
     }
 
-    if (encounterMode && encounterMode !== 'pursue' && (this.attackTelegraph || this.leapVisual)) {
+    const roadOpponent=scene.ambientOpponentFor(this);
+    if(roadOpponent){
+      this.lastEngagedAt=time;
+      if(this.isStaggered)body.setVelocity(0,0);
+      else if(time<this.lockedUntil){body.setVelocity(0,0);if(this.attackTelegraph||this.attackShade)this.updateAttackTelegraph(time);}
+      else {
+        this.facing.set(roadOpponent.x-this.x,roadOpponent.y-this.y).normalize();
+        const gap=Math.hypot(roadOpponent.x-this.x,roadOpponent.y-this.y);
+        if(gap<=Math.max(this.definition.attackRange,this.definition.attackRadius??0)){
+          body.setVelocity(0,0);
+          if(time>=this.nextAttackAt&&scene.hasClearPath(this.x,this.y,roadOpponent.x,roadOpponent.y))this.beginAttack(scene,roadOpponent,time);
+        }else{
+          const step=Math.min(22,gap),next={x:this.x+this.facing.x*step,y:this.y+this.facing.y*step};
+          if(scene.canEnemyOccupy(next.x,next.y,this)&&scene.canTraverseGround(this,next))
+            body.setVelocity(this.facing.x*this.definition.moveSpeed*.75*this.weaponStatus.movementMultiplier,
+              this.facing.y*this.definition.moveSpeed*.75*this.weaponStatus.movementMultiplier);
+          else body.setVelocity(0,0);
+        }
+      }
+      this.setDepth(scene.playerRenderDepth(this.y));this.lastSafe={x:this.x,y:this.y};this.updateVisual(time);return;
+    }
+
+    if(this.bossCombat){
+      const engaged=pursuing&&territory;
+      this.bossCombat.update(delta,engaged);
+      if(engaged){
+        if(!this.isStaggered)this.updateBossSkill(scene,time);
+        this.lastSafe={x:this.x,y:this.y};
+        this.setDepth(scene.playerRenderDepth(this.y));this.updateVisual(time);return;
+      }
+    }
+
+    if (encounterMode && encounterMode !== 'pursue' && (this.attackTelegraph || this.attackShade || this.leapVisual)) {
       this.interruptAttack();
       if (!this.isStaggered) { this.lockedUntil=time;this.visualUntil=0; }
     }
     if (encounterMode==='return') {
-      if (this.attackTelegraph || this.leapVisual || time < this.lockedUntil) {
+      if (this.attackTelegraph || this.attackShade || this.leapVisual || time < this.lockedUntil) {
         this.interruptAttack();
         if (!this.isStaggered) { this.lockedUntil=time; this.visualUntil=0; }
       }
@@ -270,7 +315,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(this.isStaggered){body.setVelocity(0,0);this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));this.updateVisual(time);return;}
     if (time < this.lockedUntil) {
       body.setVelocity(0, 0);
-      if(this.attackTelegraph)this.updateAttackTelegraph(time);
+      if(this.attackTelegraph||this.attackShade)this.updateAttackTelegraph(time);
       this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
       this.updateVisual(time);
       return;
@@ -495,7 +540,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       approachVelocity(body.velocity.y,targetY,delta,85));
   }
 
-  private beginAttack(scene: WorldScene, player: WorldScene['player'], time: number) {
+  private beginAttack(scene: WorldScene, player: WorldScene['player']|Npc, time: number) {
+    const ambient=player!==scene.player;
     const windup = this.definition.attackWindupMs ?? 220;
     const recovery = this.definition.attackRecoveryMs ?? 320;
     const rate=this.attackSpeedMultiplier;
@@ -512,6 +558,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackTelegraphAngle=this.facing.angle();
     this.attackTelegraphStartedAt=time;
     this.attackTelegraphWindup=windup/rate;
+    this.attackShade?.destroy();this.attackShade=new AttackTelegraph(scene,`attack-windup-fill:${this.instanceId}`,false);
     const layout=enemyAttackWarningLayout(attackStyle,radius,this.attackTelegraphAngle);
     this.attackTelegraph=null;
     if(!ranged)this.attackTelegraph=scene.add.image(this.x,this.y,ATTACK_WARNING_TEXTURE,layout.frame)
@@ -540,8 +587,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if(epoch!==this.attackEpoch)return;
       this.attackTelegraph?.destroy();
       this.attackTelegraph = null;
-      if (epoch!==this.attackEpoch || !this.active || !player.active || !scene.canEnemyTargetPlayer(this) || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
-      if (this.encounterBehavior && scene.encounterDecision(this,scene.time.now,false,scene.canEnemyTargetPlayer(this))!=='pursue') {
+      this.attackShade?.destroy();this.attackShade=null;
+      if (epoch!==this.attackEpoch || !this.active || !player.active
+        ||(ambient?scene.ambientOpponentFor(this)!==player:!scene.canEnemyTargetPlayer(this))
+        || useGameStore.getState().panel || useGameStore.getState().dialogue || useGameStore.getState().cinematic) return;
+      if (!ambient&&this.encounterBehavior && scene.encounterDecision(this,scene.time.now,false,scene.canEnemyTargetPlayer(this))!=='pursue') {
         this.interruptAttack();return;
       }
       if(recoveryClip){
@@ -549,7 +599,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.anims.timeScale=piratePhaseDuration(recoveryClip)/Math.max(1,recovery)*this.attackSpeedMultiplier;
       }
       if(ranged){
-        scene.fireOrcSpear(this,attackAim);
+        scene.fireOrcSpear(this,attackAim,ambient?player as Npc:null);
         scene.playAudio('sfx-sword-whoosh',.2,1.35);
         return;
       }
@@ -565,15 +615,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         || !scene.hasClearPath(this.x, this.y, player.x, player.y)) return;
       this.playMonsterAttackFoley('impact');
       scene.playEffect('hit', player.x, player.y, toPlayer);
-      scene.damagePlayer(this.definition.damage);
+      if(ambient)scene.damageRoadNpc(player as Npc,this.definition.damage);
+      else scene.damagePlayer(this.definition.damage);
     });
     this.attackWindupTimer.timeScale=rate;
   }
 
   private updateAttackTelegraph(time:number){
     const image=this.attackTelegraph;
+    const progress=this.attackWindupTimer?.getProgress()??Phaser.Math.Clamp((time-this.attackTelegraphStartedAt)/Math.max(1,this.attackTelegraphWindup),0,1);
+    const depth=(this.scene as WorldScene).playerRenderDepth(Math.min(this.y,(this.scene as WorldScene).player.y))-2;
+    this.attackShade?.draw({kind:this.isRangedAttacker?'line':this.attackTelegraphStyle==='slam'?'circle':'cone',x:this.x,y:this.y,
+      angle:this.attackTelegraphAngle,radius:this.isRangedAttacker?12:this.attackTelegraphRadius,range:this.definition.attackRange,
+      halfAngle:Math.acos(this.attackTelegraphStyle==='pounce'?.35:.6)},progress,depth);
     if(!image)return;
-    const progress=Phaser.Math.Clamp((time-this.attackTelegraphStartedAt)/Math.max(1,this.attackTelegraphWindup),0,1);
     const layout=enemyAttackWarningLayout(this.attackTelegraphStyle,this.attackTelegraphRadius,this.attackTelegraphAngle);
     image.setPosition(this.x,this.y+2).setDisplaySize(layout.width,layout.height).setRotation(layout.rotation)
       .setAlpha(.2+progress*.08+(progress>.78?Math.sin(time*.02)*.025:0))
@@ -588,7 +643,35 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     scene.tryBossSummonWave(this);
   }
 
+  playBossWindup(windup:number,recovery:number,angle:number){
+    this.facing.set(Math.cos(angle),Math.sin(angle));
+    if(this.directionalCombat)this.visualDirection=actorTravelDirection(this.facing.x,this.facing.y,this.visualDirection);
+    this.playAction('attack');
+    const animation=enemyAnimation(this.definition.spriteFrame,'attack',this.directionalCombat?this.visualDirection:undefined);
+    const clip=pirateAttackPhase(this.definition.spriteFrame,'windup');
+    if(clip){this.anims.play(clip.key);this.anims.timeScale=piratePhaseDuration(clip)/windup*this.attackSpeedMultiplier;}
+    else this.anims.timeScale=animationDuration(animation)/(windup+recovery)*this.attackSpeedMultiplier;
+    if(this.definition.combatStyle==='troll')this.anims.timeScale=(animation.frames.length-1)*1000/(animation.frameRate*windup)*this.attackSpeedMultiplier;
+    this.attackTimingActive=true;this.visualUntil=this.scene.time.now+(windup+recovery)/this.attackSpeedMultiplier;
+  }
+  finishBossWindup(recovery:number){
+    const clip=pirateAttackPhase(this.definition.spriteFrame,'recovery');
+    if(clip){this.anims.play(clip.key);this.anims.timeScale=piratePhaseDuration(clip)/recovery*this.attackSpeedMultiplier;}
+  }
+  playBossImpact(radius:number){
+    if(this.definition.combatStyle!=='troll')return;
+    const scene=this.scene as WorldScene;
+    const impact=scene.add.sprite(this.x,this.y,'effect_troll_impact',0).setOrigin(.5,actorArtLayout('effect_troll_impact').originY)
+      .setScale(artScale('effect_troll_impact')*radius/40).setDepth(scene.playerRenderDepth(this.y)+1).play('effect-troll-impact');
+    impact.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>impact.destroy());scene.playAudio('sfx-heavy-slam',.3);
+  }
+  cancelBossWindup(){
+    this.attackTimingActive=false;
+    if(!this.isStaggered)this.visualUntil=0;
+  }
+
   private updateVisual(time:number) {
+    if(this.bossCombat?.isAttacking)return;
     if (time < this.visualUntil) return;
     const body = this.body as Phaser.Physics.Arcade.Body;
     const speed=body.velocity.length();
@@ -701,6 +784,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackEpoch++;
     this.attackWindupTimer?.remove(false);this.attackWindupTimer=null;this.attackTimingActive=false;
     this.attackTelegraph?.destroy();this.attackTelegraph=null;
+    this.attackShade?.destroy();this.attackShade=null;
+    this.bossCombat?.cancel();
     this.clearWolfLeap();
   }
   private stagger(forced:boolean){
@@ -720,10 +805,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally';weaponId?:string;procHitWeight?:number}={}) {
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally'|'ambient-ally'|'companion';weaponId?:string;procHitWeight?:number}={}) {
     if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     const state=useGameStore.getState();
-    const support=options.nonLethal||options.source==='story-ally';
+    const support=options.nonLethal||options.source==='story-ally'||options.source==='ambient-ally'||options.source==='companion';
+    if(!support||options.source==='companion')this.playerContributed=true;
     if(!support)state.discoverCreature(this.definition.id,this.boss?.id);
     const armorPenetration=support?0:Math.min(.4,(state.attributes.strength??0)*.01);
     const effectiveDefense=(this.definition.defense??0)*(1-armorPenetration);
@@ -736,6 +822,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
     this.lastDamagedAt=this.scene.time.now;
     const fatal=this.hp<=0;
+    if(fatal)this.ambientDefeat=options.source==='ambient-ally';
     // Small NPC support hits must not interrupt telegraphs or stun-lock a foe.
     const staggered=!support&&!fatal&&this.stagger(Boolean(options.forceStagger));
     if(fatal)this.interruptAttack();

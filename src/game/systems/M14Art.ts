@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {isolateAtlasFrames} from './AtlasFrameIsolation';
 import {ART_BY_KEY} from '../../data/art';
 import type {M14ArtSpec} from '../../data/m14Art';
 import {actorSpriteSubjects,type ActorSpriteSubject} from './spriteComponents';
@@ -74,7 +75,7 @@ export function prepareM14Art(scene:Phaser.Scene,spec:M14ArtSpec){
       drawPose(subjects.actions[actions+pose],actionFit,20+row*6+pose,flipped,pose>=4);
     }
   }
-  texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);isolateAtlasFrames(texture);
   if(spec.species===12&&!scene.textures.exists('enemy_goblin_stone')){
     const stone=subjects.stone[0],[,,w,h]=stone.region,fit=24/Math.max(w,h);
     const tiny=scene.textures.createCanvas('enemy_goblin_stone',64,64)!;

@@ -4,7 +4,7 @@ import {alphaFrameBounds} from './spriteArt';
  * assigning rows, so a toe crossing a grid seam cannot enter the next pose. */
 export interface ActorSpriteSubject {region:SpriteRegion;pixels:Uint8ClampedArray;foreignProbes:Array<readonly [number,number]>}
 export function actorSpriteGridSubjects(pixels:Uint8ClampedArray,width:number,height:number,columns:number,rows:number,
- options:{rejectEdgeFragments?:boolean}={}):ActorSpriteSubject[]{
+ options:{rejectEdgeFragments?:boolean;keepDetachedDetails?:boolean}={}):ActorSpriteSubject[]{
  if(width%columns||height%rows)throw new Error('Actor sprite sheet does not match its declared frame grid.');
  const cellWidth=width/columns,cellHeight=height/rows,subjects:ActorSpriteSubject[]=[];
  for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
@@ -34,7 +34,7 @@ export function actorSpriteGridSubjects(pixels:Uint8ClampedArray,width:number,he
    // Furniture windows can include a sliver of the next row. Keep complete
    // nearby ornaments/handles, but never attach an edge-cut foreign fragment.
    const contained=!options.rejectEdgeFragments||part.left>1&&part.top>1&&part.right<cellWidth-2&&part.bottom<cellHeight-2;
-   return part===main||contained&&Math.hypot(dx,dy)<=8;
+   return part===main||contained&&(options.keepDetachedDetails||Math.hypot(dx,dy)<=8);
   });
   const left=Math.max(0,Math.min(...kept.map(part=>part.left))-2);
   const top=Math.max(0,Math.min(...kept.map(part=>part.top))-2);

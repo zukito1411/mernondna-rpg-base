@@ -8,13 +8,14 @@ import {fortificationBlocksPoint,fortificationBlocksPath} from '../../data/forti
 import type {WorldGenerator} from './WorldGenerator';
 import {BOAT_HULL_CLEARANCE} from './VehicleArt';
 
-export interface TrafficRoute {id:string;kind:'boat'|'cart';points:Vec2[];length:number;speed:number;phase:number;endpointClearance?:number}
+export interface TravelPath {id:string;points:Vec2[];length:number;speed:number;phase:number;endpointClearance?:number}
+export interface TrafficRoute extends TravelPath {kind:'boat'|'cart'}
 export function pathLength(points:Vec2[]){return points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-points[i].x,p.y-points[i].y),0);}
 // Merchants on the same run share its immutable points and length table.
 const routeLengths=new WeakMap<Vec2[],number[]>();
 /** Active-play clock gives stable positions across renderer unloading. Endpoints
  * have a short loading pause; direction reverses without teleporting. */
-export function routePosition(route:TrafficRoute,elapsedMs:number){
+export function routePosition(route:TravelPath,elapsedMs:number){
   const inset=route.endpointClearance??0,span=Math.max(0,route.length-inset*2);
   const travel=span/route.speed*1000,pause=4000,cycle=2*(travel+pause);
   const time=((elapsedMs+route.phase)%cycle+cycle)%cycle;
@@ -26,7 +27,7 @@ export function routePosition(route:TrafficRoute,elapsedMs:number){
 
 /** Sample the vehicle assembly's center along its measured route. Horse/cart
  * joints are registered together in WorldTrafficSystem, not sampled apart. */
-export function routePointAtDistance(route:TrafficRoute,distance:number){
+export function routePointAtDistance(route:TravelPath,distance:number){
   distance=Math.max(0,Math.min(route.length,distance));
   let cumulative=routeLengths.get(route.points);
   if(!cumulative){cumulative=[0];for(let i=1;i<route.points.length;i++)cumulative.push(cumulative.at(-1)!+Math.hypot(route.points[i].x-route.points[i-1].x,route.points[i].y-route.points[i-1].y));routeLengths.set(route.points,cumulative);}

@@ -8,6 +8,28 @@ export const ATTACK_WARNING_FRAMES={
 } as const;
 
 export type EnemyAttackWarningStyle='melee'|'pounce'|'slam';
+export interface AttackArea {
+  kind:'circle'|'cone'|'line'|'ring';x:number;y:number;angle:number;radius:number;
+  range?:number;innerRadius?:number;halfAngle?:number;flatEnd?:boolean;
+}
+export function windupProgress(elapsed:number,duration:number){
+  if(!Number.isFinite(elapsed)||!Number.isFinite(duration)||duration<=0)return 0;
+  return Math.max(0,Math.min(1,elapsed/duration));
+}
+/** Warning rendering and actual boss hit checks share these same dimensions. */
+export function attackAreaContains(area:AttackArea,x:number,y:number){
+  const dx=x-area.x,dy=y-area.y,distance=Math.hypot(dx,dy);
+  if(area.kind==='circle')return distance<=area.radius;
+  if(area.kind==='ring')return distance>=(area.innerRadius??0)&&distance<=area.radius;
+  const forward=dx*Math.cos(area.angle)+dy*Math.sin(area.angle);
+  const sideways=-dx*Math.sin(area.angle)+dy*Math.cos(area.angle);
+  if(area.kind==='line'){
+    const closest=Math.max(0,Math.min(area.range??area.radius,forward));
+    return Math.hypot(forward-closest,sideways)<=area.radius;
+  }
+  if(area.flatEnd){const half=area.halfAngle??.5;return forward>=0&&forward<=area.radius*Math.cos(half)&&Math.abs(sideways)<=forward*Math.tan(half);}
+  return distance<=area.radius&&(distance===0||forward/distance>=Math.cos(area.halfAngle??Math.acos(.6)));
+}
 
 export function registerAttackWarningFrames(scene:Phaser.Scene){
   const texture=scene.textures.get(ATTACK_WARNING_TEXTURE);

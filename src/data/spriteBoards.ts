@@ -1,5 +1,6 @@
 import { HERO_PACK, type SpriteSource, type SpriteAnimation } from './animationPacks';
 import { registerNpcWalkSources } from './npcWalkArt';
+import {BASIC_ATTACK_CHAIN} from './basicAttackCombo';
 type Region = readonly [number,number,number,number];
 export interface SpriteBoard { key:string; path:string; regions:readonly Region[]; frameWidth:number; frameHeight:number; scale:number }
 // Connected alpha-component bounds, not assumed 256px cells. Some polearms
@@ -49,6 +50,15 @@ export function boardSources(board:SpriteBoard):SpriteSource[] {
 export const PLAYER_ATTACK_ANIMATIONS:SpriteAnimation[] = ['down','left','right','up'].map((direction,row) => ({
   key:`leigneron-attack-${direction}`,texture:'leigneron_attack',frames:Array.from({ length:6 },(_,i) => row * 6 + i),frameRate:18,repeat:0,
 }));
+// Reuse complete, foot-registered poses. The return stroke reverses the cut;
+// the finisher holds the raised blade before a fast, committed downswing.
+export const PLAYER_COMBO_ATTACK_ANIMATIONS:SpriteAnimation[][]=BASIC_ATTACK_CHAIN.map((step,index)=>
+  index===0?PLAYER_ATTACK_ANIMATIONS:PLAYER_ATTACK_ANIMATIONS.map((base,direction)=>{
+    const weight=step.frameWeights.reduce((sum,value)=>sum+value,0);
+    return {...base,key:`${base.key}-combo-${index+1}`,
+      frames:step.frames.map(frame=>direction*6+frame),
+      frameDurations:step.frameWeights.map(value=>value/weight*(6000/base.frameRate))};
+  }));
 export const PLAYER_IDLE_ANIMATION:SpriteAnimation = {
   key:'leigneron-idle',texture:'leigneron_idle',frames:Array.from({ length:HERO_PACK.animations.idle_front.frames },(_,i) => i),
   frameRate:HERO_PACK.animations.idle_front.frameRate,repeat:HERO_PACK.animations.idle_front.repeat,

@@ -39,9 +39,11 @@ export class TargetingSystem {
     const enemy=this.selected;
     const boss=enemy?.definition.boss&&(enemy===this.manual||enemy===this.engaged)&&this.eligible(enemy)?enemy:null;
     const next=boss?{id:boss.instanceId,name:BOSS_BY_ID[boss.instanceId.replace(/^boss:/,'')]?.name??boss.definition.name,
-      hp:Math.max(0,boss.hp),maxHp:boss.definition.hp}:null;
+      hp:Math.max(0,boss.hp),maxHp:boss.definition.hp,attackName:boss.bossAttackName,
+      windup:boss.bossWindupFraction==null?null:Math.floor(boss.bossWindupFraction*20)/20}:null;
     const store=useGameStore.getState(),previous=store.bossEncounter;
-    if(previous?.id!==next?.id||previous?.hp!==next?.hp||previous?.maxHp!==next?.maxHp||previous?.name!==next?.name)
+    if(previous?.id!==next?.id||previous?.hp!==next?.hp||previous?.maxHp!==next?.maxHp||previous?.name!==next?.name
+      ||previous?.attackName!==next?.attackName||previous?.windup!==next?.windup)
       store.setBossEncounter(next);
   }
 }

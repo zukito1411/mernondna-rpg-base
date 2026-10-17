@@ -5,7 +5,9 @@ import { useGameStore } from '../../store/gameStore';
 import type { WorldScene } from '../scenes/WorldScene';
 import { artScale, ART_BY_KEY, actorArtLayout, actorScaleForHeight, HERO_VISIBLE_HEIGHT, type PlayerPresentationTexture } from '../../data/art';
 import { directionFrame } from '../../data/animationPacks';
-import { PLAYER_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
+import { PLAYER_COMBO_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
+import {BASIC_ATTACK_CHAIN,BASIC_ATTACK_LINK_MS,basicAttackStamina,type BasicAttackStep} from '../../data/basicAttackCombo';
+import type {WeaponDefinition} from '../types';
 import { animationDuration } from '../../data/animationPacks';
 import { progressionStats,dodgeProfile } from '../../data/progression';
 import { slottedActiveSkills } from '../../data/activeSkills';
@@ -26,6 +28,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   lastDirection = new Phaser.Math.Vector2(0, 1);
   private readonly keys: Record<'up' | 'down' | 'left' | 'right' | 'sprint' | MobileAction, Phaser.Input.Keyboard.Key>;
   private nextAttackAt = 0;
+  private comboStep=0;
+  private comboExpiresAt=0;
+  private comboWeaponId='';
+  private pendingBasicAttack:{weapon:WeaponDefinition;direction:Phaser.Math.Vector2;step:BasicAttackStep;impactAt:number}|null=null;
   private nextDashAt = 0;
   private nextFootstepAt = 0;
   private dashUntil = 0;
@@ -132,6 +138,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const dashPressed = this.consumeAction('dash') || mobileDash;
     const dodge=dodgeProfile(state.attributes);
     if (dashPressed && !movementLocked && time >= this.nextDashAt && this.spendStamina(dodge.staminaCost)) {
+      this.resetBasicAttackCombo();
+      this.clearAttackVisual();
       this.nextDashAt = time + dodge.cooldownMs;
       this.dashUntil = time + dodge.durationMs;
       this.invulnerableUntil = time + dodge.invulnerableMs;
@@ -194,20 +202,36 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const skill=equippedArts.find(s=>s.action===action);if(!skill)continue;
       if (pressed && scene.combatAllowed && !this.skills.isCasting && time >= this.nextAttackAt && time >= this.dashUntil) {
         this.clearAttackVisual();
-        if (this.skills.tryCast(skill.id)) this.nextAttackAt = time + skill.durationMs;
+        if (this.skills.tryCast(skill.id)) {
+          this.resetBasicAttackCombo();
+          this.nextAttackAt = time + skill.durationMs;
+        }
       }
     }
 
     const mobileAttack = mobileInput.consume('attack');
-    const attackPressed = this.consumeAction('attack') || mobileAttack;
-    if (attackPressed && scene.combatAllowed && !this.skills.isCasting && time >= this.nextAttackAt && time >= this.dashUntil) {
+    const attackPressed = this.consumeAction('attack') || mobileAttack || this.keys.attack.isDown || mobileInput.attackHeld;
+    if(!scene.combatAllowed||this.hp<=0||state.weaponId!==this.comboWeaponId)this.resetBasicAttackCombo();
+    const pending=this.pendingBasicAttack;
+    if(pending&&time>=pending.impactAt){
+      this.pendingBasicAttack=null;
+      this.strikeBasicAttack(pending.weapon,pending.direction,pending.step);
+    }
+    if (attackPressed && this.hp>0 && scene.combatAllowed && !this.skills.isCasting && !this.pendingBasicAttack && time >= this.nextAttackAt && time >= this.dashUntil) {
       const weapon = scene.getEquippedWeapon();
-      const cooldown = weapon.cooldownMs * progression.cooldownMultiplier;
-      if (this.spendStamina(weapon.staminaCost)) {
+      if(time>this.comboExpiresAt||this.comboWeaponId!==weapon.id)this.comboStep=0;
+      const stepIndex=this.comboStep,step=BASIC_ATTACK_CHAIN[stepIndex];
+      const cooldown = weapon.cooldownMs * progression.cooldownMultiplier * step.recoveryMultiplier;
+      if (this.spendStamina(basicAttackStamina(weapon.staminaCost,step))) {
+        const direction=this.lastDirection.clone();
         this.nextAttackAt = time + cooldown;
-        scene.playSwordSwing();
-        scene.performPlayerAttack(this, this.lastDirection, weapon);
-        if (weapon.kind === 'sword' || weapon.kind === 'greatsword') this.playSwordVisual(cooldown);
+        this.comboStep=(stepIndex+1)%BASIC_ATTACK_CHAIN.length;
+        this.comboExpiresAt=this.nextAttackAt+BASIC_ATTACK_LINK_MS;
+        this.comboWeaponId=weapon.id;
+        this.recovery.interrupt();
+        if (weapon.kind === 'sword' || weapon.kind === 'greatsword') this.playSwordVisual(cooldown,stepIndex);
+        if(step.impactFraction===0)this.strikeBasicAttack(weapon,direction,step);
+        else this.pendingBasicAttack={weapon,direction,step,impactAt:time+cooldown*step.impactFraction};
       }
     }
 
@@ -229,6 +253,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.stamina=Math.max(0,this.stamina-amount);return true;
   }
 
+  private resetBasicAttackCombo(){
+    this.comboStep=0;this.comboExpiresAt=0;this.comboWeaponId='';this.pendingBasicAttack=null;
+  }
+
+  private strikeBasicAttack(weapon:WeaponDefinition,direction:Phaser.Math.Vector2,step:BasicAttackStep){
+    const scene=this.scene as WorldScene;
+    scene.playSwordSwing(step);
+    const hits=scene.performPlayerAttack(this,direction,weapon,step);
+    if(weapon.kind==='sword'||weapon.kind==='greatsword'){
+      const slash=scene.playEffect('slash',this.x+direction.x*16,this.y+direction.y*16,direction);
+      if(step===BASIC_ATTACK_CHAIN[1])slash.setFlipY(true);
+      if(step===BASIC_ATTACK_CHAIN[2]){
+        slash.setScale(slash.scaleX*1.2).setTint(0xffdeb1);
+        if(hits>0){scene.cameras.main.shake(95,.002);scene.playAudio('sfx-impact-heavy-1',.3,.85);}
+      }
+    }
+  }
+
   takeDamage(amount: number) {
     const scene = this.scene as WorldScene;
     if(!Number.isFinite(amount)||amount<=0||this.hp<=0)return;
@@ -242,6 +284,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
     if(amount>0)this.weaponDrawnRemaining=5000;
     if(amount>0)this.skills.interruptRenewal();
+    this.resetBasicAttackCombo();
+    if(this.attackVisual)this.clearAttackVisual();
     this.recovery.interrupt();
     this.invulnerableUntil=now+320+Math.min(40,state.attributes.vitality)*2;
     this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * stats.incomingDamageMultiplier));
@@ -252,6 +296,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   restoreAt(x: number, y: number) {
+    this.resetBasicAttackCombo();
     this.recovery.interrupt();
     this.skills.cancelCast(); this.skills.clearRally();
     this.clearAttackVisual();
@@ -267,6 +312,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   resetInput() {
+    this.resetBasicAttackCombo();
     // Menus must see current combat vitals, not the throttled HUD snapshot;
     // otherwise drinking from Bag can heal from an older health value.
     this.syncInventoryVitals();
@@ -313,13 +359,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         layout.originY * sheet.frameHeight * sheet.density - 22 / scale);
   }
 
-  private playSwordVisual(cooldown:number) {
+  private playSwordVisual(cooldown:number,stepIndex=0) {
     this.clearAttackVisual();
     const direction = directionFrame(this.lastDirection.x,this.lastDirection.y) / 6;
-    const slashX = this.x + this.lastDirection.x * 16;
-    const slashY = this.y + this.lastDirection.y * 16;
-    (this.scene as WorldScene).playEffect('slash', slashX, slashY, this.lastDirection);
-    const animation = PLAYER_ATTACK_ANIMATIONS[direction], layout = actorArtLayout('leigneron_attack');
+    const animation = PLAYER_COMBO_ATTACK_ANIMATIONS[stepIndex][direction], layout = actorArtLayout('leigneron_attack');
     const effect = this.scene.add.sprite(this.x,this.y,'leigneron_attack',animation.frames[0]).setOrigin(.5,layout.originY)
       .setScale(artScale('leigneron_attack')).setDepth(this.depth).setName('player-sword-visual');
     this.attackVisual = effect; this.setAlpha(0);

@@ -48,8 +48,11 @@ export class InteriorSession {
   get safePosition(){return this.cinematicContext?(this.cinematicContext.outside??this.cinematicContext.position):this.outside;}
   get currentEntry(){return this.entry;}
   get viewCenter(){return this.plan?{x:this.origin.x+this.plan.entrance.x,y:this.origin.y+this.plan.entrance.y}:this.scene.player;}
-  getActor(npcId:string){return this.residents.find(n=>n.definition.id===npcId);}
-  getResidents(){return this.residents;}
+  getActor(npcId:string){return this.getResidents().find(n=>n.definition.id===npcId);}
+  getResidents(){
+    const companion=this.scene.interiorCompanionActor;
+    return companion&&!this.residents.includes(companion)?[...this.residents,companion]:this.residents;
+  }
 
   beginCinematic(){
     if(this.cinematicContext)return;
@@ -105,7 +108,7 @@ export class InteriorSession {
   }
   presentCinematic(x:number,y:number,paused=false,delta=0){
     this.fitBackdrop();
-    for(const npc of this.residents){
+    for(const npc of this.getResidents()){
       if(npc.storyMoving&&!paused){npc.updatePatrol(this.scene.time.now,delta);npc.advanceCinematic(delta);}
       npc.updatePresentation(x,y,false,paused,true);npc.setDepth(DEPTH+npc.y-this.origin.y);npc.setInteriorLabelDepth(DEPTH-this.origin.y);
     }
@@ -349,7 +352,7 @@ export class InteriorSession {
     const overlaps=(r:RoomRect)=>feet.x<r.x+r.width&&feet.x+feet.width>r.x
       &&feet.y<r.y+r.height&&feet.y+feet.height>r.y;
     return !this.wallSolids.some(overlaps)&&!this.plan.objects.some(o=>o.solid&&overlaps(o.solid))
-      &&(ignoreResidents||!this.residents.some(n=>n!==ignoreResident&&overlaps({x:n.x-this.origin.x-14,y:n.y-this.origin.y-24,width:28,height:24})));
+      &&(ignoreResidents||!this.getResidents().some(n=>n!==ignoreResident&&overlaps({x:n.x-this.origin.x-14,y:n.y-this.origin.y-24,width:28,height:24})));
   }
   playerFeet(x:number,y:number){
     return this.combatFeet(x,y)&&!this.scene.getCombatEnemies().some(e=>e.active&&e.hp>0
@@ -426,7 +429,7 @@ export class InteriorSession {
       if(this.validFeet(x,y+dy/steps))y+=dy/steps;
     }
     body.reset(x,y);body.setVelocity(velocity.x,velocity.y);player.setDepth(this.scene.playerRenderDepth(y));
-    for(const npc of this.residents){
+    for(const npc of this.getResidents()){
       if(npc.storyMoving){npc.updatePatrol(time,delta);npc.advanceCinematic(delta);}
       npc.setDepth(DEPTH+npc.y-this.origin.y);
     }
@@ -436,12 +439,12 @@ export class InteriorSession {
     let target=resolveQuestTarget(store.quests,store.worldContent,player,id=>{
       const npc=id.startsWith('npc:')?this.getActor(id.slice(4)):undefined;return npc;
     },store.trackedQuestId,this.entry.id,store.storyFlags);
-    if(target&&!(target.type==='encounter'&&target.interiorId===this.entry.id)&&!this.residents.some(n=>target!.contentId==='npc:'+n.definition.id))target={...target,worldLocation:{x:target.x,y:target.y},
+    if(target&&!(target.type==='encounter'&&target.interiorId===this.entry.id)&&!this.getResidents().some(n=>target!.contentId==='npc:'+n.definition.id))target={...target,worldLocation:{x:target.x,y:target.y},
       x:this.origin.x+exit.x,y:this.origin.y+exit.y,contentId:'interior:exit:'+this.entry.id,
       label:`Leave ${this.entry.name} — ${target.label}`};
     else if(target)target={...target,worldLocation:{...this.entry.door}};
-    for(const npc of this.residents)npc.updatePresentation(x,y,target?.contentId==='npc:'+npc.definition.id);
-    for(const npc of this.residents)npc.setInteriorLabelDepth(DEPTH-this.origin.y);
+    for(const npc of this.getResidents())npc.updatePresentation(x,y,target?.contentId==='npc:'+npc.definition.id);
+    for(const npc of this.getResidents())npc.setInteriorLabelDepth(DEPTH-this.origin.y);
     this.guide?.clear();
     if(target&&this.guide){
       const approach=target,angle=questBearing(player,approach),dx=Math.sin(angle),dy=-Math.cos(angle),gx=x+dx*48,gy=y+dy*48;
@@ -450,9 +453,10 @@ export class InteriorSession {
     }
     store.setNavigation({heading:Math.atan2(player.lastDirection.x,-player.lastDirection.y),target,
       playerPosition:{x,y},interiorName:this.entry.name,interiorFloors:this.mapFloors,
-      markers:[...this.residents.map(n=>({id:'npc:'+n.definition.id,kind:'npc' as const,label:n.definition.name,x:n.x,y:n.y})),
+      markers:[...this.getResidents().map(n=>({id:'npc:'+n.definition.id,kind:'npc' as const,label:n.definition.name,x:n.x,y:n.y})),
         ...this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0).map(e=>({id:e.instanceId,kind:'enemy' as const,label:e.definition.name,x:e.x,y:e.y}))],
-      interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':null});
+      interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':
+        this.scene.companionActor&&Math.hypot(this.scene.companionActor.x-x,this.scene.companionActor.y-y)<180?'Talk to Alice Fen':null});
     this.syncMs+=Math.min(delta,80);
     if(this.syncMs>=500){this.syncMs=0;this.scene.syncState();}
   }
@@ -464,7 +468,7 @@ export class InteriorSession {
     const player=this.scene.player,near=this.residents.find(n=>this.reachableResident(n));
     if(near){this.talk(near);return;}
     if(this.plan&&Math.hypot(player.x-this.origin.x-this.plan.entrance.x,player.y-this.origin.y-this.plan.entrance.y)<80)this.exit();
-    else this.scene.notify('Speak to a resident or return to the south doorway.');
+    else if(!this.scene.talkToCompanion())this.scene.notify('Speak to a resident or return to the south doorway.');
   }
   private talk(npc:Npc){if(!this.scene.storyCombatActive)useGameStore.getState().startDialogue(npc.definition.id);}
   exit(){

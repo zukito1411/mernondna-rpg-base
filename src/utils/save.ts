@@ -615,6 +615,8 @@ export function loadGame(): boolean {
     const s = data.state;
     const derived = progressionStats(s.attributes, s.learnedSkills);
     useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
+      rareLootQueue:[],nextRareLootId:0,
+      levelUpNotice:null,nextLevelUpId:0,
       journal:s.journal!,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
       learnedSkills: s.learnedSkills, gold: s.gold,

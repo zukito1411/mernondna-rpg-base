@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { NpcDefinition, Vec2 } from '../types';
 import { ART_BY_KEY, actorScaleForHeight, artScale, type ArtTextureKey } from '../../data/art';
-import { NPC_IDLE_ART } from '../../data/npcIdleArt';
+import { NPC_IDLE_ART,npcDirectionalIdleTexture,npcIdleSilhouetteHeight } from '../../data/npcIdleArt';
 import { directionFrame } from '../../data/animationPacks';
 import {actorTravelDirection,type ActorDirection} from '../../data/directionalEnemyArt';
 import { npcApparentHeight } from '../../data/progression';
@@ -38,7 +38,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private returningHome = false;
   private nextPatrolAt = 0;
   private facing = new Phaser.Math.Vector2(0, 1);
-  // Walking is directional, but every idle pose faces downward.
+  // Road travelers retain their facing while waiting for a real obstruction.
   private walkDirection: WalkDirection = 'down';
   private readonly walkTexture:ArtTextureKey;
   private readonly walkArtTexture:ArtTextureKey;
@@ -59,6 +59,9 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private lastAvoidAttempt=0;
   private avoidSide=1;
   private storyGoal:Vec2|null=null;
+  private companionControl=false;
+  private companionGoal:{point:Vec2;speed:number}|null=null;
+  private roadRoute:{points:Vec2[];next:number;direction:number;loop:boolean;wait:number;speed:number;rejoin:boolean;joining:Vec2|null}|null=null;
   private storyAlert:string|undefined;
   private storyGuard=false;
   private storyAttack:string|null=null;
@@ -164,6 +167,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.storyGuard=false;this.storyAttack=null;this.storyGoal=null;
     this.formationRejoining=Boolean(this.definition.formation);this.formationRejoinAt=0;
     this.target=null;this.route=[];this.npcDetour=null;this.routineKey='';this.stalledMs=0;
+    if(this.roadRoute){this.roadRoute.rejoin=true;this.roadRoute.joining=null;}
     this.storyRest();
   }
   holdStoryGuard(target?:Vec2){
@@ -190,6 +194,78 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   beginStoryMovement(goal:Vec2){if(this.canStoryWalk)this.storyGoal={...goal};}
   endStoryMovement(){this.storyGoal=null;this.storyRest();}
   get storyMoving(){return this.storyGoal!==null||this.storyGuard;}
+  get adventureCompanion(){return this.companionControl;}
+  setAdventureCompanion(enabled:boolean){
+    if(enabled===this.companionControl)return;
+    this.companionControl=enabled;this.companionGoal=null;
+    if(enabled){this.nameLabel.setVisible(false);this.titleLabel.setVisible(false);this.sideQuestMarker?.setVisible(false);}
+    this.target=null;this.route=[];this.npcDetour=null;this.routineKey='';this.stalledMs=0;
+  }
+  setCompanionGoal(point:Vec2|null,speed=165){this.companionGoal=point?{point:{...point},speed}:null;}
+  setCompanionCamera(filter:number){
+    this.cameraFilter=filter;this.nameLabel.cameraFilter=filter;this.titleLabel.cameraFilter=filter;
+    if(this.sideQuestMarker)this.sideQuestMarker.cameraFilter=filter;
+  }
+  setCompanionAlpha(alpha:number){
+    this.setAlpha(alpha);this.nameLabel.setAlpha(alpha);this.titleLabel.setAlpha(alpha);this.sideQuestMarker?.setAlpha(alpha);
+  }
+  /** Persistent corner destinations keep travel independent of AI think ticks. */
+  followRoadRoute(points:readonly Vec2[],speed=39,options:{next?:number;direction?:number;loop?:boolean}={}){
+    const loop=points.map(p=>({...p}));
+    if(loop.length>2&&Math.hypot(loop[0].x-loop.at(-1)!.x,loop[0].y-loop.at(-1)!.y)<1)loop.pop();
+    if(loop.length<2)return;
+    this.roadRoute={points:loop,next:Math.max(0,Math.min(loop.length-1,options.next??1)),
+      direction:options.direction===-1?-1:1,loop:options.loop??false,wait:0,speed,rejoin:false,joining:null};
+  }
+  get roadTravelDirection(){return this.roadRoute?.direction??1;}
+  private updateRoadWalk(delta:number){
+    const route=this.roadRoute!,scene=this.scene as WorldScene,body=this.body as Phaser.Physics.Arcade.Body;
+    if(!this.canStoryWalk){this.storyRest();return;}
+    if(route.wait>0){route.wait=Math.max(0,route.wait-delta);this.storyRest();return;}
+    if(route.rejoin){
+      let best=Infinity;
+      for(let i=0;i<route.points.length-(route.loop?0:1);i++){
+        const a=route.points[i],b=route.points[(i+1)%route.points.length],dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+        const t=len2?Math.max(0,Math.min(1,((this.x-a.x)*dx+(this.y-a.y)*dy)/len2)):0;
+        const point={x:a.x+dx*t,y:a.y+dy*t},distance=Math.hypot(point.x-this.x,point.y-this.y);
+        if(distance>1200||distance>=best||!scene.canNpcVisit(this,point)||!scene.canTraverseGround(this,point))continue;
+        best=distance;route.joining=point;route.next=route.direction>0?(i+1)%route.points.length:i;
+      }
+      if(Number.isFinite(best))route.rejoin=false;
+      else {this.storyRest();return;}
+    }
+    const arrival=Math.max(2,route.speed*Math.min(100,Math.max(0,delta))/1000*1.15);
+    let goal=route.joining??route.points[route.next];
+    // Cross corners in the same update, without an idle frame between legs.
+    for(let i=0;i<=route.points.length&&Math.hypot(goal.x-this.x,goal.y-this.y)<=arrival;i++){
+      this.npcDetour=null;
+      if(route.joining)route.joining=null;
+      else {
+        const next=route.next+route.direction;
+        if(!route.loop&&(next<0||next>=route.points.length)){
+          route.direction*=-1;route.next+=route.direction;route.wait=4000;this.storyRest();return;
+        }
+        route.next=(next+route.points.length)%route.points.length;
+      }
+      goal=route.points[route.next];
+    }
+    if(this.npcDetour&&Math.hypot(this.x-this.npcDetour.x,this.y-this.npcDetour.y)<8)this.npcDetour=null;
+    const destination=this.npcDetour??goal;
+    let dx=destination.x-this.x,dy=destination.y-this.y,length=Math.hypot(dx,dy);
+    if(length<.01){this.storyRest();return;}
+    const ahead={x:this.x+dx/length*Math.min(32,length),y:this.y+dy/length*Math.min(32,length)};
+    const blocker=scene.npcPathBlocker(this,ahead,this);
+    if(!scene.canNpcVisit(this,ahead)||!scene.canTraverseGround(this,ahead)||blocker){
+      if(scene.time.now-this.lastAvoidAttempt<=420){this.storyRest();return;}
+      this.lastAvoidAttempt=scene.time.now;
+      this.npcDetour=this.npcDetourWaypoint(scene,blocker,goal);
+      if(!this.npcDetour){this.storyRest();return;}
+      dx=this.npcDetour.x-this.x;dy=this.npcDetour.y-this.y;length=Math.hypot(dx,dy);
+    }
+    this.facing.set(dx/length,dy/length);this.stalledMs=0;
+    body.setVelocity(this.facing.x*route.speed,this.facing.y*route.speed);
+    this.playDirection(dx,dy,true);
+  }
   setStoryAlert(text?:string){this.storyAlert=text;}
   setInteriorLabelDepth(offset:number){this.nameLabel.setDepth(offset+this.y+80);this.titleLabel.setDepth(offset+this.y+80);this.sideQuestMarker?.setDepth(offset+this.y+82);}
   advanceCinematic(delta:number) {
@@ -216,6 +292,20 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       this.playDirection(dx,dy,true);return;
     }
     if(this.storyGuard){this.holdStoryGuard();return;}
+    if(this.companionControl){
+      const goal=this.companionGoal;
+      if(!goal||!this.canStoryWalk){this.storyRest();return;}
+      const dx=goal.point.x-this.x,dy=goal.point.y-this.y,length=Math.hypot(dx,dy);
+      if(length<=3){this.storyRest();return;}
+      const speed=Math.min(goal.speed,length/Math.max(.001,Math.min(delta,100)/1000));
+      const ahead={x:this.x+dx/length*Math.min(22,length),y:this.y+dy/length*Math.min(22,length)};
+      if(!scene.canNpcVisit(this,ahead)||!scene.canTraverseGround(this,ahead)){
+        this.storyRest();return;
+      }
+      this.facing.set(dx/length,dy/length);this.stalledMs=0;
+      body.setVelocity(this.facing.x*speed,this.facing.y*speed);this.playDirection(dx,dy,true);return;
+    }
+    if(this.roadRoute){this.updateRoadWalk(delta);return;}
     if(this.formationRejoining&&(scene.getWorldHour()<6||scene.getWorldHour()>=20))this.formationRejoining=false;
     if(!this.mayPatrol&&!this.escortGoal){
       this.npcDetour=null;
@@ -347,9 +437,9 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   /** Try a short sidestep to either side of the blockage. The real target
    * and remaining schedule never change, so movement rejoins the old path. */
-  private npcDetourWaypoint(scene:WorldScene, blocker:Vec2|null):Vec2|null {
-    if(!this.target)return null;
-    const dx=this.target.x-this.x,dy=this.target.y-this.y;
+  private npcDetourWaypoint(scene:WorldScene, blocker:Vec2|null,destination=this.target):Vec2|null {
+    if(!destination)return null;
+    const dx=destination.x-this.x,dy=destination.y-this.y;
     const length=Math.hypot(dx,dy);
     if(length<1)return null;
     const forwardX=dx/length,forwardY=dy/length;
@@ -360,7 +450,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       const candidate={x:this.x+forwardX*forward-forwardY*side*lateral,
         y:this.y+forwardY*forward+forwardX*side*lateral};
       if(!scene.npcCanStandAt(candidate.x,candidate.y,this))continue;
-      if(!scene.canNpcVisit(this,candidate)||scene.npcPathBlocker(this,candidate,this))continue;
+      if(!scene.canNpcVisit(this,candidate)||!scene.canTraverseGround(this,candidate)||scene.npcPathBlocker(this,candidate,this))continue;
       this.avoidSide=side;
       return candidate;
     }
@@ -375,7 +465,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
 
   updatePresentation(playerX: number, playerY: number, questTarget: boolean, paused = false, cinematic=false) {
     const distance = Phaser.Math.Distance.Between(playerX,playerY,this.x,this.y);
-    if (!cinematic && !this.storyGuard && !this.storyGoal && distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
+    if (!cinematic && !this.companionControl && !this.roadRoute && !this.storyGuard && !this.storyGoal && distance > 1 && distance <= 72 && !this.escorting && !this.definition.formation) {
       this.target = null;
       this.returningHome = true;
       this.nextPatrolAt = Math.max(this.nextPatrolAt, this.scene.time.now + 1500);
@@ -383,9 +473,10 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       this.playDirection(this.facing.x, this.facing.y, false);
     }
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
-    this.nameLabel.setPosition(this.x, this.y + this.labelY).setDepth(this.y + 80).setColor(questTarget ? '#ffe193' : '#f6edd7');
+    this.nameLabel.setPosition(this.x, this.y + this.labelY).setDepth(this.y + 80).setColor(questTarget ? '#ffe193' : '#f6edd7')
+      .setVisible(!this.companionControl);
     this.titleLabel.setText(this.storyAlert??this.definition.title).setPosition(this.x, this.y + this.labelY + 2).setDepth(this.y + 80)
-      .setVisible(Boolean(this.storyAlert)||distance < 260);
+      .setVisible(!this.companionControl&&(Boolean(this.storyAlert)||distance < 260));
     if(this.sideQuestMarker){
       const story=useGameStore.getState();
       const available=this.definition.questIds.some(id=>{
@@ -394,12 +485,29 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
           &&(!quest.prerequisiteQuestId||story.quests[quest.prerequisiteQuestId]?.status==='completed');
       });
       this.sideQuestMarker.setPosition(this.x,this.y+this.labelY-17).setDepth(this.y+82)
-        .setVisible(available&&!cinematic&&distance<650);
+        .setVisible(!this.companionControl&&available&&!cinematic&&distance<650);
     }
   }
 
   private playDirection(_x: number, _y: number, walking: boolean) {
     const combat=this.combatProfile;
+    if((this.roadRoute||this.companionControl)&&!walking){
+      const body=this.body as Phaser.Physics.Arcade.Body;body.setImmovable(true);body.pushable=false;
+      if(combat&&this.canStoryFight){
+        this.presentTexture(combat.texture,artScale(combat.texture)*this.presentationMultiplier);
+        this.anims.stop();this.setFrame(NPC_COMBAT_DIRECTIONS.indexOf(this.walkDirection)*combat.frames);return;
+      }
+      if(this.idleArt&&this.walkDirection!=='down'){
+        const texture=npcDirectionalIdleTexture(this.idleArt.walk),animation=`${this.walkTexture}-idle-${this.walkDirection}`;
+        if(this.scene.anims.exists(animation)){
+          const row=this.walkDirection==='left'?0:this.walkDirection==='right'?1:2;
+          const metadata=this.scene.textures.getFrame(texture,row*4)?.customData as {visibleBounds?:{height:number}}|undefined;
+          const bounds=metadata?.visibleBounds;
+          const scale=bounds?npcIdleSilhouetteHeight(this.idleArt)/(bounds.height*ART_BY_KEY[texture].density):artScale(texture);
+          this.presentTexture(texture,scale);this.anims.play(animation,true);this.anims.timeScale=1;return;
+        }
+      }
+    }
     if(this.regionalModel!==undefined){
       if(walking&&combat?.walkRows&&this.canStoryWalk){
         const body=this.body as Phaser.Physics.Arcade.Body;
@@ -420,7 +528,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     body.setImmovable(!walking);
     body.pushable=walking;
     if(walking)this.walkDirection=actorTravelDirection(body.velocity.x,body.velocity.y,this.walkDirection);
-    else this.walkDirection='down';
+    else if(!this.roadRoute&&!this.companionControl)this.walkDirection='down';
     const direction: WalkDirection = this.walkDirection;
     const idle = this.idleArt;
     if (!walking && idle) {
@@ -438,7 +546,9 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       const progress = preserveStride ? this.anims.getProgress() : 0;
       this.anims.play(animation,true);
       if (preserveStride) this.anims.setProgress(progress);
-      this.anims.timeScale=strideRate(speed,NPC_WALK_SPEED);
+      // A companion travels at player pace; the town stroll reference would
+      // double her cadence throughout ordinary following and bow repositioning.
+      this.anims.timeScale=this.companionControl?Math.min(1.25,strideRate(speed,165)):strideRate(speed,NPC_WALK_SPEED);
     }
     else {
       this.anims.stop();

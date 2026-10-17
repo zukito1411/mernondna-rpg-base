@@ -22,6 +22,7 @@ import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
 import type {StoryPanelRef} from '../data/storyPanelArt';
 import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type JournalState} from '../data/journal';
+import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -41,9 +42,14 @@ export interface BossEncounter {
   name: string;
   hp: number;
   maxHp: number;
+  attackName?:string|null;
+  windup?:number|null;
 }
+export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'material'|'salvage';gold:number}
+export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
+  askAliceToAdventure:(following:boolean)=>void;
   journal:JournalState;
   discoverCreature:(enemyId:string,bossId?:string,defeated?:boolean)=>void;
   discoverRecord:(kind:'characters'|'regions'|'weapons',id:string)=>void;
@@ -88,6 +94,12 @@ export interface GameState {
   panel: Panel;
   dialogue: DialogueState | null;
   toast: string | null;
+  rareLootQueue:RareLootNotice[];
+  nextRareLootId:number;
+  levelUpNotice:LevelUpNotice|null;
+  nextLevelUpId:number;
+  dismissLevelUp:(id:number)=>void;
+  dismissRareLoot:(id:number)=>void;
   quests: Record<string, QuestRuntimeState>;
   defeatedBosses: string[];
   bossEncounter: BossEncounter | null;
@@ -170,6 +182,8 @@ const baseState = () => ({
   panel: null as Panel,
   dialogue: null as DialogueState | null,
   toast: 'Welcome to Mernodna.',
+  rareLootQueue:[] as RareLootNotice[],nextRareLootId:0,
+  levelUpNotice:null as LevelUpNotice|null,nextLevelUpId:0,
   quests: initialQuestState(),
   defeatedBosses: [] as string[],
   bossEncounter: null as BossEncounter | null,
@@ -194,12 +208,24 @@ function experienceProgress(state: GameState, xp: number) {
     level,
     statPoints: state.statPoints + levelsGained * STAT_POINTS_PER_LEVEL,
     skillPoints: state.skillPoints + learningPointsGained,
+    ...(levelsGained?{levelUpNotice:{id:state.nextLevelUpId,from:state.levelUpNotice?.from??state.level,level,
+      attributes:(state.levelUpNotice?.attributes??0)+levelsGained*STAT_POINTS_PER_LEVEL,
+      learning:(state.levelUpNotice?.learning??0)+learningPointsGained},nextLevelUpId:state.nextLevelUpId+1}:{}),
     ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} attribute points${learningPointsGained ? ` and +${learningPointsGained} learning point${learningPointsGained === 1 ? '' : 's'}` : ''}.` } : {}),
   };
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
+  askAliceToAdventure:following=>{
+    const state=get(),dialogue=state.dialogue;
+    if(dialogue?.npcId!==ALICE_NPC_ID||dialogue.choices?.length||state.panel||state.cinematic
+      ||dialogue.lineIndex<(dialogue.lines??NPC_BY_ID[ALICE_NPC_ID].dialogue).length-1)return;
+    // Finish any quest conversation normally before changing party membership.
+    get().endDialogue();if(get().dialogue)return;
+    set(current=>({storyFlags:{...current.storyFlags,[ALICE_COMPANION_FLAG]:following},
+      toast:following?'Alice: "Let me get my bow. I\'m coming with you."':'Alice: "I\'ll head home to Oakmere. Come find me when you\'re ready."'}));
+  },
   discoverCreature:(enemyId,bossId,defeated=false)=>set(state=>{
     const journal=discoverCreature(state.journal,enemyId,bossId,defeated);
     return journal===state.journal?state:{journal};
@@ -404,6 +430,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
+        rareLootQueue:[...state.rareLootQueue,{id:state.nextRareLootId,weaponId:dropped.id,
+          kind:duplicate?(excess?'salvage':'material'):'weapon',gold:salvage} as RareLootNotice].slice(-8),
+        nextRareLootId:state.nextRareLootId+1,
         ...(duplicate&&!excess?{bossMaterials:{...state.bossMaterials,[dropped.id]:(state.bossMaterials[dropped.id]??0)+1}}:{}),
         gold:state.gold+rewards.gold+salvage,
         toast:duplicate?(excess?`Material storage full: ${itemName(dropped.id)} sold for ${salvage} gold.`:`Duplicate ${itemName(dropped.id)}! Take it to a blacksmith to enhance your weapon.`):`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
@@ -412,6 +441,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
       ...(worldContent ? { worldContent } : {}) };
   }),
+  dismissRareLoot:id=>set(state=>({rareLootQueue:state.rareLootQueue.filter(notice=>notice.id!==id)})),
+  dismissLevelUp:id=>set(state=>state.levelUpNotice?.id===id?{levelUpNotice:null}:{}),
   allocateAttribute: (attribute) => set((state) => {
     if (state.statPoints <= 0 || !Object.hasOwn(BASE_ATTRIBUTES,attribute) || state.attributes[attribute]>=ATTRIBUTE_CAP) return {};
     const attributes = { ...state.attributes, [attribute]: state.attributes[attribute] + 1 };

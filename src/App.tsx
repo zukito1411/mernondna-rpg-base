@@ -19,6 +19,8 @@ import { useGameStore } from './store/gameStore';
 import {installUiInputGuard,noteUiTransition} from './utils/uiInputGuard';
 import {dismissStartupSplash} from './utils/startupSplash';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
+import {RareLootPopup} from './components/RareLootPopup';
+import {LevelUpNotice} from './components/LevelUpNotice';
 
 export default function App() {
   const [playing, setPlaying] = useState(false);
@@ -121,6 +123,8 @@ export default function App() {
         <HarborPanel />
         <CinematicPanel />
         <Toast />
+        <RareLootPopup />
+        <LevelUpNotice />
       </> : <HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}
     </main>
   );

@@ -76,7 +76,7 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
   evasionChance:eva*.01,
   luckChance:luk*.00625,
   rewardMultiplier:1+luk*.01,
-  rareDropChance:bossWeaponDropChance(attributes), // 10% -> 30% at LUK 40
+  rareDropChance:bossWeaponDropChance(attributes), // 25% -> 45% at LUK 40
   supplyDropChance:supplyDropChance(attributes), // 6% -> 16% for supply carriers
   skillDamageMultiplier:1+(has('battle-focus') ? .05:0),
   incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1),
@@ -95,7 +95,7 @@ export function dodgeProfile(attributes:PlayerAttributes) {
  * capped attribute math as the stat screen so the published chance is real. */
 export function bossWeaponDropChance(attributes:PlayerAttributes):number {
  const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
- return .10+luk*.005;
+ return .25+luk*.005;
 }
 export function supplyDropChance(attributes:PlayerAttributes):number {
  const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
