@@ -1239,7 +1239,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
     if (enemy.instanceId.startsWith('boss:')) {
       useGameStore.getState().setBossEncounter(null);
-      this.notify(boss?`${definition.name} defeated! This boss returns in 20 minutes.`:`${definition.name} defeated.`);
+      this.notify(definition.combatStyle==='dragon' ? `${definition.name} vanishes into the ash above the ridge. The sky is quiet, for now.` : `${definition.name} falls. The road is quiet, for now.`);
     }
     // Persist the retreat deadline and reward together; a streamed-away dragon
     // cannot return early, and quest completion remains separate from cooldown.
@@ -1619,7 +1619,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(definition.id==='clue:varkhul-ward'){
       const returnAt=this.contentManager.getState('boss:'+DRAGON_BOSS_ID)?.respawnAt;
       if(returnAt&&returnAt>Date.now()&&!objectiveIsCurrent(useGameStore.getState().quests,'investigate','varkhul-ward')){
-        this.notify(`Varkhul is recovering above the ridge. Returns in ${Math.ceil((returnAt-Date.now())/60000)} minutes.`);return;
+        this.notify('The stones still burn with Varkhul’s passage. Far above the ridge, his wings have fallen silent—for now.');return;
       }
     }
     if(definition.discoveryId&&!useGameStore.getState().storyFlags['discovery:'+definition.discoveryId])
