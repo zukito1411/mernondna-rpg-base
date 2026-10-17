@@ -8,6 +8,16 @@ export const POTIONS={
   'stamina-potion':{name:'Wayfarer Tonic',price:22,hp:0,stamina:60,icon:14,description:'Restores 60 stamina. No use at full stamina.'},
 } as const;
 export type PotionId=keyof typeof POTIONS;
+
+/** Only enemies that carry bags or provisions can drop a potion.
+ * Wildlife, spirits, bosses and temporary summons cannot spawn supplies. */
+const SUPPLY_CARRYING_ENEMIES=new Set([
+  'road-bandit','cutlass-pirate','pirate-boatswain',
+  'rindass-orc-raider','rindass-orc-spearman',
+  'hedge-goblin','goblin-stone-slinger',
+]);
+export const canDropPotion=(enemyId:string)=>SUPPLY_CARRYING_ENEMIES.has(enemyId);
+
 export const SWORD_OFFERS=[
   {id:'oak-shield-blade',price:110,minLevel:3,icon:1},
   {id:'steel-roadblade',price:290,minLevel:8,icon:2},
