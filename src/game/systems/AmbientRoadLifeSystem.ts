@@ -24,13 +24,15 @@ const ADVENTURER_PARTIES:readonly (readonly AdventurerRole[])[]=[
  * same road offscreen. Story encounters and bosses remain independent. */
 export class AmbientRoadLifeSystem{
   private readonly parties=new Map<string,Party>();
-  private readonly opponents=new Map<Enemy,Npc>();
+  private opponents=new Map<Enemy,Npc>();
+  private previousOpponents=new Map<Enemy,Npc>();
   private readonly art:NpcCombatResidency;
   private readonly arrows:AmbientNpcArrowSystem;
   private readonly rng=seededRandom('road-life-v1');
   private readonly routes=roadLifeRoutes();
   private scan=0;
   private think=0;
+  private routeClockPending=0;
   private active=false;
   constructor(private readonly scene:WorldScene,private readonly world:WorldGenerator){
     this.arrows=new AmbientNpcArrowSystem(scene,(_source,enemy,direction)=>{
@@ -62,20 +64,32 @@ export class AmbientRoadLifeSystem{
       if(this.active)for(const party of this.parties.values())for(const walker of party.walkers){
         walker.target=null;walker.attacking=false;walker.npc.endStoryAttack();walker.npc.endStoryGuard();walker.npc.endStoryMovement();
       }
-      this.active=false;this.opponents.clear();this.arrows.clear();return;
+      this.active=false;this.opponents.clear();this.previousOpponents.clear();this.arrows.clear();return;
     }
     this.active=true;const step=Math.min(100,Math.max(0,delta));
-    for(const route of this.routes)if(!this.parties.has(route.id))route.clock+=step;
+    // Advance virtual journeys in small batches instead of visiting hundreds
+    // of offscreen routes on every animation frame. Maximum clock drift is 250 ms.
+    this.routeClockPending+=step;
+    if(this.routeClockPending>=250){
+      const elapsed=this.routeClockPending;this.routeClockPending=0;
+      for(const route of this.routes)if(!this.parties.has(route.id))route.clock+=elapsed;
+    }
     this.scan-=step;this.think-=step;
     const view=this.scene.cameras.main.worldView;
     for(const [id,party] of this.parties)if(party.walkers.every(w=>!w.npc.active||
       w.npc.x<view.x-950||w.npc.x>view.right+950||w.npc.y<view.y-850||w.npc.y>view.bottom+1050))this.release(id,party);
     if(this.scan<=0){this.scan=2500;this.populate();}
+    // No travelers means no enemies to scan, arrow targets to evaluate or
+    // opponent tables to rebuild. Virtual journeys still progress above.
+    if(this.parties.size===0){this.opponents.clear();this.previousOpponents.clear();return;}
     const decide=this.think<=0;if(decide)this.think=150;
     const enemies=this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&this.scene.canRoadNpcFight(e));
     this.arrows.update(step,enemies);
-    const previousOpponents=new Map(this.opponents);
-    this.opponents.clear();
+    // Double-buffer opponent maps: preserve windups without cloning a map
+    // and then clearing/repopulating it on every frame.
+    const previousOpponents=this.opponents;
+    this.opponents=this.previousOpponents;this.opponents.clear();
+    this.previousOpponents=previousOpponents;
     for(const party of this.parties.values()){
       const leader=party.walkers[0]?.npc;
       if(leader&&!party.walkers.some(w=>w.target))party.anchor={x:leader.x,y:leader.y};
@@ -89,9 +103,13 @@ export class AmbientRoadLifeSystem{
           walker.target=null;walker.attacking=false;npc.endStoryAttack();npc.endStoryGuard();npc.setStoryAlert();
         }
         if(!walker.target&&walker.rest===0&&decide&&npc.canStoryFight){
-          walker.target=enemies.filter(e=>Math.hypot(e.x-npc.x,e.y-npc.y)<(party.patrol?400:320)
-            &&this.scene.canNpcVisit(npc,e)&&this.scene.hasClearPath(npc.x,npc.y,e.x,e.y))
-            .sort((a,b)=>Math.hypot(a.x-npc.x,a.y-npc.y)-Math.hypot(b.x-npc.x,b.y-npc.y))[0]??null;
+          // Sort by cheap squared distance BEFORE invoking the expensive
+          // terrain and line-of-sight checks. Keep nearest reachable targeting.
+          const range=party.patrol?400:320;
+          const nearby=enemies.map(e=>({enemy:e,d2:(e.x-npc.x)**2+(e.y-npc.y)**2}))
+            .filter(candidate=>candidate.d2<range*range).sort((a,b)=>a.d2-b.d2);
+          walker.target=nearby.find(({enemy})=>this.scene.canNpcVisit(npc,enemy)
+            &&this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y))?.enemy??null;
           if(walker.target){walker.engageFrom={x:npc.x,y:npc.y};npc.beginStoryGuard();npc.setStoryAlert(party.patrol?'Defending the road':'Engaging a roaming threat');}
         }
         const foe=walker.target;
@@ -189,6 +207,6 @@ export class AmbientRoadLifeSystem{
     this.parties.delete(id);
     for(const [enemy,npc] of this.opponents)if(party.walkers.some(w=>w.npc===npc))this.opponents.delete(enemy);
   }
-  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.opponents.clear();this.active=false;}
+  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.opponents.clear();this.previousOpponents.clear();this.active=false;}
   destroy(){this.clear();this.arrows.destroy();this.art.destroy();}
 }

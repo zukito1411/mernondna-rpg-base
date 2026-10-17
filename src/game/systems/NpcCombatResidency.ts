@@ -11,7 +11,7 @@ export class NpcCombatResidency {
   private readonly failures=new Map<string,number>();
   private loading:NpcCombatSpec|null=null;
   private disposed=false;
-  private nextTrim=0;
+
   constructor(private readonly scene:Phaser.Scene,private readonly referenced:(spec:NpcCombatSpec)=>boolean,
     private readonly report:(message:string)=>void){
     const owners=artOwners.get(scene)??new Set<NpcCombatResidency>();owners.add(this);artOwners.set(scene,owners);
@@ -28,10 +28,11 @@ export class NpcCombatResidency {
   }
   update(){
     if(this.disposed)return;
-    if(this.scene.time.now>=this.nextTrim){
-      this.nextTrim=this.scene.time.now+500;
-      for(const spec of this.resident.values())if(!this.referenced(spec))this.release(spec);
-    }
+    // Keep a bounded cache of already prepared animation atlases across road-party
+    // unloads. Releasing them after only 500 ms forced expensive PNG pixel scans,
+    // canvas repacking and GPU uploads each time the next party approached.
+    // The six-atlas cap below still evicts an unused sheet when a new one needs
+    // room, and destroy() releases everything on scene shutdown.
     if(this.loading||this.scene.load.isLoading())return;
     const spec=this.pending.values().next().value as NpcCombatSpec|undefined;if(!spec)return;
     if(this.scene.anims.exists(npcCombatKey(spec,'attack','down'))

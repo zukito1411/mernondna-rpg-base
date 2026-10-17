@@ -70,9 +70,13 @@ export class GroundShadowSystem {
  register(actor:Actor,retainArtwork=false,options:ShadowOptions={}){
   if(this.casters.has(actor))return;
   const caster:Caster={actor,...options,...(retainArtwork?{texture:actor.texture.key,frame:actor.frame.name}:{})};
-  this.casters.set(actor,caster);(retainArtwork?this.scenery:this.moving).add(caster);this.staticDirty=true;
+  this.casters.set(actor,caster);(retainArtwork?this.scenery:this.moving).add(caster);
+  // Moving actors are drawn on their own layer. Their arrival/departure must
+  // not invalidate the much larger static scenery shadow canvas.
+  if(retainArtwork)this.staticDirty=true;else this.actorStamp=null;
   actor.once('destroy',()=>{
-   this.casters.delete(actor);this.scenery.delete(caster);this.moving.delete(caster);this.staticDirty=true;
+   this.casters.delete(actor);this.scenery.delete(caster);this.moving.delete(caster);
+   if(retainArtwork)this.staticDirty=true;else this.actorStamp=null;
   });
  }
  /** Climbers/airborne decorations can suppress ground contact without

@@ -405,14 +405,18 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const dx=to.x-from.x,dy=to.y-from.y,len2=dx*dx+dy*dy;
     if(len2<1)return null;
     let best=Infinity,point:Vec2|null=null;
-    const residents=exclude?.definition.id.startsWith('road-life:')?this.npcs:this.storyResidents();
-    const candidates=[...residents.filter(n=>n.active&&n!==exclude),this.player].filter(Boolean);
-    for(const other of candidates){
+    // This runs for every walking road NPC. Traverse existing actors directly
+    // instead of allocating a filtered crowd list on every movement frame.
+    const includeRoadLife=Boolean(exclude?.definition.id.startsWith('road-life:'));
+    for(let i=0;i<=this.npcs.length;i++){
+      const other=i===this.npcs.length?this.player:this.npcs[i];
+      if(!other||other===exclude||!other.active)continue;
+      if(i<this.npcs.length&&!includeRoadLife&&(other as Npc).definition.id.startsWith('road-life:'))continue;
       const vx=other.x-from.x,vy=other.y-from.y;
       const fraction=Math.max(0,Math.min(1,(vx*dx+vy*dy)/len2));
-      const projected={x:from.x+dx*fraction,y:from.y+dy*fraction};
-      const sideGap=Math.hypot(other.x-projected.x,other.y-projected.y);
-      const ahead=Math.hypot(other.x-from.x,other.y-from.y);
+      const projectedX=from.x+dx*fraction,projectedY=from.y+dy*fraction;
+      const sideGap=Math.hypot(other.x-projectedX,other.y-projectedY);
+      const ahead=Math.hypot(vx,vy);
       if(ahead<8||sideGap>=43||fraction<=0)continue;
       if(ahead<best){best=ahead;point={x:other.x,y:other.y};}
     }
