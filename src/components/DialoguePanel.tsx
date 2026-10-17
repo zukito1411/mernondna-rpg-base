@@ -3,6 +3,7 @@ import { NPC_BY_ID } from '../data/npcs';
 import { useGameStore } from '../store/gameStore';
 import { SpritePortrait } from './SpritePortrait';
 import {MerchantStock} from './MerchantStock';
+import {NpcServices} from './NpcServices';
 
 export function DialoguePanel() {
   const dialogue = useGameStore((s) => s.dialogue);
@@ -31,7 +32,7 @@ export function DialoguePanel() {
         </div>
         <p>{line}</p>
         <div className="relationship-note">{npc.relationshipToLeigneron.kind}: {npc.relationshipToLeigneron.summary}</div>
-        {finalLine&&!dialogue.choices?.length&&<MerchantStock npcId={npc.id}/>}
+        {finalLine&&!dialogue.choices?.length&&<><NpcServices npcId={npc.id}/><MerchantStock npcId={npc.id}/></>}
         {finalLine&&dialogue.choices?.length ? <div className="dialogue-choices">
           {dialogue.choices.map(choice=><button type="button" key={choice.id} onClick={()=>choose(choice.id)}>{choice.text}</button>)}
           <button type="button" onClick={end}>Decide later</button>
