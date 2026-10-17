@@ -35,6 +35,7 @@ export class AmbientRoadLifeSystem{
   private think=0;
   private routeClockPending=0;
   private pendingParty:PendingParty|null=null;
+  private spawnCandidates:Array<{route:RoadLifeRoute;point:ReturnType<typeof routePosition>}>=[];
   private active=false;
   constructor(private readonly scene:WorldScene,private readonly world:WorldGenerator){
     this.arrows=new AmbientNpcArrowSystem(scene,(_source,enemy,direction)=>{
@@ -66,7 +67,7 @@ export class AmbientRoadLifeSystem{
       if(this.active)for(const party of this.parties.values())for(const walker of party.walkers){
         walker.target=null;walker.attacking=false;walker.npc.endStoryAttack();walker.npc.endStoryGuard();walker.npc.endStoryMovement();
       }
-      this.active=false;this.opponents.clear();this.previousOpponents.clear();this.arrows.clear();return;
+      this.active=false;this.opponents.clear();this.previousOpponents.clear();this.spawnCandidates.length=0;this.arrows.clear();return;
     }
     this.active=true;const step=Math.min(100,Math.max(0,delta));
     // Advance virtual journeys in small batches instead of visiting hundreds
@@ -81,6 +82,7 @@ export class AmbientRoadLifeSystem{
     for(const [id,party] of this.parties)if(party.walkers.every(w=>!w.npc.active||
       w.npc.x<view.x-950||w.npc.x>view.right+950||w.npc.y<view.y-850||w.npc.y>view.bottom+1050))this.release(id,party);
     if(this.scan<=0){this.scan=2500;this.populate();}
+    this.processSpawnCandidates();
     // Introduce one actor per frame, not three animated bodies, labels and
     // shadow registrations on the same frame when a new guard party appears.
     this.spawnNextWalker();
@@ -168,15 +170,22 @@ export class AmbientRoadLifeSystem{
       .filter(({point})=>Math.hypot(point.x-player.x,point.y-player.y)<1900
         &&!(point.x>view.x-150&&point.x<view.right+150&&point.y>view.y-150&&point.y<view.bottom+150));
     for(let i=candidates.length-1;i>0;i--){const j=Math.floor(this.rng()*(i+1));[candidates[i],candidates[j]]=[candidates[j],candidates[i]];}
+    this.spawnCandidates=candidates;
+  }
+  private processSpawnCandidates(){
+    if(this.pendingParty||this.parties.size>=2){this.spawnCandidates.length=0;return;}
+    // Keep the full randomized candidate pool, but check only six costly spawn
+    // positions per frame. Dense areas can continue on the next frame rather
+    // than dropping prospective parties or causing a single-frame hitch.
     let placementChecks=0;
-    for(const {route,point} of candidates){
+    while(this.spawnCandidates.length>0&&placementChecks<6){
+      const {route,point}=this.spawnCandidates.pop()!;
+      if(this.parties.has(route.id))continue;
       if([...this.parties.values()].some(p=>p.patrol===route.patrol||Math.hypot(p.anchor.x-point.x,p.anchor.y-point.y)<700))continue;
       const patrol=route.patrol;
       const roster=ADVENTURER_PARTIES[Math.floor(seededRandom('roster:'+route.id)()*ADVENTURER_PARTIES.length)],number=patrol?3:roster.length;
       if([...this.parties.values()].reduce((n,p)=>n+p.walkers.length,0)+number>6)continue;
-      // Bound the expensive walkability/collider probes in each 2.5 s scan.
-      // Remaining randomized candidates are considered on the next scan.
-      if(++placementChecks>6)break;
+      placementChecks++;
       const positions=Array.from({length:number},(_,rank)=>routePointAtDistance(route,
         point.distance+(point.forward?-1:1)*rank*78));
       if(positions.some((p,i)=>!this.scene.npcCanStandAt(p.x,p.y)
@@ -185,6 +194,7 @@ export class AmbientRoadLifeSystem{
       const party:Party={id:route.id,walkers:[],anchor:point,patrol,route};
       this.parties.set(route.id,party);
       this.pendingParty={party,positions,roster,forward:point.forward,next:0};
+      this.spawnCandidates.length=0;
       return;
     }
   }
@@ -224,6 +234,6 @@ export class AmbientRoadLifeSystem{
     this.parties.delete(id);
     for(const [enemy,npc] of this.opponents)if(party.walkers.some(w=>w.npc===npc))this.opponents.delete(enemy);
   }
-  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.opponents.clear();this.previousOpponents.clear();this.active=false;}
+  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.spawnCandidates.length=0;this.opponents.clear();this.previousOpponents.clear();this.active=false;}
   destroy(){this.clear();this.arrows.destroy();this.art.destroy();}
 }
