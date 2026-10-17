@@ -18,6 +18,7 @@ import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningS
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
 import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
 import {WEAPON_BY_ID} from '../../data/weapons';
+import {enhancedWeapon} from '../../data/forge';
 
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
@@ -741,10 +742,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(!fatal&&!support&&proc){
       // Damage over time is based on the attacker's effective weapon ATK,
       // not raw blade damage, enemy HP, or a multi-hit art's single tick.
-      const weapon=WEAPON_BY_ID[options.weaponId!];
+      const base=WEAPON_BY_ID[options.weaponId!];
+      const weapon=base?enhancedWeapon(base,state.weaponUpgrades[base.id]??0):undefined;
       const stats=progressionStats(state.attributes,state.learnedSkills);
       const attackPower=(weapon?.damage??0)*stats.damageMultiplier*playerDamageGrowth(state.level)*WEAPON_STATUS_ATK_SCALE;
-      if(this.weaponStatus.tryApply(proc,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
+      const empowered={...proc,chance:Math.min(.5,proc.chance+stats.statusChanceBonus+(state.weaponUpgrades[options.weaponId!]??0)*.01)};
+      if(this.weaponStatus.tryApply(empowered,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
         this.syncStatusAttackSpeed(this.scene.time.now);
     }
     scene.playEffect('hit', this.x, this.y);
