@@ -245,24 +245,24 @@ export function applyCampaign(quests:QuestDefinition[]) {
   ]);
   chapter('Act IV · An inheritance, not a destiny',[
     speak('capital-return','renna-vale','Return the seven regional accounts to the Royal Archive.',[
-      'The grain office sold ward iron as scrap to finance the flour seizures. The Salt King held the cargo; the Seer bought the bindings. Neither understood the balance they were breaking.',
-      'The river-guild record confirms your parents never left their stranded passengers behind. Their last crossing failed after the others reached shelter. That is what their unanswered journey meant—not a secret inheritance someone kept from you.',
-      'Your mother’s survey was used to locate the stones. She made it so strangers could find shelter. What was stolen was her work, not some secret claim to a throne.',
-      'The answer is not another ruler for every road. It is the promises each community offered you. Take them home, then decide what kind of roadwarden you will become.'],'deliver'),
+      'We’ve found where the iron went. The grain office sold it, the Salt King moved it, and the Seer bought some of it. They all knew it was stolen.',
+      'Leigneron, I found the record of your parents' last trip. They went back to help the people who were stranded. The bridge collapsed. I’m so sorry.',
+      'Someone used your mother’s map to find the stones. She only made it so people could find water and shelter. She never knew what they’d do with it.',
+      'The towns have agreed to help repair the roads. You should talk to Edmund before heading out again. You’ve been through so much.'],'deliver'),
     speak('seal-account','sevrin-hale','Confront the grain official with the regional freight accounts.',[
-      'I thought iron from old milestones could pay for the stores. I told myself a hungry city needed grain more than villagers needed stones.',
-      'I called it prudent because the people who would suffer were far away. Your accounts have put names to every one of them. Keep my name in that record too.']),
+      'I thought selling the old iron would pay for food. I told myself those stones weren’t important. I was wrong.',
+      'I knew people were getting hurt. I kept pretending it wasn’t my problem because I couldn’t see them. Don’t let anyone hide my part in this.']),
     {...speak('return-aldren-after-regions','aldren-vale','Return to Oakmere before undertaking the final repair.',[
-      'I could not give you your parents back. I hoped the sword would keep you from following them, and taught you roadcraft that made it impossible not to.',
-      'You have their compassion, not their fate. The people you helped will keep their own roads. Ask the shrine keeper how their agreements can be joined before you go back to Darkav.']),cinematicId:'inheritance-revealed'},
+      'I tried to keep you safe when you were little. I know I’ve been overprotective. I just couldn’t stand the thought of losing you too.',
+      'You’ve helped so many people. Your parents would be proud. Orin wanted to talk about the compass before you go back to Darkav.']),cinematicId:'inheritance-revealed'},
   ]);
   regional.objectives=objectives;
   const dragon=get('returning-ember');dragon.kind='main';dragon.chapter='Act V · The returning ember';dragon.prerequisiteQuestId='eight-regions';
   dragon.summary='The regional agreements are ready, but Varkhul holds the basalt furnace shelf where the cinder ward must be repaired. Prepare shelter and witnessed chains, then drive the dragon into retreat long enough to restore the ward. His death is neither possible nor necessary.';
   dragon.objectives.splice(1,0,
     speak('shelter-orders','blackspire-warder','Confirm shelter for the furnace crews before approaching Varkhul.',[
-      'The furnace crews will stay behind the ash-road defenses while you draw Varkhul away. Nobody follows you into the molten rim.',
-      'The repair team moves only after the dragon takes flight. Your promise is time enough to work, not a dead dragon.']),
+      'I’ve got the workers waiting behind the defenses. I won’t send them near the lava while Varkhul’s there.',
+      'As soon as he flies off, we’ll move the workers in. Don’t worry about killing him. Just stay alive.']),
     inspect('repair-account','story:forge-record','Collect the witnessed chainwork specifications for the final repair.'));
   const survey=dragon.objectives.find(o=>o.id==='survey-ward')!;survey.cinematicId='varkhul-before';
   dragon.objectives.find(o=>o.id==='repel-varkhul')!.requiresFreshDefeat=true;
@@ -273,25 +273,25 @@ export function applyCampaign(quests:QuestDefinition[]) {
     resolution:'The ward network has keepers again. The dragon lives, the roads still need tending, and Leigneron returns to Oakmere by choice—not because there is nowhere else to go.',
     objectives:[
       speak('compass-truth','orin-bell','Learn how the inherited compass joins the regional wards.',[
-        'Your compass was made for keepers traveling between the stones. Your parents carried it because someone had to notice when a public spring ran dry.',
-        'It cannot repair the world by itself. The clans, archives, harbors and kitchens must keep the promises you heard. The final binding belongs at Cinderwatch.']),
+        'That compass was made for people who looked after the old stones. Your parents used it on their travels. I think that’s why it reacts to them.',
+        'The compass can’t fix anything by itself. The towns will have to keep their promises. The last repair still has to happen at Cinderwatch.']),
       decision('keepers-covenant','renna-vale','Record who will be responsible for the restored roads.',
-        'No archive should own this covenant. Tell me how its keepers will answer when a road or spring fails again.',[
-          {id:'local',text:'Local keepers publish their accounts and help neighboring roads.',response:'Every region will keep a copy. Their names, not only the crown’s, go beneath it.',flag:'covenant-local-keepers'},
-          {id:'shared',text:'A shared road watch answers to witnesses from every region.',response:'The watch will be bound to those witnesses, never the other way around.',flag:'covenant-shared-watch'},
+        'Everyone’s asking who’ll be responsible if one of the wards fails again. We should settle that before anyone signs the agreement.',[
+          {id:'local',text:'Local keepers publish their accounts and help neighboring roads.',response:'All right. Each town will have a copy. I’ll make sure the local keepers can sign it too.',flag:'covenant-local-keepers'},
+          {id:'shared',text:'A shared road watch answers to witnesses from every region.',response:'We’ll have a shared watch, with people from every region involved. I hope they can work together.',flag:'covenant-shared-watch'},
         ]),
       speak('covenant-forge','blackspire-forgemaster','Deliver the signed covenant and regional repair accounts.',[
-        'The iron can be joined now. What you brought is harder to forge: people who will admit when it breaks.',
-        'Before the chains go to Cinderwatch, meet the warder and survey the western approach. Varkhul must be driven away from the crews.'],'deliver'),
+        'The iron’s ready, and the towns have agreed to the repair. I’m glad. I wasn’t sure they’d trust us again.',
+        'Dain’s waiting near the western approach. Talk to him before we move the chains. I won’t put the workers near that dragon yet.'],'deliver'),
       depends('last-confrontation','returning-ember','Complete the final preparations and force Varkhul to retreat from Darkav’s lava lair.'),
       {...inspect('restore-cinderwatch','varkhul-ward','Join the reforged binding at Cinderwatch after the dragon retreats.','clue:varkhul-ward'),cinematicId:'wards-rewoven'},
       speak('crown-recognition','lady-adria-vale','Report the completed repair at Crown Hall.',[
-        'You went where our seal had caused harm and listened before claiming authority. That is a service no title can improve.',
-        'The agreements stand. The ward keepers will receive repairs, not an order to forget what happened. Go home with our thanks, if home is where you wish to go.']),
+        'You went all that way and helped people we’d let down. Thank you. I know it couldn’t have been easy.',
+        'The agreements are signed. The repairs will continue, and I’ll make sure everyone receives a copy. You should go home and get some rest.']),
       {...speak('home-table','sena-marrow','Return to Marrow Inn for a place at the table.',[
-        'I kept the bowl, but I have stopped setting it for someone who cannot come. Yours is warm, and there is a chair beside the hearth.',
-        'Lena’s children no longer listen for every sound at the door. The road has not become harmless. It has become a road people will keep for one another.',
-        'Tell us where you went, Leigneron. Not the names of the things you defeated—the names of the people who helped you come back.']),cinematicId:'roadborn-epilogue'},
+        'There you are! Sit down, I’ve got food ready. You look like you haven’t eaten properly in days.',
+        'Lena’s children are doing better now. They were playing outside this morning. It’s been a long time since I heard them laugh like that.',
+        'Tell me about your trip. Who did you meet? And don’t tell me you did everything on your own.']),cinematicId:'roadborn-epilogue'},
     ]});
   // Respect the existing localized identities (Alice/Thomas/Cecily, etc.),
   // including the inn’s Marlow surname; stable IDs are never renamed.
