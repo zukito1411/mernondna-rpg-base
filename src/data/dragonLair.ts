@@ -50,12 +50,12 @@ export const DRAGON_QUEST:QuestDefinition={
   summary:'Varkhul has broken Blackspire’s cinder wards. Vexa asks Leigneron to discover his lair and drive him away long enough to repair the ash-road defenses. The dragon survives and will return.',
   objectives:[
     {id:'vexa-warning',type:'talk',targetId:'blackspire-forgemaster',amount:1,text:'Hear Vexa Cinder’s warning in Blackspire.',
-      dialogue:['I forged the ward chains that kept Varkhul from the ash road. He broke them, not the mountain.','Take the southern road out of Blackspire, then follow the outer ash trail east and north. The broken Cinderwatch Ward stands at his western approach.','Do not try to slay him. Force him into the air, and Dain will have time to bring our people to shelter.']},
+      dialogue:['I put my own mark on those chains. Now they lie broken on the ash road, and my apprentices ask why I cannot mend them.','Dain found our old ward-stone on the western approach to the molten shelf. His scouts came back by the outer ash trail. The others did not come back at all.','He has survived fires older than Blackspire. I only need him away from that road long enough to get our people home.']},
     {id:'survey-ward',type:'investigate',targetId:'varkhul-ward',contentId:'clue:varkhul-ward',amount:1,text:'Inspect the Cinderwatch Ward beside the lava-ringed lair.'},
     {id:'repel-varkhul',type:'kill',targetId:'ash-dragon',bossId:DRAGON_BOSS_ID,amount:1,text:'Force Varkhul to retreat from his basalt lair.'},
     {id:'dain-report',type:'talk',targetId:'blackspire-warder',amount:1,text:'Tell Dain Emberfall that the ash road has a respite.',
-      dialogue:['I saw the wings above the molten ridge. You bought us time, Leigneron, not a permanent victory.','The crews are moving under cover of the wards. Varkhul will return after twenty minutes; those who choose another battle should wait at the western marker, not in the lava.']},
+      dialogue:['I saw him lift off. For the first time in days, I could hear the furnace bells over the beating of his wings.','The last wagons are passing the western ward-stone. I would not linger there, though. The ash has barely settled, and he knows the way back.']},
     {id:'vexa-resolution',type:'talk',targetId:'blackspire-forgemaster',amount:1,text:'Return to Vexa as the ward chains are reforged.',
-      dialogue:['Dain brought the last furnace crew home. Because of you, we can repair the chains without losing another household.','The dragon still lives. Your deed is remembered even when his wings return; the lair remains open to future challengers.']},
+      dialogue:['Dain brought them all back. Every one. I had a list of names ready for the mourners; now I can put it away.','I hear his wings in my dreams already. But tonight the smiths can sleep, and tomorrow we can set the first links.']},
   ],rewardGold:300,rewardXp:650,
 };
