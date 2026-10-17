@@ -57,7 +57,7 @@ add('roadborn-opening','A Road Before a Sword',[
  npc('mira-fen','A messenger died under Lena’s roof before dawn. Now she is missing too. Her children wait upstairs at the inn, listening for the door.'),
 ]);
 add('road-briefing','The People Waiting',[
- npc('aldren-vale','Lena has not come home. There is a letter on the inn table and a frightened child waiting upstairs. Edmund wants to talk to '+name('mira-fen')+', before the last tracks disappear in the rain.'),
+ npc('aldren-vale','Lena has not come home. There is a letter on the inn table and a frightened child waiting upstairs. Edmund has sent for '+name('mira-fen')+'. The tracks outside will not last another hour in this rain.'),
 ]);
 add('varr-before','A Survey Worth Stealing',[
  npc('lena-cartwright','Lena is alive. The letter she hid beneath the sacks warns that a ward survey and household rolls were sold together. The dispatch outside Varr’s tower orders her silence.'),
@@ -79,12 +79,20 @@ const approaches:Array<[string,string,string,string]>=[
  ['wyrm-before','frost-wyrm','frost-wyrm','The winter cache is clear and the shore lantern recovered. The injured, ground-dwelling Wyrm still threatens the boats that must return to that light.'],
  ['seer-before','ashen-seer','ashen-seer','The chainworks account links the stolen crown seal to the melted ward iron. The Seer’s promise of unbound heat has cost the crews their road and their dead their rest.'],
 ];
+const regionalAftermath:Record<string,{title:string;line:string}>={
+ 'moonlit-warden':{title:'After the Silence',line:'The guardian lies still, but the grove does not grow quiet. Beneath the roots, Leigneron finds an old iron mark where the soil should be clean.'},
+ stonejaw:{title:'The Pass at Dawn',line:'Stonejaw no longer blocks the road. Above the shattered wagons, the beacon catches the morning light. Someone in Starhold rings a bell for the missing porters.'},
+ 'iron-tusk':{title:'The Well Without a Banner',line:'Krag’s banner has fallen into the dust. At the well, an old woman fills two clay cups and offers the first to a child from the rival clan.'},
+ rootfather:{title:'Water Beneath the Roots',line:'The Rootfather sinks into the tangled earth. The spring still smells of mine waste. Bruni’s survey rests beside the channel the guild has promised to mend.'},
+ 'salt-king':{title:'Names in the Cargo Hold',line:'The deck is empty of guards. Under a torn sail, the names of inland villages are still stamped on the stolen crates. A deckhand lowers his eyes as Leigneron reads them.'},
+ 'frost-wyrm':{title:'The Shore Lantern',line:'The Wyrm retreats among the ice. On the far shore, a small light appears, then another. The hunters answer from the beacon with their own lamps.'},
+ 'ashen-seer':{title:'Ash on the Ledger',line:'The Seer’s fire fades. Beneath the ash, the furnace book survives with every stolen load marked in the same careful hand. The families waiting outside have not forgotten those names.'},
+};
 for(const [before,bossId,objectiveId,line] of approaches){
  const p=CONTENT_BY_ID['boss:'+bossId].world;
- add(before,'Before '+BOSSES.find(b=>b.id===bossId)!.name,[at(p.x,p.y,line)]);
- add('campaign-'+objectiveId+'-after','The Cost of a Broken Ward',[
-   at(p.x,p.y,'The fighting ends. The broken ward is still there. Somewhere beyond the clearing, the people who waited through the night begin to emerge.'),
- ]);
+ add(before,BOSSES.find(b=>b.id===bossId)!.name,[at(p.x,p.y,line)]);
+ const aftermath=regionalAftermath[objectiveId];
+ add('campaign-'+objectiveId+'-after',aftermath.title,[at(p.x,p.y,aftermath.line)]);
 }
 add('inheritance-revealed','An Inheritance, Not a Destiny',[
  npc('aldren-vale','Edmund has heard the river account. He had kept hoping there might be another road to search. Now he sits beside the young man he raised, and lets them both grieve.'),
