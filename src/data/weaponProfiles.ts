@@ -1,9 +1,13 @@
 import type {RegionId} from '../game/types';
 
 export type WeaponStatus = 'burn'|'poison'|'bleed'|'frost'|'expose';
+// Bleed, burn and poison use the player's effective weapon ATK, including
+// Strength and level growth. Make persistent damage meaningful without
+// scaling from monster HP or individual multi-hit art multipliers.
+export const WEAPON_STATUS_ATK_SCALE=2;
 export interface WeaponProc {
   status:WeaponStatus; name:string; chance:number; durationMs:number; cooldownMs:number;
-  /** Total damage is based on the blade's base damage, never the victim's HP. */
+  /** Damage per second is a fraction of the player's effective weapon ATK (never enemy HP). */
   damagePerSecond:number; color:number;
 }
 export interface WeaponProfile {origin:string; appearance:string; history:string; technique:string; icon:number; proc?:WeaponProc}
@@ -51,6 +55,6 @@ export function weaponLegend(id:string):string {
 }
 export function weaponProcDescription(id:string):string {
   const p=WEAPON_PROFILES[id]?.proc;if(!p)return 'No random status effect.';
-  const effect=p.status==='frost'?'chill a foe, slowing movement and attacks by 35% (bosses: 15% for at most 1.4s)':p.status==='expose'?'expose a foe to 12% more direct damage (bosses: 6%)':`inflict ${p.status==='bleed'?'bleeding':p.status==='burn'?'burning':'poison'}, dealing ${Math.round(p.damagePerSecond*100)}% of base weapon damage per second`;
-  return `${p.name}: ${Math.round(p.chance*100)}% chance on a normal hit to ${effect}. Lasts ${(p.durationMs/1000).toFixed(1)}s. One weapon effect per target; 6s between triggers. Boss damage over time is halved. Arts do not trigger effects.`;
+  const effect=p.status==='frost'?'chill a foe, slowing movement and attacks by 45% (bosses: 20% for at most 1.4s)':p.status==='expose'?'expose a foe to 20% more direct damage (bosses: 10%)':`inflict ${p.status==='bleed'?'bleeding':p.status==='burn'?'burning':'poison'}, dealing ${Math.round(p.damagePerSecond*WEAPON_STATUS_ATK_SCALE*100)}% of effective weapon ATK per second`;
+  return `${p.name}: ${Math.round(p.chance*100)}% chance on a weapon hit or a single heavy combat-art hit to ${effect}. Repeated light art hits have a smaller per-hit chance. Lasts ${(p.durationMs/1000).toFixed(1)}s. One weapon effect per target; 6s between successful triggers. Boss damage over time is halved.`;
 }
