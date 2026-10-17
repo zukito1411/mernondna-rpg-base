@@ -10,7 +10,7 @@ export function MerchantStock({npcId}:{npcId:string}){
   return <section className="merchant-stock"><h3>Goods for the road · {goldLabel(gold)} gold</h3>
     {offers.map(o=>{const weapon=WEAPON_BY_ID[o.id],owned=weapon&&inventory.includes(o.id),full=!weapon&&consumables[o.id as PotionId]>=99;
       const proc=WEAPON_PROFILES[o.id]?.proc;
-      return <article className="item-row" key={o.id}><ItemIcon id={o.id}/><div><strong>{itemName(o.id)}</strong><small>{weapon?`${weapon.damage} damage · level ${o.minLevel}`:POTIONS[o.id as PotionId].description}</small>{proc&&<small>{proc.name} · {Math.round(proc.chance*100)}% chance on normal hits</small>}</div>
+      return <article className="item-row" key={o.id}><ItemIcon id={o.id}/><div><strong>{itemName(o.id)}</strong><small>{weapon?`${weapon.damage} damage · level ${o.minLevel}`:POTIONS[o.id as PotionId].description}</small>{proc&&<small>{proc.name} · {Math.round(proc.chance*100)}% base chance on weapon or damaging art hits</small>}</div>
         <button type="button" disabled={Boolean(owned||full||gold<o.price||level<o.minLevel)} onClick={()=>buy(npcId,o.id)}>{owned?'Owned':full?'Full':`${o.price} gold`}</button></article>;
     })}</section>;
 }
