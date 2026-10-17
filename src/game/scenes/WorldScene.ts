@@ -21,6 +21,7 @@ import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
 import { PORT_BY_ID,PORTS,onPortDeck } from '../../data/ports';
 import { WORLD_CONTENT, initialContentState } from '../../data/content';
 import { WEAPON_BY_ID } from '../../data/weapons';
+import {enhancedWeapon} from '../../data/forge';
 import { CHUNK_SIZE, STREAM_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from '../../data/world';
 import { useGameStore } from '../../store/gameStore';
 import { seededRandom } from '../../utils/seededRandom';
@@ -268,7 +269,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const level=useGameStore.getState().level;
     const growth=playerDamageGrowth(level);
-    const weapon=WEAPON_BY_ID[weaponId]??this.getEquippedWeapon();
+    const base=WEAPON_BY_ID[weaponId]??this.getEquippedWeapon(),weapon=enhancedWeapon(base,useGameStore.getState().weaponUpgrades[base.id]??0);
     enemy.takeDamage(Math.max(1,Math.round(weapon.damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
       {forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier)});
   }
@@ -752,7 +753,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   getRegionAtPosition(x:number,y:number){return this.worldGenerator.getRegionAt(x,y);}
 
   getEquippedWeapon(): WeaponDefinition {
-    return WEAPON_BY_ID[useGameStore.getState().weaponId] ?? WEAPON_BY_ID['roadwarden-sword'];
+    const state=useGameStore.getState(),base=WEAPON_BY_ID[state.weaponId]??WEAPON_BY_ID['roadwarden-sword'];
+    return enhancedWeapon(base,state.weaponUpgrades[base.id]??0);
   }
 
   performPlayerAttack(player: Player, direction: Phaser.Math.Vector2, weapon: WeaponDefinition) {
@@ -776,7 +778,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       toEnemy.normalize();
       if (facing.dot(toEnemy) < 0.25) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level))), facing,{weaponId:weapon.id});
+      enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level))), facing,
+        {weaponId:weapon.id,forceStagger:!enemy.definition.boss&&Math.random()<progression.staggerChance});
     }
   }
 
@@ -784,7 +787,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     player.recovery.interrupt();
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    const weapon=WEAPON_BY_ID[weaponId]??this.getEquippedWeapon();
+    const base=WEAPON_BY_ID[weaponId]??this.getEquippedWeapon(),weapon=enhancedWeapon(base,useGameStore.getState().weaponUpgrades[base.id]??0);
     const damage = Math.max(1,Math.round(weapon.damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
     for (const enemy of this.skillTargets(player,direction,skill)){
       const outward=new Phaser.Math.Vector2(enemy.x-player.x,enemy.y-player.y);
