@@ -11,6 +11,7 @@ import type { WorldScene } from '../scenes/WorldScene';
 import { TOWN_BY_ID } from '../../data/towns';
 import { npcStreetRoute, formationPosition } from '../systems/npcRoutes';
 import { useGameStore } from '../../store/gameStore';
+import {QUEST_BY_ID} from '../../data/quests';
 import { approachVelocity, strideRate } from '../systems/locomotion';
 import { MARCH_SPEED } from '../../data/capitalResidents';
 import {guardMarchTexture} from '../../data/guardMarchArt';
@@ -30,6 +31,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly home: Vec2;
   private readonly regionalModel:number|undefined;
   private readonly titleLabel: Phaser.GameObjects.Text;
+  private readonly sideQuestMarker: Phaser.GameObjects.Text | null;
   private readonly labelY: number;
   private readonly rng: () => number;
   private target: Vec2 | null = null;
@@ -113,7 +115,16 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.titleLabel = scene.add.text(x, y + this.labelY + 2, definition.title, {
       fontFamily: 'system-ui, sans-serif', fontSize: '9px', color: '#d2c3a5', stroke: '#17130e', strokeThickness: 2,
     }).setResolution(2).setOrigin(.5,0).setDepth(y + 80).setName(`npc-title:${definition.id}`);
-    this.once('destroy', () => { this.nameLabel.destroy(); this.titleLabel.destroy(); });
+    // Keep this cue separate from the sprite and its name label; like the
+    // name, it follows a walking NPC without becoming a clickable obstacle.
+    this.sideQuestMarker=definition.questIds.some(id=>QUEST_BY_ID[id]?.kind==='side')
+      ?scene.add.text(x,y+this.labelY-18,'!',{
+        fontFamily:'Georgia, serif',fontSize:'16px',fontStyle:'bold',color:'#65c5ff',
+        stroke:'#102942',strokeThickness:4,
+      }).setResolution(2).setOrigin(.5,1).setDepth(y+82)
+        .setVisible(false).setName(`npc-side-quest:${definition.id}`)
+      :null;
+    this.once('destroy', () => { this.nameLabel.destroy(); this.titleLabel.destroy(); this.sideQuestMarker?.destroy(); });
     if(regionalModel!==undefined)presentCitizen(this,regionalModel);
     else {
       // Start full idle poses immediately, including newly streamed visitors.
@@ -180,7 +191,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   endStoryMovement(){this.storyGoal=null;this.storyRest();}
   get storyMoving(){return this.storyGoal!==null||this.storyGuard;}
   setStoryAlert(text?:string){this.storyAlert=text;}
-  setInteriorLabelDepth(offset:number){this.nameLabel.setDepth(offset+this.y+80);this.titleLabel.setDepth(offset+this.y+80);}
+  setInteriorLabelDepth(offset:number){this.nameLabel.setDepth(offset+this.y+80);this.titleLabel.setDepth(offset+this.y+80);this.sideQuestMarker?.setDepth(offset+this.y+82);}
   advanceCinematic(delta:number) {
     const body=this.body as Phaser.Physics.Arcade.Body,step=Math.min(delta,80)/1000;
     const point={x:this.x+body.velocity.x*step,y:this.y+body.velocity.y*step};
@@ -375,6 +386,16 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.nameLabel.setPosition(this.x, this.y + this.labelY).setDepth(this.y + 80).setColor(questTarget ? '#ffe193' : '#f6edd7');
     this.titleLabel.setText(this.storyAlert??this.definition.title).setPosition(this.x, this.y + this.labelY + 2).setDepth(this.y + 80)
       .setVisible(Boolean(this.storyAlert)||distance < 260);
+    if(this.sideQuestMarker){
+      const story=useGameStore.getState();
+      const available=this.definition.questIds.some(id=>{
+        const quest=QUEST_BY_ID[id],status=story.quests[id];
+        return quest?.kind==='side'&&status?.status==='locked'
+          &&(!quest.prerequisiteQuestId||story.quests[quest.prerequisiteQuestId]?.status==='completed');
+      });
+      this.sideQuestMarker.setPosition(this.x,this.y+this.labelY-17).setDepth(this.y+82)
+        .setVisible(available&&!cinematic&&distance<650);
+    }
   }
 
   private playDirection(_x: number, _y: number, walking: boolean) {
