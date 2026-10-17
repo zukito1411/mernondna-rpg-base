@@ -17,6 +17,7 @@ import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {BOSS_WEAPONS,POTIONS,canDropPotion,merchantStock,itemName,type PotionId} from '../data/economy';
 import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
+import {ATTRIBUTE_RESET_COST,MAX_WEAPON_ENHANCEMENT,MAX_FORGE_MATERIALS,isBlacksmith,isBossForgeMaterial,weaponEnhancementCost} from '../data/forge';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
 import type {StoryPanelRef} from '../data/storyPanelArt';
@@ -60,6 +61,10 @@ export interface GameState {
   gold: number;
   weaponId: string;
   inventory: string[];
+  weaponUpgrades:Record<string,number>;
+  forgeMaterials:Record<string,number>;
+  resetAttributesAtEdmund:()=>void;
+  enhanceWeaponAtSmith:(npcId:string,weaponId:string,materialId:string)=>void;
   consumables:Record<PotionId,number>;
   vitalRevision:number;
   learnedCombatArts:ActiveSkillId[];
@@ -151,6 +156,8 @@ const baseState = () => ({
   gold: localPlayCheatsEnabled()?LOCAL_TEST_GOLD:18,
   weaponId: LEIGNERON.starterWeaponId,
   inventory: localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],
+  weaponUpgrades:{} as Record<string,number>,
+  forgeMaterials:{} as Record<string,number>,
   consumables:{'healing-potion':2,'stamina-potion':1},vitalRevision:0,
   learnedCombatArts:[] as ActiveSkillId[],skillSlots:[...DEFAULT_SKILL_SLOTS] as (ActiveSkillId|null)[],
   worldX: LEIGNERON.spawn.x,
@@ -213,6 +220,41 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const id=itemId as PotionId;if(!POTIONS[id]||state.consumables[id]>=99)return {toast:'You cannot carry any more of that draught.'};
     return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,consumables:{...state.consumables,[id]:state.consumables[id]+1},toast:`Purchased ${itemName(id)}.`};
+  }),
+  resetAttributesAtEdmund:()=>set(state=>{
+    const conversation=state.dialogue,npc=NPC_BY_ID['aldren-vale'];
+    if(conversation?.npcId!=='aldren-vale'||!npc||state.panel||state.cinematic
+      ||conversation.choices?.length||conversation.lineIndex<(conversation.lines??npc.dialogue).length-1)
+      return {};
+    const used=Object.values(state.attributes).reduce((sum,n)=>sum+n,0);
+    if(!used)return {toast:'You have no allocated attributes to reset.'};
+    if(state.gold<ATTRIBUTE_RESET_COST)return {toast:'You need 1,500 gold for the training.'};
+    const attributes={...BASE_ATTRIBUTES},derived=progressionStats(attributes,state.learnedSkills);
+    // Keep the character at a comparable health/stamina percentage, rather
+    // than either killing a VIT-heavy build or giving free full healing.
+    return {gold:state.gold-ATTRIBUTE_RESET_COST,attributes,statPoints:attributeBudget(state.level),
+      maxHp:derived.maxHp,maxStamina:derived.maxStamina,
+      hp:Math.max(1,Math.min(derived.maxHp,Math.round(state.hp/Math.max(1,state.maxHp)*derived.maxHp))),
+      stamina:Math.max(0,Math.min(derived.maxStamina,Math.round(state.stamina/Math.max(1,state.maxStamina)*derived.maxStamina))),
+      vitalRevision:state.vitalRevision+1,
+      toast:'Edmund helped you retrain. All attribute points have been returned.'};
+  }),
+  enhanceWeaponAtSmith:(npcId,weaponId,materialId)=>set(state=>{
+    const conversation=state.dialogue,npc=NPC_BY_ID[npcId];
+    if(conversation?.npcId!==npcId||!npc||!isBlacksmith(npcId)||state.panel||state.cinematic
+      ||conversation.choices?.length||conversation.lineIndex<(conversation.lines??npc.dialogue).length-1)return {};
+    if(!state.inventory.includes(weaponId)||!Object.hasOwn(WEAPON_BY_ID,weaponId))
+      return {toast:'You must own the weapon before enhancing it.'};
+    if(!isBossForgeMaterial(materialId)||(state.forgeMaterials[materialId]??0)<1)
+      return {toast:'You need a duplicate boss weapon to forge this enhancement.'};
+    const level=state.weaponUpgrades[weaponId]??0;
+    if(level>=MAX_WEAPON_ENHANCEMENT)return {toast:'This weapon cannot be enhanced further.'};
+    const cost=weaponEnhancementCost(level);
+    if(state.gold<cost)return {toast:`The next enhancement costs ${cost} gold.`};
+    return {gold:state.gold-cost,
+      weaponUpgrades:{...state.weaponUpgrades,[weaponId]:level+1},
+      forgeMaterials:{...state.forgeMaterials,[materialId]:state.forgeMaterials[materialId]-1},
+      toast:`${WEAPON_BY_ID[weaponId].name} enhanced to +${level+1}!`};
   }),
   equipWeapon:id=>set(state=>state.panel==='inventory'&&!state.dialogue&&!state.cinematic&&!state.activeSkillStatus.casting&&state.inventory.includes(id)&&Object.hasOwn(WEAPON_BY_ID,id)
     ?{weaponId:id,toast:`Equipped ${WEAPON_BY_ID[id].name}.`}:{}),
@@ -356,7 +398,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
     const dropped=trophy&&Math.random()<bossWeaponDropChance(state.attributes)?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
-    const salvage=duplicate&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
+    const duplicateCount=duplicate?(state.forgeMaterials[dropped.id]??0):0;
+    const canKeepMaterial=Boolean(duplicate&&duplicateCount<MAX_FORGE_MATERIALS);
+    // Don't silently discard a rare roll when storage is full.
+    const salvage=duplicate&&!canKeepMaterial?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
     // Ordinary enemies can occasionally drop a carried draught. No extra
     // potion rolls for temporary boss summons, wildlife or story-only fights.
     const supplyRoll=!bossId&&lootEligible&&canDropPotion(enemyId)
@@ -369,8 +414,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
+        ...(canKeepMaterial?{forgeMaterials:{...state.forgeMaterials,[dropped.id]:duplicateCount+1}}:{}),
         gold:state.gold+rewards.gold+salvage,
-        toast:duplicate?`Another ${itemName(dropped.id)} — salvaged for ${salvage} gold.`:`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
+        toast:duplicate?(canKeepMaterial?`Duplicate ${itemName(dropped.id)} saved for forging.`:
+          `Extra ${itemName(dropped.id)} salvaged for ${salvage} gold (material bag full).`):
+          `Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
       ...(potion?{consumables:{...state.consumables,[potion]:state.consumables[potion]+1},
         toast:`Found ${itemName(potion)}! Check your bag.`}:{}),
       ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
