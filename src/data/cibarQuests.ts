@@ -14,8 +14,8 @@ export const CIBAR_QUEST:QuestDefinition={
       "amount": 1,
       "text": "Speak with Celia beside the dry fields.",
       "dialogue": [
-        "The pump stopped before the eastern fields were watered. If we trade away our seed to buy water, we will have nothing to plant.",
-        "Look at the pump, then find Iren. Asha can mend it if we bring her the missing pieces."
+        "The pump broke before we finished watering the fields. People are already talking about selling seed just to buy water. I'm scared we won't have anything left to plant.",
+        "Iren was there when it stopped. She might know what happened. Asha's trying to fix it, but some of the parts are missing."
       ]
     },
     {
@@ -33,8 +33,8 @@ export const CIBAR_QUEST:QuestDefinition={
       "amount": 1,
       "text": "Ask Iren what she saw near the pump.",
       "dialogue": [
-        "The pump was stopped by a hand, not a beast. Someone hid the copper pieces so we would pay dearly for every drop.",
-        "I hid spares in three old stores. Find them, and Asha can set the water running again."
+        "It wasn't an accident. I saw someone messing with the pump, and then the copper parts were gone.",
+        "I kept spare fittings in three of the old sheds. I'd go get them, but I can't leave the fields today."
       ]
     },
     {
@@ -51,8 +51,8 @@ export const CIBAR_QUEST:QuestDefinition={
       "amount": 1,
       "text": "Bring the fittings to Asha at the well.",
       "dialogue": [
-        "These are the right pieces. I can mend the pump without taking a single seed sack.",
-        "When the water flows again, who should see that every field gets its turn?"
+        "Oh, good. These will work. Give me a little time and I can get the pump running.",
+        "Celia's worried we'll fight over the water again. Has anyone talked about who gets to use the pump first?"
       ]
     },
     {
@@ -62,19 +62,19 @@ export const CIBAR_QUEST:QuestDefinition={
       "amount": 1,
       "text": "Choose how the growers will share the water.",
       "dialogue": [
-        "Every family needs water, and every family must have a say."
+        "I don't want another argument at the well. How do we make sure nobody gets left out?"
       ],
       "choices": [
         {
           "id": "public",
           "text": "Set the turns together at the village well.",
-          "response": "We will meet at the well each week and make sure no field is forgotten.",
+          "response": "All right. We'll meet by the well and agree on the turns together.",
           "flag": "cibar-public-water"
         },
         {
           "id": "cooperative",
           "text": "Let the growers take turns tending the pump.",
-          "response": "Iren and the growers will share the work. The water belongs to all of us.",
+          "response": "Iren can organize the repairs, and we'll take turns with the pump. That sounds fair.",
           "flag": "cibar-growers-cooperative"
         }
       ]
@@ -94,8 +94,8 @@ export const CIBAR_QUEST:QuestDefinition={
       "amount": 1,
       "text": "Tell Celia the water is flowing again.",
       "dialogue": [
-        "Listen—the water is running again. We can plant before the sun dries the earth.",
-        "Tell Agnes we will share our harvest with Oakmere. Folk who stand by us in hard times deserve our thanks."
+        "Can you hear that? It's running! Oh, thank goodness. I thought we'd lost this year's planting.",
+        "I'll send some of the harvest to Oakmere when it's ready. They helped us when we needed it."
       ]
     }
   ]
