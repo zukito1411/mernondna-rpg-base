@@ -29,6 +29,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private nextDashAt = 0;
   private nextFootstepAt = 0;
   private dashUntil = 0;
+  private dodgeInvulnerableUntil=0;
+  private hurtInvulnerableUntil=0;
+  private dashRewarded=false;
   private dashDirection = new Phaser.Math.Vector2(0, 1);
   private nextDashTrailAt = 0;
   private sprintExhausted = false;
@@ -130,8 +133,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const mobileDash = mobileInput.consume('dash');
     const dashPressed = this.consumeAction('dash') || mobileDash;
     if (dashPressed && !movementLocked && time >= this.nextDashAt && this.spendStamina(16)) {
-      this.nextDashAt = time + 850;
-      this.dashUntil = time + 165;
+      this.nextDashAt = time + 850*progression.dashCooldownMultiplier;
+      this.dashUntil = time + 195;
+      // Protect startup, movement, and a short landing margin.
+      this.dodgeInvulnerableUntil=time+245+progression.dodgeGraceMs;
+      this.dashRewarded=false;
       this.dashDirection.copy(this.lastDirection);
       this.nextDashTrailAt = time;
       scene.recordTraining('drill-dash');
@@ -159,7 +165,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         sprinting = false;
       }
     } else {
-      this.stamina = Math.min(this.maxStamina, this.stamina + delta * 0.014);
+      this.stamina = Math.min(this.maxStamina, this.stamina + delta * 0.014 * progression.staminaRegenMultiplier);
     }
 
     const dashMultiplier = dashing ? 2.65 : 1;
@@ -230,6 +236,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     if(!Number.isFinite(amount)||amount<=0||this.hp<=0)return;
     const state=useGameStore.getState(),stats=progressionStats(state.attributes,state.learnedSkills);
+    const now=scene.time.now;
+    if(now<this.dodgeInvulnerableUntil){
+      if(!this.dashRewarded&&!this.unlimitedVitals){
+        this.stamina=Math.min(this.maxStamina,this.stamina+8);
+        this.dashRewarded=true;
+        scene.playEffect('fortification',this.x,this.y);
+      }
+      return;
+    }
+    if(now<this.hurtInvulnerableUntil)return;
     if(!this.unlimitedVitals&&Math.random()<stats.evasionChance){
       scene.playEffect('fortification',this.x,this.y);
       return;
@@ -237,6 +253,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if(amount>0)this.weaponDrawnRemaining=5000;
     if(amount>0)this.skills.interruptRenewal();
     this.recovery.interrupt();
+    this.hurtInvulnerableUntil=now+320;
     this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * stats.incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);
@@ -250,6 +267,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.clearAttackVisual();
     (this.body as Phaser.Physics.Arcade.Body).reset(x, y);
     this.dashUntil = 0;
+    this.dodgeInvulnerableUntil=0;
+    this.hurtInvulnerableUntil=0;
+    this.dashRewarded=false;
     this.sprintExhausted = false;
     this.hp = this.maxHp;
     this.stamina = this.maxStamina;
@@ -268,6 +288,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     mobileInput.reset();
     for (const key of Object.values(this.keys)) key.reset();
     this.dashUntil = 0;
+    this.dodgeInvulnerableUntil=0;
+    this.hurtInvulnerableUntil=0;
+    this.dashRewarded=false;
     this.sprintExhausted = false;
     (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     this.anims.stop();
