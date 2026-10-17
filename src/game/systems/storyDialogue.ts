@@ -46,13 +46,28 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
     return after(publicHearing?'The square was full when Tovin spoke. There are guards at the kitchen, but neighbors have been taking turns there too.'
       :'The testimony is sealed. Some call it another secret. I tell them a frightened boy is not the price we pay to satisfy their curiosity.');
   }
-  if(quests['water-stops']?.status==='completed'&&npc.townId==='cibar-plains')return after(flags['cibar-public-water']?
+  if(quests['water-stops']?.status==='completed'&&['celia-brook','asha-stonevein','iren-copperwake','kellan-ashfield','meral-gull'].includes(id))return after(flags['cibar-public-water']?
     'Celia spoke by the well. She named what her brother did, not the travelers who needed him. I think he would have approved.'
     :'The sworn households have kept the travelers’ names safe. Yselle has the murder evidence. We can remember him without putting someone else in danger.');
   if(quests['first-road']?.status==='active'&&id==='aldren-vale'){
     const current=nextObjective('first-road',quests);
-    return ['A roadwarden counts the people who need help before the enemies who need fighting. Your questions matter; do not let them make you careless with someone else’s life.',
-      current?current.text:'Come home when the work is done.'];
+    const concerns:Record<string,string>={
+      'talk-aldren':"Come here a minute. I need to talk to you about Lena.",
+      'morning-inn':"Sena was asking after you. She's worried about Lena too.",
+      'field-witness':"Alice found tracks near the farm. She didn't like what she saw.",
+      'blade-check':"Did Joren look at your sword? The poor man worries about you almost as much as I do.",
+      'lena-safe':"Please tell me you've found Lena. Her children keep asking when she'll be home.",
+      'seed-return':"Is Lena safe? Good. Nella will be relieved. She's been worried sick.",
+      'roadwardens-choice':"I know you're angry. Just... don't go looking for a fight because of it.",
+      'watch-plan':"Elara's putting guards by the inn. We can't have those men coming after Lena again.",
+      'break-blockade':"Varr's men are still up by the tower. Don't try to take the whole road on your own.",
+      'tower-dispatch':"Someone paid for that ambush. There's a letter near the tower that might tell us who.",
+      'kill-varr':"I wish I could go with you. Be careful around Varr. He knows how to fight.",
+      'compass-question':"Orin asked about your compass. I think he knows something I don't.",
+      'return-aldren':"You're back. Thank goodness. Come inside and tell me what happened.",
+    };
+    return [concerns[current?.id??'']??"I just want you home safe, all right?",
+      "And please eat something before you go out again."];
   }
   if(flags['campaign-complete']){
     const home:Record<string,string>={
@@ -71,6 +86,8 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
   if(id==='bruni-stonevein'&&(quests['eight-regions']?.objectiveProgress['bruni-rescued']??0)>=1)
     return [flags['relocated:npc:bruni-stonevein']?'My survey is in the archive. This time the guild cannot call a broken spring a miner’s superstition.':'Keep my survey with your records. This time the guild must hear what happened to the spring.',
       'The crews must inspect the water before anyone descends. I will keep the names beside the records, not only the guild’s seal.'];
+  // Local aftermath may be heard from neighbors, but keep it personal rather
+  // than giving every resident the same authoritative political announcement.
   const chapter=flags['region-resolved:'+npc.townId];
   if(chapter){
     const reactions:Record<string,string>={
