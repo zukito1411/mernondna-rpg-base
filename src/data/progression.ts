@@ -76,8 +76,8 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
   evasionChance:eva*.01,
   luckChance:luk*.00625,
   rewardMultiplier:1+luk*.01,
-  rareDropChance:.10+luk*.005, // 10% -> 30% boss weapon chance at LUK 40
-  supplyDropChance:.06+luk*.0025, // 6% -> 16% on eligible ordinary enemies
+  rareDropChance:bossWeaponDropChance(attributes), // 10% -> 30% at LUK 40
+  supplyDropChance:supplyDropChance(attributes), // 6% -> 16% for supply carriers
   skillDamageMultiplier:1+(has('battle-focus') ? .05:0),
   incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1),
  };
