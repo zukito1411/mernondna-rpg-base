@@ -14,6 +14,7 @@ import {routePosition,routePointAtDistance} from './travelRoutes';
 
 interface Walker {npc:Npc;hp:number;maxHp:number;rest:number;cooldown:number;target:Enemy|null;engageFrom:Vec2|null;hit:boolean;attacking:boolean;rank:number;aim:Phaser.Math.Vector2|null}
 interface Party {id:string;walkers:Walker[];anchor:Vec2;patrol:boolean;route:RoadLifeRoute}
+interface PendingParty {party:Party;positions:Vec2[];roster:readonly AdventurerRole[];forward:boolean;next:number}
 type AdventurerRole='swordhand'|'huntress'|'archer';
 const ADVENTURER_PARTIES:readonly (readonly AdventurerRole[])[]=[
   ['swordhand'],['huntress'],['archer'],['swordhand','huntress'],
@@ -33,6 +34,7 @@ export class AmbientRoadLifeSystem{
   private scan=0;
   private think=0;
   private routeClockPending=0;
+  private pendingParty:PendingParty|null=null;
   private active=false;
   constructor(private readonly scene:WorldScene,private readonly world:WorldGenerator){
     this.arrows=new AmbientNpcArrowSystem(scene,(_source,enemy,direction)=>{
@@ -79,6 +81,9 @@ export class AmbientRoadLifeSystem{
     for(const [id,party] of this.parties)if(party.walkers.every(w=>!w.npc.active||
       w.npc.x<view.x-950||w.npc.x>view.right+950||w.npc.y<view.y-850||w.npc.y>view.bottom+1050))this.release(id,party);
     if(this.scan<=0){this.scan=2500;this.populate();}
+    // Introduce one actor per frame, not three animated bodies, labels and
+    // shadow registrations on the same frame when a new guard party appears.
+    this.spawnNextWalker();
     // No travelers means no enemies to scan, arrow targets to evaluate or
     // opponent tables to rebuild. Virtual journeys still progress above.
     if(this.parties.size===0){this.opponents.clear();this.previousOpponents.clear();return;}
@@ -157,56 +162,68 @@ export class AmbientRoadLifeSystem{
       &&[-12,12].every(dx=>[0,-20].every(dy=>this.world.isWalkable(goal.x+dx,goal.y+dy)));
   }
   private populate(){
-    if(this.parties.size>=2)return;
+    if(this.parties.size>=2||this.pendingParty)return;
     const player=this.scene.player,view=this.scene.cameras.main.worldView;
     const candidates=this.routes.filter(r=>!this.parties.has(r.id)).map(route=>({route,point:routePosition(route,route.clock)}))
       .filter(({point})=>Math.hypot(point.x-player.x,point.y-player.y)<1900
         &&!(point.x>view.x-150&&point.x<view.right+150&&point.y>view.y-150&&point.y<view.bottom+150));
     for(let i=candidates.length-1;i>0;i--){const j=Math.floor(this.rng()*(i+1));[candidates[i],candidates[j]]=[candidates[j],candidates[i]];}
+    let placementChecks=0;
     for(const {route,point} of candidates){
       if([...this.parties.values()].some(p=>p.patrol===route.patrol||Math.hypot(p.anchor.x-point.x,p.anchor.y-point.y)<700))continue;
-      const patrol=route.patrol,town=TOWN_BY_ID[route.townId],destination=TOWN_BY_ID[point.forward?route.destinationId:route.townId];
+      const patrol=route.patrol;
       const roster=ADVENTURER_PARTIES[Math.floor(seededRandom('roster:'+route.id)()*ADVENTURER_PARTIES.length)],number=patrol?3:roster.length;
       if([...this.parties.values()].reduce((n,p)=>n+p.walkers.length,0)+number>6)continue;
+      // Bound the expensive walkability/collider probes in each 2.5 s scan.
+      // Remaining randomized candidates are considered on the next scan.
+      if(++placementChecks>6)break;
       const positions=Array.from({length:number},(_,rank)=>routePointAtDistance(route,
         point.distance+(point.forward?-1:1)*rank*78));
       if(positions.some((p,i)=>!this.scene.npcCanStandAt(p.x,p.y)
         ||i>0&&Math.hypot(p.x-positions[i-1].x,p.y-positions[i-1].y)<60
         ||this.scene.getCombatEnemies().some(e=>e.active&&Math.hypot(e.x-p.x,e.y-p.y)<180)))continue;
-      const walkers=positions.map((p,rank)=>{
-        const elven=town.regionId==='narenthil';
-        const role=roster[rank],bow=!patrol&&role!=='swordhand';
-        const definition:NpcDefinition={id:`road-life:${route.id}:${rank}`,
-          name:patrol?(rank===0?'Patrol Commander':'Road Guard'):role==='huntress'?'Traveling Huntress':role==='archer'?'Traveling Archer':'Traveling Adventurer',
-          title:patrol?`${town.name} outer watch`:`${number>1?'Adventuring party':'Independent traveler'} to ${destination.name}`,
-          townId:town.id,visualRegion:patrol?town.regionId:'trandum',
-          role:patrol?'road guard':'adventurer',spriteFrame:0,
-          spriteTexture:patrol?(elven?'npc_elven_guard_idle':rank===0?'npc_general':'npc_guard'):role==='huntress'?'npc_huntress':'npc_adventurer',
-          worldOffset:{x:p.x-town.world.x,y:p.y-town.world.y},combatant:true,stationary:true,
-          weaponId:bow?'narenthil-longbow':'roadwarden-sword',schedule:[],questIds:[],dialogue:[],relationshipToLeigneron:{kind:'acquaintance',trust:0,summary:'A fellow traveler on the road.'}};
-        const npc=this.scene.createRoadNpc(definition,p),maxHp=(patrol?180:110)+useGameStore.getState().level*9;
-        // Begin on the current leg rather than at the distant town's first corner.
-        let nearest=Infinity,next=1;
-        for(let i=1;i<route.points.length;i++){
-          const a=route.points[i-1],b=route.points[i],dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
-          const t=len2?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/len2)):0;
-          const gap=Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);
-          if(gap<nearest){nearest=gap;next=point.forward?i:i-1;}
-        }
-        npc.followRoadRoute(route.points,route.speed,{next,direction:point.forward?1:-1});
-        return {npc,maxHp,hp:maxHp,rest:0,cooldown:rank*200,target:null,engageFrom:null,hit:false,attacking:false,rank,aim:null};
-      });
-      this.parties.set(route.id,{id:route.id,walkers,anchor:point,patrol,route});
+      const party:Party={id:route.id,walkers:[],anchor:point,patrol,route};
+      this.parties.set(route.id,party);
+      this.pendingParty={party,positions,roster,forward:point.forward,next:0};
       return;
     }
   }
+  private spawnNextWalker(){
+    const pending=this.pendingParty;if(!pending)return;
+    const {party,positions,roster,forward}=pending,rank=pending.next;
+    if(!this.parties.has(party.id)||rank>=positions.length){this.pendingParty=null;return;}
+    const {route,patrol}=party,p=positions[rank];
+    const town=TOWN_BY_ID[route.townId],destination=TOWN_BY_ID[forward?route.destinationId:route.townId];
+    const elven=town.regionId==='narenthil';
+    const role=roster[rank],bow=!patrol&&role!=='swordhand';
+    const definition:NpcDefinition={id:`road-life:${route.id}:${rank}`,
+      name:patrol?(rank===0?'Patrol Commander':'Road Guard'):role==='huntress'?'Traveling Huntress':role==='archer'?'Traveling Archer':'Traveling Adventurer',
+      title:patrol?`${town.name} outer watch`:`${positions.length>1?'Adventuring party':'Independent traveler'} to ${destination.name}`,
+      townId:town.id,visualRegion:patrol?town.regionId:'trandum',
+      role:patrol?'road guard':'adventurer',spriteFrame:0,
+      spriteTexture:patrol?(elven?'npc_elven_guard_idle':rank===0?'npc_general':'npc_guard'):role==='huntress'?'npc_huntress':'npc_adventurer',
+      worldOffset:{x:p.x-town.world.x,y:p.y-town.world.y},combatant:true,stationary:true,
+      weaponId:bow?'narenthil-longbow':'roadwarden-sword',schedule:[],questIds:[],dialogue:[],relationshipToLeigneron:{kind:'acquaintance',trust:0,summary:'A fellow traveler on the road.'}};
+    const npc=this.scene.createRoadNpc(definition,p),maxHp=(patrol?180:110)+useGameStore.getState().level*9;
+    let nearest=Infinity,next=1;
+    for(let i=1;i<route.points.length;i++){
+      const a=route.points[i-1],b=route.points[i],dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+      const t=len2?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/len2)):0;
+      const gap=Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);
+      if(gap<nearest){nearest=gap;next=forward?i:i-1;}
+    }
+    npc.followRoadRoute(route.points,route.speed,{next,direction:forward?1:-1});
+    party.walkers.push({npc,maxHp,hp:maxHp,rest:0,cooldown:rank*200,target:null,engageFrom:null,hit:false,attacking:false,rank,aim:null});
+    if(++pending.next>=positions.length)this.pendingParty=null;
+  }
   private release(id:string,party:Party){
+    if(this.pendingParty?.party===party)this.pendingParty=null;
     const leader=party.walkers.find(w=>w.npc.active)?.npc;
     if(leader)rememberRoadJourney(party.route,leader,leader.roadTravelDirection);
     for(const walker of party.walkers){this.arrows.forget(walker.npc);if(walker.npc.active)this.scene.releaseRoadNpc(walker.npc);}
     this.parties.delete(id);
     for(const [enemy,npc] of this.opponents)if(party.walkers.some(w=>w.npc===npc))this.opponents.delete(enemy);
   }
-  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.opponents.clear();this.previousOpponents.clear();this.active=false;}
+  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.opponents.clear();this.previousOpponents.clear();this.active=false;}
   destroy(){this.clear();this.arrows.destroy();this.art.destroy();}
 }

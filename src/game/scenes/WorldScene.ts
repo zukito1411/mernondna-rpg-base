@@ -408,10 +408,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     // This runs for every walking road NPC. Traverse existing actors directly
     // instead of allocating a filtered crowd list on every movement frame.
     const includeRoadLife=Boolean(exclude?.definition.id.startsWith('road-life:'));
+    // A character farther than 43 px outside this segment's rectangle cannot
+    // collide with it. Cull them before doing projection or square roots.
+    const left=Math.min(from.x,to.x)-43,right=Math.max(from.x,to.x)+43;
+    const top=Math.min(from.y,to.y)-43,bottom=Math.max(from.y,to.y)+43;
     for(let i=0;i<=this.npcs.length;i++){
       const other=i===this.npcs.length?this.player:this.npcs[i];
       if(!other||other===exclude||!other.active)continue;
       if(i<this.npcs.length&&!includeRoadLife&&(other as Npc).definition.id.startsWith('road-life:'))continue;
+      if(other.x<left||other.x>right||other.y<top||other.y>bottom)continue;
       const vx=other.x-from.x,vy=other.y-from.y;
       const fraction=Math.max(0,Math.min(1,(vx*dx+vy*dy)/len2));
       const projectedX=from.x+dx*fraction,projectedY=from.y+dy*fraction;
