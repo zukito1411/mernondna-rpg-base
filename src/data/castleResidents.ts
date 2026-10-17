@@ -26,9 +26,9 @@ export const CASTLE_RESIDENTS:NpcDefinition[]=households.flatMap(([townId,buildi
         summary:'Knows Leigneron through the roadwarden reports brought to the household, but waits for personal evidence of his reliability.'},
       dialoguePersonality:'Quiet, courteous and practical; gives directions before warnings.',
       storyConsequences:['Remains at the household watch during regional emergencies; reports the danger without becoming a hostile civilian.'],
-      dialogue:index===0?['The audience hall is through the gallery. No need to hurry; they can hear your boots from the far end.',
-        'My watch partner says I stand too straight. His mother visits twice a week to say he does not stand straight enough.']
-        :['Through the gallery for an audience. The side passage leads to the kitchen, if you have lost someone carrying a tray.',
-          'If you smell the stew, try not to look too pleased. I have another hour before they bring my supper.'],questIds:[]};
+      dialogue:index===0?['The hall’s just through there. Someone will show you where to sit.',
+        'I’ve been standing here since morning. My feet are killing me.']
+        :['If you’re here for an audience, go through the gallery. The kitchen’s the other way.',
+          'They’ve been cooking something good all morning. I’m counting the minutes until my break.'],questIds:[]};
   });
 });
