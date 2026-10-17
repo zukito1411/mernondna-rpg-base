@@ -1,3 +1,4 @@
+import {propFitsHabitat} from './propHabitat';
 import {createNoise2D} from 'simplex-noise';
 import {CHUNK_SIZE} from '../../data/world';
 import {settlementAt} from '../../data/settlements';
@@ -37,11 +38,12 @@ export function planWildernessTrees(chunkX:number,chunkY:number,world:WorldGener
     const terrain=world.getTerrainAt(x,y),region=world.getRegionAt(x,y),biome=world.getBiomeAt(x,y);
     const stand=standNoise(x*.0015,y*.0015),profile=REGION_SCENERY[region];
     if(region==='darkav'||region==='dead-sea'||biome==='dryland'||terrain==='water')continue;
-    const cold=region==='nardorous'||region==='frostlands';
+    const cold=terrain==='snow'||biome==='snowfield';
     if(!(terrain==='forest'&&stand>-.55||terrain==='grass'&&stand>.42||cold&&terrain==='snow'&&stand>.35))continue;
-    const texture=cold?profile.treeTexture:'world_assets';
-    const frame:0|1=cold?0:standNoise(x*.002+19,y*.002-31)>.45?1:0;
+    const texture:TreeTexture=cold?'climate_props':'world_assets';
+    const frame:0|1=cold?0:region==='nardorous'?1:standNoise(x*.002+19,y*.002-31)>.45?1:0;
     const scale=treeScale(texture,frame,profile.treeHeight+(rng()-.5)*profile.treeVariation*2);
+    if(!propFitsHabitat(texture,frame,world,x,y,scale))continue;
     if(!clearSite(spriteBounds(texture,frame,scale,x,y),world,reservedRects,24))continue;
     trees.push({id:`scenery:${chunkX}:${chunkY}:${col}:${row}`,x,y,texture,frame,scale});
   }
@@ -60,22 +62,20 @@ export function planWildernessDetails(chunkX:number,chunkY:number,world:WorldGen
     const profile=REGION_SCENERY[region];
     const rocky=biome==='highland'||biome==='snowfield'||biome==='volcanic';
     const bank=world.distanceToWater(x,y)<280;
-    const choices:readonly import('../../data/regionScenery').HabitatObject[]=bank&&!rocky?
-      [{texture:'woodland_props',frame:0,scale:.42}]:rocky?profile.rocky:biome==='forest'?profile.forest:profile.meadow;
+    const snow=world.getTerrainAt(x,y)==='snow',coastal=biome==='coast';
+    const choices:readonly import('../../data/regionScenery').HabitatObject[]=snow?
+      [{texture:'climate_props',frame:3,scale:.7,solid:true}]:
+      bank&&!rocky&&region!=='darkav'?coastal?
+        [{texture:'native_region_props',frame:3,scale:70/artFrameSize('native_region_props',3).height}]:
+        [{texture:'woodland_props',frame:0,scale:.42}]:rocky?profile.rocky:biome==='forest'?profile.forest:profile.meadow;
     if(!choices.length)continue;
     const choice=choices[Math.floor(rng()*choices.length)],scale=choice.scale*(.88+rng()*.24);
+    if(!propFitsHabitat(choice.texture,choice.frame,world,x,y,scale))continue;
     const bounds=spriteBounds(choice.texture,choice.frame,scale,x,y);
     if(!clearSite(bounds,world,exclusions,20))continue;
     const size=artFrameSize(choice.texture,choice.frame);
     result.push({id:`habitat:${chunkX}:${chunkY}:${row}:${col}`,x,y,texture:choice.texture,frame:choice.frame,scale,
       solid:choice.solid??false,footprint:{width:size.width*scale*.52,height:Math.min(48,size.height*scale*.22)}});
     exclusions.push(bounds);
-    // Fire belongs to selected deadwood bases, inside the already admitted
-    // composition. It reuses the real campfire art and night-light registration.
-    if(region==='darkav'&&choice.texture==='darkav_props'&&choice.frame<=2&&rng()<.3&&result.length<40){
-      result.push({id:`habitat:${chunkX}:${chunkY}:${row}:${col}:embers`,x:x+18,y:y+8,texture:'world_assets',frame:6,scale:.35,
-        solid:false,footprint:{width:12,height:10}});
-      exclusions.push(spriteBounds('world_assets',6,.35,x+18,y+8));
-    }
   }return result;
 }

@@ -1,3 +1,4 @@
+import {NATIVE_PROP_ART,type NativePropTexture} from './nativePropArt';
 import { HERO_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,TROLL_SOURCES,DRAGON_SOURCES,DRAGON_FLY_SOURCES,TROLL_IMPACT_SOURCES,DIRECTION_CLIPS,ORC_SPEARMAN_IDLE_SOURCES,ORC_SPEARMAN_ATTACK_SOURCES,ORC_SPEARMAN_STATE_SOURCES, type SpriteSource } from './animationPacks';
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
@@ -19,7 +20,7 @@ import { PLAYER_SKILL_ART, skillArtSources } from './playerSkillArt';
 import type { PlayerSkillTexture } from './activeSkills';
 
 export type PlayerPresentationTexture = 'leigneron' | 'leigneron_idle' | 'leigneron_idle_sides' | 'leigneron_running';
-type SourceArtTextureKey = typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'enemy_orc_raider' | 'enemy_orc_spearman' | 'enemy_orc_spearman_actions' | 'enemy_orc_spearman_states' | 'enemy_spear_projectile' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | typeof NPC_IDLE_ART[number]['walk'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
+type SourceArtTextureKey = NativePropTexture | typeof DIRECTIONAL_ENEMY_ART[number]['walkTexture'] | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'enemy_troll' | 'enemy_dragon' | 'enemy_dragon_fly' | 'enemy_orc_raider' | 'enemy_orc_spearman' | 'enemy_orc_spearman_actions' | 'enemy_orc_spearman_states' | 'enemy_spear_projectile' | 'effect_troll_impact' | 'desert_props' | 'woodland_props' | 'climate_props' | 'flora' | PlayerSkillTexture | typeof NPC_IDLE_ART[number]['key'] | typeof NPC_IDLE_ART[number]['walk'] | PlayerPresentationTexture | 'leigneron_attack' | 'effect_fortification' | 'effect_hit' | 'effect_heal' | 'effect_slash' | 'effect_teleport' | 'npcs' | 'npc_guard' | 'npc_woman' | 'npc_huntress' | 'npc_villager' | 'npc_blacksmith' | 'npc_adventurer' | 'npc_attendant' | 'npc_general' | 'enemies' | 'world_objects' | 'world_buildings' | 'world_assets' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'terrain';
 export type ArtTextureKey=SourceArtTextureKey|NpcWalkTexture|NpcDirectionalIdleTexture|typeof BANDIT_COMBAT_TEXTURE|typeof SALT_KING_TEXTURE|GuardMarchTexture|NpcCombatTexture|'port_dock'|'pirate_flagship'|typeof PIRATE_TEXTURE|typeof BOATSWAIN_TEXTURE|typeof GOBLIN_TEXTURE|M14Texture|'enemy_goblin_stone';
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
@@ -80,6 +81,7 @@ const castSources:SpriteSource[] = [
 ];
 
 export const ART_SHEETS: readonly ArtSheet[] = [
+  ...NATIVE_PROP_ART,
   {key:'enemy_orc_spearman',path:'assets/enemies/rindass_orc_range/walk.png',columns:4,atlasColumns:4,density:2,frameWidth:160,frameHeight:128,blackBackground:false,sources:ORC_SPEARMAN_IDLE_SOURCES,names:['spearman-idle-down','spearman-idle-left','spearman-idle-right','spearman-idle-up']},
   {key:'enemy_orc_spearman_actions',path:'assets/enemies/rindass_orc_range/action.png',columns:24,atlasColumns:6,density:2,frameWidth:160,frameHeight:128,blackBackground:false,sources:ORC_SPEARMAN_ATTACK_SOURCES,names:Array.from({length:24},(_,i)=>`spearman-throw-${i}`)},
   {key:'enemy_orc_spearman_states',path:'assets/enemies/rindass_orc_range/death.png',columns:24,atlasColumns:6,density:2,frameWidth:160,frameHeight:128,blackBackground:false,sources:ORC_SPEARMAN_STATE_SOURCES,names:Array.from({length:24},(_,i)=>`spearman-state-${i}`)},

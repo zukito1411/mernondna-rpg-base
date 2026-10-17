@@ -1,3 +1,7 @@
+import {applyNativePropReplacements} from './nativePropReplacements';
+import {fitAuthoredProps} from './authoredPropPlacement';
+import {propFitsHabitat} from '../game/systems/propHabitat';
+import {WorldGenerator} from '../game/systems/WorldGenerator';
 import type { ContentDefinition, ContentState } from '../game/types';
 import { BOSSES, ENEMY_BY_ID } from './enemies';
 import { NPCS, NPC_BY_ID, NPC_NAME_ALIASES } from './npcs';
@@ -343,16 +347,20 @@ for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
 }
 // Discovery/story boards are appended after the old town-only placement pass.
 // Fit them now, against final streets, bridge art and neighboring objects.
+applyNativePropReplacements(WORLD_CONTENT);
+fitAuthoredProps(WORLD_CONTENT);
 const isRoadsideBoard=(d:ContentDefinition)=>'frame' in d
-  &&(d.texture==='others'&&d.frame===11||d.texture==='world_assets'&&d.frame===PROPS.sign);
+  &&((d.texture==='others'||d.texture==='native_civic_bare')&&d.frame===11||d.texture==='world_assets'&&d.frame===PROPS.sign);
 const boardObstacles=new StaticBoundsIndex(WORLD_CONTENT.flatMap(d=>'frame' in d&&!isRoadsideBoard(d)
   ?[{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y,d.anchor==='center')}]:[]));
 const boardPlacements:Rect[]=[];
+const boardGeography=new WorldGenerator();
 for(const d of WORLD_CONTENT){
   if(!isRoadsideBoard(d)||!('frame' in d))continue;
   const texture=d.texture??'world_objects',scale=d.scale??1,preferred={...d.world};
   const fits=(p:{x:number;y:number})=>{
     const rect=spriteBounds(texture,d.frame,scale,p.x,p.y,d.anchor==='center');
+    if(!propFitsHabitat(texture,d.frame,boardGeography,p.x,p.y,scale))return false;
     if(rect.left<0||rect.top<0||rect.right>=WORLD_WIDTH||rect.bottom>=WORLD_HEIGHT)return false;
     if(fortificationBlocksPoint(p.x,p.y,50)||harborBay(p.x,p.y)||lakeAt(p.x,p.y))return false;
     if(ROAD_ROUTES.some(r=>rectTouchesStreet(rect,r,20)))return false;

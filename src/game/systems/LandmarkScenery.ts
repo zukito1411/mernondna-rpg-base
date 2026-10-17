@@ -1,3 +1,5 @@
+import {propFitsHabitat} from './propHabitat';
+import {treeScale} from '../../data/treeArt';
 import {CHUNK_SIZE} from '../../data/world';
 import {WILDERNESS_SITES} from '../../data/wildernessSites';
 import {SCENIC_LAKES} from '../../data/landscapeFeatures';
@@ -15,14 +17,16 @@ import {bossArenaBounds} from './bossArenas';
 
 interface Piece {texture:ArtTextureKey;frame:number;scale:number;dx:number;dy:number;solid?:boolean}
 const piece=(texture:ArtTextureKey,frame:number,scale:number,dx:number,dy:number,solid=true):Piece=>({texture,frame,scale,dx,dy,solid});
-function dressing(region:RegionId,style:string):Piece[]{
+function dressing(region:RegionId,style:string,snow:boolean):Piece[]{
   if(region==='dead-sea')return [];
   if(region==='rindass')return [piece('desert_props',style==='ruin'?11:9,1.1,-340,-260),
     piece('desert_props',8,.52,240,-60),piece('desert_props',6,.7,350,160),piece('desert_props',7,.48,-170,200)];
-  if(region==='nardorous'||region==='frostlands')return [piece('climate_props',5,.7,-230,-180),piece('climate_props',2,.7,310,-140),
+  if(snow)return [piece('climate_props',3,.7,-230,-180),piece('climate_props',2,.7,310,-140),
     piece('climate_props',4,.8,280,150),piece('climate_props',3,.85,-320,170)];
-  if(region==='darkav')return [piece('darkav_props',3,1.1,-330,-240),piece('darkav_props',0,1.15,340,-150),
-    piece('darkav_props',1,.8,330,190),piece('climate_props',9,.65,-240,170),piece('climate_props',7,1.1,500,260)];
+  if(region==='nardorous')return [piece('native_region_props',5,.6,-230,-180),piece('woodland_props',9,1,310,-140),
+    piece('world_assets',1,treeScale('world_assets',1,290),280,150),piece('woodland_props',8,.7,-320,170)];
+  if(region==='darkav')return [piece('darkav_props',3,1.1,-330,-240),piece('native_region_props',0,treeScale('native_region_props',0,285),340,-150),
+    piece('native_region_props',1,.48,330,190),piece('climate_props',9,.65,-240,170),piece('climate_props',7,1.1,500,260)];
   if(style==='camp')return [piece('world_assets',7,.56,-330,-230),piece('others',8,.58,250,-30),
     piece('woodland_props',6,.66,300,170),piece('woodland_props',7,.42,-250,170)];
   if(style==='grove')return [piece('woodland_props',7,.8,-260,-180),piece('woodland_props',10,.3,240,140,false),
@@ -54,7 +58,7 @@ export function planLandmarkScenery(chunkX:number,chunkY:number,world:WorldGener
     const occupied=[...bounds,...result.map(s=>spriteBounds(s.texture,s.frame,s.scale,s.x,s.y))];
     const position=slots.find(p=>{
       const r=spriteBounds(item.texture,item.frame,item.scale,p.x,p.y);
-      if(world.getRegionAt(p.x,p.y)!==region)return false;
+      if(world.getRegionAt(p.x,p.y)!==region||!propFitsHabitat(item.texture,item.frame,world,p.x,p.y,item.scale))return false;
       if(ROAD_ROUTES.some(road=>rectTouchesStreet(r,road,30)))return false;
       if(occupied.some(b=>overlaps(r,b,24)))return false;
       return [r.left,(r.left+r.right)/2,r.right].every(x=>[r.top,(r.top+r.bottom)/2,r.bottom].every(y=>
@@ -67,12 +71,13 @@ export function planLandmarkScenery(chunkX:number,chunkY:number,world:WorldGener
   };
   // Each piece belongs to its actual chunk, including groups across seams.
   for(const site of WILDERNESS_SITES){if(!nearby(site.world))continue;
-    dressing(world.getRegionAt(site.world.x,site.world.y),site.style).forEach((item,i)=>add(site.id+':'+i,site.world,item));}
+    dressing(world.getRegionAt(site.world.x,site.world.y),site.style,world.getTerrainAt(site.world.x,site.world.y)==='snow').forEach((item,i)=>add(site.id+':'+i,site.world,item));}
   for(const lake of SCENIC_LAKES){if(!nearby(lake))continue;
     const anchor={x:lake.x-lake.rx-130,y:lake.y+100};
     const pieces=lake.region==='rindass'?[piece('desert_props',0,.65,-150,-100),piece('desert_props',4,.72,-210,190),piece('desert_props',3,.35,0,40,false)]:
       lake.frozen?[piece('climate_props',2,.85,0,-120),piece('climate_props',3,.85,-130,170)]:
-      [piece('woodland_props',0,.55,0,40,false),piece('woodland_props',6,.78,-210,190),piece('woodland_props',8,.6,-150,-80)];
+      [piece(lake.region==='portquill'?'native_region_props':'woodland_props',lake.region==='portquill'?3:0,.45,0,40,false),
+        piece('woodland_props',6,.78,-210,190),piece('woodland_props',8,.6,-150,-80)];
     pieces.forEach((item,i)=>add(lake.id+':'+i,anchor,item));}
   // The lava-pool artwork sits only on real non-walkable lava, never across
   // safe roads. No extra invisible pool collider is needed.

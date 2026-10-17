@@ -1,3 +1,4 @@
+import type {NativePropTexture} from '../data/nativePropArt';
 export type RegionId =
   | 'trandum'
   | 'narenthil'
@@ -195,7 +196,7 @@ export interface QuestRuntimeState {
 }
 
 interface ContentBase { id: string; world: Vec2 }
-export type WorldPropTexture = 'pirate_flagship' | 'port_dock' | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
+export type WorldPropTexture = NativePropTexture | 'flora' | 'pirate_flagship' | 'port_dock' | 'elarion_tree' | 'elven_villas' | 'flower_fence' | 'darkav_props' | 'darkav_volcano' | 'world_assets' | 'world_objects' | 'world_buildings' | 'capital_buildings' | 'bridges' | 'others' | 'walls' | 'royal_walls' | 'desert_props' | 'woodland_props' | 'climate_props';
 export interface NpcContentDefinition extends ContentBase { kind: 'npc'; npcId: string }
 export type EncounterRole = 'leader' | 'melee' | 'flanker' | 'ranged' | 'heavy';
 export interface EncounterBehavior {

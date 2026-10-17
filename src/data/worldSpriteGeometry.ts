@@ -70,6 +70,15 @@ const others:WorldSpriteProfile[]=[
   profile(base(.12,.81,.87,.98)),
 ];
 export function worldSpriteProfile(texture:ArtTextureKey,frame:number):WorldSpriteProfile|undefined {
+  if(texture==='native_quest_landmarks')return {solids:[base(.04,frame===2?.75:frame===5?.60:.79,.96,.98)],sortY:.97};
+  if(texture==='native_civic_bare')return others[frame];
+  if(texture==='native_story_props'||texture==='native_story_bare')return {solids:[frame===5?base(.25,.86,.75,.98):
+    frame===6&&texture==='native_story_bare'?base(.30,.83,.62,.98):base(.06,frame===4?.62:.76,.94,.98)],sortY:.97};
+  if(texture==='native_forge_record')return {solids:[base(.06,.74,.94,.98)],sortY:.97};
+  if(texture==='native_keepsakes')return {solids:[base(.08,frame>=2?.78:.68,.92,.98)],sortY:.97};
+  if(texture==='native_region_props')return frame===0?profile(base(.40,.86,.63,.98)):
+    frame===3||frame===4?{solids:[],sortY:.97}:
+      {solids:[base(.05,frame===1?.57:.66,.95,.98)],sortY:.97};
   if(texture==='pirate_flagship')return floor;
   if(texture==='port_dock')return floor;
   if(texture==='elarion_tree')return lifeTree;

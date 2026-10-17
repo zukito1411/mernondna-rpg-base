@@ -570,6 +570,8 @@ export function loadGame(): boolean {
           const free=backupKeys.find(key=>localStorage.getItem(key)===null);
           if(!free)throw new Error('No available recovery slot');
           localStorage.setItem(free,primary.raw);
+          if(localStorage.getItem(free)!==primary.raw)
+            throw new Error('Could not verify the rejected primary backup');
         }
       }catch(error){
         saveBlocked=true;
@@ -613,6 +615,13 @@ export function watchProgressSaves() {
   let pending:ReturnType<typeof setTimeout>|null=null;
   const unsubscribe=useGameStore.subscribe((s, previous) => {
     if (saving) return;
+    // A permanent boss death and its rewards must survive an immediate close,
+    // including before the coalesced progress timer or periodic checkpoint.
+    if(s.defeatedBosses!==previous.defeatedBosses){
+      if(pending!==null){clearTimeout(pending);pending=null;}
+      saveGame();
+      return;
+    }
     if (s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots

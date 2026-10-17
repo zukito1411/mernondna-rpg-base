@@ -31,6 +31,16 @@ const centers:Partial<Record<ArtTextureKey,number[][][]>>={
   royal_walls:[[],[],[],[],[[1144,714,1],[1302,714,1]]],
 };
 export function environmentLightPoints(texture:ArtTextureKey,frame:number):Light[] {
+  if(texture==='native_civic_bare'){
+    const size=artFrameSize(texture,frame);
+    // Centers measured in the new complete silhouettes, independent of the
+    // grass-covered source's wider bases and different atlas registration.
+    const lamps:Record<number,readonly [number,number,boolean]>={0:[.80,.40,false],1:[.50,.24,false],
+      2:[.76,.51,false],3:[.50,.31,true],5:[.16,.49,false],13:[.50,.22,true]};
+    const point=lamps[frame];if(!point)return [];
+    return [{x:(point[0]-.5)*size.width,y:-(1-point[1])*size.height-2,
+      radius:point[2]?100:72,fire:point[2],mask:Math.min(size.width,size.height)*.13}];
+  }
   if(texture==='pirate_flagship')return [[184,1238],[632,1238],[265,1280],[552,1280],[410,1475]].map(([x,y])=>({
     x:x-512,y:y-1536,radius:85,fire:false,mask:18,
   }));
