@@ -30,48 +30,48 @@ export function applyCampaign(quests:QuestDefinition[]) {
   first.resolution='The carter is safe, the seed road has a watch, and the stolen survey bears your mother’s handwriting. The grain-office seal leads to Highmere—not yet to an answer about your family.';
   first.objectives=[
     speak('talk-aldren','aldren-vale',`Begin the morning with ${who('aldren-vale')} in Oakmere.`,[
-      'Before the sword lessons, you learned to mend a harness and count the people in a wagon. That was your mother’s trade. Your father kept the roads beneath its wheels.',
-      'When their relief wagon failed to return, you asked why nobody went after it. I had no answer a child deserved. I still do not.',
-      'Today the seed cart is late. Start at the inn, ask who was on that road, and help them. You need not become a hero to refuse to look away.']),
+      'Your mother taught you how to fix a wagon before you could even lift that sword. You used to complain about it all the time.',
+      'When your parents didn’t come back, you asked me why. I didn’t know what to tell you. I still don’t.',
+      'Lena’s cart is late. Sena might have heard something at the inn. Could you ask her? I’m worried.']),
     speak('morning-inn','sena-marrow','Ask at Marrow Inn about the missing seed cart.',[
-      'Your mother sat at this very table, sorting seed from grain. You were asleep against her sleeve. I kept the bowl she never finished.',
-      'Lena Cartwright left before dawn. Her children are upstairs waiting for her. Bring me news before they learn to fear every sound at the door.']),
+      'Your mother used to sit right here with you asleep against her arm. I still remember how tired she looked.',
+      'Lena left before dawn and hasn’t come back. Her children keep asking for her. Please tell me if you hear anything.']),
     speak('caravan-hearth','torren-ashfield',`Visit ${who('torren-ashfield')} at the West Cottages before taking the road.`,[
-      'Come in. The kettle is still warm. You used to fall asleep beside that hearth while we argued over the price of oats.',
-      'Your father could pack a wagon in the dark, but never find his own gloves. Your mother always knew where he had left them. Remember them like that, too—not only as the people who never came home.',
-      'Varr once rode with our wagons. He knew which carts carried seed and which families depended on them. If he has turned on Lena, it was a choice. Ask Mira what she saw; anger alone will not bring that carter back.']),
+      'Come in. The kettle’s still warm. You used to fall asleep by that fire when you were little.',
+      'Your father was good at packing a wagon. Could never find his gloves, though. Your mother was forever finding them for him.',
+      'Varr used to guard our wagons. He knows exactly which ones carry the seed. Alice went looking for tracks near the farms. She might know where Lena is.']),
     speak('field-witness','mira-fen','Compare Mira’s tracks with the innkeeper’s account.',[
-      'I found a cut harness east of the farms. Three men are watching the cart; Lena is hiding nearby. Those are people, not tracks on a map.',
-      'You used to promise we would see every road together. Today I want you to see the person beside this one. Clear the three watchers before chasing their captain.']),
+      'I found Lena’s wagon east of the farms. Three men are guarding it. I think she’s hiding nearby.',
+      'We’ll deal with Varr later. Right now, let’s get Lena home safely.']),
     speak('blade-check','joren-pike','Visit Pike Smithy before leaving Oakmere.',[
-      'That hilt was repaired for your family long before it fitted your hand. It is not a relic. It is a tool; keep its edge away from anyone who cannot defend themselves.',
-      'If they crowd you, find room for your feet before you answer with steel. Let a man show where his swing is going. I would rather mend your blade than help carry you home.']),
+      'I’ve fixed that sword so many times I could do it with my eyes closed. Try not to break it again.',
+      'If someone comes at you, move first. Don’t stand there trading blows. And please come back in one piece.']),
     clear('free-seed-cart','story-camp:seed-cart:',['road-bandit'],3,'Defeat the three bandits surrounding Lena’s seed cart.'),
     speak('lena-safe','lena-cartwright','Check that Lena survived the ambush.',[
-      'You came back for me. Their captain kept calling for the sacks, but one man searched my map before he searched my purse.',
-      'They cut the seed open on purpose. Please read what they left beside the cart. I need to know whether it is safe to bring my children home.']),
+      'Thank you for coming. I thought they were going to kill me. One of them kept searching my map. He didn’t even want the money.',
+      'They cut all the grain sacks open. There’s something by the cart they left behind. Can you see what it is? I just want to go home.']),
     inspect('cart-evidence','story:seed-cart','Examine the slashed seed sacks beside the rescued carter.'),
     speak('seed-return','nella-brook','Tell the growers what happened to their spring seed.',[
-      'We can save enough seed if the next wagon gets through. If it does not, hunger will arrive after the bandits are gone.',
-      'Your mother measured a rescue by what folk could do the next morning. Keep Lena’s road open; that is how a battle becomes help.'],'deliver'),
+      'We can plant if the next wagon gets through. If not, I don’t know how we’re going to feed everyone.',
+      'Your mother always helped us when the harvest was bad. I wish she could see you looking after Lena.'],'deliver'),
     decision('roadwardens-choice','aldren-vale','Tell your mentor why you will take the road.',
-      'That scrap names a survey, not a treasure. Is it your family you are following, or the people who still need that road?',[
-        {id:'people',text:'I want Lena’s children to stop waiting in fear.',response:'Then remember them when someone offers you a grander cause.',flag:'leigneron-protector'},
-        {id:'answers',text:'I need answers about my family—but I will not leave others behind.',response:'Questions can lead you out. People must be the reason you come back.',flag:'leigneron-seeker'},
+      'I know you want answers about your parents. I do too. Just don’t forget there are people here who need you.',[
+        {id:'people',text:'I want Lena’s children to stop waiting in fear.',response:'Good. Those children have been through enough already.',flag:'leigneron-protector'},
+        {id:'answers',text:'I need answers about my family—but I will not leave others behind.',response:'I understand. Just promise you’ll come back safe.',flag:'leigneron-seeker'},
       ]),
     speak('watch-plan','elara-voss','Arrange a road watch with Oakmere’s guard captain.',[
-      'You freed the carter. Good. Now I can spare a watch for the farms rather than send them searching for another corpse.',
-      'Varr was a caravan guard. Someone bought his knowledge of the old road. Read his dispatch at the tower’s outer approach before you face him.']),
+      'I’m glad Lena’s safe. I’ll move two guards to the farms. We can’t have this happening again.',
+      'Varr used to work for the caravans. He knows our routes. Someone must’ve paid him. I heard there are papers near the tower that might tell us who.']),
     {...inspect('tower-dispatch','story:varr-orders','Read Varr’s dispatch outside the watchtower.'),cinematicId:'varr-before'},
     {...first.objectives.find(o=>o.id==='kill-varr')!},
     inspect('recover-seal','story:varr-cargo','Recover the royal seal and marked survey from the tower cargo.'),
     speak('compass-question','orin-bell','Show the survey’s compass carving to the shrine keeper.',[
-      'Your compass belonged to travelers who tended the old wards. It answers their stones, not a king’s blood or a promised destiny.',
-      'Its needle has begun to stir because the stones are being broken. Whoever bought Varr’s survey wanted their locations. The royal archive may still hold your family’s route.']),
+      'I’ve seen marks like the one on your compass in the old shrine records. I didn’t expect to see one still working.',
+      'The needle reacts near the ward-stones. Whoever stole the survey may have been looking for them. Highmere’s archive might have more records.']),
     speak('return-aldren','aldren-vale','Return with the recovered seal and your mother’s survey.',[
-      'I know that hand. She wrote this survey so any carter could find water and shelter, not so a lord could own the road.',
-      'Take the seal to the archive in Highmere. Find who sold the ward iron and what happened to the relief wagons. Do not mistake a powerful person’s answer for the truth.',
-      'You leave as my pupil. Come home as yourself. There will be a place for you at the inn, however long the road becomes.']),
+      'I know your mother’s handwriting. She made these maps to help people find water and shelter. Why would anyone steal them?',
+      'Renna at the Highmere archive might know whose seal this is. Tell her everything. I don’t like what we’re finding.',
+      'And Leigneron? Come home when you can. I’ll be here.']),
   ];
   for(const [id,xp] of [['morning-inn',25],['blade-check',35],['lena-safe',80],['watch-plan',60]] as const)
     first.objectives.find(o=>o.id===id)!.rewardXp=xp;
@@ -96,53 +96,53 @@ export function applyCampaign(quests:QuestDefinition[]) {
   regional.resolution='The witnesses agree: ward iron was sold as scrap under a stolen crown seal. Each region has offered its own repair, but Darkav’s furnace and Varkhul stand between their promises and a working covenant.';
   chapter('Narenthil · A guardian’s grief',[
     speak('brief:elarion','elarion-lorekeeper','Ask the Lore Archive why its guardian turned against travelers.',[
-      'Your family passed through these boughs without taking living wood. Their survey recorded the spring, not our defenses. That distinction matters here.',
-      'The Warden mourns through the roots. Before you call it an enemy, ask what was taken from the grove. Our field scribe is keeping the broken stones.']),
+      'Your parents passed through here once. They mapped the spring without damaging anything. We were grateful for that.',
+      'The Warden wasn’t always dangerous. Someone took iron from the grove. Lysa’s been looking at the damaged stones.']),
     speak('bowyer-witness','elarion-bowyer','Hear the bowyer’s account of the blighted road.',[
-      'The thornlings gather where the ward iron was pulled out. I can drive them off a path; I cannot mend a wounded root with an arrow.',
-      'Three hold the old Greenward clearing. Clear that knot, not every creature you find in the forest.']),
+      'The thornlings started appearing after the iron was removed. I can keep them off the path, but I can’t fix whatever happened to the roots.',
+      'The Greenward clearing’s full of them. The searchers can’t get through.']),
     site('evidence:elarion','greenward-ruin','Record the empty iron socket at the Greenward Stones.'),
     clear('greenward-clear','creature:blighted-thornling:greenward-ruin:',['blighted-thornling'],3,'Clear the three blighted thornlings beside Greenward.'),
     speak('field-scribe','lysa-thorneleaf','Compare the cleared stone with the field scribe’s copy.',[
-      'The inscription says keeper, not conqueror. Its iron was sawn out with a smith’s tool. The wound came before the blight.',
-      'Go to Moonfall. The herbalist remembers the pilgrims who stopped coming when the roots turned black.']),
+      'Someone cut the iron out with a tool. It wasn’t broken by the creatures. That’s what worries me.',
+      'Neris at Moonfall knew some of the missing pilgrims. She might be able to help.']),
     speak('moonfall-remedy','moonfall-herbalist','Ask Moonfall’s herbalist how to approach the wounded grove.',[
-      'I treated your mentor once. He insisted on thanking the tree that sheltered him. You carry his good habits, I hope.',
-      'The pilgrims left cloth at the grove for safe passage. Read their last marks, and keep the shaded path free of its three nests.']),
+      'I remember treating Edmund when he passed through. He was a terrible patient. Always wanted to leave before he was well.',
+      'The pilgrims tied ribbons near the grove. Some might still be there. But the path’s full of spiders now.']),
     speak('pilgrims-hearth','dael-vale',`Speak with ${who('dael-vale')} inside the Grove House.`,[
-      'Leave your wet cloak by the hearth. Your mentor once stood there pretending the cold had not reached him. He was a poor liar when his teeth were chattering.',
-      'The pilgrims used to fill this house at dusk. A child would choose a ribbon, and someone would tie it beside the stones next morning. Now I lay the supper bowls out and count the empty places.',
-      'The last party came back with black water on their boots. They had not broken a branch or taken a living root. Read the ribbons before you face the Warden. Something hurt that grove before it hurt our travelers.']),
+      'Put your cloak by the fire. Edmund used to sit right there, shivering and pretending he wasn’t cold.',
+      'The pilgrims used to come here every evening. The children picked ribbons for the grove. I miss hearing them running around.',
+      'The last group had black water on their boots. They were frightened. I don’t think they did anything to hurt the grove.']),
     site('pilgrim-record','moon-pilgrim-grove','Read the pilgrims’ marks in the Moon Pilgrims’ Clearing.'),
     clear('grove-nests','creature:grove-spider:moon-pilgrim-grove:',['grove-spider'],3,'Clear the three hostile spiders at the pilgrims’ shaded approach.'),
     {...decision('grove-oath','elarion-lorekeeper','Agree how Narenthil’s ward should be restored.',
-      'We will help you face the Warden. Will the restored grove answer its own keepers, or a watch shared with the road?',[
-        {id:'keepers',text:'Let the grove’s keepers tend its roots; publish the safe paths.',response:'Our lorekeepers will maintain the stones and share their warnings.',flag:'narenthil-grove-keepers'},
-        {id:'watch',text:'Build a shared watch with the travelers who use the road.',response:'The bowyers will teach your roadwardens where not to tread.',flag:'narenthil-shared-watch'},
+      'We can help repair the grove after this is over. Should our keepers look after it, or do you think the road watch should help too?',[
+        {id:'keepers',text:'Let the grove’s keepers tend its roots; publish the safe paths.',response:'All right. Our lorekeepers can take care of the stones. We’ll keep the paths open.',flag:'narenthil-grove-keepers'},
+        {id:'watch',text:'Build a shared watch with the travelers who use the road.',response:'The bowyers can help the watch. I’d feel better if they worked together.',flag:'narenthil-shared-watch'},
       ]),cinematicId:'warden-before'},boss('moonlit-warden'),
     report('elarion','elarion-lorekeeper',[
-      'The Warden can rest between its reckonings. Its anger did not prove the forest hated us; the empty socket proved someone wounded it.',
-      'Take this rubbing to Starhold. The same iron linked our roots to the mountain beacon. Your parents once carried supplies over that pass.'],160),
+      'The Warden’s quiet now, for a while. We know what happened to the stone. I wish we’d found it sooner.',
+      'I found the same mark on an old beacon drawing from Starhold. I’ll make you a copy. Your parents traveled there once too.'],160),
   ]);
   chapter('Nardorous · A light through snow',[
     speak('brief:starhold','starhold-quartermaster','Learn which winter wagon failed to reach Starhold.',[
-      'The flour charter means little up here if the pass stays closed. Stonejaw took the draft beasts; the porters scattered before the storm.',
-      'The templar keeps their names, not just our lost cargo. Ask after the people before you search the beacon.']),
+      'Stonejaw scared off the horses, and the porters haven’t all returned. I’m afraid they’re caught in the storm.',
+      'Halla’s got the list of missing porters. She might know where they were last seen.']),
     speak('porter-names','starhold-templar','Learn whether the missing mountain porters reached shelter.',[
-      'The last porter reached our hearth. He left signal oil behind because his hands could no longer close around the satchel.',
-      'At the broken beacon, recover his route journal. A cold traveler needs a dependable light, not a ballad about a sword.']),
+      'One of the porters made it back, but he could barely hold his satchel. He was freezing.',
+      'He left his journal near the beacon. I think he wrote down what happened before the signal went out.']),
     site('evidence:starhold','pass-beacon','Read the broken beacon’s three signal marks.'),
     inspect('recover-beacon-kit','story:beacon-kit','Recover the relief satchel beside the mountain beacon.'),
     speak('deliver-beacon-kit','starhold-quartermaster','Deliver the porter’s signal oil and journal.',[
-      'Oil and a true route. We can relight the working beacon while you deal with what waits on the pass.',
-      'The journal says ridge at dusk, sheltered pass after the signal, hearth by dawn. Tell me what a traveler should do first.'],'deliver'),
-    {id:'mountain-code',type:'puzzle',targetId:'starhold-quartermaster',amount:1,text:'Interpret the porter’s safe passage sequence.',dialogue:['A beacon is useful only if its warning is understood. Which order keeps the caravan together?'],choices:[
-      {id:'signal',text:'Wait for the ridge signal; take the sheltered pass together.',response:'Exactly. Nobody climbs alone to prove their courage.',flag:'mountain-safe-signal',correct:true},
-      {id:'rush',text:'Send each wagon through before the signal.',response:'That splits the caravan in the storm. Read the porter’s journal again.',flag:'',correct:false},
+      'That’s the oil we needed. Good. We can get the beacon lit again.',
+      'His journal says they were meant to wait for the ridge signal. Can you tell me what went wrong?'],'deliver'),
+    {id:'mountain-code',type:'puzzle',targetId:'starhold-quartermaster',amount:1,text:'Interpret the porter’s safe passage sequence.',dialogue:['The signal times are written here. Which one do you think the wagons were meant to follow?'],choices:[
+      {id:'signal',text:'Wait for the ridge signal; take the sheltered pass together.',response:'That’s right. They should’ve waited and gone together.',flag:'mountain-safe-signal',correct:true},
+      {id:'rush',text:'Send each wagon through before the signal.',response:'No, that would split them up. Take another look at the journal.',flag:'',correct:false},
     ],cinematicId:'stonejaw-before'},boss('stonejaw'),
     report('starhold','starhold-quartermaster',[
-      'The pass is open for a convoy, not safe forever. We will keep the beacon and a winter watch; your victory will not do their work for them.',
-      'The broken beacon socket matches the forest stone. Our iron shipments ran south to Rindass. Ask the clans who bought their wells.'],200),
+      'The road’s open again. We’re keeping someone at the beacon every night. I don’t want to lose another convoy.',
+      'There’s the same mark on the beacon as the stone from the grove. Some of our iron shipments went to Red Mesa. Maybe they know more.'],200),
   ]);
   chapter('Rindass · Water is not a throne',[
     speak('brief:redmesa','redmesa-beastmaster','Hear the clans’ account of Krag’s seizure of their wells.',[
@@ -294,6 +294,6 @@ export function applyCampaign(quests:QuestDefinition[]) {
         'Tell us where you went, Leigneron. Not the names of the things you defeated—the names of the people who helped you come back.']),cinematicId:'roadborn-epilogue'},
     ]});
   // Respect the existing localized identities (Alice/Thomas/Cecily, etc.),
-  // including the inn's Marlow surname; stable IDs are never renamed.
+  // including the inn’s Marlow surname; stable IDs are never renamed.
   for(let i=0;i<quests.length;i++)quests[i]=rewriteNpcMentions(quests[i],NPC_NAME_ALIASES);
 }
