@@ -1234,7 +1234,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const state=useGameStore.getState();
     const factor=encounterRewardFactor(enemy.level,state.level,summoned);
     const rewardXp=Math.max(1,Math.round(definition.xp*factor)),rewardGold=Math.round(gold*factor);
-    state.recordEnemyDefeat(definition.id,rewardXp,rewardGold,bossId,this.contentManager.snapshot(),enemy.instanceId);
+    state.recordEnemyDefeat(definition.id,rewardXp,rewardGold,bossId,this.contentManager.snapshot(),enemy.instanceId,!summoned);
     const gained=this.add.text(enemy.x,enemy.y-48,`+${Math.round(rewardXp*progressionStats(state.attributes,state.learnedSkills).rewardMultiplier)} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
     this.tweens.add({targets:gained,y:enemy.y-112,alpha:0,duration:1450,ease:'Sine.easeOut',onComplete:()=>gained.destroy()});
 
