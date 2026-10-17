@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
 import { enemyLevelAt,scaledEnemy,globalMonsterBonus } from '../../data/enemyTiers';
-import {luckDamage} from '../../data/progression';
+import {luckDamage,progressionStats,playerDamageGrowth} from '../../data/progression';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
 import { artScale, ART_BY_KEY, actorArtLayout, artFrameSize,type ArtTextureKey } from '../../data/art';
@@ -16,6 +16,7 @@ import {pirateAttackPhase,piratePhaseDuration} from '../../data/pirateMotion';
 import {isPirateEnemy} from '../../data/pirateArt';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
+import {WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
 import {WEAPON_PROFILES} from '../../data/weaponProfiles';
 import {WEAPON_BY_ID} from '../../data/weapons';
 
@@ -720,7 +721,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally';weaponId?:string}={}) {
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally';weaponId?:string;procHitWeight?:number}={}) {
     if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
     const state=useGameStore.getState();
     const support=options.nonLethal||options.source==='story-ally';
@@ -738,8 +739,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const staggered=!support&&!fatal&&this.stagger(Boolean(options.forceStagger));
     if(fatal)this.interruptAttack();
     const proc=options.weaponId?WEAPON_PROFILES[options.weaponId]?.proc:undefined;
-    if(!fatal&&!support&&proc&&this.weaponStatus.tryApply(proc,WEAPON_BY_ID[options.weaponId!]?.damage??0,this.definition.id,Boolean(this.definition.boss))){
-      this.syncStatusAttackSpeed(this.scene.time.now);
+    if(!fatal&&!support&&proc){
+      // Damage over time is based on the attacker's effective weapon ATK,
+      // not raw blade damage, enemy HP, or a multi-hit art's single tick.
+      const weapon=WEAPON_BY_ID[options.weaponId!];
+      const stats=progressionStats(state.attributes,state.learnedSkills);
+      const attackPower=(weapon?.damage??0)*stats.damageMultiplier*playerDamageGrowth(state.level)*WEAPON_STATUS_ATK_SCALE;
+      if(this.weaponStatus.tryApply(proc,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
+        this.syncStatusAttackSpeed(this.scene.time.now);
     }
     scene.playEffect('hit', this.x, this.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
