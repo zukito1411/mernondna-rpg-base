@@ -16,27 +16,27 @@ export function applyStoryRevision(quests:QuestDefinition[]){
   quest(first).summary='Raised by Aldren after his parents vanished, Leigneron has learned to live with unanswered questions. Then a family friend disappears on the eastern road carrying a dead messenger’s warning. Bring her home before following the royal seal into Highmere.';
   quest(first).resolution='Lena is alive. The murdered messenger carried a warning about the stolen ward survey. Varr’s royal seal connects the ambush to Highmere, and the survey bears your mother’s handwriting.';
   talk(first,'talk-aldren','Speak with Aldren in Oakmere about the missing traveler.',
-    'You used to ask whether taking you in meant I had given up looking for them. No, lad. It meant someone had to be here when you woke.',
-    'Your mother could mend a harness in the rain. Your father sang to frightened horses. Remember those things before the road turns them into a tale.',
-    'Lena is missing. A rider reached her cart last night, bleeding badly. Ask at Marrow Inn. Whatever that rider carried, nobody gets to bury her with it.');
+    'You used to ask why I stopped searching for your parents. I didn't stop because I gave up. I just couldn't leave you here alone.',
+    'Your mother was always fixing things, even when she was exhausted. Your father sang terribly. You would've laughed. I miss them.',
+    'Lena's missing. Someone brought a badly hurt rider to her cart last night. Sena at the inn might know more. I'm worried, Leigneron.');
   talk(first,'morning-inn','Ask at Marrow Inn, Oakmere, about Lena and the wounded rider.',
-    'Mind the kettle. I have burned myself twice listening for that door.',
-    'Lena took a wounded messenger home from the road. He died before dawn. She wrapped his letter in her daughter’s shawl and went to find Aldren. Neither has come back.',
-    'Her little ones are upstairs. I told them she was delayed. Do not make me tell them another lie.');
+    'Mind the kettle. I'm sorry, I haven't been paying attention. I keep looking at the door.',
+    'Lena brought in a wounded rider. He died last night. She took his letter, wrapped it in her daughter's shawl, and went looking for Edmund. I haven't seen her since.',
+    'Her children are upstairs asking when she'll be home. I've been telling them she's late. Please find her.');
   talk(first,'field-witness','Meet Mira outside Oakmere and follow the ambush tracks.',
-    'Three watchers by the broken cart. Lena is alive; I heard her arguing. Only she would scold a bandit for trampling a child’s shawl.',
-    'There are more tracks toward the tower, but leave those for later. Bring her back first. You can glare at the horizon on the way home.');
+    'I found Lena's cart. She's alive. There are three men watching her, and I heard her arguing with one of them.',
+    'There are more tracks leading to the tower, but Lena needs us now. We'll worry about the others after she's safe.');
   stage(first,'free-seed-cart',{text:'Defeat the three bandit watchers holding Lena beside the broken cart east of Oakmere.'});
   talk(first,'lena-safe','Speak to Lena after clearing the ambush east of Oakmere.',
-    'Give me a moment. I thought I had stopped shaking.',
-    'The rider kept saying, “They have the survey.” One of Varr’s men wanted the letter; another wanted no witnesses. Their captain ordered him to wait. I suppose I owe my life to an argument between murderers.',
-    'Look beneath the torn sacks. I hid the letter there. Then tell Nella I am coming for my children.');
+    'Just... give me a moment. I can't stop shaking.',
+    'The rider kept saying they'd taken the survey. Varr's men were arguing about whether to kill me. I thought I was going to die.',
+    'I hid the letter under the torn sacks. Please get it, then tell Nella I'm coming home. My children must be terrified.');
   stage(first,'cart-evidence',{text:'Recover the murdered messenger’s letter beneath the torn sacks beside Lena’s cart.'});
   talk(first,'seed-return','Tell Nella in Oakmere that Lena survived and her children are safe.',
-    'Oh, thank the hearth. I can stop pretending to weed this same patch now.',
-    'I will fetch her children from the inn. You take that letter to Aldren. Whoever frightened their mother will find this village a good deal less lonely than they expected.');
+    'She's alive? Oh, thank goodness. I've been out here worrying all morning.',
+    'I'll get the children from the inn. Show that letter to Edmund. He needs to know what happened.');
   talk(first,'watch-plan','Arrange protection for Lena with Oakmere’s guard captain.',
-    'A dead messenger, an ambushed mother, and a royal seal. No, you are not imagining a connection.',
+    'A dead rider, Lena's ambush, and that royal seal... I don't think it's a coincidence either.',
     'The inn has guards at both doors now. Varr’s men are scattered across the tower road; a lone rider would never get through. I need to know who hired them, not just how many you put down.');
   quest(first).objectives.splice(quest(first).objectives.findIndex(o=>o.id==='tower-dispatch'),0,{
     id:'break-blockade',type:'kill',targetId:'road-bandit',enemyIds:['road-bandit'],killContentPrefix:'story-camp:road-blockade:',amount:15,rewardXp:320,
@@ -47,68 +47,68 @@ export function applyStoryRevision(quests:QuestDefinition[]){
   quest(capital).name='A Seal Bought in Blood';quest(capital).chapter='Act II · The price of silence';
   quest(capital).summary='A murdered messenger carried proof that the crown’s own seal was used to steal the ward survey. Take the letter to the Royal Archive in Highmere, protect the surviving witness, and discover why someone wants entire families erased from the record.';
   talk(capital,'report','Bring the messenger’s letter to Renna inside Highmere’s Royal Archive.',
-    'Set it down gently. I knew that handwriting before I knew yours.',
-    'The messenger was bringing the inspector’s notes. Missing ward iron, altered freight books, payments nobody would explain. Your mother’s survey was copied into the same file.',
-    'Your mother’s survey and those missing names traveled under the same seal. Ask Davin at River Customs who crossed after curfew.');
+    'Let me see that. Wait... I know this handwriting. I haven't seen it in years.',
+    'These are the inspector's notes. Missing iron, changed cargo records... and a copy of your mother's survey. Why were these together?',
+    'The same seal is on the list of missing families. Davin was on duty at River Customs that night. He might remember the wagon.');
   talk(capital,'customs','Question Davin inside River Customs, Highmere, about the curfew crossing.',
-    'I let a closed wagon through. A royal warrant, two guards, no lantern inside. I told myself not looking was the same as obeying.',
-    'Tovin saw what was unloaded at the old weighhouse. His mother is at Morrow Kitchen. If you find him, tell him I should have stopped that wagon.');
+    'I let the wagon through. It had a royal warrant and two guards. I didn't look inside. I should have.',
+    'Tovin saw them unloading it at the weighhouse. His mother's at Morrow Kitchen. If you find him... tell him I'm sorry.');
   talk(capital,'households','Find Tovin’s mother inside Morrow Kitchen in Highmere’s Lower Ward.',
-    'He is not a thief. He brought frightened people supper, and now the watch asks me which alley he sleeps in.',
+    'My son isn't a thief! He was feeding those people. Now the guards keep coming here and asking where he's hiding.',
     'Please, tell me you have seen Tovin. No? Then I have nothing useful to say about a warrant. Pell said someone tore a paper beside the well. That is all I know.');
   stage(capital,'witness',{text:'Investigate the weighhouse murder and bring Tovin safely to Morrow Kitchen in Highmere.'});
   stage(capital,'relief-charter',{text:'Resolve the displaced families’ petition in Highmere before seeking an audience at Crown Hall.'});
   talk(capital,'guard-report','Bring Tovin’s testimony to Captain Yselle at Highmere’s western watch.',
-    'One of my men was found dead with Tovin’s knife beside him. The knife was stolen two days earlier. Someone expected us to stop asking there.',
+    'One of my guards was killed. Tovin's knife was beside him, but it was stolen days earlier. Someone wanted us to blame that boy.',
     'My men can keep the boy safe. Those signatures are from an office above mine; I want to see what happens when they are read in the crown hall.');
   talk(capital,'audience','Present the murder evidence to Lady Matilda inside Crown Hall, Highmere.',
-    'A seal in my name bought a murder. You need not soften that for my comfort.',
-    'The stolen survey marks wards in every region. The missing families lived beside them. Find out who removed the iron, and give the living a chance to speak before anyone writes their ending for them.');
+    'That's my seal. Someone used it to order a murder. I need to know how this happened.',
+    'The missing families lived near the ward-stones. I don't think that's an accident. We need to find out who took the iron.');
   quest(murder).name='The Man Beneath the Weighhouse';quest(murder).chapter='Act II · A witness worth saving';
   quest(murder).summary='A royal records inspector was murdered beside Highmere’s river. Tovin Reed saw the killers and is being hunted. Follow the altered warrant, protect the witness, and discover who wanted the ward-iron inquiry silenced.';
   talk(murder,'kitchen','Hear Mairin’s account inside Morrow Kitchen, Highmere.',
-    'Tovin came home with blood on his cuffs. He had tried to help the inspector they found by the bridge. That is the crime they have given him.',
-    'He said the man was killed for refusing a wagon of prisoners. Look by the well for the warrant he dropped. Please, do not bring the watch to my door without him.');
+    'Tovin came home with blood on his sleeves. He was trying to help the injured inspector, but now the watch thinks he killed him.',
+    'He said the inspector tried to stop a wagon full of prisoners. Tovin dropped a warrant by the well. Please, just help me find my son.');
   stage(murder,'receipt',{text:'Examine the blood-marked warrant beside the Lower Ward well in Highmere.'});
   talk(murder,'customs','Compare the altered warrant with Davin’s account at River Customs, Highmere.',
-    'That signature is real. The order beneath it is not. Someone cut the lower half away and wrote over the old curfew pass.',
-    'Pell saw the wagon turn toward the weighhouse. Go without an escort. He has good reason to run from a uniform.');
+    'That's a real signature, but the rest of the warrant was changed. Someone cut off the bottom and wrote a new order.',
+    'Pell saw the wagon turn toward the weighhouse. Don't take a guard with you. He's terrified of them.');
   talk(murder,'runner','Win Pell’s trust in Highmere’s Lower Ward.',
-    'The last man who promised to keep this quiet came back with six guards. Tovin still has the bruise. What makes you different?');
+    'Last time I trusted someone, he came back with six guards. Tovin got hurt. Why should I trust you?');
   stage(murder,'yard',{text:'Search the old weighhouse in Highmere’s south lane for the inspector’s hidden testimony.'});
   talk(murder,'missing-worker','Find Tovin beside Highmere’s old weighhouse.',
-    'Oswin was breathing when I found him. He kept trying to say his daughter’s name. I could not understand it.',
-    'The tally under the stone is not cargo. It is people. Sevrin’s men called them debts. The inspector said no child was a debt, and one of them struck him.',
-    'I will speak. But walk beside me until I see my mother. I cannot do that lane alone again.');
+    'Oswin was still breathing when I found him. He kept trying to say something about his daughter. I couldn't understand him.',
+    'That list under the stone has people's names on it. Even children. Oswin told the men it was wrong. That's when they hit him.',
+    'I'll tell the truth. Just don't make me walk back alone. I need to see my mother.');
   talk(murder,'confront','Confront Sevrin inside Highmere’s Counting House with the inspector’s testimony.',
-    'That is a relief warrant. My seal is on hundreds of them. You cannot lay a murder at my door because a frightened boy saw one of my clerks.',
-    'Take your account to the captain. I will answer a lawful inquiry. Until then, I have a city to feed.');
+    'That's a relief warrant. I sign dozens of them. You can't blame me for murder because a scared boy saw one of my clerks.',
+    'Talk to the captain if you want. I have nothing else to say to you.');
   stage(murder,'resolution',{text:'Decide with Mairin how to expose the murder without abandoning its witness.',dialogue:[
-    'He wakes when boots pass the window. A public hearing may stop them ever hiding this again. It will also give every last one of them his face. What would you ask of your own son?'],choices:[
-    {id:'public',text:'Ask Tovin to testify publicly, with Yselle beside him.',response:'Then he chooses when to speak. I will stand beside him too. The city will hear the dead inspector’s name.',flag:'grain-public-inquiry'},
-    {id:'guard',text:'Seal his testimony with Yselle; arrest the named men quietly.',response:'He gets a night without strangers at the door. I know some will call it another secret. Let them ask me why.',flag:'grain-guarded-inquiry'},
+    'Tovin wakes up every time someone walks past the window. I want everyone to know the truth. But if he speaks in public, those men will know his face. What should we do?'],choices:[
+    {id:'public',text:'Ask Tovin to testify publicly, with Yselle beside him.',response:'All right. I'll ask him if he's ready. If he wants to speak, I'll be right there with him.',flag:'grain-public-inquiry'},
+    {id:'guard',text:'Seal his testimony with Yselle; arrest the named men quietly.',response:'Then let Yselle keep the papers for now. I just want my son to sleep without being frightened.',flag:'grain-guarded-inquiry'},
   ]});
   quest(murder).resolution='Tovin reached his mother alive. The inspector’s murder and the illegal household transfers are recorded; your decision determines whether his testimony is public or held under protection.';
 
   quest(council).name='Names That Cannot Be Sold';quest(council).chapter='Act II · A household is not a debt';
   quest(council).summary='Families displaced by the broken wards were sold into service under royal warrants. Hear the households and the guilds, examine the adoption rolls, and make the crown choose between immediate release and a witnessed search for missing relatives.';
   talk(council,'archive','Examine the displaced families’ petition with Renna in Highmere’s Royal Archive.',
-    'There is an adoption beside each crossed-out name. Some are loving homes. Some are a master paying a clerk to rename a servant.',
-    'Aldren never paid for you. He came here three times demanding we keep your parents’ names in the book. Hear the market and the households before you let us draw another careless line.');
+    'Some of these children were taken in by families who love them. Others were sold. It's all written in the same book. I feel sick looking at it.',
+    'Edmund came here three times to make sure your parents stayed in the records. He was so angry. I still remember it. We need to hear what the families want before we change anything.');
   talk(council,'merchant','Hear the guild’s position inside Market Hall, Highmere.',
-    'My brother took in a girl after the floods. She calls him Father. If you cancel every household bond with one stroke, who explains that to her?',
-    'Strike the debts out, yes. But let the children tell you where they belong. The guild can pay for riders to find their kin. It will cost us, and it should.');
+    'My brother adopted a little girl after the floods. She calls him Dad. I'm scared someone will take her away if we change these papers carelessly.',
+    'The debts have to go. But please ask the children where they want to live. The guild can pay for the search for their relatives.');
   talk(council,'worker','Hear the families inside Weavers Row, Highmere.',
-    'My sister works under a name she did not choose. Her employer says she can leave when she pays for the roof over her head.',
-    'Please do not tell her to wait until every fine house has finished its inquiry. Some of us have been waiting since the flood.');
+    'My sister's working under a different name. They won't let her leave until she pays a debt she never agreed to.',
+    'Please don't tell her to wait any longer. We've already been looking for her for years.');
   stage(council,'tally',{text:'Examine the hidden household and adoption rolls at Highmere’s Relief Warehouse.'});
   talk(council,'petition','Present the household rolls at Crown Hall, Highmere.',
-    'I can void the service warrants at once, or bind the guilds to return the missing and trace their kin under guard. A decree is quick. Finding a lost sister is not.',
-    'Whichever we choose, the children keep a voice in where they live. I will not mend this by taking them away from loving homes.');
+    'I can cancel those warrants today. But the guilds know where some of the missing people were sent. I need them to help us bring people home.',
+    'Whatever we decide, we have to ask the children what they want. I won't take them from good homes without listening.');
   stage(council,'decision',{text:'Choose how Highmere will free the displaced households.',dialogue:[
-    'The guilds want time to search. The families have already waited years. Which promise do I make first?'],choices:[
-    {id:'charter',text:'Void the forced-service debts now; open crown shelter to those leaving.',response:'The warrants are void at dawn. Crown rooms will shelter those who leave; riders will continue searching for their families.',flag:'relief-household-charter'},
-    {id:'joint',text:'Bind the guilds to fund guarded reunions, with families overseeing each case.',response:'The debts are suspended. No employer may move a household while its relatives are sought; the families will sit beside the judges.',flag:'relief-joint-council'},
+    'The families want their loved ones back now. The guilds say they need more time. I don't know who to believe anymore.'],choices:[
+    {id:'charter',text:'Void the forced-service debts now; open crown shelter to those leaving.',response:'Then I'll cancel the warrants tomorrow morning. We'll open the spare rooms and keep searching for anyone still missing.',flag:'relief-household-charter'},
+    {id:'joint',text:'Bind the guilds to fund guarded reunions, with families overseeing each case.',response:'All right. Nobody is being moved while we find their families. I'll make sure the families are there when decisions are made.',flag:'relief-joint-council'},
   ]});
   talk(council,'return','Bring the crown’s decision to Mairin at Morrow Kitchen, Highmere.',
     'I have made up the spare bed. Whoever comes through that door will not have to earn their supper.',
