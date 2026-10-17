@@ -6,11 +6,11 @@ import {ACTIVE_SKILLS,ACTIVE_SKILL_BY_ID,type ActiveSkillId} from '../data/activ
 import {WEAPON_BY_ID} from '../data/weapons';
 
 const ATTRIBUTES:Array<{id:AttributeId;name:string;description:string}>=[
-  {id:'strength',name:'STR · Strength',description:'+3.5% weapon damage per point.'},
-  {id:'vitality',name:'VIT · Vitality',description:'+10 maximum health per point.'},
+  {id:'strength',name:'STR · Strength',description:'+3.5% weapon damage and +2 maximum HP per point.'},
+  {id:'vitality',name:'VIT · Vitality',description:'+10 maximum HP and 0.5% damage reduction per point (20% at VIT 40).'},
   {id:'agility',name:'AGI · Agility',description:'+1% movement through 20 points; +2 stamina and 0.6% faster recovery through 40.'},
   {id:'evasion',name:'EVA · Evasion',description:'+1% chance to evade an enemy hit per point, up to 40%.'},
-  {id:'luck',name:'LUK · Luck',description:'+0.625% critical chance (1.5× damage), +1% gold and XP per point. Maximum 25% critical chance.'},
+  {id:'luck',name:'LUK · Luck',description:'+0.625% critical chance, +1% gold/XP, +0.5% rare boss weapon drop chance, and +0.25% carried-potion drop chance per point.'},
 ];
 export function CharacterPanel(){
   const [tab,setTab]=useState<'arts'|'attributes'|'talents'>('arts');
@@ -48,7 +48,7 @@ export function CharacterPanel(){
             </div></article>;
           })}</div>
         </section>:tab==='attributes'?<section>
-          <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round((WEAPON_BY_ID[weaponId]?.damage??18)*stats.damageMultiplier*playerDamageGrowth(level))}</b></span></div>
+          <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round((WEAPON_BY_ID[weaponId]?.damage??18)*stats.damageMultiplier*playerDamageGrowth(level))}</b></span><span>Damage reduction <b>{Math.round((1-stats.incomingDamageMultiplier)*1000)/10}%</b></span><span>Rare boss loot <b>{(stats.rareDropChance*100).toFixed(1)}%</b></span></div>
           <div className="progression-heading"><h3>Attributes</h3><span>{statPoints} points available</span></div>
           <p className="equipment-help">Gain three attribute points per level all the way to level 50. Spending a point is permanent.</p>
           {ATTRIBUTES.map(a=><article className="progression-row" key={a.id}><div><strong>{a.name} · {attributes[a.id]} / {ATTRIBUTE_CAP}</strong><p>{a.description}</p></div><button type="button" disabled={statPoints<=0||attributes[a.id]>=ATTRIBUTE_CAP} onClick={()=>allocate(a.id)} aria-label={`Add one ${a.name} point`}>{attributes[a.id]>=ATTRIBUTE_CAP?'Max':'+1'}</button></article>)}
