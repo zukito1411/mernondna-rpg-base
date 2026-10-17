@@ -37,7 +37,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'I will fetch her children from the inn. You take that letter to Aldren. Whoever frightened their mother will find this village a good deal less lonely than they expected.');
   talk(first,'watch-plan','Arrange protection for Lena with Oakmere’s guard captain.',
     'A dead messenger, an ambushed mother, and a royal seal. No, you are not imagining a connection.',
-    'I will keep a watch near her children. Fifteen of Varr’s men hold the tower approaches in small patrols. Break their blockade before you read his dispatch. We need his buyer’s name, not merely his head.');
+    'The inn has guards at both doors now. Varr’s men are scattered across the tower road; a lone rider would never get through. I need to know who hired them, not just how many you put down.');
   quest(first).objectives.splice(quest(first).objectives.findIndex(o=>o.id==='tower-dispatch'),0,{
     id:'break-blockade',type:'kill',targetId:'road-bandit',enemyIds:['road-bandit'],killContentPrefix:'story-camp:road-blockade:',amount:15,rewardXp:320,
     text:'Defeat fifteen bandits on the watchtower approaches east of Oakmere, Trandum, before confronting Varr.',
@@ -55,12 +55,12 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'Tovin saw what was unloaded at the old weighhouse. His mother is at Morrow Kitchen. If you find him, tell him I should have stopped that wagon.');
   talk(capital,'households','Find Tovin’s mother inside Morrow Kitchen in Highmere’s Lower Ward.',
     'He is not a thief. He brought frightened people supper, and now the watch asks me which alley he sleeps in.',
-    'I will answer questions after my son is safe. Not before. Find the torn warrant beside the well.');
+    'Please, tell me you have seen Tovin. No? Then I have nothing useful to say about a warrant. Pell said someone tore a paper beside the well. That is all I know.');
   stage(capital,'witness',{text:'Investigate the weighhouse murder and bring Tovin safely to Morrow Kitchen in Highmere.'});
   stage(capital,'relief-charter',{text:'Resolve the displaced families’ petition in Highmere before seeking an audience at Crown Hall.'});
   talk(capital,'guard-report','Bring Tovin’s testimony to Captain Yselle at Highmere’s western watch.',
     'One of my men was found dead with Tovin’s knife beside him. The knife was stolen two days earlier. Someone expected us to stop asking there.',
-    'I will guard the boy. Take the names to Crown Hall. If the order came from above me, I still want it read aloud.');
+    'My men can keep the boy safe. Those signatures are from an office above mine; I want to see what happens when they are read in the crown hall.');
   talk(capital,'audience','Present the murder evidence to Lady Matilda inside Crown Hall, Highmere.',
     'A seal in my name bought a murder. You need not soften that for my comfort.',
     'The stolen survey marks wards in every region. The missing families lived beside them. Find out who removed the iron, and give the living a chance to speak before anyone writes their ending for them.');
@@ -168,7 +168,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'Halla brought the last porter down alive. Ask her what he heard before the light failed. Stonejaw did not learn to forge a watch order.');
   talk(regions,'porter-names','Question Sister Halla near Starhold’s beacon watch, Nardorous.',
     'The porter heard the alarm bell and turned back. The bell was ours. Someone used our own warning to send them into Stonejaw’s path.',
-    'I will bury the dead after I have named them. Bring back his journal and signal satchel. The beacon must guide the next convoy, not betray it.');
+    'I will bury the dead when I have named every one. His journal and satchel are still on the ridge. I want to know who changed the signal before another family climbs that pass.');
   talk(regions,'brief:redmesa','Hear Ugra outside Red Mesa’s Clan Assembly, Rindass.',
     'Krag calls us weak for taking in travelers. My sister’s boy was carried home by a human. Let him tell her whose blood is worth sheltering.',
     'His warbands hold the shared well and the southern shelter: fifteen at each, scattered through their approaches. Break those holds before he can force the smaller clans to join him.');
@@ -187,7 +187,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'The guild will open the sealed gallery and name its dead. That is my promise, witnessed here. Give us a path past the guardian; I will not ask another miner to pay for our shame.');
   talk(regions,'brief:tidewatch','Speak inside Tidewatch’s Harbor Guild, Portquill; take a boat from Highmere if needed.',
     'The Salt King took more than iron. Families vanished from the passenger lists while their debts appeared in his freight books.',
-    'I signed two of those departures. I believed the masters who called them willing workers. The sailmaker hid the copy that will prove otherwise. Ask her, then board the eastern gangplank south of Tidewatch.');
+    'Those are my signatures. I told myself the passengers were willing. Orren hid a copy of the manifest; I could not bear to keep it here. There is another aboard the Salt King’s ship.');
   talk(regions,'ship-warning','Meet the sailmaker inside Tidewatch’s Sailmaker House, Portquill.',
     'My niece was on that ship. No, I do not know whether she still is. I have spent every tide imagining both answers.',
     'Five crew hold the deck, including two boatswains. Clear them before searching the manifest by the cargo chest. It names a landing in the Frostlands. Bring me a place to start looking.');
@@ -196,7 +196,7 @@ export function applyStoryRevision(quests:QuestDefinition[]){
     'The Wyrm drove fifteen wolves into the bay approaches. Clear them, then bring our signal lantern home. Their families need to see a light when the search boats return.');
   talk(regions,'winter-households','Visit Fish Traders Hall, Skallheim, Frostlands, and ask about the refugees.',
     'One little girl keeps saving the crust from her supper. She thinks we will send her away when she has eaten too much.',
-    'Clear the fifteen wolves by the bay approaches. The lantern at the outlook will bring the next boat in. I cannot promise that child her mother is aboard. I can promise we will be waiting.');
+    'The wolves have driven the hunters off the bay path. Our lantern is still out there. I cannot promise that child her mother is on the next boat. I can promise we will be waiting when it comes.');
   talk(regions,'ash-road-survivors','Question the warder outside Blackspire, Darkav; arrive at Ashen Landing by boat.',
     'The chainworks did not burn empty. The Seer barred the doors when the workers tried to flee. We broke one open; I still hear the other.',
     'The charge book names the buyers and the men who carried the keys. Get it from the burnt chainworks. Then we can stop calling this an accident.');
@@ -237,13 +237,13 @@ export function applyStoryRevision(quests:QuestDefinition[]){
   ]});
   talk(regions,'report:tidewatch','Return the passenger manifest to the Harbor Guild in Tidewatch, Portquill.',
     'The sailmaker has gone to pack. Her niece’s name is on the Skallheim landing list. I have put a berth aside. It is not forgiveness, but it is something I can do without asking for it.',
-    'Take passage to Skallheim in the Frostlands. Carry the copied names. Ask the trader which families are still waiting for a search boat.');
+    'There are names here I cannot account for. Eyvind at Skallheim receives the search boats. If anyone has heard from those families, it will be him.');
   talk(regions,'report:skallheim','Return to the hunter outside Skallheim, Frostlands, after confronting the Wyrm.',
     'A boat came in under the lantern. There was a woman on the quay who laughed and cried so hard the child in her arms began doing both. The sailmaker found her niece.',
     'The shard beneath the Wyrm’s scales bears a Darkav forge mark. Take a boat to Ashen Landing, then follow the ash road north to Blackspire. Those chains were made by hands, not weather.');
   talk(regions,'report:blackspire','Return to Forge Hall, Blackspire, Darkav, with the Seer’s charge book.',
     'The doors will never be barred against our own crews again. I have given the keys to the workers’ households. If I ask for them back, remind me why.',
-    'Bring this book to Highmere’s Royal Archive. Varkhul still guards the furnace shelf, but before you face him you deserve the whole truth about that last crossing.');
+    'The names in this book belong beside the accounts in Highmere. And Leigneron... Renna has found something about the last crossing. You deserve to hear it from her, not from a rumor.');
   stage('royal-guard-trial','report',{dialogue:[
     'Iven found the false warrant beneath a loose board. You kept watch while he looked, instead of rushing off to be seen doing something brave.',
     'The storehouse is safe for the witnesses tonight. I can use a roadwarden who knows that waiting beside someone is work too.']});
