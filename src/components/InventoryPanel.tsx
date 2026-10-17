@@ -1,5 +1,4 @@
 import {useState} from 'react';
-import {WEAPON_BY_ID} from '../data/weapons';
 import {useGameStore} from '../store/gameStore';
 import {POTIONS,weaponEffect,type PotionId} from '../data/economy';
 import {ItemIcon} from './ItemIcon';
@@ -29,7 +28,7 @@ export function InventoryPanel(){
       </nav>
       <div className="gear-grid equipment-body">
         {current&&<section className="equipped-summary" aria-label="Currently equipped">
-          <ItemIcon id={current.id}/><div><small>Currently equipped</small><strong>{current.name}</strong><span>{current.damage} damage · {(current.cooldownMs/1000).toFixed(2)}s recovery · {current.staminaCost} stamina</span>{weaponEffect(current.id)&&<small>Skill effects: {weaponEffect(current.id)!.effectName}</small>}</div>
+          <ItemIcon id={current.id}/><div><small>Currently equipped</small><strong>{current.name}{weaponUpgradeRank(current.id,upgrades)>0?` +${weaponUpgradeRank(current.id,upgrades)}`:''}</strong><span>{current.damage} damage · {(current.cooldownMs/1000).toFixed(2)}s recovery · {current.staminaCost} stamina</span>{weaponEffect(current.id)&&<small>Skill effects: {weaponEffect(current.id)!.effectName}</small>}</div>
         </section>}
         {tab==='weapons'?<>
           <label className="equipment-search">Find a weapon<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name" type="search"/></label>

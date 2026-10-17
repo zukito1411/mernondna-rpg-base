@@ -20,7 +20,6 @@ import { ROAD_ROUTES } from '../../data/roadRoutes';
 import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
 import { PORT_BY_ID,PORTS,onPortDeck } from '../../data/ports';
 import { WORLD_CONTENT, initialContentState } from '../../data/content';
-import { WEAPON_BY_ID } from '../../data/weapons';
 import {enhancedWeapon} from '../../data/weaponUpgrades';
 import { CHUNK_SIZE, STREAM_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from '../../data/world';
 import { useGameStore } from '../../store/gameStore';
