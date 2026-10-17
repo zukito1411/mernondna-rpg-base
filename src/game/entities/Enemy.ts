@@ -17,7 +17,7 @@ import {isPirateEnemy} from '../../data/pirateArt';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
 import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
-import {WEAPON_BY_ID} from '../../data/weapons';
+import {enhancedWeapon,enhancedProcChance} from '../../data/weaponUpgrades';
 
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
@@ -725,7 +725,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const state=useGameStore.getState();
     const support=options.nonLethal||options.source==='story-ally';
     if(!support)state.discoverCreature(this.definition.id,this.boss?.id);
-    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills)*this.weaponStatus.directDamageMultiplier)*(1-(this.definition.defense??0))));
+    const armorPenetration=support?0:Math.min(.4,(state.attributes.strength??0)*.01);
+    const effectiveDefense=(this.definition.defense??0)*(1-armorPenetration);
+    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills)*this.weaponStatus.directDamageMultiplier)*(1-effectiveDefense)));
     const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
     if(applied<=0)return;
     this.hp -= applied;
@@ -741,10 +743,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(!fatal&&!support&&proc){
       // Damage over time is based on the attacker's effective weapon ATK,
       // not raw blade damage, enemy HP, or a multi-hit art's single tick.
-      const weapon=WEAPON_BY_ID[options.weaponId!];
+      const weapon=enhancedWeapon(options.weaponId!,state.weaponUpgrades);
       const stats=progressionStats(state.attributes,state.learnedSkills);
-      const attackPower=(weapon?.damage??0)*stats.damageMultiplier*playerDamageGrowth(state.level)*WEAPON_STATUS_ATK_SCALE;
-      if(this.weaponStatus.tryApply(proc,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
+      const attackPower=weapon.damage*stats.damageMultiplier*playerDamageGrowth(state.level)*WEAPON_STATUS_ATK_SCALE;
+      const improvedProc={...proc,chance:enhancedProcChance(options.weaponId!,proc.chance,state.weaponUpgrades,state.attributes.luck)};
+      if(this.weaponStatus.tryApply(improvedProc,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
         this.syncStatusAttackSpeed(this.scene.time.now);
     }
     scene.playEffect('hit', this.x, this.y);

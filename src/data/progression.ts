@@ -83,6 +83,14 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
  };
 }
 
+/** AGI rewards short, frequent dashes; EVA rewards reliable damage-free dodge timing. */
+export function dodgeProfile(attributes:PlayerAttributes) {
+ const agi=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.agility??0));
+ const eva=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.evasion??0));
+ return {durationMs:210+Math.round(eva*1.5),invulnerableMs:260+eva*2,
+   cooldownMs:850-agi*4,staminaCost:16-Math.floor(agi/8),speedMultiplier:2.65+agi*.0125};
+}
+
 /** The only rare weapon loot table is the boss trophy table. Use the same
  * capped attribute math as the stat screen so the published chance is real. */
 export function bossWeaponDropChance(attributes:PlayerAttributes):number {

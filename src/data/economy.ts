@@ -43,11 +43,15 @@ export function itemIcon(id:string){
   if(Object.hasOwn(POTIONS,id))return POTIONS[id as PotionId].icon;
   return SWORD_OFFERS.find(o=>o.id===id)?.icon??Object.values(BOSS_WEAPONS).find(o=>o.id===id)?.icon??0;
 }
+export function isBlacksmith(npcId:string):boolean {
+ const npc=NPC_BY_ID[npcId];
+ return Boolean(npc&&/blacksmith|weaponsmith|runesmith|armorer|forgewright|forgemaster|master smith|guild smith/i.test(npc.title));
+}
 export function merchantStock(npcId:string):Array<{id:string;price:number;minLevel:number}>{
   const npc=NPC_BY_ID[npcId];if(!npc)return [];
   // A story mentioning merchants or a forge doesn't make its speaker a shop.
   const job=npc.title;
-  const smith=/blacksmith|weaponsmith|runesmith|armorer|forgewright|forgemaster|master smith|guild smith/i.test(job);
+  const smith=isBlacksmith(npcId);
   const trader=/merchant|trader|shopkeeper|innkeeper|apothecary|herbalist|quartermaster|bowyer|fletcher|caravan master|caravan broker/i.test(job);
   if(!smith&&!trader)return [];
   const region=TOWN_BY_ID[npc.townId]?.regionId;
