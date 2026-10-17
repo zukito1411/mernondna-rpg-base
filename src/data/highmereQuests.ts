@@ -16,8 +16,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Find out why Tovin vanished from the Lower Ward kitchen.",
         "dialogue": [
-          "Tovin has been gone three nights. They call him a thief, but he was carrying flour to feed our neighbors.",
-          "Find the torn waybill by the well. If it bears the mark I fear, someone has stolen more than a cartload."
+          "Tovin's been missing for three days. They're calling him a thief. He wouldn't steal from the kitchens. He just wouldn't.",
+          "Pell says he found part of the wagon papers near the well. I can't leave the kitchen to look. Could you ask him?"
         ]
       },
       {
@@ -35,8 +35,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Ask the bridge warden what he remembers about the missing flour cart.",
         "dialogue": [
-          "The crown's mark is true, but the date was scratched in later. That cart never reached the palace storehouse.",
-          "Pell Rusk saw where it turned aside. I dare not leave my post; the man who changed that mark may still be watching."
+          "That's a real crown stamp, all right. But look at the date. Somebody changed it. That wagon never came to the stores.",
+          "Pell was here that night. You could try asking him. I can't leave my post, and frankly I'm frightened."
         ]
       },
       {
@@ -46,19 +46,19 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Win Pell's trust and learn where Tovin is hiding.",
         "dialogue": [
-          "You brought a guard’s sword into our lane. Tell me why I should lead you to Tovin."
+          "Are you with the guards? Because Tovin isn't going anywhere with them. Not after what happened."
         ],
         "choices": [
           {
             "id": "protect",
             "text": "I will keep Tovin safe. Show me where he is.",
-            "response": "The old weighhouse, beyond the south lane. Go quietly; the watch there takes orders from Sevrin.",
+            "response": "He's at the old weighhouse, down the south lane. Please don't tell the guards I said that.",
             "flag": "witness-protected"
           },
           {
             "id": "warrant",
             "text": "No one will lay a hand on him. Highmere will hear his story.",
-            "response": "Then I will take you there. Remember your promise when the guards arrive.",
+            "response": "All right. I'll show you. But you promised he wouldn't get hurt.",
             "flag": "witness-public-hearing"
           }
         ]
@@ -79,8 +79,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Find Tovin hiding beside the old weighhouse.",
         "dialogue": [
-          "I saw Sevrin's mark on the flour sacks. His men told me to burn the waybill.",
-          "I found their tally hidden under a loose stone. I will tell the truth, but I cannot cross the ward alone."
+          "I saw Sevrin's stamp on the sacks. His men told me to burn the papers. I was scared, so I ran.",
+          "I found their book under a loose stone. I'll tell everyone what I saw. Just... please don't make me go back alone."
         ]
       },
       {
@@ -98,8 +98,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Face Sevrin with Tovin and the hidden tally.",
         "dialogue": [
-          "I kept the grain for Highmere. A city must look to its own before it feeds every village on the road.",
-          "You have a frightened carter and a scrap of marks. Take them to Renna, if you mean to make a spectacle of this."
+          "We needed that grain here. The city was hungry. What was I supposed to do?",
+          "You've got a frightened boy and a bit of paper. If you think that's enough, take it to Renna."
         ]
       },
       {
@@ -109,19 +109,19 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Decide how Highmere should answer for the stolen grain.",
         "dialogue": [
-          "Tovin is home. Now tell me who should hear what he saw."
+          "Tovin's home. Thank you. But what happens now? They're still looking for him."
         ],
         "choices": [
           {
             "id": "public",
             "text": "Tell the whole story in the town square.",
-            "response": "Renna will speak before the people, and Tovin can tell them what he saw. No kitchen should beg in secret.",
+            "response": "Then we'll ask Renna to speak in the square. I'll go with Tovin if he wants me there.",
             "flag": "grain-public-inquiry"
           },
           {
             "id": "guard",
             "text": "Have Captain Yselle guard Tovin and seize the stolen grain.",
-            "response": "I will trust her watch if it keeps Tovin safe. Let the flour go to the kitchens before another cart leaves.",
+            "response": "All right. Yselle can take the papers. I just want Tovin safe and food back in the kitchens.",
             "flag": "grain-guarded-inquiry"
           }
         ],
@@ -144,8 +144,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Hear Captain Yselle's challenge at the western watch.",
         "dialogue": [
-          "Aldren taught you to survive. Sir Caldus will see whether you can keep others safe.",
-          "Meet him in the yard. Keep your blade from the townsfolk, and your pride out of the way."
+          "Edmund says you can handle a sword. I hope he's right. Caldus can show you how we work in the watch.",
+          "He's in the practice yard. Don't swing that thing near anyone walking past, please."
         ]
       },
       {
@@ -155,8 +155,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Meet Sir Caldus beside the practice yard.",
         "dialogue": [
-          "Show me a clean sword stroke, a quick dash, and Azure Cleave. Do it without striking anyone outside the yard.",
-          "The straw dummies are brave enough to take the blows. Save your strength for the road."
+          "Let's see how you handle yourself. Start with the practice dummy. Then show me how you move.",
+          "You can make mistakes here. Better here than when somebody's counting on you."
         ]
       },
       {
@@ -190,8 +190,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Ask the keeper of the king's stores about a wagon that vanished at dusk.",
         "dialogue": [
-          "I heard wheels after the west gate was barred. By dawn, a wagon was gone and the watch swore it had never passed.",
-          "The old signal board shows where the guards stood that night. Read the marks, and we may find which way the wagon went."
+          "I heard a wagon after the gate closed. When I asked about it, everyone said there'd been no wagon. I know what I heard.",
+          "We've still got the old guard board in the armory. I wrote down their positions. You can look if you like."
         ]
       },
       {
@@ -209,20 +209,20 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Tell Sir Caldus where the watch stood through the day.",
         "dialogue": [
-          "The marks were made at dawn, noon, and dusk. Where was the watch sent first, and where did it leave the road unguarded?"
+          "Look at these three marks. That's where the guards were sent. Can you tell me where they were when the wagon got through?"
         ],
         "choices": [
           {
             "id": "correct",
             "text": "East gate → river bridge → old storehouse.",
-            "response": "That's it. The guards were drawn away from the old storehouse. Take word to Iven before nightfall.",
+            "response": "That's it. No one was watching the storehouse. Iven needs to hear this.",
             "flag": "watch-code-decoded",
             "correct": true
           },
           {
             "id": "wrong",
             "text": "Old storehouse → east gate → river bridge.",
-            "response": "No. That would leave the east road open first. Look again at the marks and their order.",
+            "response": "No, that doesn't fit. Have another look at the times.",
             "flag": "",
             "correct": false
           }
@@ -235,7 +235,7 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Warn Iven at the old storehouse before the next wagon arrives.",
         "dialogue": [
-          "So that is why they sent the watch away. Stay here with me; if another wagon comes, we will meet it at the gate."
+          "So they sent the guards away on purpose. That's why nobody saw the wagon. Can you stay until I've checked the stores?"
         ]
       },
       {
@@ -253,8 +253,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Tell Captain Yselle the storehouse is safe.",
         "dialogue": [
-          "You stood your ground without drawing blood. That is the sort of strength I can trust.",
-          "The stolen flour is safe, and the watch has its honor back. Aldren will be glad to hear it."
+          "Good work. You stayed calm, even when we thought another wagon was coming.",
+          "We've got the flour back. Edmund will be pleased to hear that. I certainly am."
         ],
         "cinematicId": "guard-muster"
       }
@@ -276,8 +276,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Ask Renna how Highmere can keep its kitchens fed.",
         "dialogue": [
-          "One thief can be punished. That will not fill an empty bowl.",
-          "Hear Beatrice at the market and Agnes among the workers. Then we can ask Lady Matilda to make good the crown's promise."
+          "We caught one man, but the kitchens are still short of food.",
+          "Beatrice at the market and Agnes at the kitchens have been trying to work something out. Could you hear them both before we go to Adria?"
         ]
       },
       {
@@ -287,8 +287,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Hear Beatrice's fears for the market.",
         "dialogue": [
-          "If the wagons stop, the stalls go bare. But what good is a full storehouse if its doors stay shut?",
-          "I will help carry flour to the kitchens, if the crown shares the burden with the market."
+          "If the wagons stop, I can't sell anything. But I don't want families going hungry either.",
+          "I'll help with the deliveries. I just can't pay for all of it myself."
         ]
       },
       {
@@ -298,8 +298,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Ask Agnes what the missing grain has meant to the workers.",
         "dialogue": [
-          "A late cart is a small matter in the castle. Here, it means a child goes to bed hungry.",
-          "We do not ask for a feast. Only enough bread to see us through the cold."
+          "My little one asked why there's no bread this morning. What was I supposed to tell her?",
+          "We're not asking for much. Just enough to get through the week."
         ]
       },
       {
@@ -317,8 +317,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Take the words of the market and the kitchens to Lady Matilda.",
         "dialogue": [
-          "You have brought the voices of the market and the kitchens together. That is worth more than a chest of gold.",
-          "Tell me, then: how should the crown see the people through winter?"
+          "You've talked to both sides? Good. I've been trying to get them in the same room all week.",
+          "Tell me what they said. We need to decide how we're going to get everyone fed."
         ]
       },
       {
@@ -328,19 +328,19 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Choose how the crown will feed Highmere through winter.",
         "dialogue": [
-          "The road will soon freeze. There is little time to choose."
+          "We can't wait much longer. The first snow's coming."
         ],
         "choices": [
           {
             "id": "charter",
             "text": "Open the crown granaries and feed every household.",
-            "response": "The granaries will open at dawn. Let every family take enough to last through the first snow.",
+            "response": "Then I'll have the stores opened in the morning. We'll make sure every family gets something.",
             "flag": "relief-household-charter"
           },
           {
             "id": "joint",
             "text": "Have the market and the kitchens share the food and the work.",
-            "response": "Beatrice and Agnes will see the wagons divided fairly. Highmere will stand together this winter.",
+            "response": "All right. Beatrice and Agnes can oversee the deliveries together. I hope we can make this work.",
             "flag": "relief-joint-council"
           }
         ],
@@ -353,8 +353,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Tell Mairin how the crown will feed the city.",
         "dialogue": [
-          "The ovens can burn again, then. You have given folk more than bread—you have given them a reason to hope.",
-          "Tovin is carrying the first flour cart at dawn. He says the road feels less dark already."
+          "Really? They're sending flour? Oh, thank goodness. I've been worrying about tomorrow's breakfast all day.",
+          "Tovin says he'll help unload the first cart. I told him he doesn't have to, but he wants to."
         ]
       },
       {
@@ -364,8 +364,8 @@ export const HIGHMERE_QUESTS:QuestDefinition[] = [
         "amount": 1,
         "text": "Return to Renna and learn what the old tally has revealed.",
         "dialogue": [
-          "The hidden tally bears a mark I have seen before—in an old tale of the blight. This theft reaches farther than Highmere.",
-          "You gave the city its bread. Now take this mark to Edmund. He will know where the trail leads."
+          "There's a mark in that book I recognize. I've seen it on an old map. I didn't expect to see it here.",
+          "Could you show Edmund this? He might know what it means. I'd go myself, but I can't leave the archive right now."
         ],
         "cinematicId": "city-resolution"
       }
