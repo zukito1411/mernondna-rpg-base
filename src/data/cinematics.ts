@@ -127,11 +127,11 @@ add('wards-rewoven','A Promise Tempered in Iron',[
 add('roadborn-epilogue','A Place at the Table',[
  npc('sena-marrow','Sena sets a bowl on the table when Leigneron walks into the inn. Lena’s children are playing nearby. They seem happy again.'),
  npc('aldren-vale','Edmund sits down beside Leigneron. They talk about his parents for a while. Some of the stories make them laugh; others don’t.'),
- npc('mira-fen','Alice catches him looking toward the road again. She laughs. 'You’re leaving already?' He smiles. 'Not yet.''),
+ npc('mira-fen','Alice catches him looking toward the road again. She laughs. “You’re leaving already?” He smiles. “Not yet.”'),
  {...npc('renna-vale','Families are still arriving from the search. Last week a mother found her grown daughter. She barely recognized her.'),variants:[{flag:'relief-household-charter',line:'Some of the families have gone home. The others can stay in the shelter as long as they need to.'}]},
  {...npc('redmesa-beastmaster','The clans have been taking turns at the well. I still hear arguments, but nobody’s drawing a weapon over water.'),variants:[{flag:'rindass-clan-water',line:'We wrote the watering turns on a board by the well. People can check it for themselves now.'}]},
  {...npc('blackspire-forgemaster','The other regions have copies of the forge records. I don’t want the truth disappearing again.'),variants:[{flag:'darkav-open-account',line:'I’ve told the workers exactly what happened. Some of them are angry with me. I understand.'}]},
- npc('aldren-vale','Edmund smiles when Leigneron looks toward the road. 'You’ll be leaving again, won’t you?' He nods. 'Then come home safe.''),
+ npc('aldren-vale','Edmund smiles when Leigneron looks toward the road. “You’ll be leaving again, won’t you?” He nods. “Then come home safe.”'),
 ]);
 for(const event of STORY_ENCOUNTERS){
   const focus=event.interiorNpcId??event.npcId;
