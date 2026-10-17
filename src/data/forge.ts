@@ -13,7 +13,7 @@ export const isBossForgeMaterial=(id:string)=>BOSS_FORGE_MATERIAL_IDS.includes(i
 
 export function isBlacksmith(npcId:string):boolean {
  const title=NPC_BY_ID[npcId]?.title??'';
- return /blacksmith|weaponsmith|runesmith|armorer|forgewright|forgemaster|master smith|guild master smith/i.test(title);
+ return /blacksmith|weaponsmith|runesmith|armorer|forgewright|forgemaster|master smith|guild smith/i.test(title);
 }
 export function weaponEnhancementCost(currentLevel:number):number {
  return 200+Math.max(0,Math.min(MAX_WEAPON_ENHANCEMENT,currentLevel))*150;
