@@ -263,13 +263,14 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     candidates.sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y));
     return candidates.find(p=>Math.hypot(p.x-from.x,p.y-from.y)<=range&&this.safeSkillPosition(p)&&this.canNpcVisit(from,p))??from;
   }
-  applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2) {
+  applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2,weaponId=this.getEquippedWeapon().id) {
     if(!enemy.active||enemy.hp<=0)return;
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const level=useGameStore.getState().level;
     const growth=playerDamageGrowth(level);
-    enemy.takeDamage(Math.max(1,Math.round(this.getEquippedWeapon().damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
-      {forceStagger:skill.id==='crescent-flurry'});
+    const weapon=WEAPON_BY_ID[weaponId]??this.getEquippedWeapon();
+    enemy.takeDamage(Math.max(1,Math.round(weapon.damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
+      {forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier)});
   }
   cinematicLocation(shot:StoryShot){return (shot.focusNpcId?NPC_INTERIOR_BY_ID[shot.focusNpcId]?.entry:undefined)
     ??(shot.interiorId?INTERIOR_ENTRIES.find(entry=>entry.id===shot.interiorId):undefined);}
@@ -779,15 +780,16 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
   }
 
-  performSkillHit(player:Player,direction:Phaser.Math.Vector2,skill:ActiveSkillDefinition,multiplier:number) {
+  performSkillHit(player:Player,direction:Phaser.Math.Vector2,skill:ActiveSkillDefinition,multiplier:number,weaponId=this.getEquippedWeapon().id) {
     player.recovery.interrupt();
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    const damage = Math.max(1,Math.round(this.getEquippedWeapon().damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
+    const weapon=WEAPON_BY_ID[weaponId]??this.getEquippedWeapon();
+    const damage = Math.max(1,Math.round(weapon.damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
     for (const enemy of this.skillTargets(player,direction,skill)){
       const outward=new Phaser.Math.Vector2(enemy.x-player.x,enemy.y-player.y);
       if(outward.lengthSq()>0)outward.normalize();else outward.copy(direction);
-      enemy.takeDamage(damage,outward,{forceStagger:skill.id==='crescent-flurry'});
+      enemy.takeDamage(damage,outward,{forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier)});
     }
   }
 
