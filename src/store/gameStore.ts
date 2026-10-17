@@ -361,7 +361,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // potion rolls for temporary boss summons, wildlife or story-only fights.
     const supplyRoll=!bossId&&lootEligible&&canDropPotion(enemyId)
       &&Math.random()<supplyDropChance(state.attributes);
-    const primaryPotion:PotionId=Math.random()<.65?'healing-potion':'stamina-potion';
+    const primaryPotion:PotionId=supplyRoll&&Math.random()>=.65?'stamina-potion':'healing-potion';
     const otherPotion:PotionId=primaryPotion==='healing-potion'?'stamina-potion':'healing-potion';
     const potion=supplyRoll?(state.consumables[primaryPotion]<99?primaryPotion:
       state.consumables[otherPotion]<99?otherPotion:null):null;
