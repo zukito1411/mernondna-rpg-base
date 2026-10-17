@@ -17,9 +17,9 @@ interface Cast {
   direction:Phaser.Math.Vector2; visual:Phaser.GameObjects.Sprite|null;mark?:Vec2;rushStopped?:boolean;
   start:Vec2; landing?:Vec2; shadow?:Phaser.GameObjects.Ellipse;rushEffectStarted?:boolean;
   rushDistance:number;rushTravelled:number;
-  effectColor?:number;
+  effectColor?:number;weaponId:string;
 }
-interface SlashWave {sprite:Phaser.GameObjects.Sprite;direction:Phaser.Math.Vector2;remaining:number;skill:ActiveSkillDefinition;multiplier:number;effectColor?:number}
+interface SlashWave {sprite:Phaser.GameObjects.Sprite;direction:Phaser.Math.Vector2;remaining:number;skill:ActiveSkillDefinition;multiplier:number;effectColor?:number;weaponId:string}
 
 export class PlayerSkillSystem {
   private readonly cooldowns = initialActiveSkillStatus().cooldowns;
@@ -38,7 +38,7 @@ export class PlayerSkillSystem {
         .setDepth(attachment.actor.depth+(attachment.grip ? .06 : -.1));
     }
   };
-  private emberField:{point:Vec2;elapsed:number;nextPulse:number;skill:ActiveSkillDefinition;visual:Phaser.GameObjects.Sprite;effectColor?:number}|null=null;
+  private emberField:{point:Vec2;elapsed:number;nextPulse:number;skill:ActiveSkillDefinition;visual:Phaser.GameObjects.Sprite;effectColor?:number;weaponId:string}|null=null;
   private renewalRemaining=0;
   private renewalPulse=0;
   private renewalColor:number|undefined;
@@ -99,7 +99,7 @@ export class PlayerSkillSystem {
     const rushDistance=id==='iron-tempest'&&target
       ?Math.max(0,Math.hypot(target.x-start.x,target.y-start.y)-(target.definition.boss?52:38))
       :160;
-    this.cast = { skill,elapsed:0,nextHit:0,direction,visual,start,landing,shadow,mark,rushDistance,rushTravelled:0,effectColor };
+    this.cast = { skill,elapsed:0,nextHit:0,direction,visual,start,landing,shadow,mark,rushDistance,rushTravelled:0,effectColor,weaponId:state.weaponId };
     this.updateFlurryTargets();
     this.player.setAlpha(visual?0:1);
     // Discard any pre-cast physics displacement from held walking/sprint input.
@@ -176,7 +176,7 @@ export class PlayerSkillSystem {
         const visual=this.scene.add.sprite(point.x,point.y,art.texture,0).setOrigin(.5,.94).setDisplaySize(172,112).setDepth(this.scene.playerRenderDepth(point.y)-.1).setName('ember-snare-field');
         if(cast.effectColor!==undefined)visual.setTint(cast.effectColor);
         visual.play({key:art.animation,repeat:-1});
-        this.emberField={point,elapsed:0,nextPulse:0,skill:cast.skill,visual,effectColor:cast.effectColor};
+        this.emberField={point,elapsed:0,nextPulse:0,skill:cast.skill,visual,effectColor:cast.effectColor,weaponId:cast.weaponId};
       }else if (cast.skill.kind === 'rally') {
         this.player.hp = Math.min(this.player.maxHp,this.player.hp + Math.round(this.player.maxHp * (cast.skill.healingFraction??.2)));
         if(cast.skill.id==='crown-rally')this.rallyRemaining = 5000;
@@ -195,7 +195,7 @@ export class PlayerSkillSystem {
           .setRotation(Math.atan2(cast.direction.y,cast.direction.x)).setDepth(this.scene.playerRenderDepth(this.player.y)+4).setName(`${cast.skill.id}-wave`);
         if(cast.effectColor!==undefined)sprite.setTint(cast.effectColor);
         sprite.play({key:art.animation,repeat:-1});
-        this.waves.add({sprite,direction:cast.direction.clone(),remaining:cast.skill.targetingRange??620,skill:cast.skill,multiplier:cast.skill.damageMultipliers[cast.nextHit],effectColor:cast.effectColor});
+        this.waves.add({sprite,direction:cast.direction.clone(),remaining:cast.skill.targetingRange??620,skill:cast.skill,multiplier:cast.skill.damageMultipliers[cast.nextHit],effectColor:cast.effectColor,weaponId:cast.weaponId});
         this.scene.recordTraining(cast.skill.id);
       } else {
         if(cast.skill.id==='skyfall-slam') {
@@ -216,7 +216,7 @@ export class PlayerSkillSystem {
           if(cast.visual)this.playPoseEffect(3,cast.visual,110,65,true,36);
           this.scene.playAudio('sfx-impact-heavy-1',.35);
         }
-        this.scene.performSkillHit(this.player,cast.direction,cast.skill,cast.skill.damageMultipliers[cast.nextHit]);
+        this.scene.performSkillHit(this.player,cast.direction,cast.skill,cast.skill.damageMultipliers[cast.nextHit],cast.weaponId);
       }
       cast.nextHit++;
     }
@@ -235,7 +235,7 @@ export class PlayerSkillSystem {
           return {enemy,t,distance:Math.hypot(enemy.x-from.x-t*dx,enemy.y-from.y-t*dy)};
         }).filter(hit=>hit.distance<=(hit.enemy.definition.boss?24:11)+14
           &&this.scene.hasClearPath(from.x,from.y,hit.enemy.x,hit.enemy.y)).sort((a,b)=>a.t-b.t);
-        if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction);this.playArtEffect(0,hit.enemy.x,hit.enemy.y,92,Math.atan2(wave.direction.y,wave.direction.x),false,wave.effectColor??null);terminated=true;break;}
+        if(hits.length){const hit=hits[0];this.scene.applySkillDamage(hit.enemy,wave.skill,wave.multiplier,wave.direction,wave.weaponId);this.playArtEffect(0,hit.enemy.x,hit.enemy.y,92,Math.atan2(wave.direction.y,wave.direction.x),false,wave.effectColor??null);terminated=true;break;}
         wave.sprite.setPosition(to.x,to.y).setDepth(this.scene.playerRenderDepth(to.y)+4);wave.remaining-=step;travel-=step;
       }
       if(terminated||wave.remaining<=0){wave.sprite.destroy();this.waves.delete(wave);}
@@ -304,7 +304,7 @@ export class PlayerSkillSystem {
       for(const enemy of this.scene.getCombatEnemies())if(enemy.active&&enemy.canBeTargeted&&Math.hypot(enemy.x-field.point.x,enemy.y-field.point.y)<=field.skill.radius
         &&this.scene.hasClearPath(field.point.x,field.point.y,enemy.x,enemy.y)){
         const outward=new Phaser.Math.Vector2(enemy.x-field.point.x,enemy.y-field.point.y);if(outward.lengthSq()>0)outward.normalize();else outward.set(0,1);
-        this.scene.applySkillDamage(enemy,field.skill,field.skill.damageMultipliers[0],outward);
+        this.scene.applySkillDamage(enemy,field.skill,field.skill.damageMultipliers[0],outward,field.weaponId);
       }
       this.playGroundEffect(0,field.point.x,field.point.y,172,112,field.effectColor??null);field.nextPulse++;
     }
