@@ -84,6 +84,31 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
     'deepford-runesmith':['That shelf? Family histories. The locked one? Guild histories. Draw your own conclusion.','I am trying to make the second as honest as the first. It is not making me popular.'],
     'tidewatch-sailmaker':['Do not lean on that sail unless you mean to help sew it. Sit on the stool instead.','I make every seam as though someone I love will need it in a storm. Someone always does.'],
     'blackspire-forgemaster':['You can ask about the chains. I will not like every answer I give you, but I will give it.','The young smiths deserve better teachers than silence.'],
+
+    'lady-adria-vale':['People keep asking me to sign their papers before I have heard their names. Sit down. We have time to hear yours.','My sister says I am too slow to anger. She did not see what I found in the service ledgers.'],
+    'ser-caldus-rowe':['The lad by the targets thinks a wooden sword cannot hurt him. Would you tell him what that bruise is called?','Isabel was much the same at his age. Only she listened when I told her to put the blade away.'],
+    'iven-harrow':['Aunt Nella says I check the grain sacks more carefully than I check my own supper. She is right.','See this stitch? Someone opened the sack and sewed it back up badly. I kept the thread.'],
+    'bela-reed':['You can sit by the stove, but move your wet boots off the good rug first.','My sister Pella sends half the bridge crew here when the rain comes in sideways. I ought to charge her.'],
+    'rowan-marr':['That mare kicks the stable door whenever I sing. Tovan says she has good taste.','Give her an apple and she will follow you anywhere. Give her a command and she will think about it first.'],
+    'aeris-thorneleaf':['My cousin Ilyra has her nose in the old stones again. I brought her tea. She has not noticed.','Your parents passed through here once. They stayed to help replant after the floods. I remember their hands, not their names.'],
+    'haleth-virdan':['Sael can tell which bow you used from the splinters it leaves. I wish he would stop proving it.','The watch has been uneasy since the animals stopped crossing the little bridge. Even the birds avoid it.'],
+    'suri-mosswalk':['My uncle says I pick herbs too young. I say the plants do not ask my age.','Alice taught me to leave enough behind for the next rain. A good remedy ought not ruin its own garden.'],
+    'dael-vale':['There is room by the fire, traveler. Unless my sister has filled it with drying leaves again.','We used to hear singing beyond the grove at night. I miss it, though the pilgrims were never very good.'],
+    'freya-skell':['Hold that rope. No, not the frayed end. Borin will skin me if I let anyone climb with it.','I spent last night unpicking knots by candlelight. My fingers still think they are at work.'],
+    'tor-beacon':['Halla stayed at the beacon through the worst of last winter. I brought her soup and she forgot to eat it.','The snow has settled strangely on the western face. I do not like the silence beneath it.'],
+    'torga-ashhand':['Dorga says I bargain too hard. She is not the one dragging ore across three roads.','Your smith in Oakmere still owes me a letter. He says he paid in nails. Nails cannot write.'],
+    'kesh-flintmane':['My aunt Ugra says a rider should know when to walk. I did not believe her until the boar threw me.','Krag keeps calling the younger riders cowards. Funny how he never stays to muck out the pens.'],
+    'ketra-copperwake':['My father can mend a ferry with a hammer and a very bad temper. I bring the bread.','The miners came down before sunrise. None of them touched the hot stew. That frightened me more than their stories.'],
+    'brann-stonevein':['Mara told me to copy the marks exactly. I sneezed and gave an ancient rune a second tail.','Your mother drew these signs in the margins of a river map. I have kept that page tucked inside my own notes.'],
+    'finn-gull':['Mind your step. That crate is heavier than the dockmaster says, and I am the one with the bruised feet.','Jessa will hear about this load. She always does. I suspect the gulls report to her.'],
+    'lysa-vane':['Feel this canvas. Thick enough to keep the rain out, light enough that a sailor will not curse me.','I stitched Alice a traveling cloak years ago. She brought it back with a hole through both shoulders and no explanation.'],
+    'assa-icevein':['Come inside before your eyelashes freeze together. We have broth, and nobody is counting the bowls.','Runa took a whole caravan through that blizzard. They were frightened enough to eat my cooking without complaint.'],
+    'stenn-harrow':['If you hear ice cracking near the quay, come inland. That is not a sound to argue with.','Eyvind keeps asking when his letters reached Oakmere. Some people cannot believe a message is safe until someone answers.'],
+    'nia-cinder':['My mother can tell a bad weld without looking at it. She says the hammer sounds ashamed.','These chains should never have been sold. I helped count them. I wish I had asked where they were going.'],
+    'orren-emberfall':['The ash gets into everything. Last week I found it inside a jar that had not been opened.','Dain has been on the lower road since first light. I saved him a meal. I hope he remembers to come for it.'],
+    'kellan-ashfield':['A wagon left without guards yesterday. I have been looking up the road every hour since.','My uncle Torren says the harvest is worth protecting even when the sacks look empty. He is usually right.'],
+    'meral-gull':['Celia counts the seed bags and I count the hands waiting for them. One of us always comes up short.','My cousin Jessa says I should trade nearer the sea. Saltwater never fed a field.'],
+
   };
   for(const npc of npcs)if(lines[npc.id])npc.dialogue=rewriteNpcMentions(lines[npc.id],aliases);
 }
