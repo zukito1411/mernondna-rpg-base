@@ -17,9 +17,9 @@ export const QUESTS: QuestDefinition[] = [
     giverNpcId: 'aldren-vale',
     summary: 'Bandits have taken over the old watchtower east of Oakmere. Aldren asks Leigneron to reopen the road.',
     objectives: [
-      { id: 'talk-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Speak with Aldren Vale in Oakmere.',dialogue:['The bandits are taking the seed grain, not just travelers’ purses. If the next cart never reaches us, Oakmere cannot sow its fields.','Varr holds the ruined tower east of the farms. Break his blockade, then bring me the seal on his stolen supplies. We need to know who is paying him.'] },
+      { id: 'talk-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Speak with Aldren Vale in Oakmere.',dialogue:['The bandits are stealing seed grain now. If we lose another cart, the farmers won’t have enough left to plant.','Varr’s men have taken over the old tower. Somebody’s paying them to stop our wagons. I want to know who.'] },
       { id: 'kill-varr', type: 'kill', targetId: 'bandit-captain', bossId: 'captain-varr', amount: 1, text: 'Defeat Captain Varr at the ruined watchtower.' },
-      { id: 'return-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Return to Aldren with Varr’s stolen royal seal.',dialogue:['The grain road is open. I will put a watch on the eastern approach so the growers can send their carts again.','That seal belongs to Highmere’s grain office. Varr could not have forged it alone. Take my testimony to Renna; the missing flour may lead us to the hand behind him.'] },
+      { id: 'return-aldren', type: 'talk', targetId: 'aldren-vale', amount: 1, text: 'Return to Aldren with Varr’s stolen royal seal.',dialogue:['The road’s open again? That’s a relief. I’ll send guards to make sure it stays that way.','That’s a real seal from Highmere. Renna might know who issued it. I don’t like the thought of someone there working with Varr.'] },
     ],
     rewardGold: 60,
     rewardXp: 150,
