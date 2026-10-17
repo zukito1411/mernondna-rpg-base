@@ -188,6 +188,16 @@ export function reviseNamedConversations(npcs:NpcDefinition[],aliases:ReadonlyMa
     'maerwen-reedleaf':["Please don't come any closer. Sorry, I thought you were someone else.","There are children hiding with us. I just need to know it's safe before I bring them out."],
     'eda-ashfield':["I'm checking the old marker. Someone's been moving stones along this road.","I told Torren about it. He thinks I'm worrying too much. Maybe I am."],
     'lysa-thorneleaf':["Don't touch that carving. Some of the stone is loose.","Ilyra asked me to write down what I found. I'd rather she came and saw it herself."],
+    'elarion-north-sentinel':["The north path's been quiet today. Too quiet, if you ask me.","If you see anyone coming from Moonfall, would you ask them to report at the gate?"],
+    'elarion-west-sentinel':["Sorry, I can't leave the gate. We're short on guards again.","I've been waiting for news from the grove all morning."],
+    'elarion-east-sentinel':["Watch your step on the bridge. Some of the boards are loose.","I've asked the carpenters to look at them, but they're busy with the storm damage."],
+    'elarion-south-sentinel':["Have you seen the pilgrims? They were supposed to be here yesterday.","I'm trying not to worry, but nobody's heard from them."],
+    'elarion-hall-guard-west':["The hall's open. You can go in.","Just mind the steps. We've had three visitors trip over them this week."],
+    'elarion-hall-guard-east':["The king's been meeting with the ward keepers all morning.","You can wait inside if you like. It might be a while."],
+    'ser-elin-ward':["Isabel's still at the watch post. I wish she'd take a break.","If you're looking for the audience chamber, it's through the arch."],
+    'ser-tomas-rowe':["Father says my stance is still wrong. He tells me every morning.","The audience hall is ahead. I'll keep an eye on your things while you're inside."],
+    'annor-lorn':["Sera's gone off with another message. I hope she remembers to eat.","Hold your bags up for a moment, please. I need to check what's inside."],
+    'hestia-farrow':["These wagons should've arrived yesterday. The kitchens are waiting for them.","I'm sorry for the delay. If you're carrying food, I'll get you through as quickly as I can."],
   };
   for(const npc of npcs)if(lines[npc.id])npc.dialogue=rewriteNpcMentions(lines[npc.id],aliases);
 }
