@@ -24,13 +24,18 @@ export class PropGroundBlend{
     // pixel scans and GPU uploads during the same frame as terrain creation.
     this.retryMs+=delta;if(this.retryMs<40||!this.pending.size)return;this.retryMs=0;
     const view=this.scene.cameras.main.worldView;
-    const requests=[...this.pending].sort(([a],[b])=>Number(view.contains(b.x,b.y))-Number(view.contains(a.x,a.y)));
     let unavailable=0;
-    for(const [actor,request] of requests){
-      if(!actor.active){this.pending.delete(actor);continue;}
-      if(this.prepare(actor,request)){this.pending.delete(actor);break;}
-      if(++unavailable>=4)break;
-    }
+    const pass=(visible:boolean)=>{
+      // Prefer visible art without allocating/sorting the full pending queue.
+      for(const [actor,request] of this.pending){
+        if(!actor.active){this.pending.delete(actor);continue;}
+        if(view.contains(actor.x,actor.y)!==visible)continue;
+        if(this.prepare(actor,request)){this.pending.delete(actor);return true;}
+        if(++unavailable>=4)return true; // Retry unavailable wood later.
+      }
+      return false;
+    };
+    if(!pass(true))pass(false);
   };
   constructor(private readonly scene:Phaser.Scene){scene.events.on(Phaser.Scenes.Events.POST_UPDATE,this.retry);}
   apply(actor:Actor,texture:ArtTextureKey,frame:number,ground:{x:number;y:number}={x:actor.x,y:actor.y}){

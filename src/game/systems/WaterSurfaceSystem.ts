@@ -13,6 +13,7 @@ export class WaterSurfaceSystem {
   private readonly ocean:Phaser.GameObjects.TileSprite;
   private readonly mask=document.createElement('canvas');
   private cells:WaterCell[]=[];private elapsed=0;private drawMs=100;
+  private firstPaint=true;
   private base={x:Infinity,y:Infinity,zoom:0};
   private destroyed=false;
   private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -39,7 +40,11 @@ export class WaterSurfaceSystem {
     }
     const changed=this.base.zoom!==z||this.texture.width!==w||this.texture.height!==h
       ||Math.abs((view.x-this.base.x)*z-OVERSCAN)>OVERSCAN/2||Math.abs((view.y-this.base.y)*z-OVERSCAN)>OVERSCAN/2;
-    if(!changed&&this.drawMs<50)return;this.drawMs=0;
+    if(!changed&&this.drawMs<50)return;
+    // Water and weather each have a 50 ms repaint interval. Shift only the
+    // water's *first* follow-up by one frame, so their full-screen texture
+    // uploads do not repeatedly coincide. Subsequent cadence stays 50 ms.
+    this.drawMs=this.firstPaint?-18:0;this.firstPaint=false;
     if(this.texture.width!==w||this.texture.height!==h){this.texture.setSize(w,h);this.mask.width=w;this.mask.height=h;}
     if(this.mask.width!==w||this.mask.height!==h){this.mask.width=w;this.mask.height=h;}
     if(changed){
