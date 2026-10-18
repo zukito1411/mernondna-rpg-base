@@ -136,6 +136,60 @@ function heroVisibleBounds(
 
 export class BootScene extends Phaser.Scene {
   private readonly failures: string[] = [];
+  private sourceRepairAttempted=false;
+
+  /** A missing Phaser TextureManager key resolves to its 32x32 placeholder,
+   * which otherwise looks like a broken art manifest. Validate source keys and
+   * sprite sizes before preparing any generated atlases. */
+  private repairSpriteSources():boolean {
+    const required=new Map<string,{expected?:readonly [number,number];name:string}>();
+    for(const sheet of ART_SHEETS.filter(s=>s.key!=='walls')){
+      if(sheet.sources?.length){
+        for(const frame of sheet.sources){
+          const expected=sheet.key==='leigneron'?undefined:frame.imageSize;
+          if(!required.has(frame.path))required.set(frame.path,{expected,name:frame.name});
+        }
+      }else required.set(sheet.path,{name:sheet.key});
+    }
+    const invalid:Array<{path:string;expected?:readonly [number,number];actual:string}>=[];
+    for(const [path,info] of required){
+      const key=`source:${path}`;
+      if(!this.textures.exists(key)){
+        invalid.push({path,expected:info.expected,actual:'missing texture'});
+        continue;
+      }
+      const image=this.textures.get(key).getSourceImage() as HTMLImageElement|undefined;
+      if(!image){
+        invalid.push({path,expected:info.expected,actual:'missing image'});
+        continue;
+      }
+      if(info.expected&&(image.width!==info.expected[0]||image.height!==info.expected[1]))
+        invalid.push({path,expected:info.expected,actual:`${image.width}x${image.height}`});
+    }
+    if(!invalid.length)return false;
+    if(this.sourceRepairAttempted){
+      const details=invalid.slice(0,8).map(({path,expected,actual})=>
+        `${path} (source: ${heroBodySource(path)}): expected ${expected?.join('x')??'an image'}, got ${actual}`).join('\n');
+      this.registry.set('assetError',
+        `Required artwork is missing or outdated after a retry:\n${details}\n`
+        +'Refresh game files (keeps save), then reopen the game. Your saved progress is safe.');
+      return true;
+    }
+    this.sourceRepairAttempted=true;
+    this.registry.set('loadingStage','Repairing missing character artwork');
+    this.registry.set('loadingProgress',0);
+    // A stale PWA cache may hold an old asset at the same filename. The
+    // query parameter bypasses that cache without changing game/save data.
+    const token=Date.now().toString(36);
+    for(const {path} of invalid){
+      const key=`source:${path}`,file=heroBodySource(path);
+      if(this.textures.exists(key))this.textures.remove(key);
+      this.load.image(key,`${file}${file.includes('?')?'&':'?'}sprite-repair=${token}`);
+    }
+    this.load.once('complete',()=>this.create());
+    this.load.start();
+    return true;
+  }
 
   constructor() {
     super('boot');
@@ -211,6 +265,7 @@ export class BootScene extends Phaser.Scene {
       });
       return;
     }
+    if(this.repairSpriteSources())return;
     this.registry.set('loadingStage','Preparing character art');
     registerAttackWarningFrames(this);
     prepareCombatArtEffects(this);
@@ -231,8 +286,12 @@ export class BootScene extends Phaser.Scene {
     const drawEnemyPose=createSpriteCropper();
 
     for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
-      const source = this.textures.get(`source:${sheet.path}`).getSourceImage() as HTMLImageElement;
-      loaded.add(sheet.path);
+      // Some multi-source sheets use a descriptive path that is not itself
+      // queued as an image. The first registered frame source is the correct
+      // reference for those sheets; never accept Phaser's missing placeholder.
+      const primaryPath=sheet.sources?.[0]?.path??sheet.path;
+      const source = this.textures.get(`source:${primaryPath}`).getSourceImage() as HTMLImageElement;
+      loaded.add(primaryPath);
       const columns = sheet.atlasColumns ?? sheet.columns;
       const width = sheet.frameWidth * sheet.density;
       const height = sheet.frameHeight * sheet.density;
