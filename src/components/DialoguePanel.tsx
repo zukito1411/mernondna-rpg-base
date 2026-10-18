@@ -24,20 +24,34 @@ export function DialoguePanel() {
 
   return (
     <div className="dialogue-wrap">
-      <section className="dialogue-panel">
-        <div className="dialogue-speaker">
-          <SpritePortrait npc={npc} frame={npc.spriteFrame} texture={npc.spriteTexture} name={npc.name} />
-          <div className="dialogue-identity"><strong>{npc.name}</strong><span>{npc.title}</span>
-            <small>Trust {logicalStates[`npc:${npc.id}`]?.trust ?? npc.relationshipToLeigneron.trust} / 100</small>
-          </div>
+      <section className="dialogue-panel dialogue-panel--scroll-layout" aria-label={`Conversation with ${npc.name}`}>
+        <div className="dialogue-toolbar">
+          <button type="button" className="dialogue-close-button" aria-label="Close conversation" onClick={end}>Close ×</button>
         </div>
-        <p>{line}</p>
-        <div className="relationship-note">{npc.relationshipToLeigneron.kind}: {npc.relationshipToLeigneron.summary}</div>
-        {finalLine&&!dialogue.choices?.length&&<><AliceCompanionService npcId={npc.id}/>{!dialogue.questId&&<NpcServices npcId={npc.id}/>}<MerchantStock npcId={npc.id}/></>}
-        {finalLine&&dialogue.choices?.length ? <div className="dialogue-choices">
-          {dialogue.choices.map(choice=><button type="button" key={choice.id} onClick={()=>choose(choice.id)}>{choice.text}</button>)}
-          <button type="button" onClick={end}>Decide later</button>
-        </div>:<button type="button" onClick={finalLine ? end : advance}>{finalLine ? 'Close' : 'Continue'}</button>}
+        <div className="dialogue-content-scroll">
+          <div className="dialogue-speaker">
+            <SpritePortrait npc={npc} frame={npc.spriteFrame} texture={npc.spriteTexture} name={npc.name} />
+            <div className="dialogue-identity"><strong>{npc.name}</strong><span>{npc.title}</span>
+              <small>Trust {logicalStates[`npc:${npc.id}`]?.trust ?? npc.relationshipToLeigneron.trust} / 100</small>
+            </div>
+          </div>
+          <p>{line}</p>
+          <div className="relationship-note">{npc.relationshipToLeigneron.kind}: {npc.relationshipToLeigneron.summary}</div>
+          {finalLine&&!dialogue.choices?.length&&<>
+            <AliceCompanionService npcId={npc.id}/>
+            {!dialogue.questId&&<NpcServices npcId={npc.id}/>}
+            <MerchantStock npcId={npc.id}/>
+          </>}
+          {finalLine&&dialogue.choices?.length&&
+            <div className="dialogue-choices">
+              {dialogue.choices.map(choice=><button type="button" key={choice.id} onClick={()=>choose(choice.id)}>{choice.text}</button>)}
+            </div>}
+        </div>
+        <div className="dialogue-actions">
+          {finalLine&&dialogue.choices?.length
+            ? <button type="button" onClick={end}>Decide later</button>
+            : <button type="button" onClick={finalLine ? end : advance}>{finalLine ? 'Close' : 'Continue'}</button>}
+        </div>
       </section>
     </div>
   );

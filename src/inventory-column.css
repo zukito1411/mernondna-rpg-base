@@ -65,3 +65,57 @@
 }
 .desktop-potion-slot .item-icon {width:100%;height:100%;margin:0;}
 .desktop-potion-count {position:absolute;right:2px;bottom:1px;padding:0 3px;background:#17120de6;border-radius:3px;font-size:12px;color:#fff1d4;}
+
+/* Conversation services, especially the weapon forge and Alice's companion
+   actions, used to push the only Close button beneath a clipped flex panel.
+   Keep the whole conversation scrollable with independent, always-visible
+   close and action controls. All services and dialogue choices stay accessible. */
+.dialogue-panel.dialogue-panel--scroll-layout {
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  max-height:calc(100dvh - 64px) !important;
+  overflow:hidden !important;
+}
+.dialogue-panel--scroll-layout .dialogue-toolbar,
+.dialogue-panel--scroll-layout .dialogue-actions {
+  flex:0 0 auto;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:8px;
+}
+.dialogue-panel--scroll-layout .dialogue-toolbar {
+  padding-bottom:6px;
+}
+.dialogue-panel--scroll-layout .dialogue-close-button {
+  min-height:36px;
+  margin-left:auto;
+}
+.dialogue-panel--scroll-layout > .dialogue-content-scroll {
+  flex:1 1 auto !important;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  padding:0 4px 5px;
+}
+.dialogue-panel--scroll-layout .dialogue-content-scroll > .merchant-stock {
+  flex:none;
+  min-height:0;
+  overflow:visible;
+}
+.dialogue-panel--scroll-layout .dialogue-actions {
+  padding-top:8px;
+  border-top:1px solid rgba(146,118,76,.35);
+}
+.dialogue-panel--scroll-layout .dialogue-actions button,
+.dialogue-panel--scroll-layout .dialogue-toolbar button {
+  float:none;
+}
+@media(max-height:500px){
+  .dialogue-panel.dialogue-panel--scroll-layout {max-height:calc(100dvh - 40px) !important;}
+  .dialogue-panel--scroll-layout .dialogue-toolbar {padding-bottom:2px;}
+  .dialogue-panel--scroll-layout .dialogue-actions {padding-top:4px;}
+}
