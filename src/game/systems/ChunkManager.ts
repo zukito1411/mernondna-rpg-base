@@ -27,6 +27,20 @@ export class ChunkManager {
   private readonly scene: Phaser.Scene;
   private readonly world: WorldGenerator;
   private readonly active = new Map<string, ChunkRuntime>();
+  // Keep just two recently visited full-resolution ground textures. This
+  // prevents expensive rebakes on backtracking without accumulating an
+  // unbounded GPU texture cache on Android.
+  private readonly recentTerrain=new Map<string,string>();
+  private readonly recentTerrainLimit=2;
+  private retireTerrain(key:string,chunk:ChunkRuntime){
+    if(chunk.shared)return;
+    this.recentTerrain.delete(key);this.recentTerrain.set(key,chunk.textureKey);
+    while(this.recentTerrain.size>this.recentTerrainLimit){
+      const oldest=this.recentTerrain.entries().next().value as [string,string]|undefined;
+      if(!oldest)break;
+      this.recentTerrain.delete(oldest[0]);this.scene.textures.remove(oldest[1]);
+    }
+  }
   private lastCenter = '';
   private readonly baker: TerrainBaker;
   // LEIGHNERON_STAGGER_CHUNKS_V1: don't bake three huge neighbor chunks in one frame.
@@ -60,7 +74,7 @@ export class ChunkManager {
       if (wanted.has(key)) continue;
       chunk.image.destroy();
       for (const image of chunk.scenery) image.destroy();
-      if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);
+      this.retireTerrain(key,chunk);
       this.active.delete(key);
     }
     for (const key of [...this.pendingChunks.keys()]) if(!wanted.has(key))this.pendingChunks.delete(key);
@@ -93,7 +107,7 @@ export class ChunkManager {
     this.lastCenter='view:'+streamViewKey(wanted);
     for(const [key,chunk] of this.active)if(!wanted.has(key)){
       chunk.image.destroy();for(const image of chunk.scenery)image.destroy();
-      if(!chunk.shared)this.scene.textures.remove(chunk.textureKey);this.active.delete(key);
+      this.retireTerrain(key,chunk);this.active.delete(key);
     }
     for(const key of this.pendingChunks.keys())if(!wanted.has(key))this.pendingChunks.delete(key);
     const ordered=[...wanted].sort((a,b)=>Number(visible.has(b))-Number(visible.has(a)));
@@ -142,6 +156,8 @@ export class ChunkManager {
     }
     this.active.clear();
     this.pendingChunks.clear();
+    for(const textureKey of this.recentTerrain.values())this.scene.textures.remove(textureKey);
+    this.recentTerrain.clear();
     this.lastCenter = '';
     this.baker.destroy();
     this.scene.textures.remove('shared-ocean-chunk');
@@ -160,11 +176,16 @@ export class ChunkManager {
       this.active.set(chunkX+':'+chunkY,{image,textureKey:key,shared:true,scenery:[]});return;
     }
     const textureKey = `chunk:${chunkX}:${chunkY}`;
-    const canvasTexture = this.scene.textures.createCanvas(textureKey, CHUNK_SIZE, CHUNK_SIZE);
+    const cacheKey=`${chunkX}:${chunkY}`;
+    const cached=this.recentTerrain.delete(cacheKey);
+    const canvasTexture = cached
+      ? this.scene.textures.get(textureKey) as Phaser.Textures.CanvasTexture
+      : this.scene.textures.createCanvas(textureKey, CHUNK_SIZE, CHUNK_SIZE);
     if (!canvasTexture) return;
-
-    const ctx = canvasTexture.getContext();
-    this.baker.draw(ctx, this.world, chunkX, chunkY);
+    if(!cached){
+      const ctx = canvasTexture.getContext();
+      this.baker.draw(ctx, this.world, chunkX, chunkY);
+    }
     const scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite> = [];
     const cx=(chunkX+.5)*CHUNK_SIZE,cy=(chunkY+.5)*CHUNK_SIZE;
     const sites=authoredReservations.query({left:cx-CHUNK_SIZE,right:cx+CHUNK_SIZE,top:cy-CHUNK_SIZE,bottom:cy+CHUNK_SIZE})
@@ -196,7 +217,7 @@ export class ChunkManager {
       this.ground.register(sprite,detail.texture,detail.frame,detail.scale,detail.solid,detail.footprint);
       this.lighting.register(sprite,detail.texture,detail.frame,detail.scale);
     }
-    canvasTexture.refresh();
+    if(!cached)canvasTexture.refresh();
     canvasTexture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     const image = this.scene.add.image(chunkX * CHUNK_SIZE, chunkY * CHUNK_SIZE, textureKey).setOrigin(0, 0).setDepth(-1000);
