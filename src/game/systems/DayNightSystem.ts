@@ -141,18 +141,34 @@ export class DayNightSystem {
         emission.setPosition(owner.x,owner.y).setAlpha(runeGlow?.48+.42*pulse:.88+.12*pulse)
           .setVisible(effects.lightBloom&&owner.visible);
       }else {
+        // Ordinary lamp/window emissions are invisible by daylight or when
+        // bloom is off. Avoid position/depth/alpha writes for every hidden
+        // window on every gameplay frame. Rune effects stay independent.
+        if(night<=0||!effects.lightBloom||!owner.visible){
+          if(emission.visible)emission.setVisible(false);
+          continue;
+        }
         emission.setPosition(owner.x,owner.y);
         if(emission.depth!==owner.depth+.005)emission.setDepth(owner.depth+.005);
-        emission.setAlpha(night*.8).setVisible(effects.lightBloom&&night>0&&owner.visible);
+        emission.setAlpha(night*.8).setVisible(true);
       }
     }
     // Stable world-space pockets. Camera zoom never gets applied twice.
     const cx=Math.floor(playerX/1024)*1024+512,cy=Math.floor(playerY/1024)*1024+512;
-    for(const fly of this.fireflies) {
-      const drift=this.elapsed*.00035, pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
+    const showFireflies=effects.fireflies&&this.firefliesEnabled&&night>.02;
+    // Do not move and animate dozens of invisible firefly objects all day.
+    // Their full animation resumes at the current world-clock phase at dusk.
+    for(let i=0;i<this.fireflies.length;i++) {
+      const fly=this.fireflies[i];
+      if(!showFireflies){
+        if(fly.glow.visible)fly.glow.setVisible(false);
+        if(fly.light.visible)fly.light.setVisible(false);
+        continue;
+      }
+      const drift=this.elapsed*.00035,pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
       const x=cx+fly.dx+Math.sin(drift+fly.phase)*32,y=cy+fly.dy+Math.cos(drift*.8+fly.phase)*24;
-      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(effects.fireflies&&this.firefliesEnabled&&!this.lightweight&&night>.02);
-      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(effects.fireflies&&this.firefliesEnabled&&(!this.lightweight||this.fireflies.indexOf(fly)<6)&&night>.02);
+      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(!this.lightweight);
+      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(!this.lightweight||i<6);
     }
     const resolution=this.lightweight ? .65 : 1;
     const z=full.zoom*resolution,pad=Math.round(this.maskPaddingCss*resolution);
