@@ -41,7 +41,7 @@ function OpenContractBoard(){
   const ongoing=Object.entries(ledger)
     .filter(([id,p])=>!p.claimed&&!offeredIds.has(id))
     .map(([id])=>contractById(id))
-    .filter((c):c is Contract=>Boolean(c)&&c.townId===townId);
+    .filter((c):c is Contract=>c!==undefined&&c.townId===townId);
   const town=townId?TOWN_BY_ID[townId]:null;
   return <div className="overlay-backdrop"><section className="quest-journal" aria-label="Town notice board">
     <header><h2>{town?.name??'Town'} notice board</h2><button type="button" onClick={close}>Close</button></header>
