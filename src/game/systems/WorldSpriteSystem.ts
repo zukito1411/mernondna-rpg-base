@@ -8,6 +8,7 @@ import type {Vec2} from '../types';
 import type {GroundShadowSystem} from './GroundShadowSystem';
 import type {AmbientWildlifeSystem} from './AmbientWildlifeSystem';
 import {PropGroundBlend} from './PropGroundBlend';
+import {getGraphicEffects} from './graphicsEffects';
 
 type WorldActor=Phaser.GameObjects.Image|Phaser.GameObjects.Sprite;
 interface VisibleArt {left:number;top:number;width:number;height:number}
@@ -18,9 +19,12 @@ export const WORLD_SPRITE_OWNER='worldSpriteOwner';
  * Render bounds, physical contour and draw order are deliberately separate. */
 export class WorldSpriteSystem {
   private readonly owned=new Map<WorldActor,Phaser.GameObjects.Rectangle[]>();
-  private readonly blend:PropGroundBlend;
+  // Runtime pixel-based ground skirts are opt-in. Without them the original
+  // full-quality sprite art, collision, foliage, and shadows render unchanged
+  // with zero per-actor masking scans, CPU readbacks or texture uploads.
+  private readonly blend:PropGroundBlend|null;
   constructor(private readonly scene:Phaser.Scene,private readonly bodies:Phaser.Physics.Arcade.StaticGroup,
-    private readonly shadows?:GroundShadowSystem,private readonly wildlife?:AmbientWildlifeSystem){this.blend=new PropGroundBlend(scene);}
+    private readonly shadows?:GroundShadowSystem,private readonly wildlife?:AmbientWildlifeSystem){this.blend=getGraphicEffects().groundBlend?new PropGroundBlend(scene):null;}
   register(actor:WorldActor,texture:ArtTextureKey,frame:number,scale:number,solid:boolean,fallback?:{width:number;height:number},center=false){
     if(this.owned.has(actor))return;
     const sheet=ART_BY_KEY[texture],metadata=(actor.frame.customData??{}) as PreparedArt;
@@ -101,7 +105,7 @@ export class WorldSpriteSystem {
     this.owned.set(actor,owned);
     this.wildlife?.register(actor,texture,frame,point(.5,1),visible.width*scale,visible.height*scale);
     actor.once('destroy',()=>this.release(actor));
-    this.blend.apply(actor,texture,frame,point(.5,1));
+    this.blend?.apply(actor,texture,frame,point(.5,1));
   }
   private release(actor:WorldActor){
     const shapes=this.owned.get(actor);if(!shapes)return;this.owned.delete(actor);
@@ -122,5 +126,5 @@ export class WorldSpriteSystem {
       segmentTouchesRect(from,to,{left:body.left-width/2+.15,right:body.right+width/2-.15,
         top:body.top+.15,bottom:body.bottom+height-.15}));
   }
-  destroy(){for(const actor of this.owned.keys())this.release(actor);this.blend.destroy();}
+  destroy(){for(const actor of this.owned.keys())this.release(actor);this.blend?.destroy();}
 }

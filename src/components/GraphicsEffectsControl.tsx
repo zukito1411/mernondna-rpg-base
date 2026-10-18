@@ -12,6 +12,7 @@ const OPTIONS:ReadonlyArray<{key:GraphicEffectKey;title:string;description:strin
  {key:'cloudShadows',title:'Moving cloud shadows',description:'Soft shadows drifting over daytime landscapes.'},
  {key:'sunRays',title:'Sun rays',description:'Subtle light shafts during suitable daylight.'},
  {key:'dynamicShadows',title:'Moving actor shadows',description:'Player, NPC and enemy moving ground shadows.'},
+ {key:'groundBlend',title:'Ground-color blending (extra CPU)',description:'Recolor painted soil at the bottom of scenery sprites. Off by default to prevent texture-processing spikes. Reopen the game after changing this.'},
  {key:'treeSway',title:'Animated tree leaves',description:'Light wind-driven motion in tree canopies.'},
  {key:'waterMotion',title:'Animated water',description:'Moving river foam and ocean details.'},
  {key:'fireflies',title:'Night fireflies',description:'Nighttime insects in selected biomes.'}
@@ -24,7 +25,7 @@ export function GraphicsEffectsControl(){
    Advanced graphics — individual effects {expanded?'▴':'▾'}
   </button>
   {expanded&&<div className="graphics-effects-options">
-   <p className="graphics-effects-note">Disable effects independently without removing character or scenery assets. Nighttime mist defaults off on mobile.</p>
+   <p className="graphics-effects-note">Disable effects independently without removing character or scenery assets. Ground-color blending is off by default on all devices to eliminate runtime sprite-mask processing. Reopen the game after changing ground-color blending.</p>
    {OPTIONS.map(option=><label className="graphics-effect-toggle" key={option.key}>
     <input type="checkbox" checked={effects[option.key]} onChange={e=>{
      setGraphicEffect(option.key,e.target.checked);setEffects({...getGraphicEffects()});

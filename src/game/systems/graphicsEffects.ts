@@ -6,7 +6,7 @@ export interface GraphicEffects {
  nightMist:boolean; daytimeFog:boolean; weatherParticles:boolean;
  cloudShadows:boolean; sunRays:boolean; treeSway:boolean; waterMotion:boolean;
  dynamicShadows:boolean; fireflies:boolean; lightBloom:boolean; nightDarkness:boolean;
- combatShake:boolean;
+ combatShake:boolean; groundBlend:boolean;
 }
 export type GraphicEffectKey=keyof GraphicEffects;
 const STORAGE_KEY='leighneron:graphics-effects:v1';
@@ -16,7 +16,10 @@ function recommended():GraphicEffects{
  return {nightMist:!mobile(),daytimeFog:true,weatherParticles:true,cloudShadows:true,
    sunRays:true,treeSway:true,waterMotion:true,dynamicShadows:true,
    fireflies:true,lightBloom:true,nightDarkness:true,
-   combatShake:typeof window==='undefined'||!window.matchMedia('(prefers-reduced-motion: reduce)').matches};
+   combatShake:typeof window==='undefined'||!window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+   // Disable dynamic ground-skirt recoloring by default on every device.
+   // The unmodified full-resolution scenery textures still render.
+   groundBlend:false};
 }
 let cache:GraphicEffects|undefined;
 export function getGraphicEffects():GraphicEffects {
