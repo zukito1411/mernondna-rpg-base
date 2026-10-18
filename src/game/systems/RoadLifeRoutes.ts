@@ -13,7 +13,10 @@ export function roadLifeRoutes():RoadLifeRoute[]{
   const routes:RoadLifeRoute[]=[];
   for(const road of ROAD_ROUTES){
     const length=pathLength(road.points),speed=42,rng=seededRandom('road-life:'+road.id);
-    const count=Math.min(64,Math.max(2,Math.ceil(length/2200)));
+    // Only a sparse set of logical journeys is needed. Offscreen travelers have
+    // no physics bodies, art or navigation; a region admits at most one visible
+    // pair, so dozens of overlapping journey slots per road add no game value.
+    const count=Math.min(16,Math.max(1,Math.ceil(length/4800)));
     for(let i=0;i<count;i++)routes.push({id:`travel:${road.id}:${i}`,points:road.points,length,speed,
       phase:(i+rng()*.3)/count*length/speed*1000*2,townId:road.from,destinationId:road.to,patrol:false,clock:0});
     for(const townId of [road.from,road.to]){

@@ -16,10 +16,13 @@ interface Walker {npc:Npc;hp:number;maxHp:number;rest:number;cooldown:number;tar
 interface Party {id:string;walkers:Walker[];anchor:Vec2;patrol:boolean;route:RoadLifeRoute}
 interface PendingParty {party:Party;positions:Vec2[];roster:readonly AdventurerRole[];forward:boolean;next:number}
 type AdventurerRole='swordhand'|'huntress'|'archer';
-const ADVENTURER_PARTIES:readonly (readonly AdventurerRole[])[]=[
-  ['swordhand'],['huntress'],['archer'],['swordhand','huntress'],
-  ['swordhand','huntress'],['swordhand','archer'],['swordhand','huntress','archer'],
-];
+const ADVENTURER_PARTY:readonly AdventurerRole[]=['swordhand','huntress'];
+const GUARD_PATROL:readonly AdventurerRole[]=['swordhand','swordhand','swordhand'];
+// A single visible adventuring pair and one guard patrol are permitted in the
+// player's current region. The extra gap also prevents rapid replacements when
+// the player briefly turns around on the same road.
+const ADVENTURER_REVISIT_MS=45000;
+const GUARD_REVISIT_MS=60000;
 
 /** Streamed journeys use physical feet while visible and continue along the
  * same road offscreen. Story encounters and bosses remain independent. */
@@ -35,7 +38,10 @@ export class AmbientRoadLifeSystem{
   private combatEnemies:Enemy[]=this.emptyEnemies;
   private scan=0;
   private think=0;
-  private routeClockPending=0;
+  private virtualTime=0;
+  private activeRegion='';
+  private readonly nextGroupAt=new Map<string,number>();
+  private nextWalkerAt=0;
   private pendingParty:PendingParty|null=null;
   private spawnCandidates:Array<{route:RoadLifeRoute;point:ReturnType<typeof routePosition>}>=[];
   private scanCursor=0;
@@ -67,6 +73,9 @@ export class AmbientRoadLifeSystem{
   }
   update(delta:number,blocked:boolean){
     this.art.update();
+    // Indoor scenes have their own residents; don't retain or simulate hidden
+    // road actors, arrows, combat and physics bodies behind a room.
+    if(this.scene.inInterior&&(this.parties.size>0||this.pendingParty))this.clear();
     if(blocked){
       if(this.active)for(const party of this.parties.values())for(const walker of party.walkers){
         walker.target=null;walker.attacking=false;walker.npc.endStoryAttack();walker.npc.endStoryGuard();walker.npc.endStoryMovement();
@@ -75,17 +84,19 @@ export class AmbientRoadLifeSystem{
       this.scanRemaining=0;this.combatEnemies=this.emptyEnemies;this.arrows.clear();return;
     }
     this.active=true;const step=Math.min(100,Math.max(0,delta));
-    // Advance virtual journeys in small batches instead of visiting hundreds
-    // of offscreen routes on every animation frame. Maximum clock drift is 250 ms.
-    this.routeClockPending+=step;
-    if(this.routeClockPending>=250){
-      const elapsed=this.routeClockPending;this.routeClockPending=0;
-      for(const route of this.routes)if(!this.parties.has(route.id))route.clock+=elapsed;
+    // O(1) offscreen simulation: all virtual journeys share one clock. A route
+    // holds only a time offset, adjusted from its actual feet when unloaded.
+    // No hundreds-of-routes update loop while exploring unrelated regions.
+    this.virtualTime+=step;
+    const player=this.scene.player;
+    const region=this.world.getRegionAt(player.x,player.y);
+    if(region!==this.activeRegion){
+      this.activeRegion=region;this.scan=0;this.scanRemaining=0;this.spawnCandidates.length=0;
     }
     this.scan-=step;this.think-=step;
     const view=this.scene.cameras.main.worldView;
     for(const [id,party] of this.parties)if(party.walkers.every(w=>!w.npc.active||
-      w.npc.x<view.x-950||w.npc.x>view.right+950||w.npc.y<view.y-850||w.npc.y>view.bottom+1050))this.release(id,party);
+      w.npc.x<view.x-650||w.npc.x>view.right+650||w.npc.y<view.y-550||w.npc.y>view.bottom+750))this.release(id,party);
     if(this.scan<=0){this.scan=2500;this.populate();}
     this.collectSpawnCandidates();
     this.processSpawnCandidates();
@@ -193,10 +204,16 @@ export class AmbientRoadLifeSystem{
       this.scanCursor=(this.scanCursor+1)%this.routes.length;
       this.scanRemaining--;
       if(this.parties.has(route.id))continue;
-      const point=routePosition(route,route.clock);
+      const typeKey=this.activeRegion+':'+(route.patrol?'guard':'adventurer');
+      if(this.scene.time.now<(this.nextGroupAt.get(typeKey)??0))continue;
+      // Query this route's virtual location only when a nearby party is needed.
+      const point=routePosition(route,route.clock+this.virtualTime);
       const dx=point.x-player.x,dy=point.y-player.y;
-      if(dx*dx+dy*dy>=1900*1900)continue;
-      if(point.x>view.x-150&&point.x<view.right+150&&point.y>view.y-150&&point.y<view.bottom+150)continue;
+      if(dx*dx+dy*dy>=1550*1550)continue;
+      if(point.x>view.x-180&&point.x<view.right+180&&point.y>view.y-180&&point.y<view.bottom+180)continue;
+      // Keep the roaming simulation strictly regional; distant geography
+      // consumes no actor, physics, atlas or combat-update resources.
+      if(this.world.getRegionAt(point.x,point.y)!==this.activeRegion)continue;
       this.spawnCandidates.push({route,point});
     }
     if(this.scanRemaining===0){
@@ -211,32 +228,37 @@ export class AmbientRoadLifeSystem{
   private processSpawnCandidates(){
     if(this.scanRemaining>0)return;
     if(this.pendingParty||this.parties.size>=2){this.spawnCandidates.length=0;return;}
-    // Keep the full randomized candidate pool, but check only six costly spawn
-    // positions per frame. Dense areas can continue on the next frame rather
-    // than dropping prospective parties or causing a single-frame hitch.
+    // At most two placement validations per frame. No frame should pay for
+    // a dozen terrain/collider probes just to admit ambient decoration.
     let placementChecks=0;
-    while(this.spawnCandidates.length>0&&placementChecks<6){
+    while(this.spawnCandidates.length>0&&placementChecks<2){
       const {route,point}=this.spawnCandidates.pop()!;
       if(this.parties.has(route.id))continue;
       if([...this.parties.values()].some(p=>p.patrol===route.patrol||Math.hypot(p.anchor.x-point.x,p.anchor.y-point.y)<700))continue;
       const patrol=route.patrol;
-      const roster=ADVENTURER_PARTIES[Math.floor(seededRandom('roster:'+route.id)()*ADVENTURER_PARTIES.length)],number=patrol?3:roster.length;
-      if([...this.parties.values()].reduce((n,p)=>n+p.walkers.length,0)+number>6)continue;
+      const typeKey=this.activeRegion+':'+(patrol?'guard':'adventurer');
+      if(this.scene.time.now<(this.nextGroupAt.get(typeKey)??0))continue;
+      const roster=patrol?GUARD_PATROL:ADVENTURER_PARTY,number=roster.length;
+      // One captain with two guards, plus one adventurer and one huntress:
+      // never more than five roaming combat actors near the player.
+      if([...this.parties.values()].reduce((n,p)=>n+p.walkers.length,0)+number>5)continue;
       placementChecks++;
       const positions=Array.from({length:number},(_,rank)=>routePointAtDistance(route,
         point.distance+(point.forward?-1:1)*rank*78));
+      const nearbyEnemies=this.scene.getCombatEnemies();
       if(positions.some((p,i)=>!this.scene.npcCanStandAt(p.x,p.y)
         ||i>0&&Math.hypot(p.x-positions[i-1].x,p.y-positions[i-1].y)<60
-        ||this.scene.getCombatEnemies().some(e=>e.active&&Math.hypot(e.x-p.x,e.y-p.y)<180)))continue;
+        ||nearbyEnemies.some(e=>e.active&&Math.hypot(e.x-p.x,e.y-p.y)<180)))continue;
       const party:Party={id:route.id,walkers:[],anchor:point,patrol,route};
       this.parties.set(route.id,party);
       this.pendingParty={party,positions,roster,forward:point.forward,next:0};
+      this.nextGroupAt.set(typeKey,this.scene.time.now+(patrol?GUARD_REVISIT_MS:ADVENTURER_REVISIT_MS));
       this.spawnCandidates.length=0;
       return;
     }
   }
   private spawnNextWalker(){
-    const pending=this.pendingParty;if(!pending)return;
+    const pending=this.pendingParty;if(!pending||this.scene.time.now<this.nextWalkerAt)return;
     const {party,positions,roster,forward}=pending,rank=pending.next;
     if(!this.parties.has(party.id)||rank>=positions.length){this.pendingParty=null;return;}
     const {route,patrol}=party,p=positions[rank];
@@ -261,12 +283,16 @@ export class AmbientRoadLifeSystem{
     }
     npc.followRoadRoute(route.points,route.speed,{next,direction:forward?1:-1});
     party.walkers.push({npc,maxHp,hp:maxHp,rest:0,cooldown:rank*200,target:null,engageFrom:null,hit:false,attacking:false,rank,aim:null});
+    this.nextWalkerAt=this.scene.time.now+160;
     if(++pending.next>=positions.length)this.pendingParty=null;
   }
   private release(id:string,party:Party){
     if(this.pendingParty?.party===party)this.pendingParty=null;
     const leader=party.walkers.find(w=>w.npc.active)?.npc;
-    if(leader)rememberRoadJourney(party.route,leader,leader.roadTravelDirection);
+    if(leader){
+      rememberRoadJourney(party.route,leader,leader.roadTravelDirection);
+      party.route.clock-=this.virtualTime;
+    }
     for(const walker of party.walkers){this.arrows.forget(walker.npc);if(walker.npc.active)this.scene.releaseRoadNpc(walker.npc);}
     this.parties.delete(id);
     for(const [enemy,npc] of this.opponents)if(party.walkers.some(w=>w.npc===npc))this.opponents.delete(enemy);
