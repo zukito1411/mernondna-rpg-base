@@ -101,7 +101,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(!this.active||this.scene.time.now<this.hitFlashUntil)return;
     const tint=this.presentationTint;
     const apply=(sprite:Phaser.GameObjects.Sprite|null|undefined)=>{
-      if(!sprite?.active)return;if(tint===0xffffff)sprite.clearTint();else sprite.setTint(tint);
+      if(!sprite?.active)return;
+      // Tint setters mark sprite render state. Only change it when status
+      // colors actually change, or when a white hit-flash must be cleared.
+      if(tint===0xffffff){
+        if(sprite.isTinted)sprite.clearTint();
+      }else if(!sprite.isTinted||sprite.tintTopLeft!==tint||sprite.tintTopRight!==tint
+        ||sprite.tintBottomLeft!==tint||sprite.tintBottomRight!==tint)sprite.setTint(tint);
     };
     apply(this);apply(this.leapVisual);
     const dragonVisual=this.dragonCombat?.visual;if(dragonVisual!==this)apply(dragonVisual);
@@ -866,7 +872,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Visibility and eligibility stay identical, only their order changes.
     const eligible=!paused&&scene.cameras.main.worldView.contains(this.x,this.y)
       &&scene.targeting.eligible(this);
-    if(eligible&&!useGameStore.getState().cinematic)useGameStore.getState().discoverCreature(this.definition.id,this.boss?.id);
+    if(eligible){
+      const story=useGameStore.getState();
+      if(!story.cinematic&&(!Object.hasOwn(story.journal.creatures,this.definition.id)
+        ||Boolean(this.boss&&!Object.hasOwn(story.journal.bosses,this.boss.id))))
+        story.discoverCreature(this.definition.id,this.boss?.id);
+    }
     const selected=eligible&&scene.targeting.selected===this;
     const model=this.dragonCombat?.visual??(this.leapVisual?.active?this.leapVisual:this);
     const bounds=(model.frame.customData as {visibleBounds?:{top:number;height:number}}).visibleBounds;
