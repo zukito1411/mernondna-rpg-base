@@ -33,6 +33,8 @@ export class WeatherSystem {
   private readonly tint:Phaser.GameObjects.Image;
   private kind:Kind='clear';private target:Kind='clear';private strength=0;private elapsed=0;private drawMs=100;
   private roofMs=500;private roofs:Rect[]=[];
+  private lastAmbienceUpdateAt=-Infinity;
+  private lastAmbienceMuted=false;
   private readonly fogArt=new FogArt();private ambientMist=0;
   private readonly ashArt=new AshfallArt();
   private readonly points:Array<{x:number;y:number;speed:number;phase:number}>;
@@ -215,6 +217,10 @@ export class WeatherSystem {
   }
   private updateAmbience(region:string,biome:string,night:number,muted:boolean){
     if(!this.audio||!this.gain||!this.audioBus||!this.audioFilter)return;
+    // WebAudio interpolates scheduled targets. Updating them at 90ms cadence
+    // avoids per-frame AudioParam scheduling while immediate mute still works.
+    if(muted===this.lastAmbienceMuted&&this.elapsed-this.lastAmbienceUpdateAt<90)return;
+    this.lastAmbienceMuted=muted;this.lastAmbienceUpdateAt=this.elapsed;
     const now=this.audio.currentTime,coast=region==='dead-sea'||biome==='coast';
     this.audioBus.gain.setTargetAtTime(muted?0:1,now,.18);
     const weather=['rain','storm','wind','dust','ash'].includes(this.kind)

@@ -62,9 +62,13 @@ export class WaterSurfaceSystem {
     }
     this.overlay.setVisible(this.cells.length>0);if(!this.cells.length)return;
     const ctx=this.texture.getContext();ctx.clearRect(0,0,w,h);
+    // Resolve four atlas frames per repaint rather than querying the texture
+    // registry for every individual foam and riverbank particle.
+    const foamFrames=[0,1,2,3].map(i=>this.scene.textures.getFrame('water-foam',i)!);
+    const frameIndex=Math.floor(this.elapsed/220);
     // Animate painted foam frames rather than drawing geometric wave strokes.
     const paint=(x:number,y:number,width:number,height:number,phase:number,rotation=0,alpha=.18)=>{
-      const frame=this.scene.textures.getFrame('water-foam',(Math.floor(this.elapsed/220)+phase)%4)!;
+      const frame=foamFrames[(frameIndex+phase)%4];
       ctx.save();ctx.globalAlpha=alpha;ctx.translate((x-this.base.x)*z,(y-this.base.y)*z);ctx.rotate(rotation);
       ctx.drawImage(frame.source.image as CanvasImageSource,frame.cutX,frame.cutY,frame.cutWidth,frame.cutHeight,-width*z/2,-height*z/2,width*z,height*z);ctx.restore();
     };

@@ -1,8 +1,9 @@
+import { memo } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { compassDirection, questBearing } from '../game/systems/questNavigation';
 import { TILE_SIZE } from '../data/world';
 
-export function QuestCompass() {
+export const QuestCompass = memo(function QuestCompass() {
   const target = useGameStore(s => s.navigation.target);
   const position=useGameStore(s=>s.navigation.playerPosition);
   const worldX = useGameStore(s => s.worldX), worldY = useGameStore(s => s.worldY);
@@ -26,4 +27,4 @@ export function QuestCompass() {
       </div>
     </div>
   );
-}
+});

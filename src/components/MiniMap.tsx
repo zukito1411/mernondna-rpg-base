@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { WorldGenerator } from '../game/systems/WorldGenerator';
 import { mapPoint, questBearing } from '../game/systems/questNavigation';
@@ -14,9 +14,10 @@ const COLORS: Record<TerrainKind,string> = {
   marsh:'#657363',lava:'#b85835',ice:'#9fc8df',
 };
 
-export function MiniMap() {
+export const MiniMap = memo(function MiniMap() {
   const ref = useRef<HTMLCanvasElement>(null);
-  const terrainCache = useRef<{ key: string; x: number; y: number; canvas: HTMLCanvasElement } | null>(null);
+  // Four exact-resolution cached mini terrain tiles improve backtracking.
+  const terrainCache=useRef(new Map<string,{x:number;y:number;canvas:HTMLCanvasElement}>());
   const x = useGameStore(s => s.worldX), y = useGameStore(s => s.worldY);
   const navigation = useGameStore(s => s.navigation);
   const day = useGameStore(s => s.day);
@@ -31,7 +32,7 @@ export function MiniMap() {
     const player = navigation.playerPosition??{ x, y }, originX = Math.floor(x / 256) * 256, originY = Math.floor(y / 256) * 256;
     const key = `${originX}:${originY}`;
     const extent = RANGE * 8 / 3;
-    if (!navigation.interiorName&&terrainCache.current?.key !== key) {
+    if (!navigation.interiorName&&!terrainCache.current.has(key)) {
       const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
       const background = canvas.getContext('2d');
       if (!background) return; // A memory-stressed Android WebView may deny a 2D context.
@@ -42,9 +43,14 @@ export function MiniMap() {
         background.fillStyle = COLORS[terrain];
         background.fillRect(column * 256 / 48,row * 256 / 48,Math.ceil(256 / 48),Math.ceil(256 / 48));
       }
-      terrainCache.current = { key, x: left, y: top, canvas };
+      terrainCache.current.set(key,{x:left,y:top,canvas});
+      while(terrainCache.current.size>4){
+        const oldest=terrainCache.current.keys().next().value;
+        if(oldest===undefined)break;
+        terrainCache.current.delete(oldest);
+      }
     }
-    const cache = terrainCache.current;
+    const cache = terrainCache.current.get(key);
     const scale = SIZE / (2 * RANGE);
     ctx.clearRect(0,0,SIZE,SIZE); ctx.save(); ctx.beginPath(); ctx.arc(SIZE / 2,SIZE / 2,SIZE / 2 - 2,0,Math.PI * 2); ctx.clip();
     ctx.imageSmoothingEnabled = false;
@@ -84,4 +90,4 @@ export function MiniMap() {
       <span className="minimap-weather">{weather}</span>
     </button>
   );
-}
+});
