@@ -53,7 +53,14 @@ export class GroundCoverBaker {
         if(['water','lava','ice','farmland'].includes(terrain))continue;
         const layout=settlementAt(x,y),town=layout&&TOWN_BY_ID[layout.townId];
         const local=town?{x:x-town.world.x,y:y-town.world.y}:null;
-        const streetEdge=layout&&local?Math.min(Infinity,...layout.streets.flatMap(s=>s.points.slice(1).map((b,i)=>segmentDistance(local.x,local.y,s.points[i],b)-s.width/2))):Infinity;
+        // Same street distances, without creating hundreds of temporary arrays.
+         let streetEdge=Infinity;
+         if(layout&&local)for(const street of layout.streets){
+           for(let i=1;i<street.points.length;i++){
+             const d=segmentDistance(local.x,local.y,street.points[i-1],street.points[i])-street.width/2;
+             if(d<streetEdge)streetEdge=d;
+           }
+         }
         const greenEdge=['grass','forest','marsh'].includes(terrain);
         const softEdge=(terrain==='stone'||terrain==='dirt')&&[[48,0],[-48,0],[0,48],[0,-48]].some(([dx,dy])=>
           ['grass','forest','marsh','snow','sand','ash'].includes(world.getTerrainAt(x+dx,y+dy)));

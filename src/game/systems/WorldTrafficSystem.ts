@@ -19,6 +19,7 @@ export interface Vehicle {
 /** Real artwork layers follow traveled distance. All attached actors unload together. */
 export class WorldTrafficSystem {
   private readonly roads:TrafficRoute[];
+  private readonly roadBounds=new Map<string,{left:number;right:number;top:number;bottom:number}>();
   private readonly sea=new Map<string,TrafficRoute|null>();
   private readonly active=new Map<string,Vehicle>();
   private elapsed=0;
@@ -26,6 +27,16 @@ export class WorldTrafficSystem {
   private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator,private readonly shadows:GroundShadowSystem){
     this.roads=cartRoutes(world);this.routes=this.roads;
+    // Route bounds are immutable; reject distant merchants before the
+    // expensive per-frame route-position interpolation.
+    for(const route of this.roads){
+      let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+      for(const pt of route.points){
+        if(pt.x<left)left=pt.x;if(pt.x>right)right=pt.x;
+        if(pt.y<top)top=pt.y;if(pt.y>bottom)bottom=pt.y;
+      }
+      this.roadBounds.set(route.id,{left,right,top,bottom});
+    }
     if(!scene.textures.exists('vehicle-deck-shadow')){
       const texture=scene.textures.createCanvas('vehicle-deck-shadow',64,32)!,ctx=texture.getContext();
       ctx.translate(32,16);ctx.scale(1,.45);const gradient=ctx.createRadialGradient(0,0,0,0,0,30);
@@ -51,6 +62,9 @@ export class WorldTrafficSystem {
       this.presentBoat(boat,port.boat.x,port.boat.y,0,-1,3,false);
     }
     for(const route of this.routes){
+      const bounds=this.roadBounds.get(route.id);
+      if(bounds&&(bounds.right<view.x-320||bounds.left>view.right+320
+        ||bounds.bottom<view.y-240||bounds.top>view.bottom+420))continue;
       const point=routePosition(route,this.elapsed);
       if(point.x<view.x-320||point.x>view.right+320||point.y<view.y-240||point.y>view.bottom+420)continue;
       wanted.add(route.id);

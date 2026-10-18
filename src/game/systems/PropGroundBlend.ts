@@ -20,21 +20,25 @@ export class PropGroundBlend{
   private serial=0;
   private retryMs=0;
   private readonly retry=(_time:number,delta:number)=>{
-    this.retryMs+=delta;if(this.retryMs<80||!this.pending.size)return;this.retryMs=0;
+    // Recolor only one full-size variant per budget tick, rather than eight
+    // pixel scans and GPU uploads during the same frame as terrain creation.
+    this.retryMs+=delta;if(this.retryMs<40||!this.pending.size)return;this.retryMs=0;
     const view=this.scene.cameras.main.worldView;
     const requests=[...this.pending].sort(([a],[b])=>Number(view.contains(b.x,b.y))-Number(view.contains(a.x,a.y)));
-    let processed=0;
+    let unavailable=0;
     for(const [actor,request] of requests){
       if(!actor.active){this.pending.delete(actor);continue;}
-      if(this.prepare(actor,request))this.pending.delete(actor);
-      if(++processed>=8)break;
+      if(this.prepare(actor,request)){this.pending.delete(actor);break;}
+      if(++unavailable>=4)break;
     }
   };
   constructor(private readonly scene:Phaser.Scene){scene.events.on(Phaser.Scenes.Events.POST_UPDATE,this.retry);}
   apply(actor:Actor,texture:ArtTextureKey,frame:number,ground:{x:number;y:number}={x:actor.x,y:actor.y}){
     const profile=propGroundProfile(texture,frame);if(!profile||this.bindings.has(actor)||this.pending.has(actor))return;
     const request={texture,frame,profile,ground};
-    if(!this.prepare(actor,request))this.pending.set(actor,request);
+    // Preserve the original artwork until the matching full-detail variant
+    // is ready; scenery construction never blocks on this pixel operation.
+    this.pending.set(actor,request);
     actor.once('destroy',()=>{this.pending.delete(actor);this.unbind(actor);});
   }
   private prepare(actor:Actor,request:Request){
