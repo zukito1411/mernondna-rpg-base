@@ -181,6 +181,14 @@ export class BootScene extends Phaser.Scene {
     // A stale PWA cache may hold an old asset at the same filename. The
     // query parameter bypasses that cache without changing game/save data.
     const token=Date.now().toString(36);
+    // A source-image loaderror can accompany an absent TextureManager key.
+    // Retrying that exact source supersedes its original load failure, but
+    // unrelated art failures must remain visible to the player.
+    const repairedFiles=new Set(invalid.map(({path})=>heroBodySource(path)));
+    for(let i=this.failures.length-1;i>=0;i--){
+      const url=this.failures[i].split('?')[0];
+      if([...repairedFiles].some(file=>url.endsWith(file)))this.failures.splice(i,1);
+    }
     for(const {path} of invalid){
       const key=`source:${path}`,file=heroBodySource(path);
       if(this.textures.exists(key))this.textures.remove(key);
@@ -255,6 +263,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // Check registered textures *before* reporting generic file failures;
+    // a single missing sprite can be repaired without discarding the save.
+    if(this.repairSpriteSources())return;
     if (this.failures.length) {
       const message = `Art could not load:\n${this.failures.join('\n')}\nCheck public/assets and the pack manifests, then reload.`;
       this.registry.set('assetError', message);
@@ -265,7 +276,6 @@ export class BootScene extends Phaser.Scene {
       });
       return;
     }
-    if(this.repairSpriteSources())return;
     this.registry.set('loadingStage','Preparing character art');
     registerAttackWarningFrames(this);
     prepareCombatArtEffects(this);
