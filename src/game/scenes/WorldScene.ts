@@ -190,7 +190,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       &&(this.inInterior?this.interiors.ready&&this.interiors.combatFeet(point.x,point.y,18,npc):this.npcCanStandAt(point.x,point.y,npc));
   }
   companionPathClear(from:Vec2,to:Vec2,npc:Npc){
-    return (this.inInterior?this.interiors.combatPath(from,to,18):this.canNpcVisit(from,to)&&this.canTraverseGround(from,to))
+    // Interior furniture/residents use room-local collision geometry. Outdoor
+    // NPC lists and the generic room check (which sees Alice as an obstacle)
+    // must not block her own movement while the physics world is paused.
+    if(this.inInterior)return this.interiors.ready&&this.interiors.companionPath(from,to,npc);
+    return this.canNpcVisit(from,to)&&this.canTraverseGround(from,to)
       &&!this.npcPathBlocker(from,to,npc);
   }
   talkToCompanion(){

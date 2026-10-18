@@ -117,7 +117,9 @@ export class AliceCompanionSystem {
       if(Math.hypot(npc.x-player.x,npc.y-player.y)>550||this.location!==null){
         const point=this.arrivalPoint(npc);if(!point)return;
         (npc.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
+        npc.setPosition(point.x,point.y).setDepth(this.scene.playerRenderDepth(point.y));
       }
+      this.previousPlayer={x:player.x,y:player.y};
       this.location=location;this.contact?.destroy();this.contact=null;
       if(this.scene.inInterior)this.contact=this.scene.addInteriorContact(npc);
     }

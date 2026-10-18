@@ -292,7 +292,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   advanceCinematic(delta:number) {
     const body=this.body as Phaser.Physics.Arcade.Body,step=Math.min(delta,80)/1000;
     const point={x:this.x+body.velocity.x*step,y:this.y+body.velocity.y*step};
-    if((this.scene as WorldScene).canNpcVisit(this,point)){
+    const world=this.scene as WorldScene;
+    const canAdvance=this.companionControl&&world.inInterior
+      ?world.companionPathClear(this,point,this)
+      :world.canNpcVisit(this,point);
+    if(canAdvance){
       this.setPosition(point.x,point.y);body.updateFromGameObject();
     }else body.setVelocity(0,0);
   }
@@ -320,7 +324,10 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       if(length<=3){this.storyRest();return;}
       const speed=Math.min(goal.speed,length/Math.max(.001,Math.min(delta,100)/1000));
       const ahead={x:this.x+dx/length*Math.min(22,length),y:this.y+dy/length*Math.min(22,length)};
-      if(!scene.canNpcVisit(this,ahead)||!scene.canTraverseGround(this,ahead)){
+      const clear=scene.inInterior
+        ?scene.companionPathClear(this,ahead,this)
+        :scene.canNpcVisit(this,ahead)&&scene.canTraverseGround(this,ahead);
+      if(!clear){
         this.storyRest();return;
       }
       this.facing.set(dx/length,dy/length);this.stalledMs=0;

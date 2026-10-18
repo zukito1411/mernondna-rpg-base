@@ -367,6 +367,17 @@ export class InteriorSession {
     for(let i=0;i<=steps;i++)if(!this.combatFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,radius,undefined,true))return false;
     return true;
   }
+  /** Companion-only indoor path check. Outdoor NPC collisions must not affect
+   * rooms, and Alice must not collide with her own footprint while walking.
+   * Keep walls, furniture and other residents solid along the swept path. */
+  companionPath(a:Vec2,b:Vec2,companion:Npc){
+    const radius=12,steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));
+    for(let i=0;i<=steps;i++){
+      const t=i/steps,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+      if(!this.combatFeet(x,y,radius,companion))return false;
+    }
+    return true;
+  }
   navigationPoint(enemy:Enemy,target:Vec2):Vec2{
     if(this.combatPath(enemy,target))return target;
     const key=Math.floor(target.x/48)+':'+Math.floor(target.y/48),cached=this.combatPaths.get(enemy);
