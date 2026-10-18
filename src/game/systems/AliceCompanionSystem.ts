@@ -174,8 +174,12 @@ export class AliceCompanionSystem {
     const gap=Math.hypot(player.x-npc.x,player.y-npc.y);
     const progress=this.previousAlice?Math.hypot(npc.x-this.previousAlice.x,npc.y-this.previousAlice.y):0;
     this.previousAlice={x:npc.x,y:npc.y};
-    this.stationaryMs=gap>220&&this.previousAlice&&progress<1
-      ?this.stationaryMs+step:0;
+    // Holding position while covering the player is intentional, not a
+    // navigation stall. Only an extreme separation interrupts combat.
+    if(this.target&&gap<520){
+      this.stationaryMs=0;this.behindMs=0;return;
+    }
+    this.stationaryMs=gap>220&&progress<1?this.stationaryMs+step:0;
     this.behindMs=gap>360?this.behindMs+step:0;
     if(gap<520&&!(gap>250&&this.stationaryMs>=1600)
       &&!(gap>360&&this.behindMs>=2700))return;
