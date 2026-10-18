@@ -391,6 +391,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(!c||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.contracts[id]||state.cinematic
       ||!boardContracts(c.townId,state.day).some(offer=>offer.id===id))return {};
     if(outstandingContracts(state.contracts)>=MAX_ACTIVE_CONTRACTS)return {toast:`Finish or abandon a contract first. You can carry ${MAX_ACTIVE_CONTRACTS}.`};
+    // A renewed bounty/cave should never stack with an older unclaimed
+    // commission for the same boss/chest and pay twice from a single clear.
+    const sameTarget=Object.entries(state.contracts).some(([otherId,p])=>{
+      if(p.claimed)return false;
+      const other=contractById(otherId);
+      return Boolean(other&&(c.bossId&&other.bossId===c.bossId
+        ||c.dungeonId&&other.dungeonId===c.dungeonId));
+    });
+    if(sameTarget)return {toast:'Finish or abandon your existing bounty or cave contract for this target first.'};
     // An already-opened chest cannot fulfill a newly accepted cave job.
     return {contracts:{...state.contracts,[id]:{progress:0,claimed:false}},
       toast:`Accepted: ${c.title}.${c.dungeonId?' Clear the cave and open its chest after accepting.':' Only new defeats count.'}`};
@@ -558,7 +567,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const contracts=lootEligible?advanceContracts(state.contracts,enemyId,defeatRegion??state.regionId,bossId):state.contracts;
     const ready=contracts!==state.contracts?Object.keys(contracts).find(id=>{
       const p=contracts[id],previous=state.contracts[id],c=contractById(id);
-      return p!==previous&&p.progress===c.amount;
+      return p!==previous&&Boolean(c)&&p.progress===c!.amount;
     }):undefined;
     const breakthroughKill=bossId==='varkhul'&&lootEligible&&state.storyFlags[BREAKTHROUGH_ACCEPTED]&&!state.storyFlags[BREAKTHROUGH_TRIAL];
     const consequenceFlags=questConsequences(result.quests,state.storyFlags);
