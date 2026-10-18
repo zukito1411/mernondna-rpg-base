@@ -39,6 +39,10 @@ export class DayNightSystem {
   private maskWorldScale=0;
   private readonly maskPaddingCss = 96;
   private firefliesEnabled=true;
+  // Avoid even traversing lit-window, lantern, rune and firefly objects while
+  // their effects are disabled. One visibility pass occurs on state changes.
+  private bloomWasEnabled=false;
+  private firefliesWereEnabled=false;
   setFirefliesEnabled(enabled:boolean){this.firefliesEnabled=enabled;}
   constructor(private readonly scene:Phaser.Scene) {
     const state=useGameStore.getState();this.day=state.day;this.minuteOfDay=state.minuteOfDay;
@@ -73,7 +77,7 @@ export class DayNightSystem {
     for(const [index,p] of points.entries()) {
       const glow=this.scene.add.image(actor.x,actor.y,'warm-light').setDepth(1_000_001).setBlendMode(Phaser.BlendModes.ADD)
         .setDisplaySize(p.radius*2*Math.sqrt(scale),p.radius*2*Math.sqrt(scale))
-        .setTint(key==='elarion_tree'?0x52dfff:0xffffff).setAlpha(0).setName('environment-light:'+actor.name+':'+index);
+        .setTint(key==='elarion_tree'?0x52dfff:0xffffff).setAlpha(0).setVisible(false).setName('environment-light:'+actor.name+':'+index);
       const node:LocalLight={actor,x:p.x*scale,y:p.y*scale+(1-actor.originY)*ART_BY_KEY[key].frameHeight*scale,
         radius:p.radius*Math.sqrt(scale),fire:p.fire,phase:index*.8+actor.x*.013+actor.y*.019,glow,
         cutout:this.scene.make.image({key:ensureNightLightArt(this.scene),frame:nightLightFrame(false,0,0),add:false})};
@@ -85,12 +89,12 @@ export class DayNightSystem {
         const runeGlow=this.scene.add.sprite(actor.x,actor.y,key+':rune-glow',frame).setOrigin(actor.originX,actor.originY)
           .setScale(actor.scaleX,actor.scaleY).setRotation(actor.rotation).setDepth(actor.depth+.004)
           .setBlendMode(Phaser.BlendModes.ADD).setData('emissionOwner',actor).setData('emissionType','tree-rune-glow')
-          .setName('tree-rune-glow:'+actor.name);
+          .setVisible(false).setName('tree-rune-glow:'+actor.name);
         this.emissions.add(runeGlow);ownedEmissions.push(runeGlow);
       }
       const emission=this.scene.add.sprite(actor.x,actor.y,key+':emission',frame).setOrigin(actor.originX,actor.originY)
         .setScale(actor.scaleX,actor.scaleY).setRotation(actor.rotation).setDepth(actor.depth+.006).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0)
-        .setData('emissionOwner',actor).setName('window-emission:'+actor.name);
+        .setData('emissionOwner',actor).setVisible(false).setName('window-emission:'+actor.name);
       if(this.scene.textures.exists(key+':rune-glow'))emission.setData('emissionType','tree-runes').setName('tree-rune-emission:'+actor.name);
       this.emissions.add(emission);ownedEmissions.push(emission);
     }
@@ -119,6 +123,7 @@ export class DayNightSystem {
     const night=nightStrength(this.minuteOfDay);
     const effects=getGraphicEffects();
     const camera=this.scene.cameras.main,view=camera.worldView,full=overlayViewport(this.scene);
+    if(effects.lightBloom){
     for(const node of this.lights) {
       const x=node.actor.x+node.x,y=node.actor.y+node.y,r=node.radius;
       const visible=node.actor.visible&&effects.lightBloom&&night>0&&x+r>=view.left&&x-r<=view.right&&y+r>=view.top&&y-r<=view.bottom;
@@ -154,23 +159,30 @@ export class DayNightSystem {
         emission.setAlpha(night*.8).setVisible(true);
       }
     }
-    // Stable world-space pockets. Camera zoom never gets applied twice.
-    const cx=Math.floor(playerX/1024)*1024+512,cy=Math.floor(playerY/1024)*1024+512;
+    }else if(this.bloomWasEnabled){
+      // Last enabled frame: hide all glow sprites once, not every frame.
+      for(const node of this.lights)if(node.glow.visible)node.glow.setVisible(false);
+      for(const emission of this.emissions)if(emission.visible)emission.setVisible(false);
+    }
+    this.bloomWasEnabled=effects.lightBloom;
     const showFireflies=effects.fireflies&&this.firefliesEnabled&&night>.02;
-    // Do not move and animate dozens of invisible firefly objects all day.
-    // Their full animation resumes at the current world-clock phase at dusk.
-    for(let i=0;i<this.fireflies.length;i++) {
-      const fly=this.fireflies[i];
-      if(!showFireflies){
+    if(showFireflies){
+      const cx=Math.floor(playerX/1024)*1024+512,cy=Math.floor(playerY/1024)*1024+512;
+      // Only calculate the animation when fireflies are enabled and visible.
+      for(let i=0;i<this.fireflies.length;i++) {
+        const fly=this.fireflies[i];
+        const drift=this.elapsed*.00035,pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
+        const x=cx+fly.dx+Math.sin(drift+fly.phase)*32,y=cy+fly.dy+Math.cos(drift*.8+fly.phase)*24;
+        fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(!this.lightweight);
+        fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(!this.lightweight||i<6);
+      }
+    }else if(this.firefliesWereEnabled){
+      for(const fly of this.fireflies){
         if(fly.glow.visible)fly.glow.setVisible(false);
         if(fly.light.visible)fly.light.setVisible(false);
-        continue;
       }
-      const drift=this.elapsed*.00035,pulse=(Math.sin(this.elapsed*.003+fly.phase)+1)/2;
-      const x=cx+fly.dx+Math.sin(drift+fly.phase)*32,y=cy+fly.dy+Math.cos(drift*.8+fly.phase)*24;
-      fly.glow.setPosition(x,y).setAlpha(night*(.03+pulse*.22)).setVisible(!this.lightweight);
-      fly.light.setPosition(x,y).setAlpha(night*(.12+pulse*.72)).setVisible(!this.lightweight||i<6);
     }
+    this.firefliesWereEnabled=showFireflies;
     const resolution=this.lightweight ? .65 : 1;
     const z=full.zoom*resolution,pad=Math.round(this.maskPaddingCss*resolution);
     const w=this.texture.width,h=this.texture.height;
