@@ -79,7 +79,10 @@ export class AmbientRoadLifeSystem{
     if(nearest2===NEAR_ROAD_MAX_DISTANCE*NEAR_ROAD_MAX_DISTANCE)return null;
     // The route may pass through the region boundary: require the actual
     // spawn point to belong to the region occupied by the player.
-    for(const offset of [230,-230,330,-330,440,-440,560,-560,150,-150]){
+    // On wide/low-zoom displays, a fixed 560-unit search radius can still be
+    // entirely inside the camera. Probe farther along the same road when needed.
+    const offsets=[170,260,380,520,700,900,1150,1500];
+    for(const magnitude of offsets)for(const offset of [magnitude,-magnitude]){
       const distance=along+offset;
       if(distance<75||distance>route.length-75)continue;
       const pos=routePointAtDistance(route,distance);
