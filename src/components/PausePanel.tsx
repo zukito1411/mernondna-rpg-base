@@ -20,7 +20,6 @@ export function PausePanel() {
         <div className="menu-actions">
           <GraphicsQualityControl />
           <GraphicsEffectsControl />
-          <button type="button" onClick={()=>useGameStore.getState().openPanel('codex')}>Bestiary & lore · B</button>
           <button type="button" onClick={()=>{useGameStore.getState().hydrate({weatherAudio:!ambience});window.dispatchEvent(new Event('mernondna-weather-audio'));}}>World sounds: {ambience?'on':'off'}</button>
           <button type="button" onClick={() => { const saved = saveGame(); showToast(saved ? 'Game saved and verified locally.' : getSaveFailureReason() ?? 'Saving is unavailable. Check browser storage.'); close(); }}>Save game</button>
           <SaveTransferControls/>
