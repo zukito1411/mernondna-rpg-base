@@ -42,6 +42,7 @@ export class ChunkManager {
     }
   }
   private lastCenter = '';
+  private lastTravelViewKey='';
   private readonly baker: TerrainBaker;
   // LEIGHNERON_STAGGER_CHUNKS_V1: don't bake three huge neighbor chunks in one frame.
   private readonly pendingChunks = new Map<string,{x:number;y:number}>();
@@ -63,6 +64,13 @@ export class ChunkManager {
     const centerX = Math.floor(worldX / CHUNK_SIZE);
     const centerY = Math.floor(worldY / CHUNK_SIZE);
     const camera=this.scene.cameras.main,halfW=camera.width/camera.zoom/2+128,halfH=camera.height/camera.zoom/2+128;
+    // Screen and player are still within exactly the same streamed cells:
+    // avoid constructing two sets of chunk keys on every animation frame.
+    const viewKey=centerX+':'+centerY+':'
+      +Math.floor((worldX-halfW)/CHUNK_SIZE)+':'+Math.floor((worldX+halfW)/CHUNK_SIZE)+':'
+      +Math.floor((worldY-halfH)/CHUNK_SIZE)+':'+Math.floor((worldY+halfH)/CHUNK_SIZE);
+    if(viewKey===this.lastTravelViewKey){this.loadPendingChunk();return;}
+    this.lastTravelViewKey=viewKey;
     const visible=viewportChunks({left:worldX-halfW,right:worldX+halfW,top:worldY-halfH,bottom:worldY+halfH});
     const wanted=chunkNeighborhood(worldX,worldY);
     for(const key of visible)wanted.add(key);
@@ -105,6 +113,7 @@ export class ChunkManager {
     // Covers complete mature trees beyond the edge, not just their ground anchors.
     const wanted=viewportChunks(view,768),visible=viewportChunks(view);
     this.lastCenter='view:'+streamViewKey(wanted);
+    this.lastTravelViewKey=''; // Explicit transition views supersede walking cache.
     for(const [key,chunk] of this.active)if(!wanted.has(key)){
       chunk.image.destroy();for(const image of chunk.scenery)image.destroy();
       this.retireTerrain(key,chunk);this.active.delete(key);
@@ -159,6 +168,7 @@ export class ChunkManager {
     for(const textureKey of this.recentTerrain.values())this.scene.textures.remove(textureKey);
     this.recentTerrain.clear();
     this.lastCenter = '';
+    this.lastTravelViewKey='';
     this.baker.destroy();
     this.scene.textures.remove('shared-ocean-chunk');
   }

@@ -24,6 +24,8 @@ export class GroundShadowSystem {
  private readonly scenery=new Set<Caster>();
  private readonly moving=new Set<Caster>();
  private readonly silhouettes=new Map<string,HTMLCanvasElement>();
+ private readonly staticVisible:Array<{caster:Caster;frame:Phaser.Textures.Frame}>=[];
+ private readonly movingVisible:Array<{caster:Caster;frame:Phaser.Textures.Frame}>=[];
  private readonly staticLayer:Layer;
  private readonly actorLayer:Layer;
  private readonly cloudLayer:Layer;
@@ -134,14 +136,14 @@ export class GroundShadowSystem {
   const cloudShift=this.cloudElapsed-this.cloudPaintElapsed;
   this.cloudLayer.image.setPosition(this.base.x+cloudShift,this.base.y-cloudShift*.24);
   if(this.staticDirty||this.staticScanMs>=(this.lightweight?650:250)){
-   this.staticScanMs=0;const visible=this.visible(this.scenery,width,height,castX,castY),stamp=this.stamp(visible);
+   this.staticScanMs=0;const visible=this.visible(this.scenery,width,height,castX,castY,this.staticVisible),stamp=this.stamp(visible);
    if(this.staticDirty||stamp!==this.sceneryStamp){this.paint(this.staticLayer,visible,daylight,castX,castY,cloud);this.sceneryStamp=stamp;}
    this.staticDirty=false;
   }
   this.actorLayer.image.setVisible(graphics.dynamicShadows);
   if(!graphics.dynamicShadows){this.actorStamp=null;return;}
   if(this.drawMs<(this.lightweight?70:33)&&!shifted)return;
-  this.drawMs=0;const visible=this.visible(this.moving,width,height,castX,castY),stamp=this.stamp(visible);
+  this.drawMs=0;const visible=this.visible(this.moving,width,height,castX,castY,this.movingVisible),stamp=this.stamp(visible);
   if(stamp===this.actorStamp)return;
   this.paint(this.actorLayer,visible,daylight,castX,castY,cloud);this.actorStamp=stamp;
  }
@@ -162,8 +164,9 @@ export class GroundShadowSystem {
   this.scene.events.on(Phaser.Scenes.Events.POST_UPDATE,sync);actor.once('destroy',release);
   image.once('destroy',()=>{this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE,sync);actor.off('destroy',release);});sync();return image;
  }
- private visible(casters:Set<Caster>,width:number,height:number,castX:number,castY:number){
-  const result:Array<{caster:Caster;frame:Phaser.Textures.Frame}>=[];
+ private visible(casters:Set<Caster>,width:number,height:number,castX:number,castY:number,
+  result:Array<{caster:Caster;frame:Phaser.Textures.Frame}>){
+  result.length=0;
   for(const caster of casters){
    const {actor,texture,frame:fixedFrame}=caster;if(caster.enabled===false||!actor.active||!actor.visible||actor.alpha<.05)continue;
    const frame=texture?this.scene.textures.getFrame(texture,fixedFrame):actor.frame;if(!frame)continue;
@@ -176,9 +179,16 @@ export class GroundShadowSystem {
   return result;
  }
  private stamp(visible:Array<{caster:Caster;frame:Phaser.Textures.Frame}>){
-  return visible.map(({caster:{actor},frame})=>[frame.texture.key,frame.name,
-   Math.round(actor.x*this.base.zoom*4),Math.round(actor.y*this.base.zoom*4),actor.scaleX,actor.scaleY,
-   actor.rotation,actor.alpha,actor.originX,actor.originY,actor.flipX,actor.flipY].join(',')).join(';');
+  let stamp='';
+  // Preserve exact keys without producing intermediate arrays per caster.
+  for(const {caster:{actor},frame} of visible){
+   if(stamp)stamp+=';';
+   stamp+=frame.texture.key+','+frame.name+','
+     +Math.round(actor.x*this.base.zoom*4)+','+Math.round(actor.y*this.base.zoom*4)+','
+     +actor.scaleX+','+actor.scaleY+','+actor.rotation+','+actor.alpha+','
+     +actor.originX+','+actor.originY+','+actor.flipX+','+actor.flipY;
+  }
+  return stamp;
  }
  private paint(layer:Layer,visible:Array<{caster:Caster;frame:Phaser.Textures.Frame}>,daylight:number,castX:number,castY:number,cloud:number){
   const ctx=layer.texture.getContext(),zoom=this.base.zoom;ctx.clearRect(0,0,layer.texture.width,layer.texture.height);

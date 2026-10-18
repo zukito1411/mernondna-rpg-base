@@ -48,6 +48,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private lockedUntil = 0;
   private nextSpecialAt = 0;
   private nextWanderAt = 0;
+  // Idle enemies need not redo the same terrain/collider probe every frame.
+  // Moving or scripted combatants retain full-frequency checks.
+  private occupancyX=NaN;
+  private occupancyY=NaN;
+  private occupancyValid=true;
+  private nextOccupancyCheckAt=0;
   private wander = new Phaser.Math.Vector2();
   private readonly facing = new Phaser.Math.Vector2(0, 1);
   private readonly rng: () => number;
@@ -265,7 +271,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    if (!scene.canEnemyOccupy(this.x,this.y,this)) {
+    const sameFeet=Math.abs(this.x-this.occupancyX)<.1&&Math.abs(this.y-this.occupancyY)<.1;
+    if(!sameFeet||time>=this.nextOccupancyCheckAt||Boolean(this.boss||this.encounterBehavior)){
+      this.occupancyX=this.x;this.occupancyY=this.y;
+      this.occupancyValid=scene.canEnemyOccupy(this.x,this.y,this);
+      this.nextOccupancyCheckAt=time+200;
+    }
+    if (!this.occupancyValid) {
       this.bossCombat?.cancel();
       body.reset(this.lastSafe.x,this.lastSafe.y);
       body.setVelocity(0,0); this.nextWanderAt = 0;
@@ -371,7 +383,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.wander.set(Math.cos(angle) * speed, Math.sin(angle) * speed);
       }
       const speed=this.wander.length(),ahead={x:this.x+this.wander.x/Math.max(1,speed)*24,y:this.y+this.wander.y/Math.max(1,speed)*24};
-      if(scene.canEnemyOccupy(ahead.x,ahead.y,this)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
+      // An already stationary wanderer should not raycast toward its feet.
+      if(speed<.001&&body.velocity.lengthSq()<.01)body.setVelocity(0,0);
+      else if(scene.canEnemyOccupy(ahead.x,ahead.y,this)&&scene.hasClearPath(this.x,this.y,ahead.x,ahead.y))
         body.setVelocity(approachVelocity(body.velocity.x,this.wander.x*this.weaponStatus.movementMultiplier,delta,120),approachVelocity(body.velocity.y,this.wander.y*this.weaponStatus.movementMultiplier,delta,120));
       else {body.setVelocity(0,0);this.nextWanderAt=time+1000;this.wander.set(0,0);}
     }

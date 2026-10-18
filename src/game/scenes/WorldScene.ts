@@ -146,6 +146,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private spawnAttempts = 0;
   private nextRoadBanditsAt=0;
   private readonly encounters=new EncounterCoordinator();
+  private readonly combatEnemyList:Enemy[]=[];
+  private combatEnemyListDirty=true;
   private readonly shipPaths=new WeakMap<Enemy,{until:number;target:Vec2;point:Vec2}>();
   private focused = true;
   private wasBlocked = false;
@@ -161,7 +163,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private nextImpactSoundAt=0;
   private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
-  getCombatEnemies(){return [...this.enemies].filter(e=>!this.inInterior||this.storyEncounters.owns(e));}
+  getCombatEnemies(){
+    if(this.inInterior)return [...this.enemies].filter(e=>this.storyEncounters.owns(e));
+    if(this.combatEnemyListDirty){
+      this.combatEnemyList.length=0;
+      for(const enemy of this.enemies)this.combatEnemyList.push(enemy);
+      this.combatEnemyListDirty=false;
+    }
+    return this.combatEnemyList;
+  }
   storyResidents(){return this.inInterior?this.interiors.getResidents():this.npcs.filter(n=>!n.definition.id.startsWith('road-life:'));}
   ambientOpponentFor(enemy:Enemy){return this.aliceCompanion?.opponent(enemy)??this.roadLife?.opponent(enemy)??null;}
   get companionActor(){return this.aliceCompanion?.actor??null;}
@@ -476,7 +486,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.npcBodies = this.physics.add.group();
     this.creatureBodies = this.physics.add.group();
     this.chunkManager = new ChunkManager(this,this.worldGenerator,this.treeSway,this.dayNight,this.worldSprites);
-    this.enemies.clear(); this.npcs.length = 0; this.interactables.clear();
+    this.enemies.clear();this.combatEnemyListDirty=true; this.npcs.length = 0; this.interactables.clear();
     this.storyCampRetryAt.clear();
     this.spawnAttempts = 0; this.spawnAccumulator = 0; this.hudAccumulator = 0;
     this.nextAmbientIntervalMs = 11000; this.nextRoadBanditsAt=0; this.encounters.clear();
@@ -1613,7 +1623,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       this.groundShadows.register(enemy);
       enemy.hp=restoredEnemyHealth(state,enemy.definition.hp);
-      this.creatureBodies.add(enemy); this.enemies.add(enemy);
+      this.creatureBodies.add(enemy); this.enemies.add(enemy);this.combatEnemyListDirty=true;
       if (definition.bossId && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 1200) {
         const boss = BOSSES.find(b => b.id === definition.bossId);
         if (boss) this.notify(`Boss territory: ${boss.name} — ${boss.lore}`);
@@ -1690,7 +1700,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   private destroyContentActor(actor: ContentActor) {
-    if (actor instanceof Enemy) {this.enemies.delete(actor);this.forgetOrcSpears(actor.instanceId);}
+    if (actor instanceof Enemy) {this.enemies.delete(actor);this.combatEnemyListDirty=true;this.forgetOrcSpears(actor.instanceId);}
     if (actor instanceof Npc) {
       const i = this.npcs.indexOf(actor); if (i >= 0) this.npcs.splice(i, 1);
     }
