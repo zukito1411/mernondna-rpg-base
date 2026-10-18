@@ -12,21 +12,21 @@ export function InventoryPanel(){
   return panel==='inventory'?<OpenInventory/>:null;
 }
 function OpenInventory(){
-  const [tab,setTab]=useState<'equipment'|'potions'>('equipment'),[search,setSearch]=useState('');
+  const [tab,setTab]=useState<'equipment'|'potions'>('equipment');
   const close=useGameStore(s=>s.closePanel),weaponId=useGameStore(s=>s.weaponId),inventory=useGameStore(s=>s.inventory);
   const [selection,setSelection]=useState(weaponId);
   const [kind,setKind]=useState<'weapons'|ArmorSlot>('weapons');
   const armorInventory=useGameStore(s=>s.armorInventory),equippedArmor=useGameStore(s=>s.equippedArmor),armorBonuses=useGameStore(s=>s.armorBonuses),level=useGameStore(s=>s.level);
   const equipArmor=useGameStore(s=>s.equipArmor),unequipArmor=useGameStore(s=>s.unequipArmor);
-  const armors=useMemo(()=>armorInventory.map(id=>ARMOR_BY_ID[id]).filter(a=>a.slot===kind&&a.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())),[armorInventory,kind,search]);
+  const armors=useMemo(()=>armorInventory.map(id=>ARMOR_BY_ID[id]).filter(a=>a.slot===kind),[armorInventory,kind]);
   const selectedArmor=armors.find(a=>a.id===selection)??armors[0];
   const preview=useMemo(()=>selectedArmor?armorBonusesFor({...equippedArmor,[selectedArmor.slot]:selectedArmor.id}):armorBonuses,[selectedArmor,equippedArmor,armorBonuses]);
   const gold=useGameStore(s=>s.gold),potions=useGameStore(s=>s.consumables),upgrades=useGameStore(s=>s.weaponUpgrades),materials=useGameStore(s=>s.bossMaterials),luck=useGameStore(s=>s.attributes.luck);
   const equip=useGameStore(s=>s.equipWeapon),drink=useGameStore(s=>s.usePotion);
   const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),stamina=useGameStore(s=>s.stamina),maxStamina=useGameStore(s=>s.maxStamina),casting=useGameStore(s=>s.activeSkillStatus.casting);
   const current=useMemo(()=>enhancedWeapon(weaponId,upgrades),[weaponId,upgrades]);
-  const weapons=useMemo(()=>inventory.map(id=>enhancedWeapon(id,upgrades)).filter(w=>w&&w.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
-    .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage),[inventory,upgrades,search,weaponId]);
+  const weapons=useMemo(()=>inventory.map(id=>enhancedWeapon(id,upgrades))
+    .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage),[inventory,upgrades,weaponId]);
   const selected=kind==='weapons'?(weapons.find(w=>w.id===selection)??weapons[0]):undefined;
   const rank=(id:string)=>weaponUpgradeRank(id,upgrades);
   const change=selected?selected.damage-current.damage:0;
@@ -35,23 +35,25 @@ function OpenInventory(){
     <section className="panel inventory-panel rpg-bag">
       <header><div><small>Ready for the road</small><h2>Leigneron's bag</h2><p>{goldLabel(gold)} gold · {inventory.length} weapons · {armorInventory.length} armor pieces</p></div><button type="button" onClick={close}>Close</button></header>
       <nav className="equipment-tabs" aria-label="Bag categories"><button type="button" aria-pressed={tab==='equipment'} onClick={()=>setTab('equipment')}>Equipment</button><button type="button" aria-pressed={tab==='potions'} onClick={()=>setTab('potions')}>Potions · {Object.values(potions).reduce((a,b)=>a+b,0)}</button></nav>
-      <div className="bag-content">
+      <div className={`bag-content${tab==='equipment'?' is-equipment':''}`}>
         {tab==='equipment'?<>
-          <nav className="equipment-tabs armor-categories" aria-label="Equipment types">{(['weapons',...ARMOR_SLOTS] as const).map(k=><button type="button" key={k} aria-pressed={kind===k} onClick={()=>{setKind(k);setSearch('');}}>{k==='weapons'?'Weapons':ARMOR_SLOT_NAMES[k]}</button>)}</nav>
-          <label className="equipment-search"><span className="sr-only">Find equipment</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search equipment…" type="search"/></label>
+          <nav className="equipment-tabs armor-categories" aria-label="Equipment types">{(['weapons',...ARMOR_SLOTS] as const).map(k=><button type="button" key={k} aria-pressed={kind===k} onClick={()=>setKind(k)}>{k==='weapons'?'Weapons':ARMOR_SLOT_NAMES[k]}</button>)}</nav>
           <div className="bag-loadout">
             <section className="bag-weapons" aria-label="Owned equipment"><div className="bag-section-title"><h3>{kind==='weapons'?'Weapons':ARMOR_SLOT_NAMES[kind]}</h3><small>{kind==='weapons'?weapons.length:armors.length} in bag</small></div>
-              <div className="bag-weapon-list">{kind==='weapons'&&weapons.map(w=><button type="button" key={w.id} className={`bag-weapon-choice${w.id===weaponId?' is-equipped':''}`} aria-pressed={selected?.id===w.id} onClick={()=>setSelection(w.id)}>
-                <ItemIcon id={w.id}/><span><strong>{w.name}{rank(w.id)>0?` +${rank(w.id)}`:''}</strong><small>{w.damage} ATK · Tier {w.tier}</small>{w.id===weaponId&&<em>Equipped</em>}</span>
-              </button>)}{kind!=='weapons'&&armors.map(a=><button type="button" key={a.id} className={`bag-weapon-choice${equippedArmor[a.slot]===a.id?' is-equipped':''}`} aria-pressed={selectedArmor?.id===a.id} onClick={()=>setSelection(a.id)}><ItemIcon id={a.id}/><span><strong>{a.name}</strong><small>{armorBonusLines(a.bonuses).join(' · ')}</small>{equippedArmor[a.slot]===a.id&&<em>Equipped</em>}</span></button>)}{!(kind==='weapons'?weapons.length:armors.length)&&<p>No matching equipment. Visit a merchant or seek regional bosses.</p>}</div>
+              <div className={`bag-weapon-list${kind==='weapons'?' is-weapons':''}`}>{kind==='weapons'&&weapons.map(w=><div key={w.id} className={`bag-weapon-row${selected?.id===w.id?' is-selected':''}${w.id===weaponId?' is-equipped':''}`}>
+                <button type="button" className="bag-weapon-name" aria-pressed={selected?.id===w.id} title={w.name} onClick={()=>setSelection(w.id)}><ItemIcon id={w.id}/><strong>{w.name}{rank(w.id)>0?` +${rank(w.id)}`:''}</strong></button>
+                <span className="bag-weapon-numbers"><strong>{w.damage} <small>ATK</small></strong><small>Tier {w.tier}</small></span>
+                <button type="button" className="bag-row-equip" aria-label={`${w.id===weaponId?'Equipped':'Equip'} ${w.name}`} disabled={w.id===weaponId||Boolean(casting)} onClick={()=>{setSelection(w.id);equip(w.id);}}>{w.id===weaponId?'✓':'Equip'}</button>
+              </div>)}{kind!=='weapons'&&armors.map(a=><button type="button" key={a.id} className={`bag-weapon-choice${equippedArmor[a.slot]===a.id?' is-equipped':''}`} aria-pressed={selectedArmor?.id===a.id} onClick={()=>setSelection(a.id)}><ItemIcon id={a.id}/><span><strong>{a.name}</strong><small>{ARMOR_SET_BY_ID[a.setId].name}</small>{equippedArmor[a.slot]===a.id&&<em>Equipped</em>}</span></button>)}{!(kind==='weapons'?weapons.length:armors.length)&&<p>No equipment here yet. Visit a merchant or seek regional bosses.</p>}</div>
             </section>
             <aside className="bag-slots" aria-label="Equipment slots"><h3>Equipment</h3>
+              <div className="armor-slot-grid"><button type="button" className="bag-weapon-slot" onClick={()=>{setKind('weapons');setSelection(current.id);}} aria-pressed={kind==='weapons'} aria-label={`Weapon slot: ${current.name}`} title={current.name}><small>Weapon</small><ItemIcon id={current.id}/><strong>{current.name}{rank(current.id)>0?` +${rank(current.id)}`:''}</strong></button>
+              {ARMOR_SLOTS.map(slot=>{const id=equippedArmor[slot];return <button type="button" className="bag-weapon-slot" key={slot} aria-pressed={kind===slot} aria-label={`${ARMOR_SLOT_NAMES[slot]} slot: ${id?ARMOR_BY_ID[id].name:'Empty'}`} title={id?ARMOR_BY_ID[id].name:'Empty'} onClick={()=>{setKind(slot);if(id)setSelection(id);}}><small>{ARMOR_SLOT_NAMES[slot]}</small>{id?<ItemIcon id={id}/>:<span className="armor-empty">+</span>}<strong>{id?ARMOR_BY_ID[id].name:'Empty'}</strong></button>;})}</div>
+              <div className="bag-slot-actions">
               {selected&&<button className="bag-equip-action" type="button" disabled={selected.id===weaponId||Boolean(casting)} onClick={()=>equip(selected.id)}>{selected.id===weaponId?'Equipped':'Equip selected'}</button>}
               {selectedArmor&&kind!=='weapons'&&<button className="bag-equip-action" type="button" disabled={equippedArmor[selectedArmor.slot]===selectedArmor.id||Boolean(casting)||level<selectedArmor.minLevel} onClick={()=>equipArmor(selectedArmor.id)}>{equippedArmor[selectedArmor.slot]===selectedArmor.id?'Equipped':level<selectedArmor.minLevel?`Requires level ${selectedArmor.minLevel}`:'Equip selected'}</button>}
-              <div className="armor-slot-grid"><button type="button" className="bag-weapon-slot" onClick={()=>{setKind('weapons');setSearch('');setSelection(current.id);}} aria-label={`Weapon slot: ${current.name}`}><small>Weapon</small><ItemIcon id={current.id}/><strong>{current.name}{rank(current.id)>0?` +${rank(current.id)}`:''}</strong><span>{current.damage} ATK</span></button>
-              {ARMOR_SLOTS.map(slot=>{const id=equippedArmor[slot];return <div className="armor-slot-wrap" key={slot}><button type="button" className="bag-weapon-slot" onClick={()=>{setKind(slot);setSearch('');if(id)setSelection(id);}}><small>{ARMOR_SLOT_NAMES[slot]}</small>{id?<ItemIcon id={id}/>:<span className="armor-empty">+</span>}<strong>{id?ARMOR_BY_ID[id].name:'Empty'}</strong></button>{id&&<button type="button" className="armor-remove" disabled={Boolean(casting)} onClick={()=>unequipArmor(slot)} aria-label={`Unequip ${ARMOR_BY_ID[id].name}`}>Remove</button>}</div>;})}</div>
-              <p className="bag-slot-note">Armor totals: {armorBonusLines(armorBonuses).join(' · ')||'No armor equipped'}</p>
-              <p className="bag-slot-note">Choose equipment in your bag to inspect and equip it.</p>
+              {kind!=='weapons'&&equippedArmor[kind]&&<button type="button" className="bag-unequip-action" disabled={Boolean(casting)} onClick={()=>unequipArmor(kind)} aria-label={`Unequip ${ARMOR_BY_ID[equippedArmor[kind]!].name}`}>Remove</button>}
+              </div>
             </aside>
           </div>
           {selected&&<section className="bag-inspection" key={selected.id} aria-label="Selected weapon details">
