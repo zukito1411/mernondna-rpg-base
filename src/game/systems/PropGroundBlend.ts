@@ -22,7 +22,9 @@ export class PropGroundBlend{
   private readonly retry=(_time:number,delta:number)=>{
     // Recolor only one full-size variant per budget tick, rather than eight
     // pixel scans and GPU uploads during the same frame as terrain creation.
-    this.retryMs+=delta;if(this.retryMs<40||!this.pending.size)return;this.retryMs=0;
+    // Maintain a full-detail blend queue, but reduce continual background
+    // canvas readbacks/uploads during traversal after the earlier spike fix.
+    this.retryMs+=delta;if(this.retryMs<70||!this.pending.size)return;this.retryMs=0;
     const view=this.scene.cameras.main.worldView;
     let unavailable=0;
     const pass=(visible:boolean)=>{

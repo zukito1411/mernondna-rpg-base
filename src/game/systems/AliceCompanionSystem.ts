@@ -42,6 +42,11 @@ export class AliceCompanionSystem {
   private dismissal=0;
   private contact:Phaser.GameObjects.Image|null=null;
   private wasBlocked=false;
+  private previousAlice:Vec2|null=null;
+  private stationaryMs=0;
+  private behindMs=0;
+  private catchupRetryAt=0;
+  private combatEnemies:Enemy[]=[];
   constructor(private readonly scene:WorldScene){
     this.art=new NpcCombatResidency(scene,spec=>spec.id==='huntress'
       &&(aliceIsFollowing(useGameStore.getState().storyFlags)||Boolean(this.npc?.active)),console.warn);
@@ -97,6 +102,7 @@ export class AliceCompanionSystem {
       this.stopCombat();
       this.npc=this.scene.adventureAlice();if(!this.npc)return;
       this.npc.setAdventureCompanion(true);this.hp=this.maxHp;this.location=null;
+      this.previousAlice=null;this.stationaryMs=0;this.behindMs=0;this.think=0;this.combatEnemies=[];
     }
     const npc=this.npc,player=this.scene.player,location=this.scene.activeInteriorId??'world';
     if(this.dismissal){npc.setCompanionAlpha(1);this.dismissal=0;}
@@ -104,6 +110,8 @@ export class AliceCompanionSystem {
     const jump=this.previousPlayer&&Math.hypot(player.x-this.previousPlayer.x,player.y-this.previousPlayer.y)>1200;
     if(transition||jump){
       this.stopCombat();this.trail=[];this.route=[];this.moving=false;this.followSpeed=0;
+      this.routeGoal=null;this.replanAt=0;this.previousAlice=null;this.stationaryMs=0;this.behindMs=0;
+      this.think=0;this.combatEnemies=[];
       this.heading={x:player.lastDirection.x,y:player.lastDirection.y};
       if(Math.hypot(npc.x-player.x,npc.y-player.y)>550||this.location!==null){
         const point=this.arrivalPoint(npc);if(!point)return;
@@ -122,15 +130,27 @@ export class AliceCompanionSystem {
       if(last){const direction=new Phaser.Math.Vector2(player.x-last.x,player.y-last.y).normalize();this.heading={x:direction.x,y:direction.y};}
       this.trail.push({x:player.x,y:player.y});if(this.trail.length>300)this.trail.shift();
     }
+    // When ordinary movement leaves Alice stuck behind a rock, fence, house
+    // or failed navigation route, recover her near the player. The same
+    // collision and path validation used on transitions prevents unsafe warps.
+    this.catchUp(time,step,npc,player);
     this.cooldown=Math.max(0,this.cooldown-step);this.think-=step;
     if(this.rest>0){this.rest=Math.max(0,this.rest-step);this.hp=Math.min(this.maxHp,this.hp+this.maxHp*step/10000);}
     else this.hp=Math.min(this.maxHp,this.hp+step*.003);
-    const enemies=this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&!this.scene.storyActor(e));
-    this.arrows.update(step,enemies);
-    if(this.target&&(!enemies.includes(this.target)||Math.hypot(this.target.x-player.x,this.target.y-player.y)>620
-      ||Math.hypot(npc.x-player.x,npc.y-player.y)>520||this.rest>0))this.stopCombat();
-    if(this.think<=0){
+    // Projectile collision still updates every frame, but enemy admission
+    // and story filtering need only be rebuilt on the existing 120ms AI tick.
+    const decide=this.think<=0;
+    if(decide){
       this.think=120;
+      this.combatEnemies=this.scene.getCombatEnemies()
+        .filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&!this.scene.storyActor(e));
+    }
+    const enemies=this.combatEnemies;
+    this.arrows.update(step,enemies);
+    if(this.target&&(!this.target.active||this.target.hp<=0||!enemies.includes(this.target)
+      ||Math.hypot(this.target.x-player.x,this.target.y-player.y)>620
+      ||Math.hypot(npc.x-player.x,npc.y-player.y)>520||this.rest>0))this.stopCombat();
+    if(decide){
       if(!this.target&&this.rest===0&&npc.canStoryFight){
         this.target=enemies.filter(e=>Math.hypot(e.x-player.x,e.y-player.y)<420
           &&Math.hypot(e.x-npc.x,e.y-npc.y)<500&&this.scene.hasClearPath(npc.x,npc.y,e.x,e.y))
@@ -146,6 +166,30 @@ export class AliceCompanionSystem {
       npc.updatePresentation(player.x,player.y,false);npc.setDepth(this.scene.playerRenderDepth(npc.y));
       npc.setInteriorLabelDepth(this.scene.playerRenderDepth(0));
     }
+  }
+  /** Avoid permanently abandoning the player when a path is impossible.
+   * Nothing is spawned/destroyed; the same persistent Alice NPC is relocated.
+   * Walk normally unless the gap is extreme or progress has stopped. */
+  private catchUp(time:number,step:number,npc:Npc,player:Vec2){
+    const gap=Math.hypot(player.x-npc.x,player.y-npc.y);
+    const progress=this.previousAlice?Math.hypot(npc.x-this.previousAlice.x,npc.y-this.previousAlice.y):0;
+    this.previousAlice={x:npc.x,y:npc.y};
+    this.stationaryMs=gap>220&&this.previousAlice&&progress<1
+      ?this.stationaryMs+step:0;
+    this.behindMs=gap>360?this.behindMs+step:0;
+    if(gap<520&&!(gap>250&&this.stationaryMs>=1600)
+      &&!(gap>360&&this.behindMs>=2700))return;
+    if(time<this.catchupRetryAt)return;
+    this.catchupRetryAt=time+850;
+    const point=this.arrivalPoint(npc);
+    if(!point)return; // Retry only when the nearby terrain is truly safe.
+    this.stopCombat();
+    npc.setCompanionGoal(null);
+    (npc.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
+    npc.setPosition(point.x,point.y).setDepth(this.scene.playerRenderDepth(point.y));
+    this.previousAlice={...point};this.stationaryMs=0;this.behindMs=0;
+    this.trail=[];this.route=[];this.routeGoal=null;this.replanAt=0;
+    this.moving=false;this.followSpeed=0;this.think=0;this.combatEnemies=[];
   }
   private stopCombat(){
     const npc=this.npc?.active?this.npc:null;
@@ -184,9 +228,12 @@ export class AliceCompanionSystem {
   }
   private follow(time:number,playerSpeed:number,delta:number){
     const npc=this.npc!,player=this.scene.player;
-    const points=[...this.trail,{x:player.x,y:player.y}];let remaining=108,point={x:player.x,y:player.y},h=this.heading;
-    for(let i=points.length-1;i>0;i--){
-      const a=points[i-1],b=points[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(length<.01)continue;
+    // Follow the exact same trail without copying up to 300 points each frame.
+    let remaining=108,point={x:player.x,y:player.y},h=this.heading;
+    let tail:Vec2=point;
+    for(let i=this.trail.length-1;i>=0;i--){
+      const a=this.trail[i],b=tail,length=Math.hypot(b.x-a.x,b.y-a.y);
+      tail=a;if(length<.01)continue;
       h={x:(b.x-a.x)/length,y:(b.y-a.y)/length};
       if(length>=remaining){point={x:b.x-h.x*remaining,y:b.y-h.y*remaining};remaining=0;break;}
       remaining-=length;point=a;
@@ -248,6 +295,7 @@ export class AliceCompanionSystem {
     this.contact?.destroy();this.contact=null;this.npc=null;this.target=null;this.location=null;this.previousPlayer=null;
     this.trail=[];this.route=[];this.dismissal=0;this.moving=false;this.followSpeed=0;this.wasBlocked=false;
     this.rest=0;this.cooldown=0;this.think=0;this.replanAt=0;
+    this.combatEnemies=[];this.previousAlice=null;this.stationaryMs=0;this.behindMs=0;this.catchupRetryAt=0;
   }
   destroy(){this.stopCombat();this.contact?.destroy();this.art.destroy();this.arrows.destroy();this.npc=null;}
 }

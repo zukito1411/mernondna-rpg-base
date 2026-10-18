@@ -69,6 +69,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private companionGoal:{point:Vec2;speed:number}|null=null;
   private roadRoute:{points:Vec2[];next:number;direction:number;loop:boolean;wait:number;speed:number;rejoin:boolean;joining:Vec2|null}|null=null;
   private storyAlert:string|undefined;
+  private nameHighlighted=false;
   private storyGuard=false;
   private storyAttack:string|null=null;
   private formationRejoining=false;
@@ -493,10 +494,18 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       this.playDirection(this.facing.x, this.facing.y, false);
     }
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
-    this.nameLabel.setPosition(this.x, this.y + this.labelY).setDepth(this.y + 80).setColor(questTarget ? '#ffe193' : '#f6edd7')
+    // Phaser Text color/text setters can regenerate their canvas and upload
+    // glyph textures. Preserve identical presentation without doing so 60x/s.
+    if(this.nameHighlighted!==questTarget){
+      this.nameHighlighted=questTarget;
+      this.nameLabel.setColor(questTarget?'#ffe193':'#f6edd7');
+    }
+    this.nameLabel.setPosition(this.x,this.y+this.labelY).setDepth(this.y+80)
       .setVisible(!this.companionControl);
-    this.titleLabel.setText(this.storyAlert??this.definition.title).setPosition(this.x, this.y + this.labelY + 2).setDepth(this.y + 80)
-      .setVisible(!this.companionControl&&(Boolean(this.storyAlert)||distance < 260));
+    const title=this.storyAlert??this.definition.title;
+    if(this.titleLabel.text!==title)this.titleLabel.setText(title);
+    this.titleLabel.setPosition(this.x,this.y+this.labelY+2).setDepth(this.y+80)
+      .setVisible(!this.companionControl&&(Boolean(this.storyAlert)||distance<260));
     if(this.sideQuestMarker){
       const story=useGameStore.getState();
       const available=this.definition.questIds.some(id=>{
