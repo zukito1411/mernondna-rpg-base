@@ -87,6 +87,7 @@ export class ContentChunkManager<Actor> {
   private sceneryKey='';
   private sceneryWanted=new Set<string>();
   private sceneryCandidates=new Set<string>();
+  private nextAdmissionCheckAt=0;
   private nextSpawnSequence: number;
   private readonly summonOwners = new Map<string,string>();
 
@@ -165,6 +166,10 @@ export class ContentChunkManager<Actor> {
       if (!this.wanted.has(key)&&!this.sceneryWanted.has(id)&&!this.nearOversized(id,position,x,y,view)
         &&!this.host.keepActive?.(this.definitions.get(id)!,actor)) { this.deactivate(id); changed = true; }
     }
+    // Keep all active actor migration running every frame, but retry the
+    // expensive inactive-world admission search only every 150 ms when still.
+    if(changed||now>=this.nextAdmissionCheckAt){
+      this.nextAdmissionCheckAt=now+150;
     const checkedGroups = new Set<string>();
     for (const key of this.wanted) {
       for (const id of this.buckets.get(key) ?? []) {
@@ -192,6 +197,7 @@ export class ContentChunkManager<Actor> {
       const definition=this.definitions.get(id)!;
       if(this.host.canActivate&&!this.host.canActivate(definition,state))continue;
       this.active.set(id,this.host.create(definition,{...state}));changed=true;
+    }
     }
     return changed;
   }
