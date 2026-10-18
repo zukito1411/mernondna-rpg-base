@@ -7,14 +7,22 @@ import {propGroundProfile,propGroundColorWeight,groundSmoothstep,type PropGround
 type Actor=Phaser.GameObjects.Sprite|Phaser.GameObjects.Image;
 type Color=readonly [number,number,number];
 interface Request {texture:ArtTextureKey;frame:number;profile:PropGroundProfile;ground:{x:number;y:number}}
-interface Variant {key:string;source:string;color:Color;actors:Set<Actor>}
+interface Variant {key:string;source:string;color:Color;actors:Set<Actor>;pixels:number}
 interface Bounds {left:number;top:number;right:number;bottom:number}
 const MAX_VARIANTS=96;
+// Keep only a few recently released, exact-color blends for backtracking.
+// 1.5m pixels ~= 6 MB of uncompressed RGBA; both limits apply.
+const MAX_IDLE_VARIANTS=6,MAX_IDLE_PIXELS=1_500_000;
 
 /** Recolor only authored ground masks against actual baked surroundings.
  * Full frame dimensions, origin, collision registration and metadata survive. */
 export class PropGroundBlend{
   private readonly variants=new Map<string,Variant>();
+  private readonly idleVariants=new Set<Variant>();
+  private idlePixels=0;
+  // Alpha bounds are determined by source frame, not by the local ground.
+  // Reuse them across different recolored variants of the same artwork.
+  private readonly frameBounds=new Map<string,Bounds|null>();
   private readonly bindings=new Map<Actor,Variant>();
   private readonly pending=new Map<Actor,Request>();
   private serial=0;
@@ -60,6 +68,9 @@ export class PropGroundBlend{
     const id=`${sourceId}:${color.join(':')}`;
     let variant=this.variants.get(id);
     if(!variant){
+      // Prefer releasing truly unused blended textures before merging two
+      // visibly different live variants. No color or mask approximation added.
+      while(this.variants.size>=MAX_VARIANTS&&this.idleVariants.size)this.evictOldestIdle();
       if(this.variants.size>=MAX_VARIANTS)this.mergeSimilarVariants();
       if(this.variants.size>=MAX_VARIANTS){
         variant=[...this.variants.values()].filter(v=>v.source===sourceId)
@@ -69,16 +80,23 @@ export class PropGroundBlend{
         const w=source.cutWidth,h=source.cutHeight,canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
         const ctx=canvas.getContext('2d',{willReadFrequently:true})!;
         ctx.drawImage(source.source.image as CanvasImageSource,source.cutX,source.cutY,w,h,0,0,w,h);
-        const pixels=ctx.getImageData(0,0,w,h),data=pixels.data,bounds=this.bounds(data,w,h);
+        const pixels=ctx.getImageData(0,0,w,h),data=pixels.data;
+        let bounds=this.frameBounds.get(sourceId);
+        if(bounds===undefined&&!this.frameBounds.has(sourceId)){
+          bounds=this.bounds(data,w,h);
+          if(this.frameBounds.size>=128)this.frameBounds.delete(this.frameBounds.keys().next().value!);
+          this.frameBounds.set(sourceId,bounds);
+        }
         if(!bounds||!this.recolor(data,w,h,bounds,profile,color))return true;
         ctx.putImageData(pixels,0,0);
         const key=`prop-ground-blend:${this.serial++}`,prepared=this.scene.textures.addCanvas(key,canvas);
         if(!prepared)return false;
         prepared.get('__BASE').customData={...source.customData,groundBlend:{source:sourceId,material:profile.material,color:[...color]}};
         prepared.setFilter(Phaser.Textures.FilterMode.LINEAR);
-        variant={key,source:sourceId,color,actors:new Set()};this.variants.set(id,variant);
+        variant={key,source:sourceId,color,actors:new Set(),pixels:w*h};this.variants.set(id,variant);
       }
     }
+    if(this.idleVariants.delete(variant))this.idlePixels-=variant.pixels;
     this.bindings.set(actor,variant);variant.actors.add(actor);actor.setTexture(variant.key);return true;
   }
   private groundColor(actor:Actor,{texture,ground:point}:Request):Color|null{
@@ -92,13 +110,20 @@ export class PropGroundBlend{
     const right=Math.min(CHUNK_SIZE,Math.ceil(x+radius+1)),bottom=Math.min(CHUNK_SIZE,Math.ceil(y+6));
     if(right<=left||bottom<=top)return null;
     const data=ground.getContext().getImageData(left,top,right-left,bottom-top).data;
-    const channels:[number[],number[],number[]]=[[],[],[]];
-    // Median over a wider footprint avoids tinting a whole sand island to
-    // one dark pebble or bright highlight directly below its center pixel.
-    for(let i=0;i<data.length;i+=16)if(data[i+3]>200)for(let c=0;c<3;c++)channels[c].push(data[i+c]);
-    if(!channels[0].length)return null;
-    const median=(values:number[])=>{values.sort((a,b)=>a-b);return Math.round(values[Math.floor(values.length/2)]/8)*8;};
-    return [median(channels[0]),median(channels[1]),median(channels[2])];
+    // The exact same three-channel median as before, but no sorting or
+    // per-sample arrays. Histograms are 256 buckets per channel.
+    const red=new Uint16Array(256),green=new Uint16Array(256),blue=new Uint16Array(256);
+    let count=0;
+    for(let i=0;i<data.length;i+=16)if(data[i+3]>200){
+      red[data[i]]++;green[data[i+1]]++;blue[data[i+2]]++;count++;
+    }
+    if(!count)return null;
+    const median=(hist:Uint16Array)=>{
+      const mid=Math.floor(count/2);let seen=0;
+      for(let value=0;value<256;value++){seen+=hist[value];if(seen>mid)return Math.round(value/8)*8;}
+      return 0;
+    };
+    return [median(red),median(green),median(blue)];
   }
   private bounds(data:Uint8ClampedArray,w:number,h:number):Bounds|null{
     let left=w,top=h,right=0,bottom=0;
@@ -161,15 +186,26 @@ export class PropGroundBlend{
   }
   private unbind(actor:Actor){
     const variant=this.bindings.get(actor);if(!variant)return;
-    this.bindings.delete(actor);variant.actors.delete(actor);if(!variant.actors.size)this.remove(variant);
+    this.bindings.delete(actor);variant.actors.delete(actor);
+    if(!variant.actors.size){
+      // Revisit the same tree or building without rescanning, recoloring and
+      // uploading its bottom mask. Memory is bounded independently of actors.
+      this.idleVariants.add(variant);this.idlePixels+=variant.pixels;
+      while(this.idleVariants.size>MAX_IDLE_VARIANTS||this.idlePixels>MAX_IDLE_PIXELS)this.evictOldestIdle();
+    }
+  }
+  private evictOldestIdle(){
+    const oldest=this.idleVariants.values().next().value as Variant|undefined;
+    if(oldest)this.remove(oldest);
   }
   private remove(variant:Variant){
+    if(this.idleVariants.delete(variant))this.idlePixels-=variant.pixels;
     for(const [id,item] of this.variants)if(item===variant){this.variants.delete(id);break;}
     if(this.scene.textures.exists(variant.key))this.scene.textures.remove(variant.key);
   }
   destroy(){
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE,this.retry);this.pending.clear();this.bindings.clear();
     for(const variant of this.variants.values())if(this.scene.textures.exists(variant.key))this.scene.textures.remove(variant.key);
-    this.variants.clear();
+    this.variants.clear();this.idleVariants.clear();this.idlePixels=0;this.frameBounds.clear();
   }
 }

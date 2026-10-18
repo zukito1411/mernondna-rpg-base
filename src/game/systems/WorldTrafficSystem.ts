@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {viewportChunks,streamViewKey} from './chunkNeighborhood';
+import {CHUNK_SIZE,WORLD_CHUNKS_WIDTH,WORLD_CHUNKS_HEIGHT} from '../../data/world';
 import {cartRoutes,seaRoute,routePosition,type TrafficRoute} from './travelRoutes';
 import {trafficDirection,trafficDistance,horseWalkFrame,wheelTurnFrame} from './trafficMotion';
 import {BOAT_SCALE,boatHelm,boatPassenger,CART_ART_POSES} from './VehicleArt';
@@ -24,6 +25,7 @@ export class WorldTrafficSystem {
   private readonly active=new Map<string,Vehicle>();
   private elapsed=0;
   private seaCenter='';private routes:TrafficRoute[];
+  private lastSeaBounds='';
   private readonly reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   constructor(private readonly scene:Phaser.Scene,private readonly world:WorldGenerator,private readonly shadows:GroundShadowSystem){
     this.roads=cartRoutes(world);this.routes=this.roads;
@@ -46,8 +48,17 @@ export class WorldTrafficSystem {
   }
   update(delta:number){
     this.elapsed+=Math.min(delta,100);
-    const view=this.scene.cameras.main.worldView,nearby=viewportChunks(view,500),center=streamViewKey(nearby);
-    if(center!==this.seaCenter){
+    const view=this.scene.cameras.main.worldView;
+    // Only recompute viewport cell sets after crossing an actual chunk edge.
+    // Merchant/boat positions still animate every frame at their original rate.
+    const left=Math.max(0,Math.floor((view.x-500)/CHUNK_SIZE));
+    const right=Math.min(WORLD_CHUNKS_WIDTH-1,Math.floor((view.right+500)/CHUNK_SIZE));
+    const top=Math.max(0,Math.floor((view.y-500)/CHUNK_SIZE));
+    const bottom=Math.min(WORLD_CHUNKS_HEIGHT-1,Math.floor((view.bottom+500)/CHUNK_SIZE));
+    const bounds=left+':'+right+':'+top+':'+bottom;
+    if(bounds!==this.lastSeaBounds){
+      this.lastSeaBounds=bounds;
+      const nearby=viewportChunks(view,500),center=streamViewKey(nearby);
       this.seaCenter=center;
       for(const [key] of this.sea)if(!nearby.has(key))this.sea.delete(key);
       for(const key of nearby)if(!this.sea.has(key)){const [x,y]=key.split(':').map(Number);this.sea.set(key,seaRoute(this.world,x,y));}

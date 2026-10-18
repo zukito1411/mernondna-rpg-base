@@ -43,6 +43,7 @@ export class ChunkManager {
   }
   private lastCenter = '';
   private lastTravelViewKey='';
+  private lastOpenSeaStatus:boolean|null=null;
   private readonly baker: TerrainBaker;
   // LEIGHNERON_STAGGER_CHUNKS_V1: don't bake three huge neighbor chunks in one frame.
   private readonly pendingChunks = new Map<string,{x:number;y:number}>();
@@ -153,8 +154,15 @@ export class ChunkManager {
   }
 
   private updateOpenSeaStatus(){
-    this.scene.registry.set('openSeaView',this.pendingChunks.size===0&&
-      [...this.active.values()].every(chunk=>chunk.shared));
+    if(this.pendingChunks.size!==0){
+      if(this.lastOpenSeaStatus!==false){this.lastOpenSeaStatus=false;this.scene.registry.set('openSeaView',false);}
+      return;
+    }
+    let openSea=true;
+    for(const chunk of this.active.values())if(!chunk.shared){openSea=false;break;}
+    if(this.lastOpenSeaStatus!==openSea){
+      this.lastOpenSeaStatus=openSea;this.scene.registry.set('openSeaView',openSea);
+    }
   }
 
   destroy() {
@@ -168,7 +176,7 @@ export class ChunkManager {
     for(const textureKey of this.recentTerrain.values())this.scene.textures.remove(textureKey);
     this.recentTerrain.clear();
     this.lastCenter = '';
-    this.lastTravelViewKey='';
+    this.lastTravelViewKey='';this.lastOpenSeaStatus=null;
     this.baker.destroy();
     this.scene.textures.remove('shared-ocean-chunk');
   }
