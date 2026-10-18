@@ -28,12 +28,17 @@ export class TreeSwaySystem {
     for(const entry of this.canopies){
       const {tree,leaves,phase}=entry;
       const visible=tree.visible&&tree.x>view.x-400&&tree.x<view.right+400&&tree.y>view.y-80&&tree.y<view.bottom+500;
-      leaves.setVisible(visible);if(!visible)continue;
+      if(leaves.visible!==visible)leaves.setVisible(visible);
+      if(!visible)continue;
       const amplitude=!swayEnabled||this.reducedMotion.matches?0:Math.min(3.2,.7+wind*2.1);
       const sway=Math.sin(this.elapsed*.0013+phase)*amplitude+Math.sin(this.elapsed*.0027+phase)*amplitude*.22;
-      leaves.setPosition(tree.x+sway,tree.y+Math.sin(this.elapsed*.0018+phase)*amplitude*.2)
-        .setDepth(tree.depth+.01).setAlpha(tree.alpha);
-      leaves.setTint(tree.tintTopLeft,tree.tintTopRight,tree.tintBottomLeft,tree.tintBottomRight);
+      leaves.setPosition(tree.x+sway,tree.y+Math.sin(this.elapsed*.0018+phase)*amplitude*.2);
+      const depth=tree.depth+.01;
+      if(leaves.depth!==depth)leaves.setDepth(depth);
+      if(leaves.alpha!==tree.alpha)leaves.setAlpha(tree.alpha);
+      if(leaves.tintTopLeft!==tree.tintTopLeft||leaves.tintTopRight!==tree.tintTopRight
+        ||leaves.tintBottomLeft!==tree.tintBottomLeft||leaves.tintBottomRight!==tree.tintBottomRight)
+        leaves.setTint(tree.tintTopLeft,tree.tintTopRight,tree.tintBottomLeft,tree.tintBottomRight);
     }
   }
   destroy(){for(const entry of this.canopies)entry.leaves.destroy();this.canopies.clear();}

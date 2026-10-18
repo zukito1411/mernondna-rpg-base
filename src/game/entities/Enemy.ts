@@ -862,7 +862,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const visible = this.hp > 0 && distance < 700 && (Boolean(this.definition.boss) || this.hp < this.definition.hp || distance < this.definition.aggroRange);
     const width = this.definition.boss ? 48 : this.definition.id === 'road-bandit' ? 35 : 30;
     const scene=this.scene as WorldScene;
-    const eligible=!paused&&scene.targeting.eligible(this)&&scene.cameras.main.worldView.contains(this.x,this.y);
+    // Reject actors outside the camera before costly targeting LOS queries.
+    // Visibility and eligibility stay identical, only their order changes.
+    const eligible=!paused&&scene.cameras.main.worldView.contains(this.x,this.y)
+      &&scene.targeting.eligible(this);
     if(eligible&&!useGameStore.getState().cinematic)useGameStore.getState().discoverCreature(this.definition.id,this.boss?.id);
     const selected=eligible&&scene.targeting.selected===this;
     const model=this.dragonCombat?.visual??(this.leapVisual?.active?this.leapVisual:this);
@@ -872,18 +875,26 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const modelSheet=ART_BY_KEY[model.texture.key as keyof typeof ART_BY_KEY];
     const top=bounds?model.y+(bounds.top-model.originY*modelSheet.frameHeight)*model.scaleY*modelSheet.density-16
       :this.y-visualHeight-16;
-    this.targetIndicator.clear().setDepth(scene.playerRenderDepth(this.y)+90).setVisible(eligible);
-    if(eligible){const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
+    // Do not repeatedly re-tessellate invisible target indicators. Visible
+    // indicators still redraw each frame to follow their moving owners.
+    if(eligible){
+      this.targetIndicator.clear().setDepth(scene.playerRenderDepth(this.y)+90).setVisible(true);const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
       this.targetIndicator.lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
       this.targetIndicator.fillTriangle(this.x-size,top-36,this.x+size,top-36,this.x,top-26);
       if(selected){const ground=groundMarkerPosition(this);
         this.targetIndicator.lineStyle(2,color,.9).strokeEllipse(ground.x,ground.y,
           Math.max(this.definition.boss?56:34,(this.definition.bodyRadius??0)*2.2),Math.max(10,(this.definition.bodyRadius??0)*.45));}
-    }
-    this.healthBar.clear().setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
-    this.nameLabel.setText(`Lv.${this.level} ${this.boss?.name??this.definition.name}${this.weaponStatus.name?' · '+this.weaponStatus.name:''}`)
-      .setPosition(this.x, top - 4).setDepth(scene.playerRenderDepth(this.y)+85).setVisible(visible&&eligible);
-    if (visible&&eligible) {
+    }else if(this.targetIndicator.visible)this.targetIndicator.clear().setVisible(false);
+    const showHealth=visible&&eligible;
+    if(showHealth)this.healthBar.clear().setDepth(scene.playerRenderDepth(this.y)+85).setVisible(true);
+    else if(this.healthBar.visible)this.healthBar.clear().setVisible(false);
+    // Phaser Text.setText can invalidate its backing canvas, even when the
+    // displayed label is unchanged. Preserve the exact label and glyph style.
+    const label=`Lv.${this.level} ${this.boss?.name??this.definition.name}${this.weaponStatus.name?' · '+this.weaponStatus.name:''}`;
+    if(this.nameLabel.text!==label)this.nameLabel.setText(label);
+    this.nameLabel.setPosition(this.x,top-4).setDepth(scene.playerRenderDepth(this.y)+85)
+      .setVisible(showHealth);
+    if (showHealth) {
       this.healthBar.fillStyle(0x16110c,.85).fillRoundedRect(this.x - width / 2 - 2, top - 1, width + 4, 6, 2);
       this.healthBar.fillStyle(this.definition.boss ? 0xd89557 : 0xbb6550,1)
         .fillRect(this.x - width / 2, top + 1, width * Math.max(0,this.hp / this.definition.hp), 3);

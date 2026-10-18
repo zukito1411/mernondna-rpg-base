@@ -8,22 +8,37 @@ export class TargetingSystem {
   selected:Enemy|null=null;
   private manual:Enemy|null=null;
   private engaged:Enemy|null=null;
+  // Reuse selection candidates, avoiding per-frame allocation churn.
+  private readonly nearestCandidates:Array<{enemy:Enemy;distance2:number}>=[];
+
   constructor(private readonly scene:WorldScene){}
   eligible(enemy:Enemy,range=680) {
     const player=this.scene.player;
+    const dx=enemy.x-player.x,dy=enemy.y-player.y;
     return enemy.active&&enemy.visible&&enemy.hp>0&&enemy.canBeTargeted
-      && Math.hypot(enemy.x-player.x,enemy.y-player.y)<=range
+      && dx*dx+dy*dy<=range*range
       && this.scene.canSeeEnemy(enemy)&&this.scene.hasClearPath(player.x,player.y,enemy.x,enemy.y);
   }
   nearest(range:number) {
-    const player=this.scene.player;
-    let nearest:Enemy|null=null,nearestDistance=Infinity;
+    const player=this.scene.player,range2=range*range;
+    const candidates=this.nearestCandidates;
+    let count=0;
     for(const enemy of this.scene.getCombatEnemies()){
-      if(!this.eligible(enemy,range))continue;
-      const distance=Math.hypot(enemy.x-player.x,enemy.y-player.y);
-      if(distance<nearestDistance){nearest=enemy;nearestDistance=distance;}
+      if(!enemy.active||!enemy.visible||enemy.hp<=0||!enemy.canBeTargeted)continue;
+      const dx=enemy.x-player.x,dy=enemy.y-player.y,distance2=dx*dx+dy*dy;
+      if(distance2>range2)continue;
+      if(count<candidates.length){candidates[count].enemy=enemy;candidates[count].distance2=distance2;}
+      else candidates.push({enemy,distance2});
+      count++;
     }
-    return nearest;
+    candidates.length=count;
+    // Range/visibility are cheap. Test expensive line-of-sight only for the
+    // closest candidates until one qualifies; this preserves nearest-target
+    // semantics without checking every distant enemy's obstruction each tick.
+    candidates.sort((a,b)=>a.distance2-b.distance2);
+    for(const {enemy} of candidates)
+      if(this.scene.canSeeEnemy(enemy)&&this.scene.hasClearPath(player.x,player.y,enemy.x,enemy.y))return enemy;
+    return null;
   }
   select(enemy:Enemy){if(this.eligible(enemy)){this.manual=enemy;this.selected=enemy;this.publishBoss();}}
   /** Nearest-enemy assistance is not a request to open a boss health bar.
