@@ -92,6 +92,9 @@ export class AmbientRoadLifeSystem{
     const region=this.world.getRegionAt(player.x,player.y);
     if(region!==this.activeRegion){
       this.activeRegion=region;this.scan=0;this.scanRemaining=0;this.spawnCandidates.length=0;
+      // A traveler party prepared outside the player's old region is still
+      // offscreen. Don't finish spawning it after crossing a region boundary.
+      if(this.pendingParty)this.release(this.pendingParty.party.id,this.pendingParty.party);
     }
     this.scan-=step;this.think-=step;
     const view=this.scene.cameras.main.worldView;
