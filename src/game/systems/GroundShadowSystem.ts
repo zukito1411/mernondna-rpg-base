@@ -280,7 +280,10 @@ export class GroundShadowSystem {
   ctx.globalCompositeOperation='source-in';ctx.fillStyle='#111916';ctx.fillRect(0,0,canvas.width,canvas.height);
   const soft=document.createElement('canvas');soft.width=canvas.width;soft.height=canvas.height;
   const softCtx=soft.getContext('2d')!;softCtx.filter='blur(1px)';softCtx.drawImage(canvas,0,0);
-  if(this.silhouettes.size>=192)this.silhouettes.delete(this.silhouettes.keys().next().value!);
+  // Road travelers introduce more animation poses. Cache their full-detail
+  // silhouettes across repeat appearances instead of re-blurring each pose.
+  // Bound memory use with the existing LRU eviction policy.
+  if(this.silhouettes.size>=256)this.silhouettes.delete(this.silhouettes.keys().next().value!);
   this.silhouettes.set(key,soft);return soft;
  }
  destroy(){
