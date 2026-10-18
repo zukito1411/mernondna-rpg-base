@@ -57,7 +57,11 @@ function rotatedContract(original:Contract,cycle:number):Contract{
   if(!original.bossId&&!original.dungeonId){
     const region=original.regionId;
     // Only naturally spawning regional enemies can become rotating targets.
-    const pool=[original.enemyId,...ENEMIES.filter(enemy=>!enemy.boss&&(enemy.regionWeights[region]??0)>0)
+    // Big 30/50-kill orders should target common local encounters (weight 2+),
+    // not rare global visitors that would require hundreds of random spawns.
+    const minimumWeight=original.amount>=30?2:1;
+    const pool=[original.enemyId,...ENEMIES.filter(enemy=>!enemy.boss
+      &&(enemy.regionWeights[region]??0)>=minimumWeight)
       .map(enemy=>enemy.id).filter(id=>id!==original.enemyId)];
     const slot=original.id.endsWith(':hunt-50')?2:original.id.endsWith(':hunt-30')?1:0;
     const enemyId=pool[(cycle+slot)%pool.length];
