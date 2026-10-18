@@ -5,6 +5,7 @@ import { SpritePortrait } from './SpritePortrait';
 import {MerchantStock} from './MerchantStock';
 import {NpcServices} from './NpcServices';
 import {AliceCompanionService} from './AliceCompanionService';
+import {BreakthroughService} from './BreakthroughService';
 
 export function DialoguePanel() {
   const dialogue = useGameStore((s) => s.dialogue);
@@ -39,6 +40,7 @@ export function DialoguePanel() {
           <div className="relationship-note">{npc.relationshipToLeigneron.kind}: {npc.relationshipToLeigneron.summary}</div>
           {finalLine&&!dialogue.choices?.length&&<>
             <AliceCompanionService npcId={npc.id}/>
+            {!dialogue.questId&&<BreakthroughService npcId={npc.id}/>}
             {!dialogue.questId&&<NpcServices npcId={npc.id}/>}
             <MerchantStock npcId={npc.id}/>
           </>}

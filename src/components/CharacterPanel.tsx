@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {useGameStore} from '../store/gameStore';
-import {SKILLS,MAX_PLAYER_LEVEL,ATTRIBUTE_CAP,progressionStats,experienceWithinLevel,playerDamageGrowth,bossArmorSetDropChance,type AttributeId} from '../data/progression';
+import {SKILLS,playerLevelCap,ATTRIBUTE_CAP,progressionStats,experienceWithinLevel,playerDamageGrowth,bossArmorSetDropChance,type AttributeId} from '../data/progression';
 import {CombatArtIcon} from './CombatArtIcon';
 import {ACTIVE_SKILLS,ACTIVE_SKILL_BY_ID,type ActiveSkillId} from '../data/activeSkills';
 import {enhancedWeapon} from '../data/weaponUpgrades';
@@ -19,12 +19,13 @@ export function CharacterPanel(){
   const status=useGameStore(s=>s.activeSkillStatus),allocate=useGameStore(s=>s.allocateAttribute),unlock=useGameStore(s=>s.unlockSkill);
   const slots=useGameStore(s=>s.skillSlots),learnedArts=useGameStore(s=>s.learnedCombatArts),learnArt=useGameStore(s=>s.learnCombatArt),setSlot=useGameStore(s=>s.setSkillSlot),weaponId=useGameStore(s=>s.weaponId);
   const upgrades=useGameStore(s=>s.weaponUpgrades);
+  const cap=useGameStore(s=>playerLevelCap(s.storyFlags));
   const armorBonuses=useGameStore(s=>s.armorBonuses);
   if(panel!=='character')return null;
-  const stats=progressionStats(attributes,learnedSkills,armorBonuses),exp=experienceWithinLevel(xp);
+  const stats=progressionStats(attributes,learnedSkills,armorBonuses),exp=experienceWithinLevel(xp,cap);
   return <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Character and skills">
     <section className="panel character-panel">
-      <header><div><h2>Leigneron · Stats</h2><p>Level {level} / {MAX_PLAYER_LEVEL} · {level>=MAX_PLAYER_LEVEL?'Maximum level':`${exp.current} / ${exp.required} XP to next level`}</p></div><button type="button" onClick={close}>Close</button></header>
+      <header><div><h2>Leigneron · Stats</h2><p>Level {level} / {cap} · {level>=cap?(cap===50?'Speak with Edmund for breakthrough':'Maximum level'):`${exp.current} / ${exp.required} XP to next level`}</p></div><button type="button" onClick={close}>Close</button></header>
       <nav className="equipment-tabs" aria-label="Stats categories">
         <button type="button" aria-pressed={tab==='arts'} onClick={()=>setTab('arts')}>Usable skills</button>
         <button type="button" aria-pressed={tab==='attributes'} onClick={()=>setTab('attributes')}>Attributes ({statPoints})</button>
@@ -54,7 +55,7 @@ export function CharacterPanel(){
           <p className="equipment-help">Critical chance: {(stats.luckChance*100).toFixed(1)}% · Evasion: {(stats.evasionChance*100).toFixed(1)}%. Includes equipped armor and active set bonuses.</p>
           <p className="equipment-help">Complete boss armor set: {(bossArmorSetDropChance(attributes)*100).toFixed(1)}% chance. Awards chest, boots and cape together from bosses that carry an armor set.</p>
           <div className="progression-heading"><h3>Attributes</h3><span>{statPoints} points available</span></div>
-          <p className="equipment-help">Gain three attribute points per level all the way to level 50. To refund your spent attribute points, speak with Edmund in Oakmere and pay 1,500 gold.</p>
+          <p className="equipment-help">Gain three attribute points per level to level 75 after completing Edmund's level-50 breakthrough. To refund your spent attribute points, speak with Edmund in Oakmere and pay 1,500 gold.</p>
           {ATTRIBUTES.map(a=><article className="progression-row" key={a.id}><div><strong>{a.name} · {attributes[a.id]} / {ATTRIBUTE_CAP}</strong><p>{a.description}</p></div><button type="button" disabled={statPoints<=0||attributes[a.id]>=ATTRIBUTE_CAP} onClick={()=>allocate(a.id)} aria-label={`Add one ${a.name} point`}>{attributes[a.id]>=ATTRIBUTE_CAP?'Max':'+1'}</button></article>)}
         </section>:<section>
           <div className="progression-heading"><h3>Passive talents</h3><span>{skillPoints} learning points</span></div>

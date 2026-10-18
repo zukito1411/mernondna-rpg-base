@@ -25,6 +25,8 @@ import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 import {parseContracts} from '../data/contracts';
 import {parseArmor,armorBonusesFor} from '../data/armor';
 import {parseDungeons} from '../data/dungeons';
+import {BASE_LEVEL_CAP,playerLevelCap} from '../data/progression';
+import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE} from '../data/breakthrough';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -265,7 +267,7 @@ export function migrateSave(data: unknown): unknown {
     if(!record(old.attributes)||!['strength','vitality','agility'].every(id=>
       numberIn((old.attributes as Record<string,unknown>)[id],0,10000)&&Number.isInteger((old.attributes as Record<string,unknown>)[id]))
       ||!skillIds(old.learnedSkills)||!numberIn(old.xp)||!numberIn(old.hp,1)||!numberIn(old.stamina))return migrated;
-    const xp=Math.min(old.xp,xpTotalForLevel(MAX_PLAYER_LEVEL)),level=levelForExperience(xp);
+    const xp=Math.min(old.xp,xpTotalForLevel(BASE_LEVEL_CAP)),level=levelForExperience(xp,BASE_LEVEL_CAP);
     let attributes=Object.fromEntries(Object.entries(BASE_ATTRIBUTES).map(([id,base])=>[id,(old.attributes as Record<string,unknown>)[id]??base])) as PlayerAttributes;
     // A free respec preserves the complete legal budget when an old build no
     // longer fits. Never truncate invested points without returning them.
@@ -333,6 +335,10 @@ export function parseSave(raw: string): SaveData | null {
       ||!record(storyChoices)||!Object.values(storyChoices).every(v=>typeof v==='string'&&v.length<100)
       ||Object.keys(savedFlags).length>512||Object.keys(storyChoices).length>512) return invalidSave('invalid story flags or choices');
     const storyFlags={...savedFlags} as Record<string,boolean>;
+    const cap=playerLevelCap(storyFlags);
+    if(storyFlags[BREAKTHROUGH_TRIAL]&&!storyFlags[BREAKTHROUGH_ACCEPTED]
+      ||storyFlags[BREAKTHROUGH_COMPLETE]&&!storyFlags[BREAKTHROUGH_TRIAL]
+      ||storyFlags[BREAKTHROUGH_ACCEPTED]&&(!numberIn(s.level,BASE_LEVEL_CAP,cap)))return invalidSave('invalid breakthrough trial history');
     const legacyCampaign=!storyFlags[CAMPAIGN_REVISION_FLAG];
     if (!strings(s.unlockedTownShrines) || new Set(s.unlockedTownShrines).size !== s.unlockedTownShrines.length
       || !s.unlockedTownShrines.every(id => Object.hasOwn(TOWN_BY_ID,id))) return invalidSave('invalid unlocked shrines');
@@ -452,6 +458,7 @@ export function parseSave(raw: string): SaveData | null {
       ||!learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id)&&Boolean(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost)))return invalidSave('invalid learned combat arts');
     const skillSlots=s.skillSlots===undefined?[...DEFAULT_SKILL_SLOTS]:s.skillSlots;
     if(!Array.isArray(skillSlots)||skillSlots.length!==4||!skillSlots.every(id=>id===null||typeof id==='string'&&Object.hasOwn(ACTIVE_SKILL_BY_ID,id)
+      &&(id!=='barrage'||numberIn(s.level,60,75)&&cap===75)
       &&(!ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost||learnedCombatArts.includes(id)))
       ||new Set(skillSlots.filter(Boolean)).size!==skillSlots.filter(Boolean).length)return invalidSave('invalid equipped skill slots');
     const validatedSkills=s.learnedSkills;
@@ -463,7 +470,7 @@ export function parseSave(raw: string): SaveData | null {
     // changing purchased arts, talents, or an existing 29-point allocation.
     const previousBudget=skillBudget(s.level)-(s.level>=29?1:0);
     const needsCompletionPoint=s.level>=29&&allocatedLearningPoints===previousBudget;
-    if(s.level!==levelForExperience(s.xp)||s.xp>xpTotalForLevel(MAX_PLAYER_LEVEL)
+    if(s.level!==levelForExperience(s.xp,cap)||s.xp>xpTotalForLevel(cap)
       ||Object.values(s.attributes).reduce((sum,n)=>sum+Number(n),0)+s.statPoints!==attributeBudget(s.level)
       ||allocatedLearningPoints!==skillBudget(s.level)&&!needsCompletionPoint)return invalidSave('level, XP, or allocated-point budget mismatch');
     const worldContent = validateContent(s.worldContent);
@@ -476,7 +483,7 @@ export function parseSave(raw: string): SaveData | null {
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
     const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);
     const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);
-    const xp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + rewards.xp);
+    const xp = Math.min(xpTotalForLevel(cap),state.xp + rewards.xp);
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {

@@ -1,12 +1,15 @@
 import {NO_ARMOR_BONUSES,type ArmorBonuses} from './armor';
+import {BREAKTHROUGH_COMPLETE} from './breakthrough';
 export const XP_PER_LEVEL = 250; // Base requirement, retained for older callers.
 export const PLAYER_ACTOR_HEIGHT = 76;
-export const MAX_PLAYER_LEVEL = 50;
+export const BASE_LEVEL_CAP = 50;
+export const MAX_PLAYER_LEVEL = 75;
+export const playerLevelCap=(flags:Record<string,boolean>)=>flags[BREAKTHROUGH_COMPLETE]?MAX_PLAYER_LEVEL:BASE_LEVEL_CAP;
 export const ATTRIBUTE_CAP = 40;
 export const STAT_POINTS_PER_LEVEL = 3;
 // Learning points are shared by passive talents and purchased combat arts.
 // All 12 talents cost 22 points and the 3 optional combat arts cost 7, so
-// award the last two points together at 29. None are earned at levels 30-50.
+// award the last two points together at 29. None are earned at levels 30-75.
 export const LAST_LEARNING_POINT_LEVEL = 29;
 export const attributeBudget = (level:number) => (Math.max(1,Math.min(MAX_PLAYER_LEVEL,Math.floor(level)))-1)*STAT_POINTS_PER_LEVEL;
 export const skillBudget = (level:number) => {
@@ -21,15 +24,15 @@ export function xpTotalForLevel(level: number) {
   const completed=Math.max(0,Math.floor(level)-1);
   return completed*XP_PER_LEVEL+25*completed*(completed-1)/2;
 }
-export function experienceWithinLevel(xp:number) {
-  const level=levelForExperience(xp);
-  return {level, current:level===MAX_PLAYER_LEVEL?1:Math.max(0,xp-xpTotalForLevel(level)), required:level===MAX_PLAYER_LEVEL?1:xpNeededForLevel(level)};
+export function experienceWithinLevel(xp:number,cap=MAX_PLAYER_LEVEL) {
+  const level=levelForExperience(xp,cap);
+  return {level, current:level===cap?1:Math.max(0,xp-xpTotalForLevel(level)), required:level===cap?1:xpNeededForLevel(level)};
 }
-export function levelForExperience(xp: number) {
+export function levelForExperience(xp: number,cap=MAX_PLAYER_LEVEL) {
   if(!Number.isFinite(xp)||xp<=0)return 1;
   // Exact thresholds, with no growth beyond the player level cap.
   let level=1;
-  while(level<MAX_PLAYER_LEVEL&&xp>=xpTotalForLevel(level+1))level++;
+  while(level<cap&&xp>=xpTotalForLevel(level+1))level++;
   return level;
 }
 export function playerDamageGrowth(level:number){return 1+Math.min(.35,Math.max(0,level-5)*.018);}

@@ -3,6 +3,7 @@ import type { ActiveSkillId } from './activeSkills';
 type AdditionalCombatArtId='ember-cleave'|'iron-tempest'|'renewing-light';
 /** Original portraits stay separate: new arts must never borrow/overwrite them. */
 export const SKILL_ICON_PATHS: Record<Exclude<ActiveSkillId,AdditionalCombatArtId>,string> = {
+  'barrage':'/icons/barrage.png',
   'azure-cleave':'/icons/azure_cleave.png',
   'skyfall-slam':'/icons/skyfall_slam.png',
   'crown-rally':'/icons/crown_rally.png',

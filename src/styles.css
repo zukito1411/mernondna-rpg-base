@@ -624,3 +624,5 @@ kbd { font-size: 10px; opacity: .65; }
 .regional-service:hover,.regional-service:focus{z-index:15}.regional-service:hover small,.regional-service:focus small{display:block}
 .regional-player,.regional-quest{z-index:10}
 @media(max-width:900px),(max-height:600px){.minimap-services{display:none}}
+
+.breakthrough-service{margin-top:12px;padding:12px;border:1px solid #a88b54;border-radius:8px}.breakthrough-service h3{margin:0 0 8px}.breakthrough-service p{line-height:1.45}.breakthrough-service button{min-height:44px;max-width:100%;white-space:normal}

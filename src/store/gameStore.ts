@@ -7,7 +7,7 @@ import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
 import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, bossArmorSetDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, bossArmorSetDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
@@ -26,6 +26,8 @@ import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 import {CONTRACT_BY_ID,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
 import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
 import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,type DungeonLedger} from '../data/dungeons';
+import {BASE_LEVEL_CAP,playerLevelCap} from '../data/progression';
+import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE} from '../data/breakthrough';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -52,6 +54,7 @@ export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'materi
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
+  edmundBreakthrough:()=>void;
   dungeons:DungeonLedger;
   activeDungeonId:string|null;
   discoverDungeon:(id:string)=>void;
@@ -185,11 +188,11 @@ const baseState = () => ({
   maxHp: 100,
   stamina: 100,
   maxStamina: 100,
-  level: localPlayCheatsEnabled()?MAX_PLAYER_LEVEL:1,
-  xp: localPlayCheatsEnabled()?xpTotalForLevel(MAX_PLAYER_LEVEL):0,
+  level: localPlayCheatsEnabled()?BASE_LEVEL_CAP:1,
+  xp: localPlayCheatsEnabled()?xpTotalForLevel(BASE_LEVEL_CAP):0,
   attributes: { ...BASE_ATTRIBUTES },
-  statPoints: localPlayCheatsEnabled()?attributeBudget(MAX_PLAYER_LEVEL):0,
-  skillPoints: localPlayCheatsEnabled()?skillBudget(MAX_PLAYER_LEVEL):0,
+  statPoints: localPlayCheatsEnabled()?attributeBudget(BASE_LEVEL_CAP):0,
+  skillPoints: localPlayCheatsEnabled()?skillBudget(BASE_LEVEL_CAP):0,
   learnedSkills: [] as SkillId[],
   gold: localPlayCheatsEnabled()?LOCAL_TEST_GOLD:18,
   weaponId: LEIGNERON.starterWeaponId,
@@ -225,8 +228,9 @@ const baseState = () => ({
 });
 
 function experienceProgress(state: GameState, xp: number) {
-  const totalXp = Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),state.xp + xp);
-  const level = levelForExperience(totalXp);
+  const cap=playerLevelCap(state.storyFlags);
+  const totalXp = Math.min(xpTotalForLevel(cap),state.xp + xp);
+  const level = levelForExperience(totalXp,cap);
   const levelsGained = Math.max(0, level - state.level);
   const learningPointsGained=Math.max(0,skillBudget(level)-skillBudget(state.level));
   return {
@@ -237,12 +241,24 @@ function experienceProgress(state: GameState, xp: number) {
     ...(levelsGained?{levelUpNotice:{id:state.nextLevelUpId,from:state.levelUpNotice?.from??state.level,level,
       attributes:(state.levelUpNotice?.attributes??0)+levelsGained*STAT_POINTS_PER_LEVEL,
       learning:(state.levelUpNotice?.learning??0)+learningPointsGained},nextLevelUpId:state.nextLevelUpId+1}:{}),
-    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} attribute points${learningPointsGained ? ` and +${learningPointsGained} learning point${learningPointsGained === 1 ? '' : 's'}` : ''}.` } : {}),
+    ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} attribute points${learningPointsGained ? ` and +${learningPointsGained} learning point${learningPointsGained === 1 ? '' : 's'}` : ''}.${state.level<60&&level>=60?' Barrage unlocked! Equip it in Status > Usable skills.':''}` } : {}),
   };
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
+  edmundBreakthrough:()=>set(state=>{
+    const dialogue=state.dialogue,npc=NPC_BY_ID[EDMUND_ATWOOD_ID];
+    if(state.level<BASE_LEVEL_CAP||dialogue?.npcId!==EDMUND_ATWOOD_ID||dialogue.questId||dialogue.choices?.length
+      ||dialogue.lineIndex<(dialogue.lines??npc.dialogue).length-1||state.panel||state.cinematic||state.activeSkillStatus.casting||state.storyFlags[BREAKTHROUGH_COMPLETE])return state;
+    if(!state.storyFlags[BREAKTHROUGH_ACCEPTED])return {storyFlags:{...state.storyFlags,[BREAKTHROUGH_ACCEPTED]:true},
+      dialogue:{...dialogue,lines:['You have reached the limit of your old training. Face Varkhul in Darkav once more, then return to me. A victory before this trial cannot prove your breakthrough.'],lineIndex:0},
+      toast:'Breakthrough trial accepted: defeat Varkhul, then report to Edmund.'};
+    if(!state.storyFlags[BREAKTHROUGH_TRIAL])return {toast:'Edmund: Defeat Varkhul after accepting my trial, then return.'};
+    return {storyFlags:{...state.storyFlags,[BREAKTHROUGH_COMPLETE]:true},
+      dialogue:{...dialogue,lines:['You faced the Returning Ember and came back stronger. Your breakthrough is complete: you may now grow to level 75. At level 60, Barrage will be yours.'],lineIndex:0},
+      toast:'Breakthrough complete! Level cap raised to 75. Barrage unlocks at level 60.'};
+  }),
   discoverDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!state.dungeons[id]
     ?{dungeons:{...state.dungeons,[id]:{discovered:true,defeated:0,claimed:false}},toast:`Discovered: ${DUNGEON_BY_ID[id].name}`} :{}),
   refreshDungeon:id=>set(state=>state.activeDungeonId!==id&&dungeonResetReady(state.dungeons[id])
@@ -352,6 +368,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   setSkillSlot:(slot,id)=>set(state=>{
     if(state.panel!=='character'||state.activeSkillStatus.casting||!Number.isInteger(slot)||slot<0||slot>3)return {};
+    if(id==='barrage'&&!state.storyFlags[BREAKTHROUGH_COMPLETE])return {};
     if(id){const s=ACTIVE_SKILL_BY_ID[id];if(!s||state.level<s.minLevel||s.learnCost&&!state.learnedCombatArts.includes(id))return {};}
     const slots=state.skillSlots.map(value=>id&&value===id?null:value);slots[slot]=id;
     return {skillSlots:slots};
@@ -535,6 +552,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       const p=contracts[id],previous=state.contracts[id],c=CONTRACT_BY_ID[id];
       return p!==previous&&p.progress===c.amount;
     }):undefined;
+    const breakthroughKill=bossId==='varkhul'&&lootEligible&&state.storyFlags[BREAKTHROUGH_ACCEPTED]&&!state.storyFlags[BREAKTHROUGH_TRIAL];
+    const consequenceFlags=questConsequences(result.quests,state.storyFlags);
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold+salvage+armorSalvage,
       ...(notices.length?{rareLootQueue:[...state.rareLootQueue,...notices].slice(-8),nextRareLootId:state.nextRareLootId+notices.length}:{}),
       ...(newArmor.length?{armorInventory:[...state.armorInventory,...newArmor.map(a=>a.id)]}:{}),
@@ -544,7 +563,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         toast:duplicate?(excess?`Material storage full: ${itemName(dropped.id)} sold for ${salvage} gold.`:`Duplicate ${itemName(dropped.id)}! Take it to a blacksmith to enhance your weapon.`):`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
       ...(potion?{consumables:{...state.consumables,[potion]:state.consumables[potion]+1},
         toast:`Found ${itemName(potion)}! Check your bag.`}:{}),
-      ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:questConsequences(result.quests,state.storyFlags),
+      ...sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags),storyFlags:breakthroughKill?{...consequenceFlags,[BREAKTHROUGH_TRIAL]:true}:consequenceFlags,
+      ...(breakthroughKill?{toast:'Breakthrough trial complete: report your victory to Edmund in Oakmere.'}:{}),
       ...(worldContent ? { worldContent } : {}) };
   }),
   dismissRareLoot:id=>set(state=>({rareLootQueue:state.rareLootQueue.filter(notice=>notice.id!==id)})),
@@ -573,14 +593,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   setActiveSkillStatus:(activeSkillStatus) => set({ activeSkillStatus }),
   setBossEncounter:(bossEncounter) => set({ bossEncounter }),
   hydrate: (partial) => set(state=>{
-    const level=Math.min(MAX_PLAYER_LEVEL,partial.level??state.level);
-    const xp=Math.min(xpTotalForLevel(MAX_PLAYER_LEVEL),partial.xp??state.xp);
+    const cap=playerLevelCap(partial.storyFlags??state.storyFlags);
+    const level=Math.min(cap,partial.level??state.level);
+    const xp=Math.min(xpTotalForLevel(cap),partial.xp??state.xp);
     if(!localPlayCheatsEnabled())return {...partial,level,xp};
-    const gained=Math.max(0,MAX_PLAYER_LEVEL-level);
-    return {...partial,level:MAX_PLAYER_LEVEL,xp:xpTotalForLevel(MAX_PLAYER_LEVEL),
+    const gained=Math.max(0,cap-level);
+    return {...partial,level:cap,xp:xpTotalForLevel(cap),
       statPoints:(partial.statPoints??state.statPoints)+gained*STAT_POINTS_PER_LEVEL,
       skillPoints:(partial.skillPoints??state.skillPoints)
-        +Math.max(0,skillBudget(MAX_PLAYER_LEVEL)-skillBudget(level)),
+        +Math.max(0,skillBudget(cap)-skillBudget(level)),
       gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id)};
   }),
   resetGame: () => set(baseState()),

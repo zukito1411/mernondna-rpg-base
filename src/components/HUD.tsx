@@ -9,7 +9,7 @@ import { mobileInput } from '../game/input';
 import { activeObjective } from '../game/systems/questNavigation';
 import { MiniMap } from './MiniMap';
 import { QuestCompass } from './QuestCompass';
-import { experienceWithinLevel,MAX_PLAYER_LEVEL } from '../data/progression';
+import { experienceWithinLevel,playerLevelCap } from '../data/progression';
 import {questObjectiveText} from '../game/systems/questDestinations';
 import {goldLabel} from '../utils/localPlayCheats';
 
@@ -29,6 +29,7 @@ export function HUD() {
   const stamina = useGameStore((s) => s.stamina);
   const maxStamina = useGameStore((s) => s.maxStamina);
   const level = useGameStore((s) => s.level);
+  const cap=useGameStore(s=>playerLevelCap(s.storyFlags));
   const xp = useGameStore((s) => s.xp);
   const gold = useGameStore((s) => s.gold);
   const regionId = useGameStore((s) => s.regionId);
@@ -48,7 +49,7 @@ export function HUD() {
   const hour = Math.floor(minute / 60);
   const mins = Math.floor(minute % 60);
   const timeLabel = `${String(hour).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-  const xpProgress=experienceWithinLevel(xp);
+  const xpProgress=experienceWithinLevel(xp,cap);
   const regionName = regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[regionId]?.name ?? regionId;
   const location = townId ? TOWN_BY_ID[townId]?.name ?? regionName : regionName;
 
@@ -60,9 +61,9 @@ export function HUD() {
           <div className="status-title"><strong>Leigneron</strong><span>Lv. {level}</span></div>
           <div className="meter"><div className="meter-fill hp" style={{ width: barPercent(hp, maxHp) }} /></div>
           <div className="meter"><div className="meter-fill stamina" style={{ width: barPercent(stamina, maxStamina) }} /></div>
-          <div className="xp-meter" role="progressbar" aria-label={level>=MAX_PLAYER_LEVEL?'Maximum level':'Experience to next level'} aria-valuemin={0} aria-valuemax={xpProgress.required} aria-valuenow={xpProgress.current}>
+          <div className="xp-meter" role="progressbar" aria-label={level>=cap?(cap===50?'Speak with Edmund for breakthrough':'Maximum level'):'Experience to next level'} aria-valuemin={0} aria-valuemax={xpProgress.required} aria-valuenow={xpProgress.current}>
             <div className="xp-meter-fill" style={{ width: barPercent(xpProgress.current, xpProgress.required) }} />
-            <span>{level>=MAX_PLAYER_LEVEL?'MAX LEVEL':`${xpProgress.current} / ${xpProgress.required} XP`}</span>
+            <span>{level>=cap?(cap===50?'BREAKTHROUGH: EDMUND':'MAX LEVEL'):`${xpProgress.current} / ${xpProgress.required} XP`}</span>
           </div>
           <div className="status-meta"><span>{location}</span><span>Day {day} · {timeLabel}</span><span>{goldLabel(gold)}g</span></div>
         </section>

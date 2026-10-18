@@ -1,4 +1,4 @@
-export type ActiveSkillId = 'azure-cleave' | 'skyfall-slam' | 'crown-rally' | 'crescent-flurry' | 'ember-cleave' | 'iron-tempest' | 'renewing-light';
+export type ActiveSkillId = 'azure-cleave' | 'skyfall-slam' | 'crown-rally' | 'crescent-flurry' | 'ember-cleave' | 'iron-tempest' | 'renewing-light' | 'barrage';
 export type ActiveSkillAction = 'skill1' | 'skill2' | 'skill3' | 'skill4';
 export type PlayerSkillTexture = 'skill_azure_cleave' | 'skill_skyfall_slam' | 'skill_crown_rally' | 'skill_crescent_flurry' | 'skill_ember_snare' | 'skill_iron_rush' | 'skill_iron_rush_up' | 'skill_iron_rush_down';
 
@@ -29,6 +29,9 @@ const starterArts:readonly ActiveSkillDefinition[] = [
     damageMultipliers:[.25,.25,.25,.25,.25,.25,.25,.25,.25,.25] },
 ];
 const additional:ActiveSkillDefinition[]=[
+  {id:'barrage',name:'Barrage',slot:4,action:'skill4',texture:'skill_iron_rush',minLevel:60,poseTimes:[0],
+    description:'Blink between up to six nearby foes, delivering twelve rapid slashes at 1.25 times weapon damage each. Invulnerable throughout the barrage. Walls block blinking. Unlocks automatically at level 60 after breakthrough.',kind:'strike',staminaCost:50,cooldownMs:36000,durationMs:2400,targetingRange:560,radius:90,coneDot:-1,
+    hitTimes:[150,330,510,690,870,1050,1230,1410,1590,1770,1950,2130],damageMultipliers:[1.25,1.25,1.25,1.25,1.25,1.25,1.25,1.25,1.25,1.25,1.25,1.25]},
   {id:'ember-cleave',name:'Ember Snare',slot:1,action:'skill1',texture:'skill_ember_snare',minLevel:18,learnCost:2,poseTimes:[0,120,260,420,600,820],hideWeapon:true,
     description:'Plant a stationary ember trap near a foe. Three delayed eruptions damage enemies still inside; moving out avoids later hits.',kind:'strike',staminaCost:30,cooldownMs:9000,durationMs:1000,targetingRange:320,radius:86,coneDot:-1,hitTimes:[600],damageMultipliers:[1.1]},
   {id:'iron-tempest',name:'Iron Rush',slot:2,action:'skill2',texture:'skill_iron_rush',minLevel:22,learnCost:3,poseTimes:[0,100,220,350,450,560],

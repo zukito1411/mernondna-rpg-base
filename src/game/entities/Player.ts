@@ -271,6 +271,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeDamage(amount: number) {
+    if(this.skills.isInvulnerable)return;
     const scene = this.scene as WorldScene;
     if(!Number.isFinite(amount)||amount<=0||this.hp<=0)return;
     const now=scene.time.now;

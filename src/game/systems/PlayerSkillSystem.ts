@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ACTIVE_SKILLS, ACTIVE_SKILL_BY_ID, initialActiveSkillStatus, type ActiveSkillDefinition, type ActiveSkillId, type ActiveSkillStatus } from '../../data/activeSkills';
+import {BREAKTHROUGH_COMPLETE} from '../../data/breakthrough';
 import { artScale } from '../../data/art';
 import { progressionStats } from '../../data/progression';
 import { useGameStore } from '../../store/gameStore';
@@ -17,6 +18,7 @@ interface Cast {
   direction:Phaser.Math.Vector2; visual:Phaser.GameObjects.Sprite|null;mark?:Vec2;rushStopped?:boolean;
   start:Vec2; landing?:Vec2; shadow?:Phaser.GameObjects.Ellipse;rushEffectStarted?:boolean;
   rushDistance:number;rushTravelled:number;
+  barrageTargets?:Enemy[];barrageSlash?:Phaser.GameObjects.Sprite;
   effectColor?:number;weaponId:string;
 }
 interface SlashWave {sprite:Phaser.GameObjects.Sprite;direction:Phaser.Math.Vector2;remaining:number;skill:ActiveSkillDefinition;multiplier:number;effectColor?:number;weaponId:string}
@@ -48,6 +50,7 @@ export class PlayerSkillSystem {
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE,this.syncAttachedEffects);
   }
   get isCasting() { return this.cast !== null; }
+  get isInvulnerable(){return this.cast?.skill.id==='barrage';}
   get weaponActor(){return this.cast?.visual??null;}
   get hidesWeapon(){return Boolean(this.cast?.skill.hideWeapon);}
   get incomingDamageMultiplier() { return this.rallyRemaining > 0 ? .5 : 1; }
@@ -58,10 +61,13 @@ export class PlayerSkillSystem {
     const state=useGameStore.getState();
     if(!state.skillSlots.includes(id)||skill.learnCost&&!state.learnedCombatArts.includes(id))return false;
     if(state.level<skill.minLevel){this.scene.notify(`${skill.name} unlocks at level ${skill.minLevel}.`);return false;}
+    if(id==='barrage'&&!state.storyFlags[BREAKTHROUGH_COMPLETE])return false;
     if (this.cooldowns[id] > 0) {
       this.scene.notify(`${skill.name} is recovering (${Math.ceil(this.cooldowns[id] / 1000)}s).`);
       return false;
     }
+    const barrageTargets=id==='barrage'?this.collectBarrageTargets(skill.targetingRange!):undefined;
+    if(barrageTargets&&!barrageTargets.length){this.scene.notify('No reachable enemies in Barrage range.');return false;}
     if (!this.player.spendStamina(skill.staminaCost)) {
       this.scene.notify(`${skill.name} needs ${skill.staminaCost} stamina.`);
       return false;
@@ -99,7 +105,9 @@ export class PlayerSkillSystem {
     const rushDistance=id==='iron-tempest'&&target
       ?Math.max(0,Math.hypot(target.x-start.x,target.y-start.y)-(target.definition.boss?52:38))
       :160;
-    this.cast = { skill,elapsed:0,nextHit:0,direction,visual,start,landing,shadow,mark,rushDistance,rushTravelled:0,effectColor,weaponId:state.weaponId };
+    this.cast = { skill,elapsed:0,nextHit:0,direction,visual,start,landing,shadow,mark,rushDistance,rushTravelled:0,effectColor,weaponId:state.weaponId,barrageTargets };
+    if(barrageTargets)this.cast.barrageSlash=this.scene.add.sprite(start.x,start.y,'effect_slash',0)
+      .setVisible(false).setDisplaySize(100,100).setBlendMode(Phaser.BlendModes.ADD);
     this.updateFlurryTargets();
     this.player.setAlpha(visual?0:1);
     // Discard any pre-cast physics displacement from held walking/sprint input.
@@ -123,7 +131,7 @@ export class PlayerSkillSystem {
     if (!cast) return;
     this.updateFlurryTargets();
     cast.elapsed += deltaMs;
-    if(cast.visual&&cast.skill.poseTimes){
+    if(cast.visual&&cast.skill.poseTimes&&cast.skill.id!=='barrage'){
       const poses=cast.skill.poseTimes;
       let frame=0;while(frame+1<poses.length&&cast.elapsed>=poses[frame+1])frame++;
       cast.visual.setFrame(frame);
@@ -160,7 +168,9 @@ export class PlayerSkillSystem {
       cast.rushEffectStarted=true;
     }
     while (cast.nextHit < cast.skill.hitTimes.length && cast.elapsed >= cast.skill.hitTimes[cast.nextHit]) {
-      if(cast.skill.id==='renewing-light'){
+      if(cast.skill.id==='barrage'){
+        if(!this.barrageStrike(cast)){this.finishCast();return;}
+      }else if(cast.skill.id==='renewing-light'){
         this.renewalRemaining=6000;this.renewalPulse=0;
         this.renewalColor=cast.effectColor;
         this.playPoseEffect(2,this.player,100,76);
@@ -218,6 +228,48 @@ export class PlayerSkillSystem {
       cast.nextHit++;
     }
     if (cast.elapsed >= cast.skill.durationMs) this.finishCast();
+  }
+
+  // One bounded snapshot per cast; no target scans or sprite allocation per frame.
+  private collectBarrageTargets(range:number):Enemy[]{
+    const targets:Enemy[]=[];
+    for(const enemy of this.scene.getCombatEnemies()){
+      if(!this.scene.targeting.eligible(enemy,range))continue;
+      const distance=Phaser.Math.Distance.Squared(this.player.x,this.player.y,enemy.x,enemy.y);
+      let index=0;
+      while(index<targets.length&&Phaser.Math.Distance.Squared(this.player.x,this.player.y,targets[index].x,targets[index].y)<distance)index++;
+      if(index<6){targets.splice(index,0,enemy);if(targets.length>6)targets.pop();}
+    }
+    return targets;
+  }
+  private barrageStrike(cast:Cast):boolean{
+    const targets=cast.barrageTargets!;
+    for(let offset=0;offset<targets.length;offset++){
+      const enemy=targets[(cast.nextHit+offset)%targets.length];
+      if(!enemy.active||enemy.hp<=0||!enemy.canBeTargeted
+        ||Phaser.Math.Distance.Squared(cast.start.x,cast.start.y,enemy.x,enemy.y)>560*560
+        ||!this.scene.hasClearPath(this.player.x,this.player.y,enemy.x,enemy.y))continue;
+      const spacing=enemy.definition.boss?66:46;
+      for(let side=0;side<4;side++){
+        const angle=((cast.nextHit+side)%4)*Math.PI/2;
+        const point={x:enemy.x+Math.cos(angle)*spacing,y:enemy.y+Math.sin(angle)*spacing};
+        if(!this.scene.safeSkillPosition(point)||!this.scene.canTraverseGround(this.player,point))continue;
+        (this.player.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
+        cast.direction.set(enemy.x-point.x,enemy.y-point.y).normalize();
+        this.player.lastDirection.copy(cast.direction);
+        const vertical=Math.abs(cast.direction.y)>Math.abs(cast.direction.x);
+        const texture=vertical?(cast.direction.y<0?'skill_iron_rush_up':'skill_iron_rush_down'):'skill_iron_rush';
+        applySkillWeaponPalette(this.scene,texture,cast.effectColor);
+        cast.visual?.setTexture(texture,2+cast.nextHit%3).setScale(artScale(texture)).setFlipX(!vertical&&cast.direction.x<0)
+          .setPosition(point.x,point.y-20).setDepth(this.scene.playerRenderDepth(point.y)+2);
+        cast.barrageSlash?.setPosition(enemy.x,enemy.y-20).setDepth(this.scene.playerRenderDepth(enemy.y)+4)
+          .setRotation(Math.atan2(cast.direction.y,cast.direction.x)).setVisible(true).play('effect-slash');
+        this.scene.applySkillDamage(enemy,cast.skill,cast.skill.damageMultipliers[cast.nextHit],cast.direction,cast.weaponId);
+        if(cast.nextHit%2===0)this.scene.playAudio('sfx-dash',.18);
+        return true;
+      }
+    }
+    return false;
   }
 
   private updateWaves(delta:number) {
@@ -322,6 +374,7 @@ export class PlayerSkillSystem {
   private finishCast() {
     for(const enemy of this.flurryTargets)enemy.setFlurrySuppressed(false);
     this.flurryTargets.clear();
+    this.cast?.barrageSlash?.destroy();
     this.cast?.visual?.destroy();
     this.cast?.shadow?.destroy();
     this.cast = null;
