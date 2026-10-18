@@ -7,7 +7,6 @@ import {naturalGroundPattern} from './NaturalGroundArt';
 import {GroundCoverBaker} from './GroundCoverBaker';
 import {PAVING_PATTERN_SIZE} from '../../data/environmentPresentation';
 import {darkavGroundPatterns,darkavGroundFrame,DARKAV_GROUND_FRAMES} from './DarkavGroundArt';
-import {TOWN_BY_ID} from '../../data/towns';
 import {insideDefense} from '../../data/settlementDefenses';
 
 export class TerrainBaker {
@@ -57,15 +56,16 @@ export class TerrainBaker {
     const grid = sampleTerrainGrid(chunkX, chunkY, (x, y) => world.getTerrainIndex(world.getTerrainAt(x, y)));
     // Regional art is masked per cell, not chosen from a chunk's center. This
     // also recolors paved settlement courts/roads and the dragon's safe deck.
-    const painted=grid.slice();
-    const blackspire=TOWN_BY_ID.blackspire.world;
-    for(let row=0;row<TERRAIN_MASK_SIZE;row++)for(let col=0;col<TERRAIN_MASK_SIZE;col++){
+    // Only Darkav's volcanic island needs this extra terrain classification
+    // pass. Expanded island bounds include the irregular edge and mask gutter.
+    // Every other chunk retains its identical original sampled terrain.
+    const maybeDarkav=chunkX>=94&&chunkX<=116&&chunkY>=0&&chunkY<=20;
+    const painted=maybeDarkav?grid.slice():grid;
+    if(maybeDarkav)for(let row=0;row<TERRAIN_MASK_SIZE;row++)for(let col=0;col<TERRAIN_MASK_SIZE;col++){
       const x=chunkX*CHUNK_SIZE+(col-.5)*TILE_SIZE,y=chunkY*CHUNK_SIZE+(row-.5)*TILE_SIZE;
       const i=row*TERRAIN_MASK_SIZE+col;
-      if(world.getRegionAt(x,y)==='darkav'){
-        const inBlackspire=insideDefense('blackspire',x,y);
-        painted[i]=darkavGroundFrame(grid[i],inBlackspire,world.isRoad(x,y));
-      }
+      if(world.getRegionAt(x,y)==='darkav')
+        painted[i]=darkavGroundFrame(grid[i],insideDefense('blackspire',x,y),world.isRoad(x,y));
     }
     const layerCtx = this.layer.getContext('2d')!, maskCtx = this.mask.getContext('2d')!;
     const pixels = maskCtx.createImageData(TERRAIN_MASK_SIZE, TERRAIN_MASK_SIZE);

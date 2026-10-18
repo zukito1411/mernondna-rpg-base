@@ -522,6 +522,10 @@ function serializeCurrentSaveSnapshot():string {
   return JSON.stringify(data);
 }
 
+// Only byte-identical prior snapshots that already passed validation in this
+// session may skip re-parsing. New saves and externally changed old saves are
+// still fully validated, backed up and read back.
+let lastValidatedSaveRaw:string|null=null;
 export function saveGame(): boolean {
   if (saving) return false;
   if (saveBlocked) {
@@ -541,13 +545,15 @@ export function saveGame(): boolean {
       return false;
     }
     const prior=localStorage.getItem(SAVE_KEY);
-    if(prior&&parseSave(prior))try{localStorage.setItem(SAVE_KEY+':last-good',prior);}catch{/* Keep saving available if the optional backup quota is full. */}
+    if(prior&&(prior===lastValidatedSaveRaw||parseSave(prior)))
+      try{localStorage.setItem(SAVE_KEY+':last-good',prior);}catch{/* Keep saving available if the optional backup quota is full. */}
     localStorage.setItem(SAVE_KEY,serialized);
     // Verify that this exact validated snapshot can be read back before
     // telling the player that the save succeeded.
     if(localStorage.getItem(SAVE_KEY)!==serialized){
       throw new Error('Storage did not retain the saved snapshot');
     }
+    lastValidatedSaveRaw=serialized;
     saveFailureReason=null;
     return true;
   } catch(error) {
