@@ -63,7 +63,7 @@ export class AmbientRoadLifeSystem{
   /** If a virtual traveler is far away, introduce a *single* actor group from
    * an authored road just outside the player's view. Distant simulation stays
    * virtual, while roads visited by the player remain populated. */
-  private nearbyRoadEntry(route:RoadLifeRoute,player:Vec2,view:{x:number;y:number;right:number;bottom:number}){
+  private nearbyRoadEntries(route:RoadLifeRoute,player:Vec2,view:{x:number;y:number;right:number;bottom:number}):Array<ReturnType<typeof routePosition>>{
     let nearest2=NEAR_ROAD_MAX_DISTANCE*NEAR_ROAD_MAX_DISTANCE,along=0,total=0;
     const points=route.points;
     for(let i=1;i<points.length;i++){
@@ -76,9 +76,11 @@ export class AmbientRoadLifeSystem{
       if(gap2<nearest2){nearest2=gap2;along=total+len*t;}
       total+=len;
     }
-    if(nearest2===NEAR_ROAD_MAX_DISTANCE*NEAR_ROAD_MAX_DISTANCE)return null;
-    // The route may pass through the region boundary: require the actual
-    // spawn point to belong to the region occupied by the player.
+    if(nearest2===NEAR_ROAD_MAX_DISTANCE*NEAR_ROAD_MAX_DISTANCE)return [];
+    // Prepare multiple outside-camera road positions. A particular position
+    // can be blocked by a tree, guard or monster; choosing only the first one
+    // caused repeated failed attempts at the exact same point forever.
+    const entries:Array<ReturnType<typeof routePosition>>=[];
     // On wide/low-zoom displays, a fixed 560-unit search radius can still be
     // entirely inside the camera. Probe farther along the same road when needed.
     const offsets=[170,260,380,520,700,900,1150,1500];
@@ -88,9 +90,10 @@ export class AmbientRoadLifeSystem{
       const pos=routePointAtDistance(route,distance);
       if(!this.eligibleViewBand(pos,view))continue;
       if(this.world.getRegionAt(pos.x,pos.y)!==this.activeRegion)continue;
-      return {...pos,distance,forward:offset<0,moving:true};
+      entries.push({...pos,distance,forward:offset<0,moving:true});
+      if(entries.length>=6)break;
     }
-    return null;
+    return entries;
   }
   constructor(private readonly scene:WorldScene,private readonly world:WorldGenerator){
     this.arrows=new AmbientNpcArrowSystem(scene,(_source,enemy,direction)=>{
@@ -256,15 +259,14 @@ export class AmbientRoadLifeSystem{
       if(this.scene.time.now<(this.nextGroupAt.get(typeKey)??0))continue;
       // Query this route's virtual location only when a nearby party is needed.
       const virtual=routePosition(route,route.clock+this.virtualTime);
-      let point= this.eligibleViewBand(virtual,view)
-        &&this.world.getRegionAt(virtual.x,virtual.y)===this.activeRegion?virtual:null;
+      if(this.eligibleViewBand(virtual,view)
+        &&this.world.getRegionAt(virtual.x,virtual.y)===this.activeRegion)
+        this.spawnCandidates.push({route,point:virtual});
       // Sparse virtual journeys can be miles from the player's road. Use one
       // representative travel slot per authored road for a nearby encounter;
       // guards already each have their own dedicated patrol route.
-      if(!point&&(route.patrol||route.id.endsWith(':0'))){
-        point=this.nearbyRoadEntry(route,player,view);
-      }
-      if(point)this.spawnCandidates.push({route,point});
+      if(route.patrol||route.id.endsWith(':0'))for(const point of this.nearbyRoadEntries(route,player,view))
+        this.spawnCandidates.push({route,point});
     }
     if(this.scanRemaining===0){
       // Preserve the previous randomized party selection without a large
