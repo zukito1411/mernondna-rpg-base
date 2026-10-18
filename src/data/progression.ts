@@ -19,10 +19,35 @@ export const skillBudget = (level:number) => {
 // Older versions awarded 28 points by level 29 and sometimes an additional
 // point at 30. Keep the old budget recognizable when restoring saved games.
 export const legacySkillBudget = (level:number) => Math.max(1,Math.min(30,Math.floor(level)))-1;
-export function xpNeededForLevel(level: number) { return XP_PER_LEVEL+25*Math.max(0,Math.floor(level)-1); }
-export function xpTotalForLevel(level: number) {
+/** Previous level curve, retained exclusively for migrating existing saves. */
+export function legacyXpNeededForLevel(level:number) {
+  return XP_PER_LEVEL+25*Math.max(0,Math.floor(level)-1);
+}
+export function legacyXpTotalForLevel(level:number) {
   const completed=Math.max(0,Math.floor(level)-1);
   return completed*XP_PER_LEVEL+25*completed*(completed-1)/2;
+}
+/** Starting at level 50 (after Edmund's Breakthrough), XP starts at 2x
+ * the previous requirement and grows by another 0.1x every level.
+ * Examples: 50->51 is 2x, 60->61 is 3x, 74->75 is 4.4x.
+ * All thresholds up through reaching level 50 stay unchanged. */
+export function xpNeededForLevel(level:number) {
+  const current=Math.max(1,Math.floor(level));
+  const normal=legacyXpNeededForLevel(current);
+  return current<BASE_LEVEL_CAP?normal:
+    Math.round(normal*(20+current-BASE_LEVEL_CAP)/10);
+}
+// Precompute exact cumulative thresholds once. Leveling, the HUD and save
+// validation use the same integer totals without repeated summation.
+const xpThresholds:number[]=[0,0];
+for(let level=2;level<=MAX_PLAYER_LEVEL;level++)
+  xpThresholds[level]=xpThresholds[level-1]+xpNeededForLevel(level-1);
+export function xpTotalForLevel(level:number) {
+  const target=Math.max(1,Math.floor(level));
+  if(target<=MAX_PLAYER_LEVEL)return xpThresholds[target];
+  let total=xpThresholds[MAX_PLAYER_LEVEL];
+  for(let current=MAX_PLAYER_LEVEL;current<target;current++)total+=xpNeededForLevel(current);
+  return total;
 }
 export function experienceWithinLevel(xp:number,cap=MAX_PLAYER_LEVEL) {
   const level=levelForExperience(xp,cap);

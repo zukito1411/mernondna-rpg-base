@@ -10,7 +10,7 @@ import { CONTENT_BY_ID, initialContentState } from '../data/content';
 import { TOWN_SHRINES } from '../data/townShrines';
 import { retiredBoundaryId } from '../data/settlementGeometry';
 import type { ContentState, ContentWorldState, CreatureContentDefinition, EncounterBehavior, EncounterRole } from '../game/types';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, legacySkillBudget, earnedRewards, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, legacySkillBudget, earnedRewards, SKILLS, levelForExperience, xpTotalForLevel, xpNeededForLevel, legacyXpNeededForLevel, legacyXpTotalForLevel, progressionStats, type PlayerAttributes, type SkillId } from '../data/progression';
 import {CINEMATICS} from '../data/cinematics';
 import {questConsequences} from '../game/systems/storyScenes';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
@@ -31,7 +31,7 @@ import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE} from '..
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'>>;
-export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
+export interface SaveData { version: 7; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -307,6 +307,32 @@ export function migrateSave(data: unknown): unknown {
       hp:Math.min(derived.maxHp,Math.max(1,old.hp)),stamina:Math.min(derived.maxStamina,old.stamina),
       statPoints:attributeBudget(level)-Object.values(attributes).reduce((sum,n)=>sum+n,0),skillPoints:remaining}};
   }
+  if(record(migrated)&&migrated.version===6&&record(migrated.state)){
+    const old=migrated.state;
+    const flags=record(old.storyFlags)?old.storyFlags:{};
+    const cap=flags[BREAKTHROUGH_COMPLETE]===true?MAX_PLAYER_LEVEL:BASE_LEVEL_CAP;
+    // Do not silently repair corrupt XP/level pairs. The usual save-recovery
+    // mechanism must retain any malformed snapshot instead of overwriting it.
+    if(!numberIn(old.level,1,cap)||!Number.isInteger(old.level)
+      ||!numberIn(old.xp,0,legacyXpTotalForLevel(cap)))return migrated;
+    let previousLevel=1;
+    while(previousLevel<cap&&old.xp>=legacyXpTotalForLevel(previousLevel+1))previousLevel++;
+    if(previousLevel!==old.level)return migrated;
+    let xp=old.xp;
+    if(cap>BASE_LEVEL_CAP&&old.level>=BASE_LEVEL_CAP){
+      if(old.level===cap)xp=xpTotalForLevel(cap);
+      else{
+        const oldInto=old.xp-legacyXpTotalForLevel(old.level);
+        const oldRequired=legacyXpNeededForLevel(old.level);
+        const newRequired=xpNeededForLevel(old.level);
+        // Preserve the *percentage* toward the next level, not merely raw
+        // cumulative XP (which would demote existing post-50 characters).
+        xp=xpTotalForLevel(old.level)
+          +Math.min(newRequired-1,Math.floor(oldInto/oldRequired*newRequired));
+      }
+    }
+    migrated={...migrated,version:7,state:{...old,xp}};
+  }
   return migrated;
 }
 
@@ -314,7 +340,7 @@ export function parseSave(raw: string): SaveData | null {
   lastSaveValidationProblem=null;
   try {
     const data = migrateSave(JSON.parse(raw));
-    if (!record(data) || data.version !== 6 || !record(data.state)) return invalidSave('unsupported save structure or version');
+    if (!record(data) || data.version !== 7 || !record(data.state)) return invalidSave('unsupported save structure or version');
     const s = data.state;
     // The short-lived duplicate Edmund was discoverable and could be saved in
     // the character journal. Retire only that exact old ID before strict
@@ -486,7 +512,7 @@ export function parseSave(raw: string): SaveData | null {
     const xp = Math.min(xpTotalForLevel(cap),state.xp + rewards.xp);
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
-    return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
+    return { version: 7, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state,journal:restoreJournal(journal,state),contracts,...armor,dungeons,
        weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,
        consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
@@ -523,7 +549,7 @@ export function hasStoredSave(): boolean {
 function serializeCurrentSaveSnapshot():string {
     syncSnapshot?.();
     const s = useGameStore.getState();
-    const data: SaveData = { version: 6, savedAt: new Date().toISOString(), state: {
+    const data: SaveData = { version: 7, savedAt: new Date().toISOString(), state: {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,dungeons:s.dungeons,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
