@@ -23,7 +23,7 @@ import {acceptUiAction} from '../utils/uiInputGuard';
 import type {StoryPanelRef} from '../data/storyPanelArt';
 import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type JournalState} from '../data/journal';
 import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
-import {CONTRACT_BY_ID,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
+import {contractById,boardContracts,contractBoardCycle,expireClaimedContracts,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
 import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
 import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,type DungeonLedger} from '../data/dungeons';
 import {BASE_LEVEL_CAP,playerLevelCap} from '../data/progression';
@@ -273,7 +273,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(!d||!p||p.claimed||state.activeDungeonId!==id||!dungeonCleared(d,p)||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
     const reward=earnedRewards(d.xp,d.gold,state.attributes,state.learnedSkills);
     const contracts={...state.contracts};
-    for(const [key,progress] of Object.entries(contracts))if(CONTRACT_BY_ID[key]?.dungeonId===id&&!progress.claimed)contracts[key]={...progress,progress:1};
+    for(const [key,progress] of Object.entries(contracts))if(contractById(key)?.dungeonId===id&&!progress.claimed)contracts[key]={...progress,progress:1};
     return {...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,dungeons:{...state.dungeons,[id]:{...p,claimed:true,respawnAt:Date.now()+DUNGEON_RESET_MS}},contracts,
       toast:`${d.name} cleared! Chest: +${reward.gold}G and +${reward.xp} XP. Cave reset: 20 minutes. Leave and return to challenge it again. Any accepted cave contract is ready at its notice board.`};
   }),
@@ -376,19 +376,27 @@ export const useGameStore = create<GameState>((set, get) => ({
   setVitals: (hp, stamina) => set({ hp, stamina }),
   damagePlayer: (amount) => set((state) => ({ hp: Math.max(0, state.hp - amount) })),
   setWorldStatus: (worldX, worldY, regionId, townId) => set(state=>({ worldX, worldY, regionId, townId,journal:discoverJournalEntry(state.journal,'regions',regionId) })),
-  setClock: (day, minuteOfDay) => set({ day, minuteOfDay }),
+  setClock: (day, minuteOfDay) => set(state=>{
+    // On each three-day boundary, forget only expired claimed offers.
+    // Active or completed-but-uncollected contracts remain available.
+    if(contractBoardCycle(day)===contractBoardCycle(state.day))return {day,minuteOfDay};
+    return {day,minuteOfDay,contracts:expireClaimedContracts(state.contracts,day)};
+  }),
   openPanel: (panel) => {if(!get().cinematic)set({ panel });},
   closePanel: () => set({ panel: null,contractBoardTownId:null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
   openContractBoard:townId=>set(state=>Object.hasOwn(TOWN_BY_ID,townId)&&!state.panel&&!state.dialogue&&!state.cinematic
     ?{panel:'contracts',contractBoardTownId:townId,aliceRemark:null}:{}),
   acceptContract:id=>set(state=>{
-    const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined;
-    if(!c||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.contracts[id]||state.cinematic)return {};
+    const c=contractById(id);
+    if(!c||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.contracts[id]||state.cinematic
+      ||!boardContracts(c.townId,state.day).some(offer=>offer.id===id))return {};
     if(outstandingContracts(state.contracts)>=MAX_ACTIVE_CONTRACTS)return {toast:`Finish or abandon a contract first. You can carry ${MAX_ACTIVE_CONTRACTS}.`};
-    return {contracts:{...state.contracts,[id]:{progress:c.dungeonId&&state.dungeons[c.dungeonId]?.claimed?1:0,claimed:false}},toast:`Accepted: ${c.title}.${c.dungeonId?' Clear the cave and open its chest.':' Only new defeats count.'}`};
+    // An already-opened chest cannot fulfill a newly accepted cave job.
+    return {contracts:{...state.contracts,[id]:{progress:0,claimed:false}},
+      toast:`Accepted: ${c.title}.${c.dungeonId?' Clear the cave and open its chest after accepting.':' Only new defeats count.'}`};
   }),
   claimContract:id=>set(state=>{
-    const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined,p=state.contracts[id];
+    const c=contractById(id),p=state.contracts[id];
     if(!c||!p||p.claimed||p.progress!==c.amount||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.cinematic)return {};
     const reward=earnedRewards(c.xp,c.gold,state.attributes,state.learnedSkills);
     return {contracts:{...state.contracts,[id]:{...p,claimed:true}},...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,
@@ -549,7 +557,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
     const contracts=lootEligible?advanceContracts(state.contracts,enemyId,defeatRegion??state.regionId,bossId):state.contracts;
     const ready=contracts!==state.contracts?Object.keys(contracts).find(id=>{
-      const p=contracts[id],previous=state.contracts[id],c=CONTRACT_BY_ID[id];
+      const p=contracts[id],previous=state.contracts[id],c=contractById(id);
       return p!==previous&&p.progress===c.amount;
     }):undefined;
     const breakthroughKill=bossId==='varkhul'&&lootEligible&&state.storyFlags[BREAKTHROUGH_ACCEPTED]&&!state.storyFlags[BREAKTHROUGH_TRIAL];
@@ -557,7 +565,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold+salvage+armorSalvage,
       ...(notices.length?{rareLootQueue:[...state.rareLootQueue,...notices].slice(-8),nextRareLootId:state.nextRareLootId+notices.length}:{}),
       ...(newArmor.length?{armorInventory:[...state.armorInventory,...newArmor.map(a=>a.id)]}:{}),
-      contracts,...(ready?{toast:`Contract ready: ${CONTRACT_BY_ID[ready].title}. Return to its town notice board.`}:{}),
+      contracts,...(ready?{toast:`Contract ready: ${contractById(ready)!.title}. Return to its town notice board.`}:{}),
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
         ...(duplicate&&!excess?{bossMaterials:{...state.bossMaterials,[dropped.id]:(state.bossMaterials[dropped.id]??0)+1}}:{}),
         toast:duplicate?(excess?`Material storage full: ${itemName(dropped.id)} sold for ${salvage} gold.`:`Duplicate ${itemName(dropped.id)}! Take it to a blacksmith to enhance your weapon.`):`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
