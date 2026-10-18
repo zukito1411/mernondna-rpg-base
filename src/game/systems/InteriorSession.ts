@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {INTERIOR_ENTRIES,INTERIOR_RESIDENTS_BY_ENTRY,roomPlan,type InteriorEntry,type RoomPlan,type RoomRect} from '../../data/interiors';
 import {NPC_BY_ID} from '../../data/npcs';
 import {useGameStore} from '../../store/gameStore';
-import type {Vec2} from '../types';
+import type {Vec2,NavigationMarker} from '../types';
 import type {WorldScene} from '../scenes/WorldScene';
 import {Npc} from '../entities/Npc';
 import type {Enemy} from '../entities/Enemy';
@@ -10,6 +10,8 @@ import {spriteSubjectCanvas} from './spriteArt';
 import {actorSpriteGridSubjects} from './spriteComponents';
 import {INTERIOR_ART,INTERIOR_FLOORS,interiorFloorIndex,type InteriorArtKey} from '../../data/interiorArt';
 import {resolveQuestTarget,questBearing,activeObjective} from './questNavigation';
+import {INN_REST_COST,innRestAvailable} from '../../data/innRest';
+import {MAP_BLACKSMITHS} from '../../data/mapServices';
 
 const DEPTH=10_000_000;
 const SOURCE='interior-source',ATLAS='interior-furniture';
@@ -27,6 +29,10 @@ export class InteriorSession {
   private disposed=false;
   private objects:Phaser.GameObjects.GameObject[]=[];
   private residents:Npc[]=[];
+  private readonly innBeds:Vec2[]=[];
+  private readonly innBedMarkers:NavigationMarker[]=[];
+  private nearInnBed=false;
+  private nextBedHintAt=0;
   private hidden:Array<{object:Phaser.GameObjects.GameObject;visible:boolean;filter:number}>=[];
   private formerBounds:Phaser.Geom.Rectangle|null=null;
   private callbacks:{complete:()=>void;error:(file:Phaser.Loader.File)=>void}|null=null;
@@ -268,8 +274,22 @@ export class InteriorSession {
       .setOrigin(0).setScrollFactor(0).setDepth(DEPTH-1000));this.fitBackdrop();
     for(const floor of plan.floors)this.own(scene.add.tileSprite(this.origin.x+floor.x,this.origin.y+floor.y,
       floor.width,floor.height,FLOORS[interiorFloorIndex(entry.kit,floor.kind)]).setOrigin(0).setDepth(DEPTH-900));
-    for(const object of plan.objects)this.drawArt(object.art,object.x,object.y,object.width,
-      object.art==='rug'?DEPTH-800:DEPTH+object.y);
+    for(const object of plan.objects){
+      const image=this.drawArt(object.art,object.x,object.y,object.width,
+        object.art==='rug'?DEPTH-800:DEPTH+object.y);
+      if(entry.profile==='inn'&&object.art==='bed'){
+        // Stand at the foot of the bed, outside its solid furniture footprint.
+        const point={x:this.origin.x+object.x,y:this.origin.y+object.y+42};
+        this.innBeds.push(point);
+        this.innBedMarkers.push({id:'inn-bed:'+this.innBedMarkers.length,kind:'landmark',service:'inn',
+          label:`Guest bed · ${INN_REST_COST}G until morning`,...point});
+        image.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
+          if(this.loading||this.cinematicContext)return;
+          if(this.bedReachable(point))this.scene.restAtInn();
+          else this.scene.notify('Walk to the foot of the bed to sleep.');
+        });
+      }
+    }
     this.renderWalls();
     // The open arch is a doorway, never the wardrobe/counter source. Its
     // transparent opening and the vestibule footprint share the same centre.
@@ -314,7 +334,7 @@ export class InteriorSession {
     if(!this.cinematicContext&&!story.storyFlags[visitFlag])story.setStoryFlag(visitFlag);
     const objective=activeObjective(story.quests,story.trackedQuestId)?.objective;
     if(!this.cinematicContext&&objective?.type==='visit'&&objective.targetId===entry.id)story.progressQuest('visit',entry.id);
-    if(!this.cinematicContext)this.scene.notify(`${entry.name} — use the south doorway to leave.`);
+    if(!this.cinematicContext)this.scene.notify(`${entry.name} — use the south doorway to leave.${entry.profile==='inn'?` Guest beds: ${INN_REST_COST}G until 06:00.`:''}`);
   }
   private residentPosition(preferred:Vec2):Vec2 {
     const plan=this.plan!;
@@ -419,6 +439,10 @@ export class InteriorSession {
   }
   private reachableResident(npc:Npc){return Math.hypot(npc.x-this.scene.player.x,npc.y-this.scene.player.y)<90
     &&this.clearPath(this.scene.player,npc,npc);}
+  private bedReachable(point:Vec2){
+    const player=this.scene.player;
+    return Math.hypot(point.x-player.x,point.y-player.y)<90&&this.clearPath(player,point);
+  }
   update(time:number,delta:number,blocked:boolean){
     this.scene.physics.world.pause();
     this.fitBackdrop();
@@ -445,6 +469,13 @@ export class InteriorSession {
       npc.setDepth(DEPTH+npc.y-this.origin.y);
     }
     const near=this.residents.find(n=>this.reachableResident(n));
+    // Only the nearby prompt is sampled. Actually paying for a bed always
+    // rechecks reachability at input time, without a per-frame furniture scan.
+    if(this.innBeds.length&&time>=this.nextBedHintAt){
+      this.nextBedHintAt=time+150;
+      this.nearInnBed=this.innBeds.some(point=>this.bedReachable(point));
+    }
+    const nearBed=!near&&!this.scene.storyCombatActive&&this.nearInnBed;
     const exit=this.plan.entrance,nearExit=Math.hypot(x-this.origin.x-exit.x,y-this.origin.y-exit.y)<80;
     const store=useGameStore.getState();
     let target=resolveQuestTarget(store.quests,store.worldContent,player,id=>{
@@ -464,9 +495,12 @@ export class InteriorSession {
     }
     store.setNavigation({heading:Math.atan2(player.lastDirection.x,-player.lastDirection.y),target,
       playerPosition:{x,y},interiorName:this.entry.name,interiorFloors:this.mapFloors,
-      markers:[...this.getResidents().map(n=>({id:'npc:'+n.definition.id,kind:'npc' as const,label:n.definition.name,x:n.x,y:n.y})),
+      markers:[...this.getResidents().map(n=>({id:'npc:'+n.definition.id,kind:'npc' as const,label:n.definition.name,x:n.x,y:n.y,
+        ...(MAP_BLACKSMITHS.has(n.definition.id)?{service:'blacksmith' as const}:{})})),
+        ...this.innBedMarkers,
         ...this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0).map(e=>({id:e.instanceId,kind:'enemy' as const,label:e.definition.name,x:e.x,y:e.y}))],
       interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':
+        nearBed?(innRestAvailable(this.scene.getWorldHour()*60)?`Sleep until 06:00 — ${INN_REST_COST}G`:'Guest bed — available from 18:00'):
         this.scene.companionActor&&Math.hypot(this.scene.companionActor.x-x,this.scene.companionActor.y-y)<180?'Talk to Alice Fen':null});
     this.syncMs+=Math.min(delta,80);
     if(this.syncMs>=500){this.syncMs=0;this.scene.syncState();}
@@ -478,6 +512,7 @@ export class InteriorSession {
     }
     const player=this.scene.player,near=this.residents.find(n=>this.reachableResident(n));
     if(near){this.talk(near);return;}
+    if(!this.scene.storyCombatActive&&!this.cinematicContext&&this.innBeds.some(point=>this.bedReachable(point))){this.scene.restAtInn();return;}
     if(this.plan&&Math.hypot(player.x-this.origin.x-this.plan.entrance.x,player.y-this.origin.y-this.plan.entrance.y)<80)this.exit();
     else if(!this.scene.talkToCompanion())this.scene.notify('Speak to a resident or return to the south doorway.');
   }
@@ -494,6 +529,9 @@ export class InteriorSession {
   private closeRoom(){
     if(!this.entry&&!this.objects.length){this.releaseArt();return;}
     this.entry=null;this.plan=null;this.backdrop=null;
+    this.innBeds.length=0;
+    this.innBedMarkers.length=0;
+    this.nearInnBed=false;this.nextBedHintAt=0;
     this.mapFloors=[];
     for(const object of this.objects){this.scene.tweens.killTweensOf(object);object.destroy();}this.objects=[];this.residents=[];this.guide=null;
     this.floorMask?.destroy();this.floorMask=null;this.wallSolids=[];

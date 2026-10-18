@@ -347,6 +347,21 @@ for (let i = 0; i < WORLD_CONTENT.length; i += 1) {
 }
 // Discovery/story boards are appended after the old town-only placement pass.
 // Fit them now, against final streets, bridge art and neighboring objects.
+const townsWithContractBoards=new Set<string>();
+for(let i=0;i<WORLD_CONTENT.length;i++){
+  const d=WORLD_CONTENT[i],townId=d.id.startsWith('detail:')?d.id.split(':')[1]:undefined;
+  if(d.kind!=='prop'||!townId||!Object.hasOwn(TOWN_BY_ID,townId)
+    ||(d.texture!=='others'&&d.texture!=='native_civic_bare')||d.frame!==11)continue;
+  townsWithContractBoards.add(townId);
+  WORLD_CONTENT[i]={...d,kind:'interactable',contractTownId:townId,name:`${TOWN_BY_ID[townId].name} notice board`,
+    description:'Local hunting contracts and regional bounties.',repeatText:'Read the posted contracts.',repeatable:true};
+}
+for(const town of TOWNS)if(!townsWithContractBoards.has(town.id)){
+  WORLD_CONTENT.push({id:`contracts:board:${town.id}`,kind:'interactable',contractTownId:town.id,
+    world:{x:town.world.x+360,y:town.world.y+185},texture:'others',frame:11,scale:.55,solid:true,
+    name:`${town.name} notice board`,description:'Local hunting contracts and regional bounties.',
+    repeatText:'Read the posted contracts.',repeatable:true});
+}
 applyNativePropReplacements(WORLD_CONTENT);
 fitAuthoredProps(WORLD_CONTENT);
 const isRoadsideBoard=(d:ContentDefinition)=>'frame' in d

@@ -166,7 +166,7 @@ export class GroundShadowSystem {
  }
  private visible(casters:Set<Caster>,width:number,height:number,castX:number,castY:number,
   result:Array<{caster:Caster;frame:Phaser.Textures.Frame}>){
-  result.length=0;
+  let count=0;
   for(const caster of casters){
    const {actor,texture,frame:fixedFrame}=caster;if(caster.enabled===false||!actor.active||!actor.visible||actor.alpha<.05)continue;
    const frame=texture?this.scene.textures.getFrame(texture,fixedFrame):actor.frame;if(!frame)continue;
@@ -174,8 +174,11 @@ export class GroundShadowSystem {
    const reach=w+h*Math.abs(castX)*(caster.projection??1),down=h*castY*(caster.projection??1)+w;
    if(actor.x+reach<this.base.x||actor.x-reach>this.base.x+width/this.base.zoom
     ||actor.y+down<this.base.y||actor.y-w>this.base.y+height/this.base.zoom)continue;
-   result.push({caster,frame});
+   if(count<result.length){result[count].caster=caster;result[count].frame=frame;}
+   else result.push({caster,frame});
+   count++;
   }
+  result.length=count;
   return result;
  }
  private stamp(visible:Array<{caster:Caster;frame:Phaser.Textures.Frame}>){
@@ -299,6 +302,7 @@ export class GroundShadowSystem {
  destroy(){
   window.removeEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
   this.casters.clear();this.scenery.clear();this.moving.clear();this.silhouettes.clear();
+  this.staticVisible.length=0;this.movingVisible.length=0;
   for(const layer of [this.cloudLayer,this.staticLayer,this.actorLayer]){layer.image.destroy();this.scene.textures.remove(layer.texture.key);}
   if(this.scene.textures.exists('interior-contact-shadow'))this.scene.textures.remove('interior-contact-shadow');
   this.contact.width=this.contact.height=1;

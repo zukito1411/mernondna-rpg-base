@@ -21,6 +21,8 @@ import {dismissStartupSplash} from './utils/startupSplash';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
 import {RareLootPopup} from './components/RareLootPopup';
 import {LevelUpNotice} from './components/LevelUpNotice';
+import {ContractBoard} from './components/ContractBoard';
+import {AliceTravelRemark} from './components/AliceTravelRemark';
 
 export default function App() {
   const [playing, setPlaying] = useState(false);
@@ -125,6 +127,8 @@ export default function App() {
         <Toast />
         <RareLootPopup />
         <LevelUpNotice />
+        <ContractBoard />
+        <AliceTravelRemark />
       </> : <HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}
     </main>
   );

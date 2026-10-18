@@ -23,10 +23,11 @@ import {acceptUiAction} from '../utils/uiInputGuard';
 import type {StoryPanelRef} from '../data/storyPanelArt';
 import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type JournalState} from '../data/journal';
 import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
+import {CONTRACT_BY_ID,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
-type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -49,6 +50,14 @@ export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'materi
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
+  contracts:ContractLedger;
+  contractBoardTownId:string|null;
+  openContractBoard:(townId:string)=>void;
+  acceptContract:(id:string)=>void;
+  claimContract:(id:string)=>void;
+  abandonContract:(id:string)=>void;
+  aliceRemark:{id:string;text:string}|null;
+  dismissAliceRemark:(id:string)=>void;
   askAliceToAdventure:(following:boolean)=>void;
   journal:JournalState;
   discoverCreature:(enemyId:string,bossId?:string,defeated?:boolean)=>void;
@@ -141,7 +150,7 @@ export interface GameState {
   progressQuest: (type: QuestObjective['type'], targetId: string, amount?: number,questId?:string) => void;
   addRewards: (xp: number, gold: number) => void;
   markBossDefeated: (bossId: string) => void;
-  recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState, contentId?:string, lootEligible?:boolean) => void;
+  recordEnemyDefeat: (enemyId: string, xp: number, gold: number, bossId?: string, worldContent?: ContentWorldState, contentId?:string, lootEligible?:boolean,defeatRegion?:RegionId) => void;
   allocateAttribute: (attribute: AttributeId) => void;
   unlockSkill: (skillId: SkillId) => void;
   setContentWorld: (worldContent: ContentWorldState) => void;
@@ -153,6 +162,8 @@ export interface GameState {
 const initialQuestState = initialQuests;
 
 const baseState = () => ({
+  contracts:{} as ContractLedger,contractBoardTownId:null as string|null,
+  aliceRemark:null as GameState['aliceRemark'],
   journal:restoreJournal(emptyJournal(),{inventory:localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],defeatedBosses:[],regionId:'trandum'}),
   playerName: LEIGNERON.name,
   hp: 100,
@@ -223,7 +234,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       ||dialogue.lineIndex<(dialogue.lines??NPC_BY_ID[ALICE_NPC_ID].dialogue).length-1)return;
     // Finish any quest conversation normally before changing party membership.
     get().endDialogue();if(get().dialogue)return;
-    set(current=>({storyFlags:{...current.storyFlags,[ALICE_COMPANION_FLAG]:following},
+    set(current=>({storyFlags:{...current.storyFlags,[ALICE_COMPANION_FLAG]:following},aliceRemark:null,
       toast:following?'Alice: "Let me get my bow. I\'m coming with you."':'Alice: "I\'ll head home to Oakmere. Come find me when you\'re ready."'}));
   },
   discoverCreature:(enemyId,bossId,defeated=false)=>set(state=>{
@@ -297,7 +308,29 @@ export const useGameStore = create<GameState>((set, get) => ({
   setWorldStatus: (worldX, worldY, regionId, townId) => set(state=>({ worldX, worldY, regionId, townId,journal:discoverJournalEntry(state.journal,'regions',regionId) })),
   setClock: (day, minuteOfDay) => set({ day, minuteOfDay }),
   openPanel: (panel) => {if(!get().cinematic)set({ panel });},
-  closePanel: () => set({ panel: null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
+  closePanel: () => set({ panel: null,contractBoardTownId:null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
+  openContractBoard:townId=>set(state=>Object.hasOwn(TOWN_BY_ID,townId)&&!state.panel&&!state.dialogue&&!state.cinematic
+    ?{panel:'contracts',contractBoardTownId:townId,aliceRemark:null}:{}),
+  acceptContract:id=>set(state=>{
+    const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined;
+    if(!c||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.contracts[id]||state.cinematic)return {};
+    if(outstandingContracts(state.contracts)>=MAX_ACTIVE_CONTRACTS)return {toast:`Finish or abandon a contract first. You can carry ${MAX_ACTIVE_CONTRACTS}.`};
+    return {contracts:{...state.contracts,[id]:{progress:0,claimed:false}},toast:`Accepted: ${c.title}. Only new defeats count.`};
+  }),
+  claimContract:id=>set(state=>{
+    const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined,p=state.contracts[id];
+    if(!c||!p||p.claimed||p.progress!==c.amount||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.cinematic)return {};
+    const reward=earnedRewards(c.xp,c.gold,state.attributes,state.learnedSkills);
+    return {contracts:{...state.contracts,[id]:{...p,claimed:true}},...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,
+      toast:`Contract fulfilled: +${reward.gold}G and +${reward.xp} XP.`};
+  }),
+  abandonContract:id=>set(state=>{
+    const p=state.contracts[id];
+    if(!p||p.claimed||(state.panel!=='contracts'&&state.panel!=='journal'))return {};
+    const contracts={...state.contracts};delete contracts[id];
+    return {contracts,toast:'Contract abandoned. Its progress has been cleared.'};
+  }),
+  dismissAliceRemark:id=>set(state=>state.aliceRemark?.id===id?{aliceRemark:null}:{}),
   openShrineTravel:(townId) => set(state => {
     if (!Object.hasOwn(TOWN_BY_ID,townId)) return {};
     const unlocked = state.unlockedTownShrines.includes(townId);
@@ -398,7 +431,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return { ...experienceProgress(state, rewards.xp), gold: state.gold + rewards.gold };
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
-  recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent, contentId, lootEligible=true) => set((state) => {
+  recordEnemyDefeat: (enemyId, xp, gold, bossId, worldContent, contentId, lootEligible=true,defeatRegion) => set((state) => {
     const known=bossId&&state.defeatedBosses.includes(bossId);
     if(known){
       const id=`boss:${bossId}`,previous=state.worldContent.states[id],defeated=worldContent?.states[id];
@@ -428,7 +461,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       state.consumables[otherPotion]<99?otherPotion:null):null;
     let journal=discoverCreature(state.journal,enemyId,bossId,true);
     if(dropped)journal=discoverJournalEntry(journal,'weapons',dropped.id);
+    const contracts=lootEligible?advanceContracts(state.contracts,enemyId,defeatRegion??state.regionId,bossId):state.contracts;
+    const ready=contracts!==state.contracts?Object.keys(contracts).find(id=>{
+      const p=contracts[id],previous=state.contracts[id],c=CONTRACT_BY_ID[id];
+      return p!==previous&&p.progress===c.amount;
+    }):undefined;
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
+      contracts,...(ready?{toast:`Contract ready: ${CONTRACT_BY_ID[ready].title}. Return to its town notice board.`}:{}),
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
         rareLootQueue:[...state.rareLootQueue,{id:state.nextRareLootId,weaponId:dropped.id,
           kind:duplicate?(excess?'salvage':'material'):'weapon',gold:salvage} as RareLootNotice].slice(-8),

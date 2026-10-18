@@ -52,6 +52,7 @@ export class AmbientRoadLifeSystem{
   private scanCursor=0;
   private scanRemaining=0;
   private active=false;
+  private readonly targetCandidates:Array<{enemy:Enemy;d2:number}>=[];
   /** True for positions just outside the viewport but safely inside the
    * release envelope; no actor should spawn far enough away to unload next tick. */
   private eligibleViewBand(point:Vec2,view:{x:number;y:number;right:number;bottom:number}){
@@ -187,8 +188,16 @@ export class AmbientRoadLifeSystem{
           // Sort by cheap squared distance BEFORE invoking the expensive
           // terrain and line-of-sight checks. Keep nearest reachable targeting.
           const range=party.patrol?400:320;
-          const nearby=enemies.map(e=>({enemy:e,d2:(e.x-npc.x)**2+(e.y-npc.y)**2}))
-            .filter(candidate=>candidate.d2<range*range).sort((a,b)=>a.d2-b.d2);
+          const nearby=this.targetCandidates;
+          let count=0;
+          for(const enemy of enemies){
+            const d2=(enemy.x-npc.x)**2+(enemy.y-npc.y)**2;
+            if(d2>=range*range)continue;
+            if(count<nearby.length){nearby[count].enemy=enemy;nearby[count].d2=d2;}
+            else nearby.push({enemy,d2});
+            count++;
+          }
+          nearby.length=count;nearby.sort((a,b)=>a.d2-b.d2);
           walker.target=nearby.find(({enemy})=>this.scene.canNpcVisit(npc,enemy)
             &&this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y))?.enemy??null;
           if(walker.target){walker.engageFrom={x:npc.x,y:npc.y};npc.beginStoryGuard();npc.setStoryAlert(party.patrol?'Defending the road':'Engaging a roaming threat');}
@@ -353,6 +362,6 @@ export class AmbientRoadLifeSystem{
     this.parties.delete(id);
     for(const [enemy,npc] of this.opponents)if(party.walkers.some(w=>w.npc===npc))this.opponents.delete(enemy);
   }
-  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.scanRemaining=0;this.spawnCandidates.length=0;this.opponents.clear();this.previousOpponents.clear();this.combatEnemies=this.emptyEnemies;this.active=false;}
+  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.scanRemaining=0;this.spawnCandidates.length=0;this.opponents.clear();this.previousOpponents.clear();this.combatEnemies=this.emptyEnemies;this.targetCandidates.length=0;this.active=false;}
   destroy(){this.clear();this.arrows.destroy();this.art.destroy();}
 }

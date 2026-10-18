@@ -13,6 +13,10 @@ import {NpcCombatResidency} from './NpcCombatResidency';
 import {AmbientNpcArrowSystem} from './AmbientNpcArrowSystem';
 import {companionPath} from './companionNavigation';
 import {approachVelocity} from './locomotion';
+import {aliceTravelRemark} from '../../data/aliceTravelRemarks';
+
+const FOLLOW_SIDES=[46,-46,24,-24,0] as const;
+const COMBAT_TURNS=[0,.6,-.6,1.2,-1.2] as const;
 
 /** One persistent named NPC, with independent following and ranged support.
  * The recruitment flag lives in the existing validated/saved story ledger. */
@@ -48,6 +52,11 @@ export class AliceCompanionSystem {
   private behindMs=0;
   private catchupRetryAt=0;
   private combatEnemies:Enemy[]=[];
+  private remarkCheckAt=0;
+  private remarkCooldownUntil=0;
+  private remarkFlags:Record<string,boolean>|null=null;
+  private remarkQuests:unknown=null;
+  private remarkLocation='';
   constructor(private readonly scene:WorldScene){
     this.art=new NpcCombatResidency(scene,spec=>spec.id==='huntress'
       &&(aliceIsFollowing(useGameStore.getState().storyFlags)||Boolean(this.npc?.active)),console.warn);
@@ -103,6 +112,7 @@ export class AliceCompanionSystem {
       this.stopCombat();
       this.npc=this.scene.adventureAlice();if(!this.npc)return;
       this.npc.setAdventureCompanion(true);this.hp=this.maxHp;this.location=null;
+      this.remarkCooldownUntil=time+9000;
       this.previousAlice=null;this.movementSampleMs=0;this.stationaryMs=0;this.behindMs=0;this.think=0;this.combatEnemies=[];
     }
     const npc=this.npc,player=this.scene.player,location=this.scene.activeInteriorId??'world';
@@ -155,13 +165,26 @@ export class AliceCompanionSystem {
       ||Math.hypot(npc.x-player.x,npc.y-player.y)>520||this.rest>0))this.stopCombat();
     if(decide){
       if(!this.target&&this.rest===0&&npc.canStoryFight){
-        this.target=enemies.filter(e=>Math.hypot(e.x-player.x,e.y-player.y)<420
-          &&Math.hypot(e.x-npc.x,e.y-npc.y)<500&&this.scene.hasClearPath(npc.x,npc.y,e.x,e.y))
-          .sort((a,b)=>Number(b.playerContributed)-Number(a.playerContributed)
-            + (Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y))/1000)[0]??null;
+        // Same player-hit preference and nearest reachable target, without
+        // temporary filtered/sorted arrays or LOS checks for worse scores.
+        let best=Infinity;
+        for(const enemy of enemies){
+          const distance=Math.hypot(enemy.x-player.x,enemy.y-player.y);
+          if(distance>=420||Math.hypot(enemy.x-npc.x,enemy.y-npc.y)>=500)continue;
+          const score=distance-(enemy.playerContributed?1000:0);
+          if(score<best&&this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y)){
+            best=score;this.target=enemy;
+          }
+        }
       }
     }
-    if(this.target){this.followSpeed=0;this.fight(time,this.target);}else this.follow(time,playerSpeed,step);
+    if(this.target){
+      const remark=useGameStore.getState().aliceRemark;if(remark)useGameStore.getState().dismissAliceRemark(remark.id);
+      this.followSpeed=0;this.fight(time,this.target);
+    }else{
+      this.follow(time,playerSpeed,step);
+      if(decide)this.updateTravelRemark(time);
+    }
     // Outdoor movement uses normal Arcade physics; rooms advance swept feet
     // manually while the exterior physics world is paused.
     if(this.scene.inInterior){
@@ -211,6 +234,22 @@ export class AliceCompanionSystem {
     this.target=null;this.attacking=false;this.combatWalking=false;this.combatIntent=null;
     this.route=[];this.routeGoal=null;this.arrows.clear();
   }
+  private updateTravelRemark(time:number){
+    if(time<this.remarkCheckAt||time<this.remarkCooldownUntil||this.rest>0)return;
+    this.remarkCheckAt=time+1500;
+    const state=useGameStore.getState(),player=this.scene.player;
+    if(state.aliceRemark||state.toast||state.hp<=0||this.combatEnemies.some(e=>e.active&&e.hp>0
+      &&Math.hypot(e.x-player.x,e.y-player.y)<400))return;
+    const location=state.regionId+':'+state.townId;
+    if(this.remarkFlags===state.storyFlags&&this.remarkQuests===state.quests&&this.remarkLocation===location)return;
+    this.remarkFlags=state.storyFlags;this.remarkQuests=state.quests;this.remarkLocation=location;
+    const remark=aliceTravelRemark(state.storyFlags,state.quests,state.regionId,state.townId);
+    if(!remark)return;
+    this.remarkCooldownUntil=time+60000;
+    // One store update and one saved flag per remark, not a dialogue or pause.
+    useGameStore.setState({aliceRemark:{id:remark.id,text:remark.text},
+      storyFlags:{...state.storyFlags,['alice:remark:'+remark.id]:true}});
+  }
   private arrivalPoint(npc:Npc){
     const p=this.scene.player,h=this.heading;
     const preferred={x:p.x-h.x*92-h.y*48,y:p.y-h.y*92+h.x*48};
@@ -255,8 +294,11 @@ export class AliceCompanionSystem {
     if(remaining>0)point={x:point.x-h.x*remaining,y:point.y-h.y*remaining};
     // Retain the same side through a turn; fall back to the actual trail on
     // narrow bridges instead of stepping onto water or clipping scenery.
-    const choices=[46,-46,24,-24,0].map(side=>({x:point.x-h.y*side,y:point.y+h.x*side}));
-    const goal=choices.find(p=>this.scene.companionCanStand(p,npc));
+    let goal:Vec2|undefined;
+    for(const side of FOLLOW_SIDES){
+      const candidate={x:point.x-h.y*side,y:point.y+h.x*side};
+      if(this.scene.companionCanStand(candidate,npc)){goal=candidate;break;}
+    }
     if(!goal){npc.setCompanionGoal(null);this.followSpeed=0;return;}
     const distance=Math.hypot(goal.x-npc.x,goal.y-npc.y),gap=Math.hypot(player.x-npc.x,player.y-npc.y);
     if(!this.moving&&(distance>32||gap<54))this.moving=true;
@@ -290,10 +332,13 @@ export class AliceCompanionSystem {
       if(!this.combatWalking){npc.endStoryGuard();this.combatWalking=true;this.route=[];}
       this.combatIntent=retreat?'retreat':'approach';
       const direction=new Phaser.Math.Vector2(npc.x-enemy.x,npc.y-enemy.y).normalize();
-      const goals=[0,.6,-.6,1.2,-1.2].map(turn=>{
-        const d=direction.clone().rotate(turn);return {x:enemy.x+d.x*210,y:enemy.y+d.y*210};
-      });
-      const goal=goals.find(p=>Math.hypot(p.x-this.scene.player.x,p.y-this.scene.player.y)<440&&this.scene.companionCanStand(p,npc));
+      let goal:Vec2|undefined;
+      for(const turn of COMBAT_TURNS){
+        const cos=Math.cos(turn),sin=Math.sin(turn);
+        const p={x:enemy.x+(direction.x*cos-direction.y*sin)*210,
+          y:enemy.y+(direction.x*sin+direction.y*cos)*210};
+        if(Math.hypot(p.x-this.scene.player.x,p.y-this.scene.player.y)<440&&this.scene.companionCanStand(p,npc)){goal=p;break;}
+      }
       npc.setCompanionGoal(goal?this.navigate(time,goal):null,retreat?165:145);return;
     }
     npc.setCompanionGoal(null);

@@ -240,6 +240,7 @@ export interface InteractableContentDefinition extends ContentBase {
   requiredQuestId?: string;
   discoveryId?:string;
   portId?:string;
+  contractTownId?:string;
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
 export interface ContentState extends Vec2 {
@@ -268,6 +269,7 @@ export interface QuestTarget extends Vec2 {
 }
 export interface NavigationMarker extends Vec2 {
   id: string; label: string; kind: 'npc' | 'enemy' | 'boss' | 'building' | 'town' | 'landmark';
+  service?:'inn'|'blacksmith'|'contracts'|'harbor'|'shrine';
 }
 export interface NavigationState {
   heading: number; target: QuestTarget | null; markers: NavigationMarker[]; interaction: string | null;

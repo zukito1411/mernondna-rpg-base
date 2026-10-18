@@ -4,6 +4,8 @@ import {LevelUpFeedback} from '../systems/LevelUpFeedback';
 import {AmbientRoadLifeSystem} from '../systems/AmbientRoadLifeSystem';
 import {AliceCompanionSystem} from '../systems/AliceCompanionSystem';
 import {ALICE_NPC_ID,aliceIsFollowing} from '../../data/aliceCompanion';
+import {INN_REST_COST,innRestAvailable} from '../../data/innRest';
+import {MAP_INNS,MAP_BLACKSMITHS} from '../../data/mapServices';
 import {InteriorSession} from '../systems/InteriorSession';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
 import {findCampaignPatrolPlacement} from '../systems/campaignPatrolPlacement';
@@ -163,6 +165,23 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private nextImpactSoundAt=0;
   private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
+  restAtInn(){
+    const store=useGameStore.getState(),entry=this.interiors.currentEntry;
+    if(!this.focused||!this.interiors.ready||entry?.profile!=='inn'||this.storyCombatActive
+      ||this.cinematicDirector.active||store.panel||store.dialogue||store.cinematic||store.pendingCinematic)return;
+    if(!innRestAvailable(this.dayNight.getHour()*60)){
+      this.notify('Inn beds are available at night, from 18:00 until 06:00.');return;
+    }
+    if(store.gold<INN_REST_COST){this.notify(`You need ${INN_REST_COST}G for a room until morning.`);return;}
+    if(!this.dayNight.sleepUntilMorning())return;
+    store.hydrate({gold:store.gold-INN_REST_COST});
+    this.player.resetInput();
+    this.cameras.main.flash(650,0,0,0);
+    this.notify(`You slept at ${entry.name}. It is now 06:00. Room: ${INN_REST_COST}G.`);
+    // The snapshot provider captures the authoritative clock and safe exterior
+    // position. This one-off save also persists payment without a new schema.
+    saveGame();
+  }
   getCombatEnemies(){
     if(this.inInterior)return [...this.enemies].filter(e=>this.storyEncounters.owns(e));
     if(this.combatEnemyListDirty){
@@ -1327,7 +1346,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     const factor=encounterRewardFactor(enemy.level,state.level,summoned);
     const rewardXp=Math.max(1,Math.round(definition.xp*factor)),rewardGold=Math.round(gold*factor);
-    state.recordEnemyDefeat(definition.id,rewardXp,rewardGold,bossId,this.contentManager.snapshot(),enemy.instanceId,!summoned);
+    state.recordEnemyDefeat(definition.id,rewardXp,rewardGold,bossId,this.contentManager.snapshot(),enemy.instanceId,!summoned,this.worldGenerator.getRegionAt(enemy.x,enemy.y));
     const gained=this.add.text(enemy.x,enemy.y-48,`+${Math.round(rewardXp*progressionStats(state.attributes,state.learnedSkills).rewardMultiplier)} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
     this.tweens.add({targets:gained,y:enemy.y-112,alpha:0,duration:1450,ease:'Sine.easeOut',onComplete:()=>gained.destroy()});
 
@@ -1484,7 +1503,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     for(const resident of INTERIOR_RESIDENTS){
       const p=resident.entry.door;
       if(Math.hypot(p.x-this.player.x,p.y-this.player.y)<1200)markers.push({id:'npc:'+resident.npcId,
-        kind:'npc',label:`${NPC_BY_ID[resident.npcId].name} — ${resident.entry.name}`,x:p.x,y:p.y});
+        kind:'npc',label:`${NPC_BY_ID[resident.npcId].name} — ${resident.entry.name}`,x:p.x,y:p.y,
+        ...(MAP_BLACKSMITHS.has(resident.npcId)?{service:'blacksmith' as const}:{})});
     }
     for (const id of this.contentManager.getActiveIds()) {
       const d = this.contentManager.getDefinition(id)!;
@@ -1496,7 +1516,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
         : d.kind === 'settlement-prop' ? 'building' : d.kind === 'settlement' ? 'town' : 'landmark';
       const label = d.kind === 'npc' ? NPC_BY_ID[d.npcId].name : d.kind === 'creature' ? ENEMY_BY_ID[d.enemyId].name
         : d.kind === 'settlement' ? TOWN_BY_ID[d.townId].name : 'name' in d ? d.name : 'label' in d && d.label ? d.label : 'Building';
-      markers.push({ id, kind, label, x: actor.x, y: actor.y });
+      const inn=MAP_INNS.get(id);
+      const service:NavigationMarker['service']=inn?'inn':d.kind==='npc'&&MAP_BLACKSMITHS.has(d.npcId)?'blacksmith'
+        :'contractTownId' in d&&d.contractTownId?'contracts':'portId' in d&&d.portId?'harbor'
+        :'townShrineId' in d&&d.townShrineId?'shrine':undefined;
+      markers.push({ id, kind, label, x: inn?.door.x??actor.x, y: inn?.door.y??actor.y,...(service?{service}:{}) });
     }
     for(const enemy of this.enemies)if(this.storyActor(enemy)&&this.targeting.eligible(enemy))markers.push({
       id:enemy.instanceId,kind:'enemy',label:enemy.definition.name,x:enemy.x,y:enemy.y});
@@ -1715,6 +1739,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private useInteractable(definition: InteractableContentDefinition, actor: ContentActor) {
     if(this.cinematicDirector?.active)return;
     if(this.storyCombatActive){this.storyEncounters.interact();return;}
+    if(definition.contractTownId){useGameStore.getState().openContractBoard(definition.contractTownId);this.player.resetInput();return;}
     if(definition.portId){useGameStore.getState().hydrate({panel:'harbor',harborPortId:definition.portId});this.player.resetInput();return;}
     if(definition.id==='clue:varkhul-ward'){
       const returnAt=this.contentManager.getState('boss:'+DRAGON_BOSS_ID)?.respawnAt;

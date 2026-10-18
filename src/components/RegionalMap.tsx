@@ -7,6 +7,7 @@ import {SETTLEMENT_LAYOUTS} from '../data/settlements';
 import {ROYAL_WALL_LINES} from '../data/fortifications';
 import {SETTLEMENT_DEFENSES} from '../data/settlementDefenses';
 import type {TerrainKind} from '../game/types';
+import {MAP_SERVICE_STYLE} from '../data/mapServices';
 
 const world = new WorldGenerator();
 const WIDTH = 900, HEIGHT = 540;
@@ -98,7 +99,16 @@ export function RegionalMap({select,center,coarse=false}:{
     <canvas ref={ref} width={WIDTH} height={HEIGHT} aria-label="Pannable regional terrain, connecting roads and river crossings"/>
     {TOWNS.map(town=>{const p=project(town.world.x,town.world.y);return p.x>2&&p.x<98&&p.y>3&&p.y<97?
       <button key={town.id} type="button" className="regional-settlement" style={{left:p.x+'%',top:p.y+'%'}} aria-label={`Select ${town.name} for teleport`} title={town.name} onClick={e=>select(town.id,e.currentTarget)}><i aria-hidden="true" /></button>:null;})}
-    {navigation.markers.filter(m=>m.kind==='boss'||m.kind==='landmark').map(m=>{const p=project(m.x,m.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={m.id} title={m.label} className="regional-poi" style={{left:p.x+'%',top:p.y+'%'}}>◇</span>:null;})}
+    {navigation.markers.filter(m=>!m.service&&(m.kind==='boss'||m.kind==='landmark')).map(m=>{const p=project(m.x,m.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={m.id} title={m.label} className="regional-poi" style={{left:p.x+'%',top:p.y+'%'}}>◇</span>:null;})}
+    {navigation.markers.map(m=>{
+      if(!m.service)return null;
+      const p=project(m.x,m.y),style=MAP_SERVICE_STYLE[m.service];
+      return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={'service:'+m.id} tabIndex={0}
+        className="regional-service" title={`${style.name}: ${m.label}`} aria-label={`${style.name}: ${m.label}`}
+        style={{left:p.x+'%',top:p.y+'%',color:style.color}}>
+        <b aria-hidden="true">{style.symbol}</b> {style.short}<small>{m.label}</small>
+      </span>:null;
+    })}
     {navigation.target&&(()=>{const destination=navigation.target.worldLocation??navigation.target,p=project(destination.x,destination.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span className="regional-quest" title={navigation.target.label} style={{left:p.x+'%',top:p.y+'%'}}>◆</span>:null;})()}
     {player.x>=0&&player.x<=100&&player.y>=0&&player.y<=100&&<span className="regional-player" style={{left:player.x+'%',top:player.y+'%',transform:`translate(-50%,-50%) rotate(${navigation.heading}rad)`}}>▲</span>}
     <span className="regional-north">N ↑ · drag to survey nearby regions</span>

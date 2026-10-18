@@ -22,6 +22,11 @@ export class StoryAllySystem {
   private readonly art:NpcCombatResidency;
   private paused=false;
   private recruitMs=0;
+  // Reuse scratch collection objects; rebuild live membership every frame.
+  private readonly actors:Enemy[]=[];
+  private readonly live=new Set<Enemy>();
+  private readonly claims=new Map<Enemy,number>();
+  private readonly reserved=new Map<Npc,Vec2>();
   constructor(private readonly scene:WorldScene){
     this.art=new NpcCombatResidency(scene,spec=>
       [...this.candidates].some(n=>n.active&&n.combatProfile?.id===spec.id)
@@ -63,11 +68,12 @@ export class StoryAllySystem {
       this.recruit(this.scene.storyResidents().filter(npc=>Math.hypot(npc.x-anchor.x,npc.y-anchor.y)<=radius));
     }else this.recruit(this.candidates);
     if(!this.helpers.size)return;
-    const actors=[...enemies].filter(enemy=>
-      enemy.active&&enemy.canBeTargeted&&enemy.hp>0&&Math.hypot(enemy.x-anchor.x,enemy.y-anchor.y)<=radius);
-    const live=new Set(actors),residents=this.scene.storyResidents();
+    const {actors,live,claims,reserved}=this;
+    actors.length=0;live.clear();claims.clear();reserved.clear();
+    for(const enemy of enemies)if(enemy.active&&enemy.canBeTargeted&&enemy.hp>0
+      &&Math.hypot(enemy.x-anchor.x,enemy.y-anchor.y)<=radius){actors.push(enemy);live.add(enemy);}
+    let residents:Npc[]|undefined;
     this.advanceArrows(step,actors);
-    const claims=new Map<Enemy,number>(),reserved=new Map<Npc,Vec2>();
     for(const [npc,helper] of this.helpers){
       if(!helper.target||!live.has(helper.target)||!helper.target.active||helper.target.hp<=0){helper.target=null;helper.goal=null;}
       if(helper.target)claims.set(helper.target,(claims.get(helper.target)??0)+1);
@@ -104,13 +110,13 @@ export class StoryAllySystem {
       let target:Enemy|undefined,best=Infinity;
       for(const enemy of actors){
         const distance=Math.hypot(enemy.x-npc.x,enemy.y-npc.y);
-        if(!enemy.active||!enemy.canBeTargeted||enemy.hp<=0
-          ||!this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y))continue;
+        if(!enemy.active||!enemy.canBeTargeted||enemy.hp<=0)continue;
         // Favor reachable nearby foes with fewer defenders, keeping a modest
         // preference for the current opponent so enemies moving past do not
         // make everyone abandon their fight or pile onto the player's target.
         const score=distance+(claims.get(enemy)??0)*128-(enemy===previous?72:0);
-        if(score<best){target=enemy;best=score;}
+        // A worse score cannot win, so avoid its terrain/collider raycast.
+        if(score<best&&this.scene.hasClearPath(npc.x,npc.y,enemy.x,enemy.y)){target=enemy;best=score;}
       }
       helper.target=target??null;
       if(!target){npc.endStoryMovement();continue;}
@@ -123,12 +129,15 @@ export class StoryAllySystem {
         }
         continue;
       }
+      // Only collect nearby residents when a defender actually needs a new
+      // approach. Idle, attacking and cooldown frames need no resident scan.
+      const approachResidents=residents??=this.scene.storyResidents();
       const angle=Math.atan2(npc.y-target.y,npc.x-target.x),stand=npc.storyAttackReach*.8;
       let goal:Vec2|undefined;
       const clearApproach=(p:Vec2)=>{
         if(Math.hypot(p.x-anchor.x,p.y-anchor.y)>Math.max(0,radius-24)
           ||Math.hypot(p.x-this.scene.player.x,p.y-this.scene.player.y)<48
-          ||residents.some(other=>other!==npc&&other.active&&Math.hypot(other.x-p.x,other.y-p.y)<48)
+          ||approachResidents.some(other=>other!==npc&&other.active&&Math.hypot(other.x-p.x,other.y-p.y)<48)
           ||actors.some(enemy=>enemy.active&&Math.hypot(enemy.x-p.x,enemy.y-p.y)<(enemy.definition.bodyRadius??11)+24))return false;
         for(const point of reserved.values())if(Math.hypot(point.x-p.x,point.y-p.y)<48)return false;
         return this.scene.canNpcVisit(npc,p)&&!this.scene.npcPathBlocker(npc,p,npc);
@@ -197,6 +206,7 @@ export class StoryAllySystem {
         npc.beginStoryMovement(helper.origin);
     }
     this.helpers.clear();this.candidates.clear();this.paused=false;this.recruitMs=0;
+    this.actors.length=0;this.live.clear();this.claims.clear();this.reserved.clear();
     this.art.cancelPending();
   }
   destroy(){this.clear();for(const arrow of this.arrows)arrow.sprite.destroy();this.arrows.length=0;this.art.destroy();}

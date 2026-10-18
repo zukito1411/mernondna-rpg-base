@@ -7,6 +7,7 @@ import {overlayViewport} from './renderSizing';
 import {getEffectsQuality,EFFECTS_QUALITY_EVENT} from './effectsQuality';
 import {getGraphicEffects} from './graphicsEffects';
 import {ensureNightLightArt,nightLightFrame} from './NightLightArt';
+import {INN_MORNING_MINUTE,innRestAvailable} from '../../data/innRest';
 
 interface LocalLight {
   actor:Phaser.GameObjects.Sprite; x:number; y:number; radius:number; fire:boolean; phase:number;
@@ -230,6 +231,13 @@ export class DayNightSystem {
    * a previous town's cached light pockets. Does not advance the clock. */
   invalidateView(){this.maskWorldOrigin=null;this.maskWorldScale=0;this.maskDirty=true;this.renderAccumulator=200;}
   getHour(){return this.minuteOfDay/60;}
+  sleepUntilMorning(){
+    if(!innRestAvailable(this.minuteOfDay))return false;
+    if(this.minuteOfDay>=INN_MORNING_MINUTE)this.day++;
+    this.minuteOfDay=INN_MORNING_MINUTE;this.accumulator=0;
+    this.invalidateView();this.syncState();
+    return true;
+  }
   syncState(){useGameStore.getState().setClock(this.day,this.minuteOfDay);}
   destroy(){
     window.removeEventListener(EFFECTS_QUALITY_EVENT,this.onQualityChange);
