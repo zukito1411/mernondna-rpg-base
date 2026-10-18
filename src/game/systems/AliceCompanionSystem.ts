@@ -43,6 +43,7 @@ export class AliceCompanionSystem {
   private contact:Phaser.GameObjects.Image|null=null;
   private wasBlocked=false;
   private previousAlice:Vec2|null=null;
+  private movementSampleMs=0;
   private stationaryMs=0;
   private behindMs=0;
   private catchupRetryAt=0;
@@ -102,7 +103,7 @@ export class AliceCompanionSystem {
       this.stopCombat();
       this.npc=this.scene.adventureAlice();if(!this.npc)return;
       this.npc.setAdventureCompanion(true);this.hp=this.maxHp;this.location=null;
-      this.previousAlice=null;this.stationaryMs=0;this.behindMs=0;this.think=0;this.combatEnemies=[];
+      this.previousAlice=null;this.movementSampleMs=0;this.stationaryMs=0;this.behindMs=0;this.think=0;this.combatEnemies=[];
     }
     const npc=this.npc,player=this.scene.player,location=this.scene.activeInteriorId??'world';
     if(this.dismissal){npc.setCompanionAlpha(1);this.dismissal=0;}
@@ -110,7 +111,7 @@ export class AliceCompanionSystem {
     const jump=this.previousPlayer&&Math.hypot(player.x-this.previousPlayer.x,player.y-this.previousPlayer.y)>1200;
     if(transition||jump){
       this.stopCombat();this.trail=[];this.route=[];this.moving=false;this.followSpeed=0;
-      this.routeGoal=null;this.replanAt=0;this.previousAlice=null;this.stationaryMs=0;this.behindMs=0;
+      this.routeGoal=null;this.replanAt=0;this.previousAlice=null;this.movementSampleMs=0;this.stationaryMs=0;this.behindMs=0;
       this.think=0;this.combatEnemies=[];
       this.heading={x:player.lastDirection.x,y:player.lastDirection.y};
       if(Math.hypot(npc.x-player.x,npc.y-player.y)>550||this.location!==null){
@@ -172,14 +173,21 @@ export class AliceCompanionSystem {
    * Walk normally unless the gap is extreme or progress has stopped. */
   private catchUp(time:number,step:number,npc:Npc,player:Vec2){
     const gap=Math.hypot(player.x-npc.x,player.y-npc.y);
-    const progress=this.previousAlice?Math.hypot(npc.x-this.previousAlice.x,npc.y-this.previousAlice.y):0;
-    this.previousAlice={x:npc.x,y:npc.y};
-    // Holding position while covering the player is intentional, not a
-    // navigation stall. Only an extreme separation interrupts combat.
+    // Sample movement over ~250 ms, not individual frames: at high refresh
+    // rates a normally walking companion may move <1 pixel each frame.
+    this.movementSampleMs+=step;
+    if(this.movementSampleMs>=240){
+      const progress=this.previousAlice
+        ?Math.hypot(npc.x-this.previousAlice.x,npc.y-this.previousAlice.y):Infinity;
+      this.previousAlice={x:npc.x,y:npc.y};
+      this.stationaryMs=gap>220&&progress<3
+        ?this.stationaryMs+this.movementSampleMs:0;
+      this.movementSampleMs=0;
+    }
+    // Holding position while covering the player is intentional, not stuck.
     if(this.target&&gap<520){
       this.stationaryMs=0;this.behindMs=0;return;
     }
-    this.stationaryMs=gap>220&&progress<1?this.stationaryMs+step:0;
     this.behindMs=gap>360?this.behindMs+step:0;
     if(gap<520&&!(gap>250&&this.stationaryMs>=1600)
       &&!(gap>360&&this.behindMs>=2700))return;
@@ -191,7 +199,7 @@ export class AliceCompanionSystem {
     npc.setCompanionGoal(null);
     (npc.body as Phaser.Physics.Arcade.Body).reset(point.x,point.y);
     npc.setPosition(point.x,point.y).setDepth(this.scene.playerRenderDepth(point.y));
-    this.previousAlice={...point};this.stationaryMs=0;this.behindMs=0;
+    this.previousAlice={...point};this.movementSampleMs=0;this.stationaryMs=0;this.behindMs=0;
     this.trail=[];this.route=[];this.routeGoal=null;this.replanAt=0;
     this.moving=false;this.followSpeed=0;this.think=0;this.combatEnemies=[];
   }
@@ -299,7 +307,7 @@ export class AliceCompanionSystem {
     this.contact?.destroy();this.contact=null;this.npc=null;this.target=null;this.location=null;this.previousPlayer=null;
     this.trail=[];this.route=[];this.dismissal=0;this.moving=false;this.followSpeed=0;this.wasBlocked=false;
     this.rest=0;this.cooldown=0;this.think=0;this.replanAt=0;
-    this.combatEnemies=[];this.previousAlice=null;this.stationaryMs=0;this.behindMs=0;this.catchupRetryAt=0;
+    this.combatEnemies=[];this.previousAlice=null;this.movementSampleMs=0;this.stationaryMs=0;this.behindMs=0;this.catchupRetryAt=0;
   }
   destroy(){this.stopCombat();this.contact?.destroy();this.art.destroy();this.arrows.destroy();this.npc=null;}
 }
