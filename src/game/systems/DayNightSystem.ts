@@ -122,7 +122,7 @@ export class DayNightSystem {
     if(this.accumulator>700){this.accumulator=0;this.syncState();}
     const night=nightStrength(this.minuteOfDay);
     const effects=getGraphicEffects();
-    const camera=this.scene.cameras.main,view=camera.worldView,full=overlayViewport(this.scene);
+    const camera=this.scene.cameras.main,view=camera.worldView;
     if(effects.lightBloom){
     for(const node of this.lights) {
       const x=node.actor.x+node.x,y=node.actor.y+node.y,r=node.radius;
@@ -183,16 +183,20 @@ export class DayNightSystem {
       }
     }
     this.firefliesWereEnabled=showFireflies;
-    const resolution=this.lightweight ? .65 : 1;
-    const z=full.zoom*resolution,pad=Math.round(this.maskPaddingCss*resolution);
-    const w=this.texture.width,h=this.texture.height;
-    this.overlay.setVisible(effects.nightDarkness&&night>0);
+    // With the GPU-heavy darkness/cutout effect off, leave its large texture
+    // untouched and skip viewport projection, scale, lighting geometry and
+    // every associated mask batch (including at night).
+    if(night===0||!effects.nightDarkness){
+      if(this.overlay.visible)this.overlay.setVisible(false);
+      this.maskWorldOrigin=null;
+      return;
+    }
+    if(!this.overlay.visible)this.overlay.setVisible(true);
     // Darkness strength is an image uniform, not another full-screen upload.
     this.overlay.setAlpha(night*.84);
-    if(night===0||!effects.nightDarkness) {
-      this.maskWorldOrigin=null;
-      return; // Avoid full-screen texture uploads in daylight.
-    }
+    const full=overlayViewport(this.scene),resolution=this.lightweight ? .65 : 1;
+    const z=full.zoom*resolution,pad=Math.round(this.maskPaddingCss*resolution);
+    const w=this.texture.width,h=this.texture.height;
     this.renderAccumulator+=Math.max(0,deltaMs);
     const movement=this.maskWorldOrigin
       ? Math.max(Math.abs(camera.worldView.x-this.maskWorldOrigin.x),Math.abs(camera.worldView.y-this.maskWorldOrigin.y))*z

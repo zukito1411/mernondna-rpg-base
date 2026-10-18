@@ -14,8 +14,6 @@ const STORAGE_KEY='leighneron:graphics-effects:v1';
 // object. Apply the new low-cost defaults once to existing installations,
 // without resetting unrelated graphics choices or saved game progress.
 const NIGHT_PERFORMANCE_MIGRATION_KEY='leighneron:night-performance-defaults:v1';
-const mobile=()=>typeof window!=='undefined'&&(
-  window.matchMedia('(pointer: coarse)').matches||/Android|iPhone|iPad/i.test(navigator.userAgent));
 function recommended():GraphicEffects{
  return {nightMist:false,daytimeFog:true,weatherParticles:true,cloudShadows:true,
    sunRays:true,treeSway:true,waterMotion:true,dynamicShadows:true,
