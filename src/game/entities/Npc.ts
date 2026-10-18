@@ -57,6 +57,12 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   // A temporary side step never consumes the original scheduled waypoint.
   private npcDetour:Vec2|null=null;
   private lastAvoidAttempt=0;
+  // Road walkers only move a few pixels between checks. Keep the existing
+  // collision/obstacle logic but avoid full-world line-of-sight queries 60x/s.
+  private roadCheckAt=0;
+  private roadRejoinCheckAt=0;
+  private roadBlocked=false;
+  private roadBlocker:Vec2|null=null;
   private avoidSide=1;
   private storyGoal:Vec2|null=null;
   private companionControl=false;
@@ -167,7 +173,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     this.storyGuard=false;this.storyAttack=null;this.storyGoal=null;
     this.formationRejoining=Boolean(this.definition.formation);this.formationRejoinAt=0;
     this.target=null;this.route=[];this.npcDetour=null;this.routineKey='';this.stalledMs=0;
-    if(this.roadRoute){this.roadRoute.rejoin=true;this.roadRoute.joining=null;}
+    if(this.roadRoute){this.roadRoute.rejoin=true;this.roadRoute.joining=null;this.roadRejoinCheckAt=0;}
     this.storyRest();
   }
   holdStoryGuard(target?:Vec2){
@@ -216,6 +222,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     if(loop.length<2)return;
     this.roadRoute={points:loop,next:Math.max(0,Math.min(loop.length-1,options.next??1)),
       direction:options.direction===-1?-1:1,loop:options.loop??false,wait:0,speed,rejoin:false,joining:null};
+    this.roadCheckAt=0;this.roadRejoinCheckAt=0;this.roadBlocked=false;this.roadBlocker=null;
   }
   get roadTravelDirection(){return this.roadRoute?.direction??1;}
   private updateRoadWalk(delta:number){
@@ -223,6 +230,10 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     if(!this.canStoryWalk){this.storyRest();return;}
     if(route.wait>0){route.wait=Math.max(0,route.wait-delta);this.storyRest();return;}
     if(route.rejoin){
+      // In a blocked corridor, finding the rejoin segment is expensive. Retry
+      // at a bounded cadence rather than walking every road segment each frame.
+      if(scene.time.now<this.roadRejoinCheckAt){this.storyRest();return;}
+      this.roadRejoinCheckAt=scene.time.now+320;
       let best=Infinity;
       for(let i=0;i<route.points.length-(route.loop?0:1);i++){
         const a=route.points[i],b=route.points[(i+1)%route.points.length],dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
@@ -231,14 +242,14 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
         if(distance>1200||distance>=best||!scene.canNpcVisit(this,point)||!scene.canTraverseGround(this,point))continue;
         best=distance;route.joining=point;route.next=route.direction>0?(i+1)%route.points.length:i;
       }
-      if(Number.isFinite(best))route.rejoin=false;
+      if(Number.isFinite(best)){route.rejoin=false;this.roadCheckAt=0;}
       else {this.storyRest();return;}
     }
     const arrival=Math.max(2,route.speed*Math.min(100,Math.max(0,delta))/1000*1.15);
     let goal=route.joining??route.points[route.next];
     // Cross corners in the same update, without an idle frame between legs.
     for(let i=0;i<=route.points.length&&Math.hypot(goal.x-this.x,goal.y-this.y)<=arrival;i++){
-      this.npcDetour=null;
+      this.npcDetour=null;this.roadCheckAt=0;
       if(route.joining)route.joining=null;
       else {
         const next=route.next+route.direction;
@@ -249,18 +260,27 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       }
       goal=route.points[route.next];
     }
-    if(this.npcDetour&&Math.hypot(this.x-this.npcDetour.x,this.y-this.npcDetour.y)<8)this.npcDetour=null;
+    if(this.npcDetour&&Math.hypot(this.x-this.npcDetour.x,this.y-this.npcDetour.y)<8){this.npcDetour=null;this.roadCheckAt=0;}
     const destination=this.npcDetour??goal;
     let dx=destination.x-this.x,dy=destination.y-this.y,length=Math.hypot(dx,dy);
     if(length<.01){this.storyRest();return;}
     const ahead={x:this.x+dx/length*Math.min(32,length),y:this.y+dy/length*Math.min(32,length)};
-    const blocker=scene.npcPathBlocker(this,ahead,this);
-    if(!scene.canNpcVisit(this,ahead)||!scene.canTraverseGround(this,ahead)||blocker){
+    // The existing arcade bodies continue to handle nearby physical contact
+    // each frame. Probe terrain, static buildings and pedestrians at most once
+    // per 120 ms (roughly 5 pixels of walking), with immediate checks on a
+    // new road leg or detour. Spread checks across actors by their spawn time.
+    if(scene.time.now>=this.roadCheckAt){
+      this.roadCheckAt=scene.time.now+120;
+      this.roadBlocker=scene.npcPathBlocker(this,ahead,this);
+      this.roadBlocked=!scene.canNpcVisit(this,ahead)||!scene.canTraverseGround(this,ahead)||Boolean(this.roadBlocker);
+    }
+    if(this.roadBlocked){
       if(scene.time.now-this.lastAvoidAttempt<=420){this.storyRest();return;}
       this.lastAvoidAttempt=scene.time.now;
-      this.npcDetour=this.npcDetourWaypoint(scene,blocker,goal);
+      this.npcDetour=this.npcDetourWaypoint(scene,this.roadBlocker,goal);
       if(!this.npcDetour){this.storyRest();return;}
       dx=this.npcDetour.x-this.x;dy=this.npcDetour.y-this.y;length=Math.hypot(dx,dy);
+      this.roadCheckAt=0;this.roadBlocked=false;
     }
     this.facing.set(dx/length,dy/length);this.stalledMs=0;
     body.setVelocity(this.facing.x*route.speed,this.facing.y*route.speed);

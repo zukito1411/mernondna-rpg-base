@@ -31,11 +31,15 @@ export class AmbientRoadLifeSystem{
   private readonly arrows:AmbientNpcArrowSystem;
   private readonly rng=seededRandom('road-life-v1');
   private readonly routes=roadLifeRoutes();
+  private readonly emptyEnemies:Enemy[]=[];
+  private combatEnemies:Enemy[]=this.emptyEnemies;
   private scan=0;
   private think=0;
   private routeClockPending=0;
   private pendingParty:PendingParty|null=null;
   private spawnCandidates:Array<{route:RoadLifeRoute;point:ReturnType<typeof routePosition>}>=[];
+  private scanCursor=0;
+  private scanRemaining=0;
   private active=false;
   constructor(private readonly scene:WorldScene,private readonly world:WorldGenerator){
     this.arrows=new AmbientNpcArrowSystem(scene,(_source,enemy,direction)=>{
@@ -67,7 +71,8 @@ export class AmbientRoadLifeSystem{
       if(this.active)for(const party of this.parties.values())for(const walker of party.walkers){
         walker.target=null;walker.attacking=false;walker.npc.endStoryAttack();walker.npc.endStoryGuard();walker.npc.endStoryMovement();
       }
-      this.active=false;this.opponents.clear();this.previousOpponents.clear();this.spawnCandidates.length=0;this.arrows.clear();return;
+      this.active=false;this.opponents.clear();this.previousOpponents.clear();this.spawnCandidates.length=0;
+      this.scanRemaining=0;this.combatEnemies=this.emptyEnemies;this.arrows.clear();return;
     }
     this.active=true;const step=Math.min(100,Math.max(0,delta));
     // Advance virtual journeys in small batches instead of visiting hundreds
@@ -82,15 +87,22 @@ export class AmbientRoadLifeSystem{
     for(const [id,party] of this.parties)if(party.walkers.every(w=>!w.npc.active||
       w.npc.x<view.x-950||w.npc.x>view.right+950||w.npc.y<view.y-850||w.npc.y>view.bottom+1050))this.release(id,party);
     if(this.scan<=0){this.scan=2500;this.populate();}
+    this.collectSpawnCandidates();
     this.processSpawnCandidates();
     // Introduce one actor per frame, not three animated bodies, labels and
     // shadow registrations on the same frame when a new guard party appears.
     this.spawnNextWalker();
     // No travelers means no enemies to scan, arrow targets to evaluate or
     // opponent tables to rebuild. Virtual journeys still progress above.
-    if(this.parties.size===0){this.opponents.clear();this.previousOpponents.clear();return;}
-    const decide=this.think<=0;if(decide)this.think=150;
-    const enemies=this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&this.scene.canRoadNpcFight(e));
+    if(this.parties.size===0){this.opponents.clear();this.previousOpponents.clear();this.combatEnemies=this.emptyEnemies;this.think=0;return;}
+    const decide=this.think<=0;
+    if(decide){
+      this.think=150;
+      // All fighters make decisions on this same tick. Avoid rebuilding the
+      // entire enemy candidate array on every animation frame between ticks.
+      this.combatEnemies=this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&this.scene.canRoadNpcFight(e));
+    }
+    const enemies=this.combatEnemies;
     this.arrows.update(step,enemies);
     // Double-buffer opponent maps: preserve windups without cloning a map
     // and then clearing/repopulating it on every frame.
@@ -164,15 +176,40 @@ export class AmbientRoadLifeSystem{
       &&[-12,12].every(dx=>[0,-20].every(dy=>this.world.isWalkable(goal.x+dx,goal.y+dy)));
   }
   private populate(){
-    if(this.parties.size>=2||this.pendingParty)return;
+    if(this.parties.size>=2||this.pendingParty||this.scanRemaining>0)return;
+    // Candidate discovery used to project EVERY virtual road traveler in one
+    // frame every 2.5 seconds. Budget projections across frames instead.
+    this.spawnCandidates.length=0;
+    this.scanCursor=Math.floor(this.rng()*Math.max(1,this.routes.length));
+    this.scanRemaining=this.routes.length;
+  }
+  private collectSpawnCandidates(){
+    if(this.scanRemaining===0)return;
+    if(this.pendingParty||this.parties.size>=2){this.scanRemaining=0;this.spawnCandidates.length=0;return;}
     const player=this.scene.player,view=this.scene.cameras.main.worldView;
-    const candidates=this.routes.filter(r=>!this.parties.has(r.id)).map(route=>({route,point:routePosition(route,route.clock)}))
-      .filter(({point})=>Math.hypot(point.x-player.x,point.y-player.y)<1900
-        &&!(point.x>view.x-150&&point.x<view.right+150&&point.y>view.y-150&&point.y<view.bottom+150));
-    for(let i=candidates.length-1;i>0;i--){const j=Math.floor(this.rng()*(i+1));[candidates[i],candidates[j]]=[candidates[j],candidates[i]];}
-    this.spawnCandidates=candidates;
+    const count=Math.min(24,this.scanRemaining);
+    for(let i=0;i<count;i++){
+      const route=this.routes[this.scanCursor];
+      this.scanCursor=(this.scanCursor+1)%this.routes.length;
+      this.scanRemaining--;
+      if(this.parties.has(route.id))continue;
+      const point=routePosition(route,route.clock);
+      const dx=point.x-player.x,dy=point.y-player.y;
+      if(dx*dx+dy*dy>=1900*1900)continue;
+      if(point.x>view.x-150&&point.x<view.right+150&&point.y>view.y-150&&point.y<view.bottom+150)continue;
+      this.spawnCandidates.push({route,point});
+    }
+    if(this.scanRemaining===0){
+      // Preserve the previous randomized party selection without a large
+      // projection pass, and keep position/placement logic unchanged.
+      for(let i=this.spawnCandidates.length-1;i>0;i--){
+        const j=Math.floor(this.rng()*(i+1));
+        [this.spawnCandidates[i],this.spawnCandidates[j]]=[this.spawnCandidates[j],this.spawnCandidates[i]];
+      }
+    }
   }
   private processSpawnCandidates(){
+    if(this.scanRemaining>0)return;
     if(this.pendingParty||this.parties.size>=2){this.spawnCandidates.length=0;return;}
     // Keep the full randomized candidate pool, but check only six costly spawn
     // positions per frame. Dense areas can continue on the next frame rather
@@ -234,6 +271,6 @@ export class AmbientRoadLifeSystem{
     this.parties.delete(id);
     for(const [enemy,npc] of this.opponents)if(party.walkers.some(w=>w.npc===npc))this.opponents.delete(enemy);
   }
-  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.spawnCandidates.length=0;this.opponents.clear();this.previousOpponents.clear();this.active=false;}
+  clear(){this.arrows.clear();for(const [id,party] of this.parties)this.release(id,party);this.pendingParty=null;this.scanRemaining=0;this.spawnCandidates.length=0;this.opponents.clear();this.previousOpponents.clear();this.combatEnemies=this.emptyEnemies;this.active=false;}
   destroy(){this.clear();this.arrows.destroy();this.art.destroy();}
 }

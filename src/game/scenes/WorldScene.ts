@@ -1493,6 +1493,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(elarionShrine){interaction=elarionShrine.definition.name;distance=0;}
     for (const npc of this.npcs) {
       npc.updatePresentation(this.player.x,this.player.y,this.questTarget?.contentId === `npc:${npc.definition.id}`,this.wasBlocked);
+      // Road-life actors deliberately have no interaction handler. Don't run
+      // the expensive talk line-of-sight probe or offer a nonfunctional prompt.
+      if(npc.definition.id.startsWith('road-life:'))continue;
       const d = Phaser.Math.Distance.Between(this.player.x,this.player.y,npc.x,npc.y);
       if (d < distance && this.hasClearPath(this.player.x,this.player.y,npc.x,npc.y)) { distance = d; interaction = `Talk to ${npc.definition.name}`; }
     }
