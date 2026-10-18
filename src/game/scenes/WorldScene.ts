@@ -6,6 +6,7 @@ import {AliceCompanionSystem} from '../systems/AliceCompanionSystem';
 import {ALICE_NPC_ID,aliceIsFollowing} from '../../data/aliceCompanion';
 import {INN_REST_COST,innRestAvailable} from '../../data/innRest';
 import {MAP_INNS,MAP_BLACKSMITHS} from '../../data/mapServices';
+import {getGraphicEffects} from '../systems/graphicsEffects';
 import {InteriorSession} from '../systems/InteriorSession';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
 import {findCampaignPatrolPlacement} from '../systems/campaignPatrolPlacement';
@@ -163,6 +164,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private reliefWatchMs=0;
   private shuttingDown=false;
   private nextImpactSoundAt=0;
+  private nextCombatShakeAt=0;
+  private knockbackBudgetUntil=0;
+  private knockbackBudget=0;
+  private impactVariation=0;
+  private readonly combatReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
   restAtInn(){
@@ -348,7 +354,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const growth=playerDamageGrowth(level);
     const weapon=enhancedWeapon(weaponId,useGameStore.getState().weaponUpgrades);
     enemy.takeDamage(Math.max(1,Math.round(weapon.damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
-      {forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier)});
+      {forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier),
+        impact:skill.id==='skyfall-slam'?'slam':skill.id==='iron-tempest'?'heavy':'light'});
   }
   cinematicLocation(shot:StoryShot){return (shot.focusNpcId?NPC_INTERIOR_BY_ID[shot.focusNpcId]?.entry:undefined)
     ??(shot.interiorId?INTERIOR_ENTRIES.find(entry=>entry.id===shot.interiorId):undefined);}
@@ -468,6 +475,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    this.nextImpactSoundAt=0;this.nextCombatShakeAt=0;this.knockbackBudgetUntil=0;this.knockbackBudget=0;
     this.registry.set('loadingStage','Creating world actors');
     this.shuttingDown=false;
     this.regionalNpcSlots.clear();
@@ -869,15 +877,16 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const progression = progressionStats(useGameStore.getState().attributes, useGameStore.getState().learnedSkills);
     let hits=0;
     for (const enemy of this.enemies) {
-      if (!enemy.active||!enemy.canBeTargeted) continue;
+      if (!enemy.active||enemy.hp<=0||!enemy.canBeTargeted) continue;
       const toEnemy = new Phaser.Math.Vector2(enemy.x - player.x, enemy.y - player.y);
       const distance = toEnemy.length();
       if (distance > weapon.reach + (enemy.definition.boss ? 18 : 8)) continue;
       toEnemy.normalize();
       if (facing.dot(toEnemy) < step.coneDot) continue;
       if (!this.hasClearPath(player.x,player.y,enemy.x,enemy.y)) continue;
-      enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level)*step.damageMultiplier)), facing,{weaponId:weapon.id});
-      hits++;
+      const applied=enemy.takeDamage(Math.max(1,Math.round(weapon.damage * progression.damageMultiplier*playerDamageGrowth(useGameStore.getState().level)*step.damageMultiplier)), facing,
+        {weaponId:weapon.id,impact:step===BASIC_ATTACK_CHAIN[2]?'heavy':'light'});
+      if(applied>0)hits++;
     }
     return hits;
   }
@@ -891,7 +900,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     for (const enemy of this.skillTargets(player,direction,skill)){
       const outward=new Phaser.Math.Vector2(enemy.x-player.x,enemy.y-player.y);
       if(outward.lengthSq()>0)outward.normalize();else outward.copy(direction);
-      enemy.takeDamage(damage,outward,{forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier)});
+      enemy.takeDamage(damage,outward,{forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier),
+        impact:skill.id==='skyfall-slam'?'slam':skill.id==='iron-tempest'?'heavy':'light'});
     }
   }
 
@@ -976,10 +986,42 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.playAudio(`sfx-footstep-${surface}-${variation}`,sprinting ? .56 : .42);
   }
 
-  private playCombatImpact(volume:number) {
+  confirmedPlayerImpact(impact:'light'|'heavy'|'slam'){
+    this.playCombatImpact(impact==='light'?.42:.5,impact);
+    if(impact!=='light')this.shakeCombatCamera(impact==='slam'?100:85,impact==='slam'?.002:.0014);
+  }
+  shakeCombatCamera(duration=85,intensity=.0014){
+    if(this.time.now<this.nextCombatShakeAt||!getGraphicEffects().combatShake||this.combatReducedMotion.matches
+      ||this.cameras.main.shakeEffect.isRunning)return;
+    this.nextCombatShakeAt=this.time.now+300;
+    // Never restart/stack an active shake or interfere with volcanic rumble.
+    this.cameras.main.shake(duration,intensity,false);
+  }
+  tryImpactKnockback(enemy:Enemy,direction:Vec2,distance:number){
+    const now=this.time.now;
+    if(now>=this.knockbackBudgetUntil){this.knockbackBudgetUntil=now+120;this.knockbackBudget=3;}
+    if(this.knockbackBudget<=0||enemy.definition.boss)return false;
+    this.knockbackBudget--;
+    const length=Math.hypot(direction.x,direction.y);if(!Number.isFinite(length)||length<.001)return false;
+    const next={x:enemy.x+direction.x/length*distance,y:enemy.y+direction.y/length*distance};
+    const radius=enemy.definition.bodyRadius??11;
+    if((next.x-this.player.x)**2+(next.y-this.player.y)**2<(radius+12)**2)return false;
+    if(!this.canEnemyOccupy(next.x,next.y,enemy)
+      ||!(this.inInterior?this.interiors.combatPath(enemy,next,radius):this.canTraverseGround(enemy,next))
+      ||!this.inInterior&&this.npcPathBlocker(enemy,next))return false;
+    for(const other of this.getCombatEnemies())if(other!==enemy&&other.active&&other.hp>0
+      &&(other.x-next.x)**2+(other.y-next.y)**2<(radius+(other.definition.bodyRadius??11))**2)return false;
+    (enemy.body as Phaser.Physics.Arcade.Body).reset(next.x,next.y);
+    return true;
+  }
+  private playCombatImpact(volume:number,impact:'light'|'heavy'|'slam'='light') {
     if(this.time.now<this.nextImpactSoundAt)return;
-    this.nextImpactSoundAt=this.time.now+110;
-    this.playAudio('sfx-sword-flesh-impact',Math.min(1,volume*2.1),.96);
+    this.nextImpactSoundAt=this.time.now+(impact==='light'?110:220);
+    this.playAudio('sfx-sword-flesh-impact',Math.min(1,volume*2.1),impact==='light'?.96:.86);
+    if(impact!=='light'){
+      const key=impact==='slam'?'sfx-heavy-slam':`sfx-impact-heavy-${this.impactVariation++%2+1}`;
+      this.playAudio(key,impact==='slam'?.65:.5,impact==='slam'?.82:.9);
+    }
   }
 
   // LEIGHNERON_ELARION_SHRINE_APPROACH_V1

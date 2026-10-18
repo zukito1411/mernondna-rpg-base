@@ -23,11 +23,12 @@ import {BOSS_WEAPON_IDS,MAX_WEAPON_UPGRADE,MAX_BOSS_MATERIALS} from '../data/wea
 import {MAX_AREA_MONSTER_LEVEL,globalMonsterBonus,scaledEnemy} from '../data/enemyTiers';
 import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 import {parseContracts} from '../data/contracts';
+import {parseArmor,armorBonusesFor} from '../data/armor';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'>>;
-export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts']} }
+export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor']} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -334,7 +335,9 @@ export function parseSave(raw: string): SaveData | null {
       || !s.unlockedTownShrines.every(id => Object.hasOwn(TOWN_BY_ID,id))) return invalidSave('invalid unlocked shrines');
     if (!playerAttributes(s.attributes) || !numberIn(s.statPoints, 0, 10000) || !Number.isInteger(s.statPoints)
       || !numberIn(s.skillPoints, 0, 10000) || !Number.isInteger(s.skillPoints) || !skillIds(s.learnedSkills)) return invalidSave('invalid player attributes or skill points');
-    const derived = progressionStats(s.attributes, s.learnedSkills);
+    const armor=parseArmor(s.armorInventory,s.equippedArmor);
+    if(!armor)return invalidSave('invalid armor inventory or equipment slots');
+    const derived = progressionStats(s.attributes, s.learnedSkills,armorBonusesFor(armor.equippedArmor));
     if (!numberIn(s.hp, 1, derived.maxHp) || !numberIn(s.stamina, 0, derived.maxStamina) || !numberIn(s.xp) || !numberIn(s.gold)
       || !numberIn(s.level, 1, MAX_PLAYER_LEVEL) || !Number.isInteger(s.level)
       || !numberIn(s.worldX, 0, WORLD_WIDTH - 1) || !numberIn(s.worldY, 0, WORLD_HEIGHT - 1)
@@ -474,7 +477,7 @@ export function parseSave(raw: string): SaveData | null {
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state,journal:restoreJournal(journal,state),contracts,
+      ...state,journal:restoreJournal(journal,state),contracts,...armor,
        weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,
        consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
@@ -512,7 +515,7 @@ function serializeCurrentSaveSnapshot():string {
     const s = useGameStore.getState();
     const data: SaveData = { version: 6, savedAt: new Date().toISOString(), state: {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
-      journal:restoreJournal(s.journal,s),contracts:s.contracts,
+      journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{}, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
@@ -622,11 +625,13 @@ export function loadGame(): boolean {
     const data=chosen.data;
     // Explicit selection prevents a save replacing store actions or transient UI state.
     const s = data.state;
-    const derived = progressionStats(s.attributes, s.learnedSkills);
+    const armorBonuses=armorBonusesFor(s.equippedArmor??{chest:null,boots:null,cape:null});
+    const derived = progressionStats(s.attributes, s.learnedSkills,armorBonuses);
     useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
       rareLootQueue:[],nextRareLootId:0,
       levelUpNotice:null,nextLevelUpId:0,
       journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,
+      armorInventory:s.armorInventory??[],equippedArmor:s.equippedArmor??{chest:null,boots:null,cape:null},armorBonuses,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
       learnedSkills: s.learnedSkills, gold: s.gold,
       consumables:s.consumables??{'healing-potion':0,'stamina-potion':0},learnedCombatArts:s.learnedCombatArts??[],skillSlots:s.skillSlots??[...DEFAULT_SKILL_SLOTS],vitalRevision:0,
@@ -653,7 +658,7 @@ export function watchProgressSaves() {
       saveGame();
       return;
     }
-    if (s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
+    if (s.armorInventory!==previous.armorInventory||s.equippedArmor!==previous.equippedArmor||s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
        || s.weaponUpgrades!==previous.weaponUpgrades || s.bossMaterials!==previous.bossMaterials
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots

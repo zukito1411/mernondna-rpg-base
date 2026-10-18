@@ -22,7 +22,6 @@ import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSav
 import {RareLootPopup} from './components/RareLootPopup';
 import {LevelUpNotice} from './components/LevelUpNotice';
 import {ContractBoard} from './components/ContractBoard';
-import {AliceTravelRemark} from './components/AliceTravelRemark';
 
 export default function App() {
   const [playing, setPlaying] = useState(false);
@@ -128,7 +127,6 @@ export default function App() {
         <RareLootPopup />
         <LevelUpNotice />
         <ContractBoard />
-        <AliceTravelRemark />
       </> : <HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}
     </main>
   );

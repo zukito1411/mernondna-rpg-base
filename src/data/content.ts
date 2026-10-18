@@ -353,13 +353,13 @@ for(let i=0;i<WORLD_CONTENT.length;i++){
   if(d.kind!=='prop'||!townId||!Object.hasOwn(TOWN_BY_ID,townId)
     ||(d.texture!=='others'&&d.texture!=='native_civic_bare')||d.frame!==11)continue;
   townsWithContractBoards.add(townId);
-  WORLD_CONTENT[i]={...d,kind:'interactable',contractTownId:townId,name:`${TOWN_BY_ID[townId].name} notice board`,
+  WORLD_CONTENT[i]={...d,kind:'interactable',contractTownId:townId,name:`${TOWN_BY_ID[townId].name} quest board`,
     description:'Local hunting contracts and regional bounties.',repeatText:'Read the posted contracts.',repeatable:true};
 }
 for(const town of TOWNS)if(!townsWithContractBoards.has(town.id)){
   WORLD_CONTENT.push({id:`contracts:board:${town.id}`,kind:'interactable',contractTownId:town.id,
     world:{x:town.world.x+360,y:town.world.y+185},texture:'others',frame:11,scale:.55,solid:true,
-    name:`${town.name} notice board`,description:'Local hunting contracts and regional bounties.',
+    name:`${town.name} quest board`,description:'Local hunting contracts and regional bounties.',
     repeatText:'Read the posted contracts.',repeatable:true});
 }
 applyNativePropReplacements(WORLD_CONTENT);
@@ -373,8 +373,17 @@ const boardGeography=new WorldGenerator();
 for(const d of WORLD_CONTENT){
   if(!isRoadsideBoard(d)||!('frame' in d))continue;
   const texture=d.texture??'world_objects',scale=d.scale??1,preferred={...d.world};
+  const boardTown='contractTownId' in d&&d.contractTownId?TOWN_BY_ID[d.contractTownId]:undefined;
+  const boardSettlement=boardTown?SETTLEMENT_BY_ID[boardTown.id]:undefined;
   const fits=(p:{x:number;y:number})=>{
     const rect=spriteBounds(texture,d.frame,scale,p.x,p.y,d.anchor==='center');
+    // Contract boards belong to their issuing settlement, even when an
+    // obstruction makes the shared placement pass search farther afield.
+    if(boardTown&&boardSettlement){
+      const bounds=boardSettlement.bounds,cx=boardTown.world.x+bounds.x,cy=boardTown.world.y+bounds.y;
+      if(rect.left<cx-bounds.width/2||rect.right>cx+bounds.width/2
+        ||rect.top<cy-bounds.height/2||rect.bottom>cy+bounds.height/2)return false;
+    }
     if(!propFitsHabitat(texture,d.frame,boardGeography,p.x,p.y,scale))return false;
     if(rect.left<0||rect.top<0||rect.right>=WORLD_WIDTH||rect.bottom>=WORLD_HEIGHT)return false;
     if(fortificationBlocksPoint(p.x,p.y,50)||harborBay(p.x,p.y)||lakeAt(p.x,p.y))return false;

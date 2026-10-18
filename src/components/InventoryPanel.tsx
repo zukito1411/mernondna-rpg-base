@@ -1,62 +1,73 @@
-import {useState} from 'react';
+import {useMemo,useState} from 'react';
 import {useGameStore} from '../store/gameStore';
 import {POTIONS,weaponEffect,type PotionId} from '../data/economy';
 import {ItemIcon} from './ItemIcon';
 import {goldLabel} from '../utils/localPlayCheats';
 import {WEAPON_PROFILES,weaponProcDescription} from '../data/weaponProfiles';
 import {enhancedWeapon,weaponUpgradeRank,enhancedProcChance} from '../data/weaponUpgrades';
+import {ARMOR_BY_ID,ARMOR_SET_BY_ID,ARMOR_SLOTS,ARMOR_SLOT_NAMES,armorBonusLines,armorBonusesFor,type ArmorSlot} from '../data/armor';
 
 export function InventoryPanel(){
-  const [tab,setTab]=useState<'weapons'|'potions'>('weapons');
-  const [search,setSearch]=useState('');
-  const panel=useGameStore(s=>s.panel),close=useGameStore(s=>s.closePanel);
-  const weaponId=useGameStore(s=>s.weaponId),inventory=useGameStore(s=>s.inventory);
-  const gold=useGameStore(s=>s.gold),potions=useGameStore(s=>s.consumables);
-  const upgrades=useGameStore(s=>s.weaponUpgrades),materials=useGameStore(s=>s.bossMaterials),luck=useGameStore(s=>s.attributes.luck);
+  const panel=useGameStore(s=>s.panel);
+  return panel==='inventory'?<OpenInventory/>:null;
+}
+function OpenInventory(){
+  const [tab,setTab]=useState<'equipment'|'potions'>('equipment'),[search,setSearch]=useState('');
+  const close=useGameStore(s=>s.closePanel),weaponId=useGameStore(s=>s.weaponId),inventory=useGameStore(s=>s.inventory);
+  const [selection,setSelection]=useState(weaponId);
+  const [kind,setKind]=useState<'weapons'|ArmorSlot>('weapons');
+  const armorInventory=useGameStore(s=>s.armorInventory),equippedArmor=useGameStore(s=>s.equippedArmor),armorBonuses=useGameStore(s=>s.armorBonuses),level=useGameStore(s=>s.level);
+  const equipArmor=useGameStore(s=>s.equipArmor),unequipArmor=useGameStore(s=>s.unequipArmor);
+  const armors=useMemo(()=>armorInventory.map(id=>ARMOR_BY_ID[id]).filter(a=>a.slot===kind&&a.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())),[armorInventory,kind,search]);
+  const selectedArmor=armors.find(a=>a.id===selection)??armors[0];
+  const preview=useMemo(()=>selectedArmor?armorBonusesFor({...equippedArmor,[selectedArmor.slot]:selectedArmor.id}):armorBonuses,[selectedArmor,equippedArmor,armorBonuses]);
+  const gold=useGameStore(s=>s.gold),potions=useGameStore(s=>s.consumables),upgrades=useGameStore(s=>s.weaponUpgrades),materials=useGameStore(s=>s.bossMaterials),luck=useGameStore(s=>s.attributes.luck);
   const equip=useGameStore(s=>s.equipWeapon),drink=useGameStore(s=>s.usePotion);
   const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),stamina=useGameStore(s=>s.stamina),maxStamina=useGameStore(s=>s.maxStamina),casting=useGameStore(s=>s.activeSkillStatus.casting);
-  if(panel!=='inventory')return null;
-  const current=enhancedWeapon(weaponId,upgrades);
-  const weapons=inventory.map(id=>enhancedWeapon(id,upgrades)).filter(w=>w&&w.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage);
-  return <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Inventory">
-    <section className="panel inventory-panel">
-      <header><div><h2>Leigneron · Bag</h2><p>{goldLabel(gold)} gold · {inventory.length} weapons</p></div><button type="button" onClick={close}>Close</button></header>
-      <nav className="equipment-tabs" aria-label="Bag categories">
-        <button type="button" aria-pressed={tab==='weapons'} onClick={()=>setTab('weapons')}>Weapons</button>
-        <button type="button" aria-pressed={tab==='potions'} onClick={()=>setTab('potions')}>Potions ({Object.values(potions).reduce((a,b)=>a+b,0)})</button>
-      </nav>
-      <div className="gear-grid equipment-body">
-        {current&&<section className="equipped-summary" aria-label="Currently equipped">
-          <ItemIcon id={current.id}/><div><small>Currently equipped</small><strong>{current.name}{weaponUpgradeRank(current.id,upgrades)>0?` +${weaponUpgradeRank(current.id,upgrades)}`:''}</strong><span>{current.damage} damage · {(current.cooldownMs/1000).toFixed(2)}s recovery · {current.staminaCost} stamina</span>{weaponEffect(current.id)&&<small>Skill effects: {weaponEffect(current.id)!.effectName}</small>}</div>
-        </section>}
-        {tab==='weapons'?<>
-          <label className="equipment-search">Find a weapon<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name" type="search"/></label>
-          <p className="equipment-help">Equip a weapon to change your attacks and skill damage. Green numbers mean more damage than your current weapon.</p>
-          <button type="button" onClick={()=>useGameStore.getState().openPanel('codex')}>Open bestiary & weapon lore</button>
-          <div className="weapon-cards">{weapons.map(w=>{
-            const equipped=w.id===weaponId,change=w.damage-(current?.damage??w.damage);
-            return <article className={`weapon-card item-row ${equipped?'is-equipped':''}`} key={w.id}>
-              <ItemIcon id={w.id}/><div><strong>{w.name}{weaponUpgradeRank(w.id,upgrades)>0?` +${weaponUpgradeRank(w.id,upgrades)}`:''}</strong><small>Tier {w.tier} · {w.kind}</small>
-                {weaponEffect(w.id)&&<small>Skill effects: {weaponEffect(w.id)!.effectName}</small>}
-                <div className="weapon-comparison"><b>{w.damage} damage</b>{!equipped&&<span className={change>0?'stat-gain':change<0?'stat-loss':''}>{change>=0?'+':''}{change}</span>}</div>
-                <small>{(w.cooldownMs/1000).toFixed(2)}s recovery · {w.staminaCost} stamina · {(w.reach/32).toFixed(1)} paces reach</small>
-                 {WEAPON_PROFILES[w.id]?.proc&&<small>Effective status chance: {(enhancedProcChance(w.id,WEAPON_PROFILES[w.id].proc!.chance,upgrades,luck)*100).toFixed(1)}% before hit weighting.</small>}
-                 {weaponUpgradeRank(w.id,upgrades)>0&&<small>Forge level +{weaponUpgradeRank(w.id,upgrades)} · {(materials[w.id]??0)} spare copies</small>}
-                <details><summary>Profile & unique effect</summary><div className="weapon-profile-text"><p>{w.description}</p><p>{WEAPON_PROFILES[w.id]?.origin} · {WEAPON_PROFILES[w.id]?.appearance}</p><p>{WEAPON_PROFILES[w.id]?.history}</p><p>{weaponProcDescription(w.id)}</p></div></details>
-              </div><button type="button" disabled={equipped||Boolean(casting)} onClick={()=>equip(w.id)}>{equipped?'Equipped':'Equip'}</button>
-            </article>;
-          })}</div>
-          {!weapons.length&&<p>No matching weapons. Try another name.</p>}
-          <p className="equipment-help">Buy swords from smiths. Boss weapon drops improve with Luck. Duplicate boss weapons are kept as enhancement materials; bring them to a blacksmith.</p>
-        </>:<section className="potion-cards">
-          <p className="equipment-help">Carry up to 99 of each potion. Full health or stamina never wastes a bottle. Use 5 for health and 6 for stamina on PC, or the mobile shortcuts.</p>
-          <div className="vital-summary"><span>Health <b>{Math.ceil(hp)} / {maxHp}</b></span><span>Stamina <b>{Math.ceil(stamina)} / {maxStamina}</b></span></div>
-          {Object.entries(POTIONS).map(([key,p])=>{
-            const id=key as PotionId,full=p.hp?hp>=maxHp:stamina>=maxStamina,count=potions[id];
-            return <article className="potion-card item-row" key={id}><ItemIcon id={id}/><div><strong>{p.name}</strong><small>{count} bottles · {p.hp?`Restores ${p.hp} health`:`Restores ${p.stamina} stamina`}</small></div><button type="button" disabled={count===0||full||Boolean(casting)} onClick={()=>drink(id)}>{count===0?'Empty':full?'Full':'Drink'}</button></article>;
-          })}
-          <p className="equipment-help">Traders, innkeepers and smiths sell replacement bottles.</p>
+  const current=useMemo(()=>enhancedWeapon(weaponId,upgrades),[weaponId,upgrades]);
+  const weapons=useMemo(()=>inventory.map(id=>enhancedWeapon(id,upgrades)).filter(w=>w&&w.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
+    .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage),[inventory,upgrades,search,weaponId]);
+  const selected=kind==='weapons'?(weapons.find(w=>w.id===selection)??weapons[0]):undefined;
+  const rank=(id:string)=>weaponUpgradeRank(id,upgrades);
+  const change=selected?selected.damage-current.damage:0;
+  const profile=selected?WEAPON_PROFILES[selected.id]:undefined;
+  return <div className="overlay-backdrop bag-backdrop" role="dialog" aria-modal="true" aria-label="Bag and equipment">
+    <section className="panel inventory-panel rpg-bag">
+      <header><div><small>Ready for the road</small><h2>Leigneron's bag</h2><p>{goldLabel(gold)} gold · {inventory.length} weapons · {armorInventory.length} armor pieces</p></div><button type="button" onClick={close}>Close</button></header>
+      <nav className="equipment-tabs" aria-label="Bag categories"><button type="button" aria-pressed={tab==='equipment'} onClick={()=>setTab('equipment')}>Equipment</button><button type="button" aria-pressed={tab==='potions'} onClick={()=>setTab('potions')}>Potions · {Object.values(potions).reduce((a,b)=>a+b,0)}</button></nav>
+      <div className="bag-content">
+        {tab==='equipment'?<>
+          <nav className="equipment-tabs armor-categories" aria-label="Equipment types">{(['weapons',...ARMOR_SLOTS] as const).map(k=><button type="button" key={k} aria-pressed={kind===k} onClick={()=>{setKind(k);setSearch('');}}>{k==='weapons'?'Weapons':ARMOR_SLOT_NAMES[k]}</button>)}</nav>
+          <label className="equipment-search"><span className="sr-only">Find equipment</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search equipment…" type="search"/></label>
+          <div className="bag-loadout">
+            <section className="bag-weapons" aria-label="Owned equipment"><div className="bag-section-title"><h3>{kind==='weapons'?'Weapons':ARMOR_SLOT_NAMES[kind]}</h3><small>{kind==='weapons'?weapons.length:armors.length} in bag</small></div>
+              <div className="bag-weapon-list">{kind==='weapons'&&weapons.map(w=><button type="button" key={w.id} className={`bag-weapon-choice${w.id===weaponId?' is-equipped':''}`} aria-pressed={selected?.id===w.id} onClick={()=>setSelection(w.id)}>
+                <ItemIcon id={w.id}/><span><strong>{w.name}{rank(w.id)>0?` +${rank(w.id)}`:''}</strong><small>{w.damage} ATK · Tier {w.tier}</small>{w.id===weaponId&&<em>Equipped</em>}</span>
+              </button>)}{kind!=='weapons'&&armors.map(a=><button type="button" key={a.id} className={`bag-weapon-choice${equippedArmor[a.slot]===a.id?' is-equipped':''}`} aria-pressed={selectedArmor?.id===a.id} onClick={()=>setSelection(a.id)}><ItemIcon id={a.id}/><span><strong>{a.name}</strong><small>{armorBonusLines(a.bonuses).join(' · ')}</small>{equippedArmor[a.slot]===a.id&&<em>Equipped</em>}</span></button>)}{!(kind==='weapons'?weapons.length:armors.length)&&<p>No matching equipment. Visit a merchant or seek regional bosses.</p>}</div>
+            </section>
+            <aside className="bag-slots" aria-label="Equipment slots"><h3>Equipment</h3>
+              {selected&&<button className="bag-equip-action" type="button" disabled={selected.id===weaponId||Boolean(casting)} onClick={()=>equip(selected.id)}>{selected.id===weaponId?'Equipped':'Equip selected'}</button>}
+              {selectedArmor&&kind!=='weapons'&&<button className="bag-equip-action" type="button" disabled={equippedArmor[selectedArmor.slot]===selectedArmor.id||Boolean(casting)||level<selectedArmor.minLevel} onClick={()=>equipArmor(selectedArmor.id)}>{equippedArmor[selectedArmor.slot]===selectedArmor.id?'Equipped':level<selectedArmor.minLevel?`Requires level ${selectedArmor.minLevel}`:'Equip selected'}</button>}
+              <div className="armor-slot-grid"><button type="button" className="bag-weapon-slot" onClick={()=>{setKind('weapons');setSearch('');setSelection(current.id);}} aria-label={`Weapon slot: ${current.name}`}><small>Weapon</small><ItemIcon id={current.id}/><strong>{current.name}{rank(current.id)>0?` +${rank(current.id)}`:''}</strong><span>{current.damage} ATK</span></button>
+              {ARMOR_SLOTS.map(slot=>{const id=equippedArmor[slot];return <div className="armor-slot-wrap" key={slot}><button type="button" className="bag-weapon-slot" onClick={()=>{setKind(slot);setSearch('');if(id)setSelection(id);}}><small>{ARMOR_SLOT_NAMES[slot]}</small>{id?<ItemIcon id={id}/>:<span className="armor-empty">+</span>}<strong>{id?ARMOR_BY_ID[id].name:'Empty'}</strong></button>{id&&<button type="button" className="armor-remove" disabled={Boolean(casting)} onClick={()=>unequipArmor(slot)} aria-label={`Unequip ${ARMOR_BY_ID[id].name}`}>Remove</button>}</div>;})}</div>
+              <p className="bag-slot-note">Armor totals: {armorBonusLines(armorBonuses).join(' · ')||'No armor equipped'}</p>
+              <p className="bag-slot-note">Choose equipment in your bag to inspect and equip it.</p>
+            </aside>
+          </div>
+          {selected&&<section className="bag-inspection" key={selected.id} aria-label="Selected weapon details">
+            <div className="bag-inspection-title"><ItemIcon id={selected.id}/><div><small>{selected.id===weaponId?'Currently equipped':'Selected weapon'}</small><h3>{selected.name}{rank(selected.id)>0?` +${rank(selected.id)}`:''}</h3></div>{selected.id!==weaponId&&<strong className={change>0?'stat-gain':change<0?'stat-loss':''}>{change>=0?'+':''}{change} ATK</strong>}</div>
+            <dl className="bag-stats"><div><dt>Attack</dt><dd>{selected.damage}</dd></div><div><dt>Recovery</dt><dd>{(selected.cooldownMs/1000).toFixed(2)}s</dd></div><div><dt>Stamina</dt><dd>{selected.staminaCost}</dd></div><div><dt>Reach</dt><dd>{(selected.reach/32).toFixed(1)} paces</dd></div></dl>
+            {weaponEffect(selected.id)&&<p>Skill effects: {weaponEffect(selected.id)!.effectName}</p>}
+            <p>{weaponProcDescription(selected.id)}</p>
+            {profile?.proc&&<p className="bag-detail-note">Status chance: {(enhancedProcChance(selected.id,profile.proc.chance,upgrades,luck)*100).toFixed(1)}% before hit weighting.</p>}
+            {(rank(selected.id)>0||(materials[selected.id]??0)>0)&&<p className="bag-detail-note">Forge level +{rank(selected.id)} · {materials[selected.id]??0} duplicate materials</p>}
+            <details><summary>Weapon story & details</summary><p>{selected.description}</p><p>{profile?.origin}</p><p>{profile?.history}</p></details>
+          </section>}
+          {selectedArmor&&kind!=='weapons'&&<section className="bag-inspection"><div className="bag-inspection-title"><ItemIcon id={selectedArmor.id}/><div><small>{ARMOR_SLOT_NAMES[selectedArmor.slot]} · Level {selectedArmor.minLevel}</small><h3>{selectedArmor.name}</h3></div></div><p>{armorBonusLines(selectedArmor.bonuses).join(' · ')}</p><p><strong>{ARMOR_SET_BY_ID[selectedArmor.setId].name} set ({ARMOR_SLOTS.filter(s=>equippedArmor[s]&&ARMOR_BY_ID[equippedArmor[s]!].setId===selectedArmor.setId).length}/3)</strong><br/>Full set: {armorBonusLines(ARMOR_SET_BY_ID[selectedArmor.setId].bonus).join(' · ')}</p>{equippedArmor[selectedArmor.slot]!==selectedArmor.id&&<p className="bag-detail-note">Current armor: {armorBonusLines(armorBonuses).join(' · ')||'None'}.<br/>After equipping, including set changes: {armorBonusLines(preview).join(' · ')}. Current HP is retained, capped at your new maximum.</p>}<details><summary>Armor profile & provenance</summary><p>{selectedArmor.appearance}</p><p>{selectedArmor.origin}</p><p>{selectedArmor.history}</p><p>{selectedArmor.bossId?'Found only among its regional boss’s spoils.':'Available from traveling suppliers and smiths.'}</p></details></section>}
+          <button type="button" className="bag-lore-link" onClick={()=>useGameStore.getState().openPanel('codex')}>Open the world codex →</button>
+        </>:<section className="potion-cards"><div className="vital-summary"><span>Health <b>{Math.ceil(hp)} / {maxHp}</b></span><span>Stamina <b>{Math.ceil(stamina)} / {maxStamina}</b></span></div>
+          {Object.entries(POTIONS).map(([key,p])=>{const id=key as PotionId,full=p.hp?hp>=maxHp:stamina>=maxStamina,count=potions[id];return <article className="potion-card item-row" key={id}><ItemIcon id={id}/><div><strong>{p.name}</strong><small>{count} / 99 bottles</small><p>{p.hp?`Restores ${p.hp} health`:`Restores ${p.stamina} stamina`}</p></div><button type="button" disabled={count===0||full||Boolean(casting)} onClick={()=>drink(id)}>{count===0?'Empty':full?'Full':'Drink'}</button></article>;})}
+          <p className="equipment-help">Full health or stamina never wastes a bottle. PC shortcuts: 5 for health, 6 for stamina.</p>
         </section>}
       </div>
     </section>

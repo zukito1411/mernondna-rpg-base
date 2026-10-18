@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {useGameStore} from '../store/gameStore';
-import {SKILLS,MAX_PLAYER_LEVEL,ATTRIBUTE_CAP,progressionStats,experienceWithinLevel,playerDamageGrowth,type AttributeId} from '../data/progression';
+import {SKILLS,MAX_PLAYER_LEVEL,ATTRIBUTE_CAP,progressionStats,experienceWithinLevel,playerDamageGrowth,bossArmorSetDropChance,type AttributeId} from '../data/progression';
 import {CombatArtIcon} from './CombatArtIcon';
 import {ACTIVE_SKILLS,ACTIVE_SKILL_BY_ID,type ActiveSkillId} from '../data/activeSkills';
 import {enhancedWeapon} from '../data/weaponUpgrades';
@@ -19,8 +19,9 @@ export function CharacterPanel(){
   const status=useGameStore(s=>s.activeSkillStatus),allocate=useGameStore(s=>s.allocateAttribute),unlock=useGameStore(s=>s.unlockSkill);
   const slots=useGameStore(s=>s.skillSlots),learnedArts=useGameStore(s=>s.learnedCombatArts),learnArt=useGameStore(s=>s.learnCombatArt),setSlot=useGameStore(s=>s.setSkillSlot),weaponId=useGameStore(s=>s.weaponId);
   const upgrades=useGameStore(s=>s.weaponUpgrades);
+  const armorBonuses=useGameStore(s=>s.armorBonuses);
   if(panel!=='character')return null;
-  const stats=progressionStats(attributes,learnedSkills),exp=experienceWithinLevel(xp);
+  const stats=progressionStats(attributes,learnedSkills,armorBonuses),exp=experienceWithinLevel(xp);
   return <div className="overlay-backdrop" role="dialog" aria-modal="true" aria-label="Character and skills">
     <section className="panel character-panel">
       <header><div><h2>Leigneron · Stats</h2><p>Level {level} / {MAX_PLAYER_LEVEL} · {level>=MAX_PLAYER_LEVEL?'Maximum level':`${exp.current} / ${exp.required} XP to next level`}</p></div><button type="button" onClick={close}>Close</button></header>
@@ -50,6 +51,8 @@ export function CharacterPanel(){
           })}</div>
         </section>:tab==='attributes'?<section>
           <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round(enhancedWeapon(weaponId,upgrades).damage*stats.damageMultiplier*playerDamageGrowth(level))}</b></span><span>Damage reduction <b>{Math.round((1-stats.incomingDamageMultiplier)*1000)/10}%</b></span><span>Rare boss loot <b>{(stats.rareDropChance*100).toFixed(1)}%</b></span></div>
+          <p className="equipment-help">Critical chance: {(stats.luckChance*100).toFixed(1)}% · Evasion: {(stats.evasionChance*100).toFixed(1)}%. Includes equipped armor and active set bonuses.</p>
+          <p className="equipment-help">Complete boss armor set: {(bossArmorSetDropChance(attributes)*100).toFixed(1)}% chance. Awards chest, boots and cape together from bosses that carry an armor set.</p>
           <div className="progression-heading"><h3>Attributes</h3><span>{statPoints} points available</span></div>
           <p className="equipment-help">Gain three attribute points per level all the way to level 50. To refund your spent attribute points, speak with Edmund in Oakmere and pay 1,500 gold.</p>
           {ATTRIBUTES.map(a=><article className="progression-row" key={a.id}><div><strong>{a.name} · {attributes[a.id]} / {ATTRIBUTE_CAP}</strong><p>{a.description}</p></div><button type="button" disabled={statPoints<=0||attributes[a.id]>=ATTRIBUTE_CAP} onClick={()=>allocate(a.id)} aria-label={`Add one ${a.name} point`}>{attributes[a.id]>=ATTRIBUTE_CAP?'Max':'+1'}</button></article>)}

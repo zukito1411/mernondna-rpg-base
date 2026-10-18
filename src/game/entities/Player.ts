@@ -107,7 +107,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const body = this.body as Phaser.Physics.Arcade.Body;
     const state = useGameStore.getState();
-    const progression = progressionStats(state.attributes, state.learnedSkills);
+    const progression = progressionStats(state.attributes, state.learnedSkills,state.armorBonuses);
     this.syncInventoryVitals();
     this.maxHp = progression.maxHp;
     this.maxStamina = progression.maxStamina;
@@ -146,7 +146,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.dashDirection.copy(this.lastDirection);
       this.nextDashTrailAt = time;
       scene.recordTraining('drill-dash');
-      scene.cameras.main.shake(75, 0.0015);
+      scene.shakeCombatCamera(75, 0.0015);
       scene.playEffect('fortification', this.x, this.y, this.dashDirection);
       scene.playAudio('sfx-dash',.32);
     }
@@ -260,13 +260,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private strikeBasicAttack(weapon:WeaponDefinition,direction:Phaser.Math.Vector2,step:BasicAttackStep){
     const scene=this.scene as WorldScene;
     scene.playSwordSwing(step);
-    const hits=scene.performPlayerAttack(this,direction,weapon,step);
+    scene.performPlayerAttack(this,direction,weapon,step);
     if(weapon.kind==='sword'||weapon.kind==='greatsword'){
       const slash=scene.playEffect('slash',this.x+direction.x*16,this.y+direction.y*16,direction);
       if(step===BASIC_ATTACK_CHAIN[1])slash.setFlipY(true);
       if(step===BASIC_ATTACK_CHAIN[2]){
         slash.setScale(slash.scaleX*1.2).setTint(0xffdeb1);
-        if(hits>0){scene.cameras.main.shake(95,.002);scene.playAudio('sfx-impact-heavy-1',.3,.85);}
       }
     }
   }
@@ -276,7 +275,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if(!Number.isFinite(amount)||amount<=0||this.hp<=0)return;
     const now=scene.time.now;
     if(now<this.invulnerableUntil)return;
-    const state=useGameStore.getState(),stats=progressionStats(state.attributes,state.learnedSkills);
+    const state=useGameStore.getState(),stats=progressionStats(state.attributes,state.learnedSkills,state.armorBonuses);
     if(!this.unlimitedVitals&&Math.random()<stats.evasionChance){
       this.invulnerableUntil=now+180;
       scene.playEffect('fortification',this.x,this.y);

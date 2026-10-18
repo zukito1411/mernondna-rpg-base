@@ -202,6 +202,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   endStoryMovement(){this.storyGoal=null;this.storyRest();}
   get storyMoving(){return this.storyGoal!==null||this.storyGuard;}
   get adventureCompanion(){return this.companionControl;}
+  get speechAnchorY(){return this.y+this.labelY;}
   setAdventureCompanion(enabled:boolean){
     if(enabled===this.companionControl)return;
     this.companionControl=enabled;this.companionGoal=null;

@@ -14,6 +14,7 @@ import {AmbientNpcArrowSystem} from './AmbientNpcArrowSystem';
 import {companionPath} from './companionNavigation';
 import {approachVelocity} from './locomotion';
 import {aliceTravelRemark} from '../../data/aliceTravelRemarks';
+import {AliceSpeechBubble} from './AliceSpeechBubble';
 
 const FOLLOW_SIDES=[46,-46,24,-24,0] as const;
 const COMBAT_TURNS=[0,.6,-.6,1.2,-1.2] as const;
@@ -57,7 +58,9 @@ export class AliceCompanionSystem {
   private remarkFlags:Record<string,boolean>|null=null;
   private remarkQuests:unknown=null;
   private remarkLocation='';
+  private readonly speech:AliceSpeechBubble;
   constructor(private readonly scene:WorldScene){
+    this.speech=new AliceSpeechBubble(scene,()=>this.actor);
     this.art=new NpcCombatResidency(scene,spec=>spec.id==='huntress'
       &&(aliceIsFollowing(useGameStore.getState().storyFlags)||Boolean(this.npc?.active)),console.warn);
     this.arrows=new AmbientNpcArrowSystem(scene,(_npc,enemy,direction)=>{
@@ -70,6 +73,7 @@ export class AliceCompanionSystem {
   get actor(){return this.npc?.active&&this.dismissal===0?this.npc:null;}
   get roomActor(){return this.scene.activeInteriorId!==null&&this.location===this.scene.activeInteriorId?this.actor:null;}
   pauseForStory(){
+    this.speech.hide();
     this.stopCombat();this.npc?.setCompanionGoal(null);this.wasBlocked=true;this.route=[];this.moving=false;this.followSpeed=0;
   }
   opponent(enemy:Enemy){
@@ -94,6 +98,7 @@ export class AliceCompanionSystem {
     const step=Math.min(100,Math.max(0,delta)),following=aliceIsFollowing(useGameStore.getState().storyFlags);
     this.art.update();
     if(!following){
+      this.speech.hide();
       if(this.npc?.active){
         this.stopCombat();this.npc.setCompanionGoal(null);
         if(blocked)return;
@@ -104,6 +109,7 @@ export class AliceCompanionSystem {
     }
     const profile=npcCombatArt(NPC_BY_ID[ALICE_NPC_ID]);if(profile)this.art.ensure(profile);
     if(blocked||!this.scene.companionLocationReady){
+      this.speech.hide();
       if(!this.wasBlocked){this.stopCombat();this.npc?.setCompanionGoal(null);}
       this.wasBlocked=true;this.followSpeed=0;return;
     }
@@ -179,7 +185,7 @@ export class AliceCompanionSystem {
       }
     }
     if(this.target){
-      const remark=useGameStore.getState().aliceRemark;if(remark)useGameStore.getState().dismissAliceRemark(remark.id);
+      this.speech.hide();
       this.followSpeed=0;this.fight(time,this.target);
     }else{
       this.follow(time,playerSpeed,step);
@@ -249,6 +255,7 @@ export class AliceCompanionSystem {
     // One store update and one saved flag per remark, not a dialogue or pause.
     useGameStore.setState({aliceRemark:{id:remark.id,text:remark.text},
       storyFlags:{...state.storyFlags,['alice:remark:'+remark.id]:true}});
+    this.speech.show(remark.id,remark.text);
   }
   private arrivalPoint(npc:Npc){
     const p=this.scene.player,h=this.heading;
@@ -350,11 +357,12 @@ export class AliceCompanionSystem {
     }
   }
   private reset(){
+    this.speech.hide();
     this.stopCombat();
     this.contact?.destroy();this.contact=null;this.npc=null;this.target=null;this.location=null;this.previousPlayer=null;
     this.trail=[];this.route=[];this.dismissal=0;this.moving=false;this.followSpeed=0;this.wasBlocked=false;
     this.rest=0;this.cooldown=0;this.think=0;this.replanAt=0;
     this.combatEnemies=[];this.previousAlice=null;this.movementSampleMs=0;this.stationaryMs=0;this.behindMs=0;this.catchupRetryAt=0;
   }
-  destroy(){this.stopCombat();this.contact?.destroy();this.art.destroy();this.arrows.destroy();this.npc=null;}
+  destroy(){this.speech.destroy();this.stopCombat();this.contact?.destroy();this.art.destroy();this.arrows.destroy();this.npc=null;}
 }

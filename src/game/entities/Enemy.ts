@@ -825,19 +825,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally'|'ambient-ally'|'companion';weaponId?:string;procHitWeight?:number}={}) {
-    if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return;
+  takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally'|'ambient-ally'|'companion';weaponId?:string;procHitWeight?:number;impact?:'light'|'heavy'|'slam'}={}) {
+    if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return 0;
     const state=useGameStore.getState();
     const support=options.nonLethal||options.source==='story-ally'||options.source==='ambient-ally'||options.source==='companion';
     if(!support||options.source==='companion')this.playerContributed=true;
     if(!support)state.discoverCreature(this.definition.id,this.boss?.id);
     const armorPenetration=support?0:Math.min(.4,(state.attributes.strength??0)*.01);
     const effectiveDefense=(this.definition.defense??0)*(1-armorPenetration);
-    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills)*this.weaponStatus.directDamageMultiplier)*(1-effectiveDefense)));
+    const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills,state.armorBonuses)*this.weaponStatus.directDamageMultiplier)*(1-effectiveDefense)));
     const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
-    if(applied<=0)return;
+    if(applied<=0)return 0;
     this.hp -= applied;
     const scene=this.scene as WorldScene;
+    const impact=options.impact??'light';
+    if(!support)scene.confirmedPlayerImpact(impact);
     if(!support)scene.targeting.engage(this);
     scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
     this.lastDamagedAt=this.scene.time.now;
@@ -862,6 +864,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Flurry keeps its targets inside the sweep instead of knocking them out
     // of range while Leigneron is committed to the stationary animation.
     if (staggered||fatal) {
+      // A brief shove only on an accepted heavy stagger. Immunity, flurry
+      // containment, bosses and airborne dragons retain their existing rules.
+      if(staggered&&!fatal&&!support&&!this.definition.boss&&!options.forceStagger&&impact!=='light')
+        scene.tryImpactKnockback(this,knockback,impact==='slam'?12:9);
       const force=fatal?70:options.forceStagger?0:this.boss?55:100;
       body.setVelocity(this.dragonCombat?0:knockback.x*force,
         this.dragonCombat?0:knockback.y*force);
@@ -869,6 +875,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.hitFlashUntil=this.scene.time.now+70;this.setTintFill(0xffffff);
     this.scene.time.delayedCall(70, () => this.applyStatusTint());
     if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
+    return applied;
   }
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
 

@@ -2,6 +2,7 @@ import {NPC_BY_ID} from './npcs';
 import {TOWN_BY_ID} from './towns';
 import {WEAPON_BY_ID} from './weapons';
 import {REGIONAL_SWORDS,WEAPON_PROFILES} from './weaponProfiles';
+import {ARMORS,ARMOR_BY_ID} from './armor';
 
 export const POTIONS={
   'healing-potion':{name:'Healing Draught',price:28,hp:50,stamina:0,icon:13,description:'Restores 50 health. No use at full health.'},
@@ -57,7 +58,9 @@ export function merchantStock(npcId:string):Array<{id:string;price:number;minLev
   const region=TOWN_BY_ID[npc.townId]?.regionId;
   const tier=npc.townId==='oakmere'?2:npc.townId==='highmere'?4:region==='trandum'?3:4;
   return [...(smith?SWORD_OFFERS.slice(0,tier).map(o=>({id:o.id,price:o.price,minLevel:o.minLevel})):[]),
+    ...ARMORS.filter(a=>a.price!==undefined&&(smith||/merchant|trader|shopkeeper|quartermaster|caravan/i.test(job))
+      &&(a.setId==='wayfarer'||smith&&npc.townId!=='oakmere')).map(a=>({id:a.id,price:a.price!,minLevel:a.minLevel})),
     ...REGIONAL_SWORDS.filter(o=>o.region===region).map(({id,price,minLevel})=>({id,price,minLevel})),
     ...Object.entries(POTIONS).map(([id,p])=>({id,price:p.price,minLevel:1}))];
 }
-export function itemName(id:string){return WEAPON_BY_ID[id]?.name??POTIONS[id as PotionId]?.name??id;}
+export function itemName(id:string){return ARMOR_BY_ID[id]?.name??WEAPON_BY_ID[id]?.name??POTIONS[id as PotionId]?.name??id;}

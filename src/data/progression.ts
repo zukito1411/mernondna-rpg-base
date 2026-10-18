@@ -1,3 +1,4 @@
+import {NO_ARMOR_BONUSES,type ArmorBonuses} from './armor';
 export const XP_PER_LEVEL = 250; // Base requirement, retained for older callers.
 export const PLAYER_ACTOR_HEIGHT = 76;
 export const MAX_PLAYER_LEVEL = 50;
@@ -61,25 +62,25 @@ export const SKILLS:SkillDefinition[]=[
  {id:'second-wind',name:'Second Wind',description:'+20 maximum stamina.',branch:'Mobility',minLevel:12,cost:2,requires:'windrunner'},
  {id:'spell-tempo',name:'Battle Rhythm',description:'Reduce art cooldowns by 6%.',branch:'Mobility',minLevel:28,cost:3,requires:'second-wind'},
 ];
-export function progressionStats(attributes:PlayerAttributes,skills:SkillId[]){
+export function progressionStats(attributes:PlayerAttributes,skills:SkillId[],armor:ArmorBonuses=NO_ARMOR_BONUSES){
  const has=(id:SkillId)=>skills.includes(id);
  const points=(id:AttributeId)=>Math.max(0,Math.min(ATTRIBUTE_CAP,attributes[id]??0));
  const str=points('strength'),vit=points('vitality'),agi=points('agility'),eva=points('evasion'),luk=points('luck');
  return {
   // STR grants a little toughness, while VIT is the primary survival stat.
-  maxHp:100+str*2+vit*10+(has('iron-heart') ? 25:0)+(has('last-stand') ? 20:0),
+  maxHp:100+str*2+vit*10+(has('iron-heart') ? 25:0)+(has('last-stand') ? 20:0)+armor.maxHp,
   maxStamina:100+agi*2+(has('deep-reserves') ? 30:0)+(has('second-wind') ? 20:0),
   damageMultiplier:1+str*.035+(has('heavy-strike') ? .12:0)+(has('steady-edge') ? .06:0)+(has('veteran-strike') ? .08:0),
   speedMultiplier:1+Math.min(20,agi)*.01+(has('fleet-foot') ? .06:0)+(has('windrunner') ? .04:0),
   // Weapon recovery continues improving through AGI 40, independently of movement.
   cooldownMultiplier:1-agi*.006-(has('spell-tempo') ? .06:0),
-  evasionChance:eva*.01,
-  luckChance:luk*.00625,
+  evasionChance:Math.min(.6,eva*.01+armor.evasionChance),
+  luckChance:Math.min(.6,luk*.00625+armor.critChance),
   rewardMultiplier:1+luk*.01,
   rareDropChance:bossWeaponDropChance(attributes), // 25% -> 45% at LUK 40
   supplyDropChance:supplyDropChance(attributes), // 6% -> 16% for supply carriers
   skillDamageMultiplier:1+(has('battle-focus') ? .05:0),
-  incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1),
+  incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1)*(1-Math.min(.35,armor.damageReduction)),
  };
 }
 
@@ -97,14 +98,19 @@ export function bossWeaponDropChance(attributes:PlayerAttributes):number {
  const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
  return .25+luk*.005;
 }
+/** Complete armor sets scale with Luck at the same ratio as individual loot. */
+export function bossArmorSetDropChance(attributes:PlayerAttributes):number {
+ const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
+ return .1+luk*.002;
+}
 export function supplyDropChance(attributes:PlayerAttributes):number {
  const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
  return .06+luk*.0025;
 }
 
 /** One roll per outgoing hit; luck is not a second independent damage multiplier. */
-export function luckDamage(amount:number,attributes:PlayerAttributes,skills:SkillId[]){
- return Math.max(1,Math.round(amount*(Math.random()<progressionStats(attributes,skills).luckChance?1.5:1)));
+export function luckDamage(amount:number,attributes:PlayerAttributes,skills:SkillId[],armor:ArmorBonuses=NO_ARMOR_BONUSES){
+ return Math.max(1,Math.round(amount*(Math.random()<progressionStats(attributes,skills,armor).luckChance?1.5:1)));
 }
 export function earnedRewards(xp:number,gold:number,attributes:PlayerAttributes,skills:SkillId[]){
  const multiplier=progressionStats(attributes,skills).rewardMultiplier;

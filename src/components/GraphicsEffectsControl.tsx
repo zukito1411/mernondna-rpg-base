@@ -3,6 +3,7 @@ import {getGraphicEffects,setGraphicEffect,resetGraphicEffects,type GraphicEffec
 
 // LEIGHNERON_MOBILE_GRAPHICS_NPC_FIX_V1
 const OPTIONS:ReadonlyArray<{key:GraphicEffectKey;title:string;description:string}>=[
+ {key:'combatShake',title:'Combat camera shake',description:'Brief, limited shakes on confirmed heavy hits and dodges. Respects reduced-motion preferences.'},
  {key:'nightMist',title:'Nighttime mist / fog',description:'Off by default on Android. Rain and other weather can remain enabled.'},
  {key:'daytimeFog',title:'Daytime mist / fog',description:'Morning haze and foggy-weather effects.'},
  {key:'nightDarkness',title:'Night darkness mask',description:'Darkness and lantern light cutouts (visuals only).'},

@@ -7,7 +7,9 @@ function ContractCard({contract:c,board=false}:{contract:Contract;board?:boolean
   const accept=useGameStore(s=>s.acceptContract),claim=useGameStore(s=>s.claimContract),abandon=useGameStore(s=>s.abandonContract);
   return <article className="contract-card">
     <small>{TOWN_BY_ID[c.townId].name} · {p?.claimed?'Fulfilled':p?p.progress>=c.amount?'Ready to collect':'Accepted':c.bossId?'Boss bounty':'Hunting contract'}</small>
-    <h3>{c.title}</h3><p>{c.description}</p><p>{contractObjective(c)}</p>
+    <h3>{c.title}</h3>
+    {c.amount>=30&&<strong className="contract-difficulty">{c.amount>=50?'Elite hunt · 50 targets':'Veteran hunt · 30 targets'}</strong>}
+    <p>{c.description}</p><p>{contractObjective(c)}</p>
     {p&&<p><strong>{p.progress} / {c.amount}</strong></p>}
     <small>Base reward: {c.gold}G · {c.xp} XP · One-time contract</small>
     {!p&&board&&<button type="button" onClick={()=>accept(c.id)}>Accept contract</button>}
@@ -35,6 +37,7 @@ function OpenContractBoard(){
   return <div className="overlay-backdrop"><section className="quest-journal" aria-label="Town notice board">
     <header><h2>{town?.name??'Town'} notice board</h2><button type="button" onClick={close}>Close</button></header>
     <div className="journal-content"><p>Carry up to {MAX_ACTIVE_CONTRACTS} contracts. Accepted: {outstandingContracts(ledger)}/{MAX_ACTIVE_CONTRACTS}.</p>
+      <p>Choose a short patrol, a 30-target veteran hunt, a 50-target elite hunt, or the regional boss bounty. Longer hunts pay substantially more. Every settlement has a board, marked “Board” on the minimap.</p>
       <p>Only defeats after accepting count, within the named region. Temporary summons and story waves do not count. Alice can help. Collect payment here after finishing.</p>
       {townId&&(CONTRACTS_BY_TOWN[townId]??[]).map(c=><ContractCard key={c.id} contract={c} board/>)}
     </div>

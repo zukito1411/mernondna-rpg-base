@@ -199,9 +199,7 @@ export class PlayerSkillSystem {
         this.scene.recordTraining(cast.skill.id);
       } else {
         if(cast.skill.id==='skyfall-slam') {
-          this.scene.playSkillSound(cast.skill.id,'impact');
           this.playArtEffect(1,this.player.x,this.player.y,220);
-          this.scene.cameras.main.shake(140,.003);
         }
         if (cast.skill.id === 'crescent-flurry') {
           this.scene.playSkillSound(cast.skill.id,'swing');
@@ -214,7 +212,6 @@ export class PlayerSkillSystem {
         }
         if(cast.skill.id==='iron-tempest'){
           if(cast.visual)this.playPoseEffect(3,cast.visual,110,65,true,36);
-          this.scene.playAudio('sfx-impact-heavy-1',.35);
         }
         this.scene.performSkillHit(this.player,cast.direction,cast.skill,cast.skill.damageMultipliers[cast.nextHit],cast.weaponId);
       }

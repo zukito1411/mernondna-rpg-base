@@ -7,7 +7,7 @@ import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
 import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
-import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, MAX_PLAYER_LEVEL, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, bossArmorSetDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
@@ -24,6 +24,7 @@ import type {StoryPanelRef} from '../data/storyPanelArt';
 import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type JournalState} from '../data/journal';
 import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 import {CONTRACT_BY_ID,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
+import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -46,10 +47,15 @@ export interface BossEncounter {
   attackName?:string|null;
   windup?:number|null;
 }
-export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'material'|'salvage';gold:number}
+export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'material'|'salvage'|'armor'|'armor-salvage'|'armor-set';gold:number;newArmorPieces?:number}
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
+  armorInventory:string[];
+  equippedArmor:ArmorLoadout;
+  armorBonuses:ArmorBonuses;
+  equipArmor:(id:string)=>void;
+  unequipArmor:(slot:ArmorSlot)=>void;
   contracts:ContractLedger;
   contractBoardTownId:string|null;
   openContractBoard:(townId:string)=>void;
@@ -162,6 +168,7 @@ export interface GameState {
 const initialQuestState = initialQuests;
 
 const baseState = () => ({
+  armorInventory:[] as string[],equippedArmor:emptyArmorLoadout(),armorBonuses:{...NO_ARMOR_BONUSES},
   contracts:{} as ContractLedger,contractBoardTownId:null as string|null,
   aliceRemark:null as GameState['aliceRemark'],
   journal:restoreJournal(emptyJournal(),{inventory:localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],defeatedBosses:[],regionId:'trandum'}),
@@ -250,6 +257,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       ||dialogue.lineIndex<(dialogue.lines??npc.dialogue).length-1)return {};
     const offer=merchantStock(npcId).find(o=>o.id===itemId);
     if(!offer||state.gold<offer.price||state.level<offer.minLevel)return {toast:'You need more gold or experience for that purchase.'};
+    if(ARMOR_BY_ID[itemId]){
+      if(state.armorInventory.includes(itemId))return {toast:'That armor is already in your bag.'};
+      return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,armorInventory:[...state.armorInventory,itemId],toast:`Purchased ${itemName(itemId)}. Equip it in your bag.`};
+    }
     if(WEAPON_BY_ID[itemId]){
       if(state.inventory.includes(itemId))return {toast:'That blade is already in your bag.'};
       return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-offer.price,inventory:[...state.inventory,itemId],journal:discoverJournalEntry(state.journal,'weapons',itemId),toast:`Purchased ${itemName(itemId)}. Equip it in your bag.`};
@@ -264,7 +275,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const spent=Object.values(state.attributes).reduce((sum,n)=>sum+n,0);
     if(!spent)return {toast:'You have not assigned any attributes yet.'};
     if(state.gold<1500)return {toast:'Edmund needs 1,500 gold to retrain you.'};
-    const derived=progressionStats({...BASE_ATTRIBUTES},state.learnedSkills);
+    const derived=progressionStats({...BASE_ATTRIBUTES},state.learnedSkills,state.armorBonuses);
     return {gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:state.gold-1500,
       attributes:{...BASE_ATTRIBUTES},statPoints:state.statPoints+spent,
       maxHp:derived.maxHp,maxStamina:derived.maxStamina,
@@ -287,6 +298,22 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   equipWeapon:id=>set(state=>state.panel==='inventory'&&!state.dialogue&&!state.cinematic&&!state.activeSkillStatus.casting&&state.inventory.includes(id)&&Object.hasOwn(WEAPON_BY_ID,id)
     ?{weaponId:id,toast:`Equipped ${WEAPON_BY_ID[id].name}.`}:{}),
+  equipArmor:id=>set(state=>{
+    const item=Object.hasOwn(ARMOR_BY_ID,id)?ARMOR_BY_ID[id]:undefined;
+    if(!item||state.panel!=='inventory'||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting
+      ||!state.armorInventory.includes(id)||state.level<item.minLevel||state.equippedArmor[item.slot]===id)return {};
+    const equippedArmor={...state.equippedArmor,[item.slot]:id},armorBonuses=armorBonusesFor(equippedArmor);
+    const derived=progressionStats(state.attributes,state.learnedSkills,armorBonuses);
+    return {equippedArmor,armorBonuses,maxHp:derived.maxHp,hp:Math.min(state.hp,derived.maxHp),
+      vitalRevision:state.vitalRevision+1,toast:`Equipped ${item.name}.`};
+  }),
+  unequipArmor:slot=>set(state=>{
+    if(!ARMOR_SLOTS.includes(slot)||!state.equippedArmor[slot]||state.panel!=='inventory'||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
+    const equippedArmor={...state.equippedArmor,[slot]:null},armorBonuses=armorBonusesFor(equippedArmor);
+    const derived=progressionStats(state.attributes,state.learnedSkills,armorBonuses);
+    return {equippedArmor,armorBonuses,maxHp:derived.maxHp,hp:Math.min(state.hp,derived.maxHp),
+      vitalRevision:state.vitalRevision+1,toast:`Removed ${slot} armor.`};
+  }),
   usePotion:id=>set(state=>{
     const p=POTIONS[id];if((state.panel!==null&&state.panel!=='inventory')||state.dialogue||state.cinematic||!p||state.hp<=0||state.activeSkillStatus.casting||state.consumables[id]<=0)return {};
     if((p.hp&&state.hp>=state.maxHp)||(p.stamina&&state.stamina>=state.maxStamina))return {toast:'No need to drink that yet.'};
@@ -451,6 +478,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     const duplicate=dropped&&state.inventory.includes(dropped.id);
     const excess=Boolean(duplicate&&dropped&&(state.bossMaterials[dropped.id]??0)>=MAX_BOSS_MATERIALS);
     const salvage=excess&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
+    const armorPool=bossId&&lootEligible?BOSS_ARMOR[bossId]:undefined;
+    const fullArmorSet=Boolean(armorPool?.length&&Math.random()<bossArmorSetDropChance(state.attributes));
+    const armorRoll=armorPool&&Math.random()<bossWeaponDropChance(state.attributes);
+    const missingArmor=armorRoll?armorPool.filter(a=>!state.armorInventory.includes(a.id)):[];
+    const armorChoices=missingArmor.length?missingArmor:armorPool;
+    const armorDrop=armorRoll&&armorChoices?armorChoices[Math.floor(Math.random()*armorChoices.length)]:undefined;
+    // A full-set roll upgrades the armor reward to all three pieces. Never
+    // award the single-piece roll again as an immediate duplicate of the set.
+    const armorDrops=fullArmorSet?armorPool!:(armorDrop?[armorDrop]:[]);
+    const newArmor=armorDrops.filter(a=>!state.armorInventory.includes(a.id));
+    const armorSalvage=armorDrops.reduce((total,a)=>total+(state.armorInventory.includes(a.id)
+      ?earnedRewards(0,a.salvage,state.attributes,state.learnedSkills).gold:0),0);
+    const notices:RareLootNotice[]=[];
+    if(dropped)notices.push({id:state.nextRareLootId,weaponId:dropped.id,kind:duplicate?(excess?'salvage':'material'):'weapon',gold:salvage});
+    if(fullArmorSet)notices.push({id:state.nextRareLootId+notices.length,weaponId:armorDrops[0].id,kind:'armor-set',gold:armorSalvage,newArmorPieces:newArmor.length});
+    else if(armorDrop)notices.push({id:state.nextRareLootId+notices.length,weaponId:armorDrop.id,kind:newArmor.length?'armor':'armor-salvage',gold:armorSalvage});
     // Ordinary enemies can occasionally drop a carried draught. No extra
     // potion rolls for temporary boss summons, wildlife or story-only fights.
     const supplyRoll=!bossId&&lootEligible&&canDropPotion(enemyId)
@@ -466,14 +509,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       const p=contracts[id],previous=state.contracts[id],c=CONTRACT_BY_ID[id];
       return p!==previous&&p.progress===c.amount;
     }):undefined;
-    return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold,
+    return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold+salvage+armorSalvage,
+      ...(notices.length?{rareLootQueue:[...state.rareLootQueue,...notices].slice(-8),nextRareLootId:state.nextRareLootId+notices.length}:{}),
+      ...(newArmor.length?{armorInventory:[...state.armorInventory,...newArmor.map(a=>a.id)]}:{}),
       contracts,...(ready?{toast:`Contract ready: ${CONTRACT_BY_ID[ready].title}. Return to its town notice board.`}:{}),
       ...(dropped?{inventory:duplicate?state.inventory:[...state.inventory,dropped.id],
-        rareLootQueue:[...state.rareLootQueue,{id:state.nextRareLootId,weaponId:dropped.id,
-          kind:duplicate?(excess?'salvage':'material'):'weapon',gold:salvage} as RareLootNotice].slice(-8),
-        nextRareLootId:state.nextRareLootId+1,
         ...(duplicate&&!excess?{bossMaterials:{...state.bossMaterials,[dropped.id]:(state.bossMaterials[dropped.id]??0)+1}}:{}),
-        gold:state.gold+rewards.gold+salvage,
         toast:duplicate?(excess?`Material storage full: ${itemName(dropped.id)} sold for ${salvage} gold.`:`Duplicate ${itemName(dropped.id)}! Take it to a blacksmith to enhance your weapon.`):`Rare spoil: ${itemName(dropped.id)}! Look in your bag.`}:{}),
       ...(potion?{consumables:{...state.consumables,[potion]:state.consumables[potion]+1},
         toast:`Found ${itemName(potion)}! Check your bag.`}:{}),
@@ -485,7 +526,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   allocateAttribute: (attribute) => set((state) => {
     if (state.statPoints <= 0 || !Object.hasOwn(BASE_ATTRIBUTES,attribute) || state.attributes[attribute]>=ATTRIBUTE_CAP) return {};
     const attributes = { ...state.attributes, [attribute]: state.attributes[attribute] + 1 };
-    const derived = progressionStats(attributes, state.learnedSkills);
+    const derived = progressionStats(attributes, state.learnedSkills,state.armorBonuses);
     const addedHp=Math.max(0,derived.maxHp-state.maxHp);
     return { attributes, statPoints: state.statPoints - 1, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
       ...(addedHp?{hp:Math.min(derived.maxHp,state.hp+addedHp),vitalRevision:state.vitalRevision+1}:{}),
@@ -495,7 +536,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const skill = SKILLS.find(entry => entry.id === skillId);
     if (!skill || state.skillPoints < skill.cost || state.level < skill.minLevel || (skill.requires&&!state.learnedSkills.includes(skill.requires)) || state.learnedSkills.includes(skillId)) return {};
     const learnedSkills = [...state.learnedSkills, skillId];
-    const derived = progressionStats(state.attributes, learnedSkills);
+    const derived = progressionStats(state.attributes, learnedSkills,state.armorBonuses);
     const addedHp=Math.max(0,derived.maxHp-state.maxHp);
     return { learnedSkills, skillPoints: state.skillPoints - skill.cost, maxHp: derived.maxHp, maxStamina: derived.maxStamina,
       ...(addedHp?{hp:Math.min(derived.maxHp,state.hp+addedHp),vitalRevision:state.vitalRevision+1}:{}),

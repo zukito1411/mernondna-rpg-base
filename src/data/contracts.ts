@@ -21,8 +21,17 @@ const hunts:Partial<Record<RegionId,{enemyId:string;amount:number;reason:string}
 export const CONTRACTS:Contract[]=TOWNS.flatMap(town=>{
   const hunt=hunts[town.regionId],boss=BOSSES.find(b=>b.regionId===town.regionId);
   const entries:Contract[]=[];
-  if(hunt)entries.push({id:town.id+':hunt',townId:town.id,regionId:town.regionId,
-    title:`${town.name}: safer roads`,description:hunt.reason,enemyId:hunt.enemyId,amount:hunt.amount,gold:100,xp:90});
+  if(hunt){
+    // Retain the original ID, target and payout for existing saved contracts.
+    entries.push({id:town.id+':hunt',townId:town.id,regionId:town.regionId,
+      title:`${town.name}: safer roads`,description:hunt.reason,enemyId:hunt.enemyId,amount:hunt.amount,gold:100,xp:90});
+    entries.push({id:town.id+':hunt-30',townId:town.id,regionId:town.regionId,
+      title:`${town.name}: the long patrol`,description:`${hunt.reason} The settlement is funding a sustained patrol: defeat 30 of these enemies across the region.`,
+      enemyId:hunt.enemyId,amount:30,gold:1200,xp:1000});
+    entries.push({id:town.id+':hunt-50',townId:town.id,regionId:town.regionId,
+      title:`${town.name}: regional relief`,description:`${hunt.reason} This major commission calls for 50 defeats to relieve pressure on the region's travelers and workers.`,
+      enemyId:hunt.enemyId,amount:50,gold:2400,xp:2200});
+  }
   if(boss)entries.push({id:town.id+':bounty',townId:town.id,regionId:town.regionId,
     title:`Bounty: ${boss.name}`,description:`${town.name} offers a reward for confronting ${boss.name}. ${boss.lore}`,
     enemyId:boss.enemyId,bossId:boss.id,amount:1,gold:250,xp:180});

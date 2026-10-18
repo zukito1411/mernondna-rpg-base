@@ -163,7 +163,7 @@ export class DragonCombat {
     const player=this.scene.player;
     if(Math.hypot(player.x-x,player.y-y)<=radius&&this.scene.hasClearPath(x,y,player.x,player.y))
       this.scene.damagePlayer(Math.round(this.enemy.definition.damage*multiplier));
-    this.scene.cameras.main.shake(170,.003);this.scene.playAudio('sfx-heavy-slam',.45);
+    this.scene.shakeCombatCamera(170,.003);this.scene.playAudio('sfx-heavy-slam',.45);
     const ring=this.scene.add.circle(x,y,30).setStrokeStyle(5,0xffae65,.8).setDepth(y+1);
     this.scene.tweens.add({targets:ring,radius,duration:450,alpha:0,onComplete:()=>ring.destroy()});
   }
