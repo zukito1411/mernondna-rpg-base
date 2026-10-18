@@ -1,5 +1,5 @@
 import {TOWNS,TOWN_BY_ID} from './towns';
-import {BOSSES,ENEMY_BY_ID} from './enemies';
+import {BOSSES,ENEMIES,ENEMY_BY_ID} from './enemies';
 import {REGION_BY_ID} from './regions';
 import type {RegionId} from '../game/types';
 import {DUNGEONS,DUNGEON_BY_ID} from './dungeons';
@@ -8,6 +8,8 @@ export interface Contract {id:string;townId:string;regionId:RegionId;title:strin
 export interface ContractProgress {progress:number;claimed:boolean}
 export type ContractLedger=Record<string,ContractProgress>;
 export const MAX_ACTIVE_CONTRACTS=3;
+export const BOARD_ROTATION_DAYS=3;
+export const contractBoardCycle=(day:number)=>Math.floor((Math.max(1,Number.isFinite(day)?Math.floor(day):1)-1)/BOARD_ROTATION_DAYS);
 const hunts:Partial<Record<RegionId,{enemyId:string;amount:number;reason:string}>>={
   trandum:{enemyId:'road-bandit',amount:4,reason:'Wagoners are losing seed grain to armed thieves. Keep the crown roads open.'},
   narenthil:{enemyId:'blighted-thornling',amount:4,reason:'Blighted growth is spreading along the woodland paths. The grove keepers need a clear passage.'},
@@ -43,12 +45,62 @@ export const CONTRACTS:Contract[]=TOWNS.flatMap(town=>{
 });
 export const CONTRACT_BY_ID=Object.fromEntries(CONTRACTS.map(c=>[c.id,c])) as Record<string,Contract>;
 export const CONTRACTS_BY_TOWN=Object.fromEntries(TOWNS.map(t=>[t.id,CONTRACTS.filter(c=>c.townId===t.id)])) as Record<string,Contract[]>;
+// Rotation 0 keeps the original IDs, so existing completed/accepted jobs
+// continue loading. Later rotations append @cycle to each immutable offer.
+const rotationIds=/^(.+)@([1-9][0-9]{0,5})$/;
+const rotatingCache=new Map<string,Contract>();
+function rotatedContract(original:Contract,cycle:number):Contract{
+  if(cycle===0)return original;
+  const id=`${original.id}@${cycle}`,cached=rotatingCache.get(id);
+  if(cached)return cached;
+  let next:Contract={...original,id};
+  if(!original.bossId&&!original.dungeonId){
+    const region=original.regionId;
+    // Only naturally spawning regional enemies can become rotating targets.
+    const pool=[original.enemyId,...ENEMIES.filter(enemy=>!enemy.boss&&(enemy.regionWeights[region]??0)>0)
+      .map(enemy=>enemy.id).filter(id=>id!==original.enemyId)];
+    const slot=original.id.endsWith(':hunt-50')?2:original.id.endsWith(':hunt-30')?1:0;
+    const enemyId=pool[(cycle+slot)%pool.length];
+    const town=TOWN_BY_ID[original.townId].name;
+    const rank=original.amount>=50?'Regional relief':original.amount>=30?'Long patrol':'Safer roads';
+    next={...next,enemyId,title:`${town}: ${rank} — ${ENEMY_BY_ID[enemyId].name}`,
+      description:`New reports from ${town} identify ${ENEMY_BY_ID[enemyId].name} as a threat on the regional routes. Defeat ${original.amount} to protect local travelers and caravans.`};
+  }
+  rotatingCache.set(id,next);
+  if(rotatingCache.size>256)rotatingCache.delete(rotatingCache.keys().next().value!);
+  return next;
+}
+export function contractById(id:string):Contract|undefined{
+  if(Object.hasOwn(CONTRACT_BY_ID,id))return CONTRACT_BY_ID[id];
+  const match=rotationIds.exec(id);
+  if(!match)return undefined;
+  const original=Object.hasOwn(CONTRACT_BY_ID,match[1])?CONTRACT_BY_ID[match[1]]:undefined;
+  return original?rotatedContract(original,Number(match[2])):undefined;
+}
+export function boardContracts(townId:string,day:number):Contract[]{
+  const originals=CONTRACTS_BY_TOWN[townId]??[];
+  const cycle=contractBoardCycle(day);
+  return cycle===0?originals:originals.map(c=>rotatedContract(c,cycle));
+}
+export function expireClaimedContracts(ledger:ContractLedger,day:number):ContractLedger{
+  const cycle=contractBoardCycle(day);
+  if(cycle===0)return ledger;
+  let next=ledger;
+  for(const [id,p] of Object.entries(ledger)){
+    if(!p.claimed)continue;
+    const match=rotationIds.exec(id),offerCycle=match?Number(match[2]):0;
+    if(offerCycle>=cycle)continue;
+    if(next===ledger)next={...ledger};
+    delete next[id]; // Never discard an unclaimed or reward-ready contract.
+  }
+  return next;
+}
 export const outstandingContracts=(ledger:ContractLedger)=>Object.values(ledger).filter(p=>!p.claimed).length;
 export const contractObjective=(c:Contract)=>c.dungeonId?`Clear ${DUNGEON_BY_ID[c.dungeonId].name} and open its chest. Return to ${TOWN_BY_ID[c.townId].name}.`:`Defeat ${ENEMY_BY_ID[c.enemyId].name} × ${c.amount} in ${c.regionId==='dead-sea'?'Dead Sea':REGION_BY_ID[c.regionId].name}. Return to ${TOWN_BY_ID[c.townId].name}.`;
 export function advanceContracts(ledger:ContractLedger,enemyId:string,region:RegionId,bossId?:string){
   let next=ledger;
   for(const [id,p] of Object.entries(ledger)){
-    const c=CONTRACT_BY_ID[id];
+    const c=contractById(id);
     if(!c||c.dungeonId||p.claimed||p.progress>=c.amount||c.enemyId!==enemyId||c.regionId!==region||c.bossId!==bossId)continue;
     if(next===ledger)next={...ledger};
     next[id]={progress:p.progress+1,claimed:false};
@@ -60,7 +112,7 @@ export function parseContracts(value:unknown):ContractLedger|null{
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const result:ContractLedger={};
   for(const [id,raw] of Object.entries(value)){
-    const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined;
+    const c=contractById(id);
     if(!c||!raw||typeof raw!=='object'||Array.isArray(raw))return null;
     const {progress,claimed}=raw as Partial<ContractProgress>;
     if(typeof progress!=='number'||!Number.isInteger(progress)||progress<0||progress>c.amount||typeof claimed!=='boolean'
