@@ -5,7 +5,7 @@ import { WORLD_CONTENT } from '../../data/content';
 import { WorldGenerator } from './WorldGenerator';
 import { chunkNeighborhood,viewportChunks,streamViewKey,type StreamView } from './chunkNeighborhood';
 import { TerrainBaker } from './TerrainBaker';
-import { planWildernessTrees,planWildernessDetails } from './sceneryPlan';
+import { planWildernessTrees,planWildernessDetails,type SceneryTree,type SceneryDetail } from './sceneryPlan';
 import {spriteBounds} from '../../data/settlementGeometry';
 import type {TreeSwaySystem} from './TreeSwaySystem';
 import type {DayNightSystem} from './DayNightSystem';
@@ -32,6 +32,11 @@ export class ChunkManager {
   // unbounded GPU texture cache on Android.
   private readonly recentTerrain=new Map<string,string>();
   private readonly recentTerrainLimit=2;
+  // Wilderness placement is deterministic for each chunk. Retain only the
+  // lightweight plan records (never extra actors, bodies or textures) so
+  // backtracking does not repeat hundreds of habitat/road/terrain probes.
+  private readonly sceneryPlans=new Map<string,{trees:SceneryTree[];details:SceneryDetail[]}>();
+  private readonly sceneryPlanLimit=8;
   private retireTerrain(key:string,chunk:ChunkRuntime){
     if(chunk.shared)return;
     this.recentTerrain.delete(key);this.recentTerrain.set(key,chunk.textureKey);
@@ -174,7 +179,7 @@ export class ChunkManager {
     this.active.clear();
     this.pendingChunks.clear();
     for(const textureKey of this.recentTerrain.values())this.scene.textures.remove(textureKey);
-    this.recentTerrain.clear();
+    this.recentTerrain.clear();this.sceneryPlans.clear();
     this.lastCenter = '';
     this.lastTravelViewKey='';this.lastOpenSeaStatus=null;
     this.baker.destroy();
@@ -205,21 +210,31 @@ export class ChunkManager {
       this.baker.draw(ctx, this.world, chunkX, chunkY);
     }
     const scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite> = [];
-    const cx=(chunkX+.5)*CHUNK_SIZE,cy=(chunkY+.5)*CHUNK_SIZE;
-    const sites=authoredReservations.query({left:cx-CHUNK_SIZE,right:cx+CHUNK_SIZE,top:cy-CHUNK_SIZE,bottom:cy+CHUNK_SIZE})
-      .map(item=>item.definition).filter(d=>Math.abs(d.world.x-cx)<CHUNK_SIZE&&Math.abs(d.world.y-cy)<CHUNK_SIZE);
-    // Up to 36 mature trees, 40 habitat pieces and nearby bounded landmark
-    // groups, all released with the chunk (including their leaf/light layers).
-    // Authored/interactive settlement trees keep the persistent content ledger.
-    const reservations=sites.map(d=>{
-      const arena=bossArenaBounds(d);
-      return {...d.world,...('frame' in d?{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y)}:{}),
-        ...(arena?{bounds:arena}:{})};
-    });
-    const nearbyLandmarks=planLandmarkScenery(chunkX,chunkY,this.world,true);
-    const landmarkDetails=nearbyLandmarks.filter(d=>Math.floor(d.x/CHUNK_SIZE)===chunkX&&Math.floor(d.y/CHUNK_SIZE)===chunkY);
-    const landmarks=nearbyLandmarks.map(d=>({...d,bounds:spriteBounds(d.texture,d.frame,d.scale,d.x,d.y)}));
-    const trees=planWildernessTrees(chunkX,chunkY,this.world,[...reservations,...landmarks]);
+    // The same exact authored reservations and deterministic seed yield the
+    // same trees/details each visit. Cache *descriptors*, never GPU artwork.
+    let plan=this.sceneryPlans.get(cacheKey);
+    if(plan){this.sceneryPlans.delete(cacheKey);this.sceneryPlans.set(cacheKey,plan);}
+    else{
+      const cx=(chunkX+.5)*CHUNK_SIZE,cy=(chunkY+.5)*CHUNK_SIZE;
+      const sites=authoredReservations.query({left:cx-CHUNK_SIZE,right:cx+CHUNK_SIZE,top:cy-CHUNK_SIZE,bottom:cy+CHUNK_SIZE})
+        .map(item=>item.definition).filter(d=>Math.abs(d.world.x-cx)<CHUNK_SIZE&&Math.abs(d.world.y-cy)<CHUNK_SIZE);
+      const reservations=sites.map(d=>{
+        const arena=bossArenaBounds(d);
+        return {...d.world,...('frame' in d?{bounds:spriteBounds(d.texture??'world_objects',d.frame,d.scale??1,d.world.x,d.world.y)}:{}),
+          ...(arena?{bounds:arena}:{})};
+      });
+      const nearbyLandmarks=planLandmarkScenery(chunkX,chunkY,this.world,true);
+      const landmarkDetails=nearbyLandmarks.filter(d=>Math.floor(d.x/CHUNK_SIZE)===chunkX&&Math.floor(d.y/CHUNK_SIZE)===chunkY);
+      const landmarks=nearbyLandmarks.map(d=>({...d,bounds:spriteBounds(d.texture,d.frame,d.scale,d.x,d.y)}));
+      const trees=planWildernessTrees(chunkX,chunkY,this.world,[...reservations,...landmarks]);
+      const treeReservations=trees.map(t=>({...t,bounds:spriteBounds(t.texture,t.frame,t.scale,t.x,t.y)}));
+      const details=[...landmarkDetails,...planWildernessDetails(chunkX,chunkY,this.world,[...reservations,...landmarks,...treeReservations])];
+      plan={trees,details};this.sceneryPlans.set(cacheKey,plan);
+      while(this.sceneryPlans.size>this.sceneryPlanLimit)this.sceneryPlans.delete(this.sceneryPlans.keys().next().value!);
+    }
+    // Full-detail sprites and collisions are still created from the exact
+    // original plan; only the expensive placement *calculation* is reused.
+    const trees=plan.trees;
     for (const tree of trees) {
       const { x:wx,y:wy,texture,frame,scale } = tree;
       const image=this.scene.add.image(wx,wy,texture,frame).setOrigin(.5,1)
@@ -227,8 +242,7 @@ export class ChunkManager {
       scenery.push(image);this.ground.register(image,texture,frame,scale,true);
       this.treeSway.register(image,texture,frame);
     }
-    const treeReservations=trees.map(t=>({...t,bounds:spriteBounds(t.texture,t.frame,t.scale,t.x,t.y)}));
-    for(const detail of [...landmarkDetails,...planWildernessDetails(chunkX,chunkY,this.world,[...reservations,...landmarks,...treeReservations])]){
+    for(const detail of plan.details){
       const sprite=this.scene.add.sprite(detail.x,detail.y,detail.texture,detail.frame).setOrigin(.5,1)
         .setScale(artScale(detail.texture)*detail.scale).setDepth(detail.y).setName(detail.id);
       scenery.push(sprite);
