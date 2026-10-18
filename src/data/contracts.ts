@@ -2,8 +2,9 @@ import {TOWNS,TOWN_BY_ID} from './towns';
 import {BOSSES,ENEMY_BY_ID} from './enemies';
 import {REGION_BY_ID} from './regions';
 import type {RegionId} from '../game/types';
+import {DUNGEONS,DUNGEON_BY_ID} from './dungeons';
 
-export interface Contract {id:string;townId:string;regionId:RegionId;title:string;description:string;enemyId:string;bossId?:string;amount:number;gold:number;xp:number}
+export interface Contract {id:string;townId:string;regionId:RegionId;title:string;description:string;enemyId:string;bossId?:string;dungeonId?:string;amount:number;gold:number;xp:number}
 export interface ContractProgress {progress:number;claimed:boolean}
 export type ContractLedger=Record<string,ContractProgress>;
 export const MAX_ACTIVE_CONTRACTS=3;
@@ -35,17 +36,20 @@ export const CONTRACTS:Contract[]=TOWNS.flatMap(town=>{
   if(boss)entries.push({id:town.id+':bounty',townId:town.id,regionId:town.regionId,
     title:`Bounty: ${boss.name}`,description:`${town.name} offers a reward for confronting ${boss.name}. ${boss.lore}`,
     enemyId:boss.enemyId,bossId:boss.id,amount:1,gold:250,xp:180});
+  for(const d of DUNGEONS.filter(d=>d.townId===town.id))entries.push({id:`${town.id}:cave:${d.id}`,townId:town.id,regionId:town.regionId,
+    title:`Clear ${d.name}`,description:`${d.description} Look ${d.directions}. Recommended level ${d.minLevel}+. Defeat the defenders and open their war chest.`,
+    enemyId:d.enemies[0],dungeonId:d.id,amount:1,gold:Math.round(d.gold*.4),xp:Math.round(d.xp*.4)});
   return entries;
 });
 export const CONTRACT_BY_ID=Object.fromEntries(CONTRACTS.map(c=>[c.id,c])) as Record<string,Contract>;
 export const CONTRACTS_BY_TOWN=Object.fromEntries(TOWNS.map(t=>[t.id,CONTRACTS.filter(c=>c.townId===t.id)])) as Record<string,Contract[]>;
 export const outstandingContracts=(ledger:ContractLedger)=>Object.values(ledger).filter(p=>!p.claimed).length;
-export const contractObjective=(c:Contract)=>`Defeat ${ENEMY_BY_ID[c.enemyId].name} × ${c.amount} in ${c.regionId==='dead-sea'?'Dead Sea':REGION_BY_ID[c.regionId].name}. Return to ${TOWN_BY_ID[c.townId].name}.`;
+export const contractObjective=(c:Contract)=>c.dungeonId?`Clear ${DUNGEON_BY_ID[c.dungeonId].name} and open its chest. Return to ${TOWN_BY_ID[c.townId].name}.`:`Defeat ${ENEMY_BY_ID[c.enemyId].name} × ${c.amount} in ${c.regionId==='dead-sea'?'Dead Sea':REGION_BY_ID[c.regionId].name}. Return to ${TOWN_BY_ID[c.townId].name}.`;
 export function advanceContracts(ledger:ContractLedger,enemyId:string,region:RegionId,bossId?:string){
   let next=ledger;
   for(const [id,p] of Object.entries(ledger)){
     const c=CONTRACT_BY_ID[id];
-    if(!c||p.claimed||p.progress>=c.amount||c.enemyId!==enemyId||c.regionId!==region||c.bossId!==bossId)continue;
+    if(!c||c.dungeonId||p.claimed||p.progress>=c.amount||c.enemyId!==enemyId||c.regionId!==region||c.bossId!==bossId)continue;
     if(next===ledger)next={...ledger};
     next[id]={progress:p.progress+1,claimed:false};
   }

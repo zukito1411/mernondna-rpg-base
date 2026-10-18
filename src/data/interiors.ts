@@ -8,7 +8,7 @@ import {rewriteNpcMentions} from './npcPresentation';
 import {CASTLE_GUARD_POSTS} from './castleResidents';
 import type {InteriorArtKey} from './interiorArt';
 
-export type InteriorProfile='home'|'villa'|'inn'|'castle'|'archive'|'store'|'workshop'|'barracks'|'kitchen'|'market'|'civic'|'chapel';
+export type InteriorProfile='home'|'villa'|'inn'|'castle'|'archive'|'store'|'workshop'|'barracks'|'kitchen'|'market'|'civic'|'chapel'|'cave';
 export function interiorProfile(name:string,hall=false):InteriorProfile {
   if(/Crown Hall|Whitebough Hall|Citadel Hall|Obsidian Citadel|Clan Assembly Hall|Great River Hall|Clan Longhouse|castle/i.test(name))return 'castle';
   if(/inn|tavern/i.test(name))return 'inn';
@@ -86,6 +86,12 @@ const floorObject=(art:InteriorArtKey)=>art==='rug';
 /** Deliberately separated rooms and broad overlapping hallways. Floors form a
  * connected union; gaps between rooms stay black and are never traversable. */
 export function roomPlan(hall:boolean,name='',selectedProfile=interiorProfile(name,hall),kit=''):RoomPlan {
+  if(selectedProfile==='cave')return {
+    floors:[{x:120,y:120,width:960,height:900,material:0},{x:360,y:1000,width:480,height:400,material:0},
+      {x:0,y:400,width:200,height:360,material:0},{x:1000,y:350,width:200,height:350,material:0}],
+    rooms:[{id:'cavern',label:name,kind:'storage',x:120,y:120,width:960,height:900,material:0}],
+    objects:[],entrance:{x:600,y:1280},residents:[],
+  };
   const rooms:InteriorRoom[]=[],floors:RoomFloor[]=[],objects:RoomObject[]=[];
   const room=(id:string,label:string,kind:RoomKind,x:number,y:number,width:number,height:number,material:0|1=0)=>{
     const r={id,label,kind,x,y,width,height,material};rooms.push(r);floors.push(r);return r;

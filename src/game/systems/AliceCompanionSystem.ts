@@ -162,7 +162,7 @@ export class AliceCompanionSystem {
     if(decide){
       this.think=120;
       this.combatEnemies=this.scene.getCombatEnemies()
-        .filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&!this.scene.storyActor(e));
+        .filter(e=>e.active&&e.hp>0&&e.canBeTargeted&&(!this.scene.storyActor(e)||this.scene.isDungeonEnemy(e)));
     }
     const enemies=this.combatEnemies;
     this.arrows.update(step,enemies);

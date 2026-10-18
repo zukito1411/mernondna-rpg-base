@@ -24,11 +24,12 @@ import {MAX_AREA_MONSTER_LEVEL,globalMonsterBonus,scaledEnemy} from '../data/ene
 import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 import {parseContracts} from '../data/contracts';
 import {parseArmor,armorBonusesFor} from '../data/armor';
+import {parseDungeons} from '../data/dungeons';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'>>;
-export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor']} }
+export interface SaveData { version: 6; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -326,6 +327,8 @@ export function parseSave(raw: string): SaveData | null {
     const savedFlags=s.storyFlags??{},storyChoices=s.storyChoices??{};
     const contracts=parseContracts(s.contracts);
     if(!contracts)return invalidSave('invalid notice-board contracts');
+    const dungeons=parseDungeons(s.dungeons);
+    if(!dungeons)return invalidSave('invalid cave discovery or clear progress');
     if(!record(savedFlags)||!Object.values(savedFlags).every(v=>typeof v==='boolean')
       ||!record(storyChoices)||!Object.values(storyChoices).every(v=>typeof v==='string'&&v.length<100)
       ||Object.keys(savedFlags).length>512||Object.keys(storyChoices).length>512) return invalidSave('invalid story flags or choices');
@@ -477,7 +480,7 @@ export function parseSave(raw: string): SaveData | null {
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 6, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state,journal:restoreJournal(journal,state),contracts,...armor,
+      ...state,journal:restoreJournal(journal,state),contracts,...armor,dungeons,
        weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,
        consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
@@ -515,7 +518,7 @@ function serializeCurrentSaveSnapshot():string {
     const s = useGameStore.getState();
     const data: SaveData = { version: 6, savedAt: new Date().toISOString(), state: {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
-      journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,
+      journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,dungeons:s.dungeons,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{}, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
@@ -630,7 +633,7 @@ export function loadGame(): boolean {
     useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
       rareLootQueue:[],nextRareLootId:0,
       levelUpNotice:null,nextLevelUpId:0,
-      journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,
+      journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,
       armorInventory:s.armorInventory??[],equippedArmor:s.equippedArmor??{chest:null,boots:null,cape:null},armorBonuses,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
       learnedSkills: s.learnedSkills, gold: s.gold,
@@ -658,7 +661,7 @@ export function watchProgressSaves() {
       saveGame();
       return;
     }
-    if (s.armorInventory!==previous.armorInventory||s.equippedArmor!==previous.equippedArmor||s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
+    if (s.dungeons!==previous.dungeons||s.armorInventory!==previous.armorInventory||s.equippedArmor!==previous.equippedArmor||s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
        || s.weaponUpgrades!==previous.weaponUpgrades || s.bossMaterials!==previous.bossMaterials
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots

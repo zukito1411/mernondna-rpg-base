@@ -154,7 +154,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string,
     eventSpawn = false, wolfPackId: string | null = null, wolfAlpha = false,
-    encounterId: string | null = null, encounterBehavior?: EncounterBehavior) {
+    encounterId: string | null = null, encounterBehavior?: EncounterBehavior,levelOverride?:number) {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
@@ -166,7 +166,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const levelHome=encounterBehavior?.home??{x,y};
     const zone=(scene as WorldScene).getRegionAtPosition(levelHome.x,levelHome.y);
     this.authoredDefinition=definition;
-    this.regionalLevel=enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
+    this.regionalLevel=levelOverride??enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
     this.level=this.regionalLevel+globalMonsterBonus(useGameStore.getState().level);
     const base=scaledEnemy(definition,this.level);
     this.wolfPackId=isWolfFamily(definition.id) ? wolfPackId : null;

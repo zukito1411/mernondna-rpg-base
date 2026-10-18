@@ -113,7 +113,7 @@ export const MiniMap = memo(function MiniMap() {
       <span className="minimap-heading">{navigation.interiorName?'ROOM MAP':'LOCAL MAP'} <span> N ↑</span></span>
       <canvas ref={ref} width={SIZE} height={SIZE} aria-label="Local terrain, player, people, quests, inns, blacksmiths, notice boards, docks and shrines" />
       <span className="minimap-legend"><i className="legend-player" /> You <i className="legend-people" /> People <i className="legend-quest" /> Quest <i className="legend-danger" /> Danger</span>
-      <span className="minimap-services">Inn · Smith · Board · Dock · Shrine</span>
+      <span className="minimap-services">Inn · Smith · Board · Dock · Shrine · Cave</span>
       <span className={`minimap-clock ${night ? 'night' : 'day'}`}><i aria-hidden="true">{night ? '☾' : '☀'}</i><b>Day {day}</b><time>{String(hour).padStart(2, '0')}:{String(mins).padStart(2, '0')}</time></span>
       <span className="minimap-weather">{weather}</span>
     </button>

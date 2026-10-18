@@ -1,7 +1,7 @@
 import {MAP_SERVICE_STYLE,type MapService} from '../data/mapServices';
 
 const icons=new Map<MapService,HTMLCanvasElement>();
-/** Five tiny cached badges. No image loading, canvas uploads or animation loop. */
+/** Tiny cached service badges. No image loading or independent animation loop. */
 export function mapServiceIcon(service:MapService){
   const cached=icons.get(service);if(cached)return cached;
   const canvas=document.createElement('canvas');canvas.width=canvas.height=18;
@@ -22,6 +22,9 @@ export function mapServiceIcon(service:MapService){
   }else if(service==='harbor'){
     ctx.moveTo(9,4);ctx.lineTo(9,14);ctx.moveTo(6,7);ctx.lineTo(12,7);
     ctx.moveTo(4,10);ctx.quadraticCurveTo(5,14,9,14);ctx.quadraticCurveTo(13,14,14,10);
+  }else if(service==='cave'){
+    ctx.moveTo(3,14);ctx.lineTo(5,7);ctx.lineTo(8,4);ctx.lineTo(12,5);ctx.lineTo(15,14);
+    ctx.lineTo(11,14);ctx.lineTo(11,10);ctx.quadraticCurveTo(9,6,7,10);ctx.lineTo(7,14);ctx.closePath();
   }else{
     ctx.moveTo(9,3);ctx.lineTo(14,9);ctx.lineTo(9,15);ctx.lineTo(4,9);ctx.closePath();
     ctx.moveTo(9,6);ctx.lineTo(9,12);ctx.moveTo(6,9);ctx.lineTo(12,9);

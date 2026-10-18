@@ -8,6 +8,8 @@ import {INN_REST_COST,innRestAvailable} from '../../data/innRest';
 import {MAP_INNS,MAP_BLACKSMITHS} from '../../data/mapServices';
 import {getGraphicEffects} from '../systems/graphicsEffects';
 import {InteriorSession} from '../systems/InteriorSession';
+import {DungeonSystem} from '../systems/DungeonSystem';
+import type {DungeonDefinition} from '../../data/dungeons';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
 import {findCampaignPatrolPlacement} from '../systems/campaignPatrolPlacement';
 import {storyEncounterInCourtyard,type StoryEncounter} from '../../data/adventure';
@@ -131,14 +133,37 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly regionalNpcSlots=new Map<string,Vec2>();
   private readonly regionalNpcRetryAt=new Map<string,number>();
   private interiors!:InteriorSession;
+  private dungeons!:DungeonSystem;
   private storyEncounters!:StoryEncounterSystem;
   private levelUpFeedback!:LevelUpFeedback;
   private roadLife!:AmbientRoadLifeSystem;
   private aliceCompanion!:AliceCompanionSystem;
   get inInterior(){return Boolean(this.interiors?.active);}
   get activeInteriorId(){return this.interiors?.currentEntry?.id??null;}
-  get storyCombatActive(){return Boolean(this.storyEncounters?.active);}
-  get storyInteraction(){return this.storyEncounters?.prompt??null;}
+  get storyCombatActive(){return Boolean(this.storyEncounters?.active||this.dungeons?.fighting);}
+  get storyInteraction(){return this.dungeons?.prompt??this.storyEncounters?.prompt??null;}
+  get dungeonEntries(){return this.dungeons?.entries??[];}
+  get dungeonMarkers(){return this.dungeons?.markers??[];}
+  isDungeonEnemy(enemy:Enemy){return Boolean(this.dungeons?.owns(enemy));}
+  beginDungeon(id:string){this.dungeons.begin(id);}
+  closeDungeon(){this.dungeons?.close();}
+  dungeonPoint(point:Vec2){return this.interiors.localPoint(point);}
+  dungeonEntranceSuitable(point:Vec2,region:RegionId){return this.worldGenerator.getRegionAt(point.x,point.y)===region&&!this.worldGenerator.isRoad(point.x,point.y,110);}
+  registerDungeonEntrance(image:Phaser.GameObjects.Image){
+    this.physics.add.existing(image,true);this.buildings.add(image);
+    const body=image.body as Phaser.Physics.Arcade.StaticBody;body.setSize(150,60);
+    body.position.set(image.x-75,image.y-image.displayHeight+35);body.center.set(body.x+75,body.y+30);
+  }
+  createDungeonEnemy(d:DungeonDefinition,slot:number,p:Vec2){
+    const base=ENEMY_BY_ID[d.enemies[slot]],elite=slot===d.enemies.length-1;
+    const tuned={...base,boss:false,name:elite?d.captain:`Hardened ${base.name}`,
+      hp:Math.round(base.hp*(elite?2.8:1.65)),damage:Math.round(base.damage*(elite?1.55:1.25)),
+      aggroRange:900,attackCooldownMs:Math.round(base.attackCooldownMs*(elite?.85:.95)),summonComposition:undefined,summonEnemyId:undefined,
+      xp:0,goldMin:0,goldMax:0};
+    const level=Math.max(d.minLevel,areaMonsterLevel(d.door.x,d.door.y,d.regionId)+5)+(elite?5:0);
+    const enemy=new Enemy(this,tuned,p.x,p.y,`dungeon-event:${d.id}:${slot}`,true,null,false,null,undefined,level);
+    this.creatureBodies.add(enemy);this.enemies.add(enemy);this.combatEnemyListDirty=true;this.addInteriorContact(enemy);return enemy;
+  }
   get combatAllowed(){return !this.inInterior||this.storyCombatActive;}
   playerRenderDepth(y:number){return this.interiors?.playerRenderDepth(y)??y;}
   private readonly interactables = new Map<string, { definition: InteractableContentDefinition; actor: ContentActor }>();
@@ -189,7 +214,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     saveGame();
   }
   getCombatEnemies(){
-    if(this.inInterior)return [...this.enemies].filter(e=>this.storyEncounters.owns(e));
+    if(this.inInterior)return this.dungeons?.active?this.dungeons.enemies:[...this.enemies].filter(e=>this.storyEncounters.owns(e));
     if(this.combatEnemyListDirty){
       this.combatEnemyList.length=0;
       for(const enemy of this.enemies)this.combatEnemyList.push(enemy);
@@ -302,17 +327,17 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(clue)this.contentManager.getActor(clue)?.setVisible(false);
   }
   releaseStoryEnemy(enemy:Enemy){this.forgetOrcSpears(enemy.instanceId);this.destroyContentActor(enemy);}
-  storyActor(enemy:Enemy){return enemy.instanceId.startsWith('story-event:');}
+  storyActor(enemy:Enemy){return enemy.instanceId.startsWith('story-event:')||enemy.instanceId.startsWith('dungeon-event:');}
   canEnemyTargetPlayer(enemy:Enemy){
-    return this.storyActor(enemy)?Boolean(this.storyEncounters?.owns(enemy)&&this.storyEncounters.allows(this.player))
+    return this.storyActor(enemy)?Boolean(this.dungeons?.owns(enemy)?this.dungeons.allows(this.player):this.storyEncounters?.owns(enemy)&&this.storyEncounters.allows(this.player))
       :!this.inInterior&&this.isEnemyTerritory(this.player.x,this.player.y);
   }
   updateInteriorStoryCombat(time:number,delta:number,blocked:boolean){
-    this.storyEncounters.update(time,delta,blocked);
+    if(this.dungeons.active)this.dungeons.update(time,blocked);else this.storyEncounters.update(time,delta,blocked);
     blocked=blocked||this.cinematicDirector.active;
     if(!blocked)this.targeting.update();
     for(const enemy of [...this.enemies]){
-      if(!this.storyEncounters.owns(enemy)){enemy.updatePresentation(this.player.x,this.player.y,true);continue;}
+      if(!this.storyEncounters.owns(enemy)&&!this.dungeons.owns(enemy)){enemy.updatePresentation(this.player.x,this.player.y,true);continue;}
       if(!blocked){enemy.updateEnemy(time,Math.min(delta,80));if(enemy.active)this.interiors.advanceEnemy(enemy,delta);}
       if(enemy.active){enemy.setDepth(this.playerRenderDepth(enemy.y));enemy.updatePresentation(this.player.x,this.player.y,blocked);}
     }
@@ -325,7 +350,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   forgetEnemySound(instanceId:string){this.enemySounds.forget(instanceId);}
   playDragonSound(instanceId:string,cue:'roar'|'breath'|'flight',x:number,y:number,duration:number){this.enemySounds.playEffect(instanceId,cue,x,y,duration);}
   stopDragonSound(instanceId:string,cue?:'roar'|'breath'|'flight'){this.enemySounds.stopEffect(instanceId,cue);}
-  canSeeEnemy(enemy:Enemy){return this.inInterior?this.storyEncounters.owns(enemy):this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
+  canSeeEnemy(enemy:Enemy){return this.inInterior?this.storyEncounters.owns(enemy)||this.dungeons.owns(enemy):this.dayNight.isIlluminated(enemy.x,enemy.y)||Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<180;}
   safeSkillPosition(point:Vec2){return this.inInterior?this.interiors.playerFeet(point.x,point.y):this.worldGenerator.isWalkable(point.x,point.y)&&!this.isBlockedByBuilding(point.x,point.y);}
   canTraverseGround(from:Vec2,to:Vec2){
     if(this.inInterior)return this.interiors.clearPath(from,to);
@@ -339,7 +364,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   prepareStoryArena(){this.aliceCompanion?.pauseForStory();this.roadLife?.clear();this.contentManager.suspendCreatures();this.spearProjectiles.clear();this.wildlife.reset();}
   cancelStoryEncounter(){this.storyEncounters?.clear();this.player.resetInput();this.spearProjectiles.clear();}
-  interactWithStory(){return this.storyEncounters.interact();}
+  interactWithStory(){return this.dungeons?.interact()||this.storyEncounters.interact();}
   playStoryIntro(id:string){return this.cinematicDirector.start('encounter-'+id);}
   skillLanding(target:Vec2,range:number):Vec2 {
     const from={x:this.player.x,y:this.player.y};
@@ -677,6 +702,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     setSaveSnapshotProvider(() => this.syncState());
     this.interiors=new InteriorSession(this);
+    this.dungeons=new DungeonSystem(this);
     this.storyEncounters=new StoryEncounterSystem(this);
     this.aliceCompanion=new AliceCompanionSystem(this);
 
@@ -719,7 +745,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const feedbackBlocked=!this.focused||Boolean(feedbackState.panel||feedbackState.dialogue||feedbackState.cinematic||feedbackState.pendingCinematic||this.passage?.active||this.cinematicDirector?.active);
     this.levelUpFeedback?.update(delta,feedbackBlocked);
     this.roadLife?.update(delta,feedbackBlocked||this.inInterior||this.storyCombatActive);
-    this.aliceCompanion?.update(time,delta,feedbackBlocked||this.storyCombatActive);
+    this.aliceCompanion?.update(time,delta,feedbackBlocked||Boolean(this.storyEncounters?.active));
     this.handlePanelHotkeys();
     if(this.cinematicDirector.active){this.updateCinematicPresentation(time,delta);return;}
     const travelStore=useGameStore.getState();
@@ -1361,6 +1387,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   handleEnemyDefeated(enemy: Enemy) {
+    if(enemy.instanceId.startsWith('dungeon-event:')){this.dungeons?.defeated(enemy);return;}
     if(this.storyEncounters?.defeated(enemy)){useGameStore.getState().discoverCreature(enemy.definition.id,undefined,true);return;}
     this.forgetOrcSpears(enemy.instanceId);
     const definition = enemy.definition;
@@ -1438,7 +1465,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     &&!(useGameStore.getState().storyFlags['oakmere-road-open']&&Math.hypot(x-TOWN_BY_ID.oakmere.world.x,y-TOWN_BY_ID.oakmere.world.y)<5000&&this.worldGenerator.isRoad(x,y,30))
     &&!WILDERNESS_SITES.some(s=>((s.style==='camp'&&!s.hostile)||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
   canEnemyOccupy(x: number, y: number,enemy?:Enemy) {
-    if(enemy&&this.storyActor(enemy))return this.storyEncounters.owns(enemy)&&this.storyEncounters.allows({x,y})
+    if(enemy&&this.storyActor(enemy))return (this.dungeons?.owns(enemy)?this.dungeons.allows({x,y}):this.storyEncounters.owns(enemy)&&this.storyEncounters.allows({x,y}))
       &&(this.inInterior?this.interiors.combatFeet(x,y):this.worldGenerator.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y));
     if(this.inInterior)return false;
     if(enemy&&isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home)
@@ -1542,6 +1569,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.questTarget = resolveQuestTarget(store.quests, store.worldContent, this.player,
       id => this.contentManager.getActor(id),store.trackedQuestId,undefined,store.storyFlags);
     const markers: NavigationMarker[] = [];
+    markers.push(...this.dungeons.exteriorMarkers());
     for(const resident of INTERIOR_RESIDENTS){
       const p=resident.entry.door;
       if(Math.hypot(p.x-this.player.x,p.y-this.player.y)<1200)markers.push({id:'npc:'+resident.npcId,
@@ -2021,6 +2049,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.cinematicDirector?.destroy();
     this.storyEncounters?.destroy();
     this.interiors?.destroy();
+    this.dungeons?.destroy();
     this.spearProjectiles?.clear();
     this.wildlife?.destroy();
     this.encounters.clear();

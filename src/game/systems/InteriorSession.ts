@@ -12,6 +12,7 @@ import {INTERIOR_ART,INTERIOR_FLOORS,interiorFloorIndex,type InteriorArtKey} fro
 import {resolveQuestTarget,questBearing,activeObjective} from './questNavigation';
 import {INN_REST_COST,innRestAvailable} from '../../data/innRest';
 import {MAP_BLACKSMITHS} from '../../data/mapServices';
+import {CAVE_ART_PATH,CAVE_ART_FRAMES,CAVE_FLOOR} from '../../data/caveArt';
 
 const DEPTH=10_000_000;
 const SOURCE='interior-source',ATLAS='interior-furniture';
@@ -53,6 +54,7 @@ export class InteriorSession {
   playerRenderDepth(y:number){return this.ready?DEPTH+y-this.origin.y:y;}
   get safePosition(){return this.cinematicContext?(this.cinematicContext.outside??this.cinematicContext.position):this.outside;}
   get currentEntry(){return this.entry;}
+  localPoint(point:Vec2){return {x:this.origin.x+point.x,y:this.origin.y+point.y};}
   get viewCenter(){return this.plan?{x:this.origin.x+this.plan.entrance.x,y:this.origin.y+this.plan.entrance.y}:this.scene.player;}
   getActor(npcId:string){return this.getResidents().find(n=>n.definition.id===npcId);}
   getResidents(){
@@ -90,6 +92,7 @@ export class InteriorSession {
     this.cinematicContext=null;
     for(const saved of context.filters)if(saved.object.scene)saved.object.cameraFilter=saved.filter;
     this.outside=context.outside;this.scene.player.setDepth(context.depth);
+    if(ready&&context.entry?.profile==='cave'&&useGameStore.getState().activeDungeonId!==context.entry.id.slice(5))this.scene.beginDungeon(context.entry.id);
     if(!ready){
       this.closeRoom();this.outside=null;
       this.scene.restoreOutsidePosition(context.outside??context.position);
@@ -122,7 +125,7 @@ export class InteriorSession {
 
   nearest(x:number,y:number){
     let nearest:InteriorEntry|undefined,distance=95;
-    for(const entry of INTERIOR_ENTRIES){
+    for(const entries of [INTERIOR_ENTRIES,this.scene.dungeonEntries])for(const entry of entries){
       const d=Math.hypot(entry.door.x-x,entry.door.y-y);
       if(d<distance&&this.scene.interiorDoorClear(entry.door.x,entry.door.y)
         &&this.scene.hasClearPath(x,y,entry.door.x,entry.door.y)){nearest=entry;distance=d;}
@@ -136,6 +139,7 @@ export class InteriorSession {
       this.scene.notify('Leave combat before entering a building.');return;
     }
     this.outside={x:this.scene.player.x,y:this.scene.player.y};
+    if(entry.profile==='cave')this.scene.prepareStoryArena();
     this.scene.player.resetInput();this.scene.targeting.clear();this.scene.physics.world.pause();
     this.scene.notify(`Entering ${entry.name}…`);void this.loadEntry(entry,this.outside,false);
   }
@@ -157,7 +161,8 @@ export class InteriorSession {
       if(this.disposed){settle(false);return;}
       try{
         if(!this.scene.textures.exists(SOURCE))throw new Error('Interior kit unavailable');
-        this.prepareArt();this.open(entry,anchor,cinematic);settle(true);
+        if(entry.profile==='cave')this.prepareCaveArt();else this.prepareArt();
+        this.open(entry,anchor,cinematic);settle(true);
       }catch(error){fail(`Could not enter: ${error instanceof Error?error.message:String(error)}`);}
     };
     const error=(file:Phaser.Loader.File)=>{
@@ -171,7 +176,7 @@ export class InteriorSession {
     this.scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR,error);
     try{
       this.scene.load.image({
-        key:SOURCE,url:`assets/interiors/${entry.kit}/kit.png`,
+        key:SOURCE,url:entry.profile==='cave'?CAVE_ART_PATH:`assets/interiors/${entry.kit}/kit.png`,
         xhrSettings:{responseType:'blob',timeout:15000},
       });
       if(!this.scene.load.isLoading())this.scene.load.start();
@@ -202,6 +207,15 @@ export class InteriorSession {
     }
     this.scene.textures.remove(SOURCE);
   }
+  private prepareCaveArt(){
+    const image=this.scene.textures.get(SOURCE).getSourceImage() as HTMLImageElement;
+    const atlas=this.scene.textures.addImage(ATLAS,image)!;
+    for(const [name,[x,y,width,height]] of Object.entries(CAVE_ART_FRAMES))
+      atlas.add(name==='entrance'?'doorway':name,0,x,y,width,height)!.customData={visibleWidth:width,visibleHeight:height};
+    for(const key of FLOORS){const floor=this.scene.textures.createCanvas(key,176,176)!;
+      floor.getContext().drawImage(image,...CAVE_FLOOR,0,0,176,176);floor.refresh();}
+    this.scene.textures.remove(SOURCE);
+  }
   private own<T extends Phaser.GameObjects.GameObject>(object:T):T {this.objects.push(object);return object;}
   private artHeight(art:InteriorArtKey,width:number){
     const dimensions=this.scene.textures.getFrame(ATLAS,art).customData as {visibleWidth:number;visibleHeight:number};
@@ -210,7 +224,7 @@ export class InteriorSession {
   private drawArt(art:InteriorArtKey,x:number,y:number,width:number,depth:number){
     const image=this.own(this.scene.add.image(this.origin.x+x,this.origin.y+y,ATLAS,art));
     const dimensions=image.frame.customData as {visibleWidth:number;visibleHeight:number};
-    return image.setOrigin(.5,252/256).setScale(width/dimensions.visibleWidth).setDepth(depth);
+    return image.setOrigin(.5,this.entry?.profile==='cave'?1:252/256).setScale(width/dimensions.visibleWidth).setDepth(depth);
   }
   private renderWalls(){
     const plan=this.plan!,edges=new Map<string,{side:'north'|'west'|'east';axis:number;spans:Array<[number,number]>}>();
@@ -300,7 +314,7 @@ export class InteriorSession {
         {fontFamily:'Georgia, serif',fontSize:'11px',color:'#bba67d',stroke:'#19140f',strokeThickness:2})
         .setResolution(2).setOrigin(.5).setDepth(DEPTH+3000).setAlpha(.7));
     }
-    if(scene.textures.exists('warm-light')){
+    if(entry.profile!=='cave'&&scene.textures.exists('warm-light')){
       const maskShape=this.own(scene.make.graphics({x:0,y:0}));maskShape.setVisible(false);
       for(const r of plan.floors)maskShape.fillStyle(0xffffff).fillRect(this.origin.x+r.x,this.origin.y+r.y,r.width,r.height);
       this.floorMask=maskShape.createGeometryMask();
@@ -335,6 +349,7 @@ export class InteriorSession {
     const objective=activeObjective(story.quests,story.trackedQuestId)?.objective;
     if(!this.cinematicContext&&objective?.type==='visit'&&objective.targetId===entry.id)story.progressQuest('visit',entry.id);
     if(!this.cinematicContext)this.scene.notify(`${entry.name} — use the south doorway to leave.${entry.profile==='inn'?` Guest beds: ${INN_REST_COST}G until 06:00.`:''}`);
+    if(entry.profile==='cave'&&!cinematic)this.scene.beginDungeon(entry.id);
   }
   private residentPosition(preferred:Vec2):Vec2 {
     const plan=this.plan!;
@@ -497,15 +512,16 @@ export class InteriorSession {
       playerPosition:{x,y},interiorName:this.entry.name,interiorFloors:this.mapFloors,
       markers:[...this.getResidents().map(n=>({id:'npc:'+n.definition.id,kind:'npc' as const,label:n.definition.name,x:n.x,y:n.y,
         ...(MAP_BLACKSMITHS.has(n.definition.id)?{service:'blacksmith' as const}:{})})),
-        ...this.innBedMarkers,
+        ...this.innBedMarkers,...this.scene.dungeonMarkers,
         ...this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0).map(e=>({id:e.instanceId,kind:'enemy' as const,label:e.definition.name,x:e.x,y:e.y}))],
-      interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':
-        nearBed?(innRestAvailable(this.scene.getWorldHour()*60)?`Sleep until 06:00 — ${INN_REST_COST}G`:'Guest bed — available from 18:00'):
-        this.scene.companionActor&&Math.hypot(this.scene.companionActor.x-x,this.scene.companionActor.y-y)<180?'Talk to Alice Fen':null});
+      interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':this.scene.storyInteraction??
+        (nearBed?(innRestAvailable(this.scene.getWorldHour()*60)?`Sleep until 06:00 — ${INN_REST_COST}G`:'Guest bed — available from 18:00'):
+        this.scene.companionActor&&Math.hypot(this.scene.companionActor.x-x,this.scene.companionActor.y-y)<180?'Talk to Alice Fen':null)});
     this.syncMs+=Math.min(delta,80);
     if(this.syncMs>=500){this.syncMs=0;this.scene.syncState();}
   }
   interact(){
+    if(this.scene.storyInteraction&&this.scene.interactWithStory())return;
     if(this.scene.storyCombatActive){
       if(this.plan&&Math.hypot(this.scene.player.x-this.origin.x-this.plan.entrance.x,this.scene.player.y-this.origin.y-this.plan.entrance.y)<80){this.exit();return;}
       if(this.scene.interactWithStory())return;
@@ -528,6 +544,7 @@ export class InteriorSession {
   }
   private closeRoom(){
     if(!this.entry&&!this.objects.length){this.releaseArt();return;}
+    if(this.entry?.profile==='cave')this.scene.closeDungeon();
     this.entry=null;this.plan=null;this.backdrop=null;
     this.innBeds.length=0;
     this.innBedMarkers.length=0;

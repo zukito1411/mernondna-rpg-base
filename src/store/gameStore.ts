@@ -25,6 +25,7 @@ import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type J
 import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 import {CONTRACT_BY_ID,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
 import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
+import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,type DungeonLedger} from '../data/dungeons';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -51,6 +52,12 @@ export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'materi
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
+  dungeons:DungeonLedger;
+  activeDungeonId:string|null;
+  discoverDungeon:(id:string)=>void;
+  refreshDungeon:(id:string)=>void;
+  recordDungeonDefeat:(id:string,slot:number)=>void;
+  claimDungeonChest:(id:string)=>void;
   armorInventory:string[];
   equippedArmor:ArmorLoadout;
   armorBonuses:ArmorBonuses;
@@ -168,6 +175,7 @@ export interface GameState {
 const initialQuestState = initialQuests;
 
 const baseState = () => ({
+  dungeons:{} as DungeonLedger,activeDungeonId:null as string|null,
   armorInventory:[] as string[],equippedArmor:emptyArmorLoadout(),armorBonuses:{...NO_ARMOR_BONUSES},
   contracts:{} as ContractLedger,contractBoardTownId:null as string|null,
   aliceRemark:null as GameState['aliceRemark'],
@@ -235,6 +243,24 @@ function experienceProgress(state: GameState, xp: number) {
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
+  discoverDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!state.dungeons[id]
+    ?{dungeons:{...state.dungeons,[id]:{discovered:true,defeated:0,claimed:false}},toast:`Discovered: ${DUNGEON_BY_ID[id].name}`} :{}),
+  refreshDungeon:id=>set(state=>state.activeDungeonId!==id&&dungeonResetReady(state.dungeons[id])
+    ?{dungeons:{...state.dungeons,[id]:{discovered:true,defeated:0,claimed:false}}}:state),
+  recordDungeonDefeat:(id,slot)=>set(state=>{
+    const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
+    if(!d||!p||state.activeDungeonId!==id||p.claimed||!Number.isInteger(slot)||slot<0||slot>=d.enemies.length||p.defeated&(1<<slot))return {};
+    return {dungeons:{...state.dungeons,[id]:{...p,defeated:p.defeated|(1<<slot)}},journal:discoverCreature(state.journal,d.enemies[slot],undefined,true)};
+  }),
+  claimDungeonChest:id=>set(state=>{
+    const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
+    if(!d||!p||p.claimed||state.activeDungeonId!==id||!dungeonCleared(d,p)||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
+    const reward=earnedRewards(d.xp,d.gold,state.attributes,state.learnedSkills);
+    const contracts={...state.contracts};
+    for(const [key,progress] of Object.entries(contracts))if(CONTRACT_BY_ID[key]?.dungeonId===id&&!progress.claimed)contracts[key]={...progress,progress:1};
+    return {...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,dungeons:{...state.dungeons,[id]:{...p,claimed:true,respawnAt:Date.now()+DUNGEON_RESET_MS}},contracts,
+      toast:`${d.name} cleared! Chest: +${reward.gold}G and +${reward.xp} XP. Cave reset: 20 minutes. Leave and return to challenge it again. Any accepted cave contract is ready at its notice board.`};
+  }),
   askAliceToAdventure:following=>{
     const state=get(),dialogue=state.dialogue;
     if(dialogue?.npcId!==ALICE_NPC_ID||dialogue.choices?.length||state.panel||state.cinematic
@@ -342,7 +368,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined;
     if(!c||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.contracts[id]||state.cinematic)return {};
     if(outstandingContracts(state.contracts)>=MAX_ACTIVE_CONTRACTS)return {toast:`Finish or abandon a contract first. You can carry ${MAX_ACTIVE_CONTRACTS}.`};
-    return {contracts:{...state.contracts,[id]:{progress:0,claimed:false}},toast:`Accepted: ${c.title}. Only new defeats count.`};
+    return {contracts:{...state.contracts,[id]:{progress:c.dungeonId&&state.dungeons[c.dungeonId]?.claimed?1:0,claimed:false}},toast:`Accepted: ${c.title}.${c.dungeonId?' Clear the cave and open its chest.':' Only new defeats count.'}`};
   }),
   claimContract:id=>set(state=>{
     const c=Object.hasOwn(CONTRACT_BY_ID,id)?CONTRACT_BY_ID[id]:undefined,p=state.contracts[id];
