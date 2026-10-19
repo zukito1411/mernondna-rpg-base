@@ -19,7 +19,7 @@ const LOADING_QUOTES=[
   '“Some compasses point toward unfinished stories.”',
 ];
 
-export function GameCanvas({onReady,onExit}:{onReady:()=>void;onExit:()=>void}) {
+export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>void;onExit:()=>void;onRetry:()=>void;retryAvailable:boolean}) {
   const ref = useRef<HTMLDivElement>(null);
   const [error,setError]=useState<string|null>(null);
   const [loading,setLoading]=useState({ready:false,progress:0,stage:'Loading artwork'});
@@ -48,7 +48,8 @@ export function GameCanvas({onReady,onExit}:{onReady:()=>void;onExit:()=>void}) 
       game = createMernondnaGame(ref.current);
     }catch(reason){failed(reason);}
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('e2e')) window.__mernondnaGame = game;
-    let lastAdvance=Date.now(),lastProgress=-1,stalled=false,initialCheckpointSaved=false,loadingStage='';
+    const startedAt=Date.now();
+    let lastAdvance=startedAt,lastProgress=-1,stalled=false,initialCheckpointSaved=false,loadingStage='';
     const onVisible=()=>{if(!document.hidden)lastAdvance=Date.now();};
     document.addEventListener('visibilitychange',onVisible);
     const readinessPoll=window.setInterval(()=>{
@@ -70,12 +71,19 @@ export function GameCanvas({onReady,onExit}:{onReady:()=>void;onExit:()=>void}) 
       }
       if(typeof progress==='number'&&progress>lastProgress+.001){lastProgress=progress;lastAdvance=Date.now();}
       if(typeof stage==='string'&&stage!==loadingStage){loadingStage=stage;lastAdvance=Date.now();}
-      if(!ready&&!document.hidden&&!stalled&&Date.now()-lastAdvance>60000){
+      if(!ready&&!document.hidden&&!stalled&&
+        (Date.now()-lastAdvance>45000 || Date.now()-startedAt>120000)){
         stalled=true;
         const stage=game.registry.get('loadingStage');
         const stages=game.scene.scenes.map(scene=>`${scene.scene.key}:${scene.sys.settings.status}`).join(', ');
         const lastAsset=game.registry.get('loadingLastAsset');
-        console.error('[startup] stalled', {stage,scenes:stages,progress,lastAsset});
+        console.warn('[startup] cold load stalled', {stage,scenes:stages,progress,lastAsset,retryAvailable});
+        if(retryAvailable){
+          // Recreate the entire WebView canvas / Phaser loader once, matching
+          // the confirmed manual Main Menu → Continue recovery sequence.
+          onRetry();
+          return;
+        }
         const file=typeof lastAsset==='string'&&lastAsset.length<160?` Last asset: ${lastAsset}.`:'';
         setError(`Loading did not finish during ${typeof stage==='string'?stage:'game startup'} (scenes: ${stages}).${file} Export your save below before retrying. Your progress has not been reset.`);
       }
