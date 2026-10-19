@@ -3,7 +3,7 @@ import {ART_BY_KEY} from '../../data/art';
 import {BOATSWAIN_ART,BOATSWAIN_GAIT_ART,BOATSWAIN_SIDE_GAIT,BOATSWAIN_DOWN_PASSING,BOATSWAIN_UP_GAIT,BOATSWAIN_ATTACK_FEET,BOATSWAIN_TEXTURE} from '../../data/boatswainArt';
 import {actorSpriteSubjects,type ActorSpriteSubject} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
-import {fitAtlasPoses} from './atlasPoseFit';
+import {fitAtlasPoses,atlasGroundY} from './atlasPoseFit';
 
 /** Calibrate complete poses by their standing body, never by mallet reach.
  * Connected-subject isolation preserves boots crossing approximate row seams. */
@@ -15,10 +15,11 @@ export function prepareBoatswainArt(scene:Phaser.Scene){
   const drawSubject=(subject:ActorSpriteSubject,fit:number,foot:number,frame:number,path:string,falling=false,mirror=false)=>{
     const [rx,ry,w,h]=subject.region;
     const root=falling?rx+w/2:scarfRoot(subject,foot,76/fit);
-    const safeFit=fitAtlasPoses(fit,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),
-      [{region:subject.region,rootX:root,rootY:foot}]);
+    const pose=[{region:subject.region,rootX:root,rootY:foot}];
+    const safeFit=fitAtlasPoses(fit,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),pose);
+    const drawGround=atlasGroundY(sheet.frameHeight-(sheet.groundPadding??2),sheet.frameHeight,pose,safeFit);
     const left=sheet.frameWidth/2+(rx-root)*safeFit;
-    const top=sheet.frameHeight-(sheet.groundPadding??2)+(ry-foot)*safeFit;
+    const top=drawGround+(ry-foot)*safeFit;
     const x=frame%columns*fw,y=Math.floor(frame/columns)*fh;
     ctx.save();
     if(mirror){ctx.translate(x+fw,y);ctx.scale(-1,1);}
