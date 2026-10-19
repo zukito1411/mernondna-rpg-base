@@ -98,6 +98,13 @@ jobs:
       - name: Verify awakened weapon balance (blocking)
         run: npm test -- tests/awakening.test.ts tests/bossLootAndForging.test.ts
 
+      - name: Verify regional respawn destinations (blocking)
+        run: npm test -- tests/respawnLocation.test.ts
+
+      - name: Exercise death and respawn in Chromium (non-blocking)
+        continue-on-error: true
+        run: npm run test:browser -- tests/browser/respawn.spec.ts
+
       - name: Check test TypeScript (non-blocking)
         continue-on-error: true
         run: npm run test:types
