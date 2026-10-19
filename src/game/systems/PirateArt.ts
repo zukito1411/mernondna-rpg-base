@@ -6,6 +6,7 @@ import {ACTOR_DIRECTIONS,enemyLocomotionKey} from '../../data/directionalEnemyAr
 import type {SpriteAnimation} from '../../data/animationPacks';
 import {actorSpriteSubjects} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 
 /** Isolated complete poses; a fixed neutral-body calibration per facing keeps
  * swords, recoil and fallen bodies from rescaling the character. */
@@ -35,13 +36,14 @@ export function preparePirateArt(scene:Phaser.Scene):SpriteAnimation[]{
       const a=subject.pixels[(y*w+x)*4+3];if(a>128){weighted+=(rx+x)*a;total+=a;}
     }
     const root=total?weighted/total:rx+w/2;
-    const left=sheet.frameWidth/2+(rx-root)*fit,top=sheet.frameHeight-2-h*fit;
-    if(left<2||top<2||left+w*fit>sheet.frameWidth-2)throw new Error('Pirate pose exceeds atlas cell: '+i);
+    const safeFit=fitAtlasPoses(fit,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-2,
+      [{region:subject.region,rootX:root,rootY:subject.region[1]+h}]);
+    const left=sheet.frameWidth/2+(rx-root)*safeFit,top=sheet.frameHeight-2-h*safeFit;
     const x=i%6*fw,y=Math.floor(i/6)*fh;
-    draw(ctx,spriteSubjectCanvas(subject),[0,0,w,h],x+left*2,y+top*2,w*fit*2,h*fit*2);
+    draw(ctx,spriteSubjectCanvas(subject),[0,0,w,h],x+left*2,y+top*2,w*safeFit*2,h*safeFit*2);
     texture.add(i,0,x,y,fw,fh)!.customData={fullSprite:true,isolatedSubject:true,sourceRegion:subject.region,
       sourcePath:gait?PIRATE_GAIT_PATH:side?PIRATE_SIDE_PATH:PIRATE_PATH,
-      sourceFit:fit,foreignProbes:subject.foreignProbes,visibleBounds:{left,top,width:w*fit,height:h*fit}};
+      sourceFit:safeFit,foreignProbes:subject.foreignProbes,visibleBounds:{left,top,width:w*safeFit,height:h*safeFit}};
   }
   texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
   scene.textures.remove('pirate-source');scene.textures.remove('pirate-side-source');scene.textures.remove('pirate-gait-source');
