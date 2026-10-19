@@ -583,6 +583,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.physics.add.collider(this.npcBodies, this.buildings);
     this.physics.add.collider(this.npcBodies, this.treeBodies);
     this.physics.add.collider(this.npcBodies, this.npcBodies);
+    this.registry.set('loadingStage','Restoring saved encounters');
     let logical = { ...state.worldContent, states: { ...state.worldContent.states } };
     // Defeat history remains permanent for quests; the content ledger, not
     // defeatedBosses, controls the 20-minute battle respawn timer.
@@ -608,6 +609,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     logical=normalizePirateCrews(logical,this.worldGenerator,(x,y)=>this.canEnemyOccupy(x,y));
     logical=normalizeGoblinCrews(logical,this.worldGenerator,(x,y)=>this.canEnemyOccupy(x,y)
       &&creatureFitsHabitat(ENEMY_BY_ID['goblin-stone-slinger'],this.habitatAt(x,y)));
+    this.registry.set('loadingStage','Indexing saved world actors');
     this.contentManager = new ContentChunkManager(WORLD_CONTENT, logical, {
       initialState: initialContentState,
       keepActive:definition=>definition.kind==='npc'&&definition.npcId===ALICE_NPC_ID&&aliceIsFollowing(useGameStore.getState().storyFlags),
@@ -714,7 +716,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.aliceCompanion=new AliceCompanionSystem(this);
 
     this.registry.set('loadingStage','Drawing nearby terrain');
-    this.chunkManager.update(this.player.x, this.player.y);
+    // First boot (including Continue) must not synchronously bake the full
+    // 3x3 terrain neighborhood: nine 1536px canvases can exhaust Android
+    // graphics memory before the first frame. Render just the visible view
+    // initially; normal update() streams the offscreen neighbors later.
+    this.chunkManager.update(this.player.x, this.player.y, true);
+    this.registry.set('loadingStage','Activating nearby world actors');
     this.contentManager.update(this.player.x, this.player.y);
     // Layout updates can put a saved player inside a new foundation.
     // Repair position only, never health, stamina or story progress.
@@ -724,7 +731,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       })));
       const safe=candidates.find(p=>this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y))??LEIGNERON.spawn;
       (this.player.body as Phaser.Physics.Arcade.Body).reset(safe.x,safe.y);this.lastSafe={...safe};
-      this.chunkManager.update(safe.x,safe.y);this.contentManager.update(safe.x,safe.y);
+      this.chunkManager.update(safe.x,safe.y,true);this.contentManager.update(safe.x,safe.y);
     }
     this.questGuide = this.add.graphics().setDepth(9100).setName('quest-direction-guide');
     this.updateNavigation();
