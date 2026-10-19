@@ -7,7 +7,7 @@ import { TOWN_BY_ID } from '../data/towns';
 import { advanceQuests } from '../game/systems/questProgress';
 import { localSettlementTravelEnabled } from '../utils/localSettlementTravel';
 import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/activeSkills';
-import { BASE_ATTRIBUTES, ATTRIBUTE_CAP, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, bossArmorSetDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
+import { BASE_ATTRIBUTES, attributeCap, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, bossArmorSetDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
@@ -25,9 +25,9 @@ import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type J
 import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 import {contractById,boardContracts,contractBoardCycle,expireClaimedContracts,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
 import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
-import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,type DungeonLedger} from '../data/dungeons';
-import {BASE_LEVEL_CAP,playerLevelCap} from '../data/progression';
-import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE} from '../data/breakthrough';
+import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,dungeonEnemyId,newDungeonProgress,type DungeonLedger} from '../data/dungeons';
+import {BASE_LEVEL_CAP,MAX_PLAYER_LEVEL,playerLevelCap} from '../data/progression';
+import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASCENSION,ASCENSION_CONFIRM_DELAY_MS} from '../data/breakthrough';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
@@ -55,6 +55,8 @@ export interface LevelUpNotice {id:number;from:number;level:number;attributes:nu
 
 export interface GameState {
   edmundBreakthrough:()=>void;
+  edmundWorldAscension:(step:'warn'|'confirm'|'cancel')=>void;
+  worldAscensionReadyAt:number;
   dungeons:DungeonLedger;
   activeDungeonId:string|null;
   discoverDungeon:(id:string)=>void;
@@ -178,6 +180,7 @@ export interface GameState {
 const initialQuestState = initialQuests;
 
 const baseState = () => ({
+  worldAscensionReadyAt:0,
   dungeons:{} as DungeonLedger,activeDungeonId:null as string|null,
   armorInventory:[] as string[],equippedArmor:emptyArmorLoadout(),armorBonuses:{...NO_ARMOR_BONUSES},
   contracts:{} as ContractLedger,contractBoardTownId:null as string|null,
@@ -247,6 +250,20 @@ function experienceProgress(state: GameState, xp: number) {
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...baseState(),
+  edmundWorldAscension:step=>set(state=>{
+    if(step==='cancel')return {worldAscensionReadyAt:0};
+    const dialogue=state.dialogue,npc=NPC_BY_ID[EDMUND_ATWOOD_ID];
+    if(state.level!==MAX_PLAYER_LEVEL||!state.storyFlags[BREAKTHROUGH_COMPLETE]||state.storyFlags[WORLD_ASCENSION]
+      ||dialogue?.npcId!==EDMUND_ATWOOD_ID||dialogue.questId||dialogue.choices?.length
+      ||dialogue.lineIndex<(dialogue.lines??npc.dialogue).length-1||state.panel||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
+    if(step==='warn')return acceptUiAction()?{worldAscensionReadyAt:Date.now()+ASCENSION_CONFIRM_DELAY_MS}:{};
+    // A second, delayed interaction is mandatory; opening the warning cannot
+    // propagate a pointer/key event into an irreversible confirmation.
+    if(!state.worldAscensionReadyAt||Date.now()<state.worldAscensionReadyAt||!acceptUiAction())return {};
+    return {worldAscensionReadyAt:0,storyFlags:{...state.storyFlags,[WORLD_ASCENSION]:true},
+      dialogue:{...dialogue,lines:['Then there is no turning back, Leigneron. Every foe across these lands now stands at level 120, with greater strength and endurance. Your own limits have opened: you may train each attribute to sixty. Spend your remaining points wisely.'],lineIndex:0},
+      toast:'World Ascension is permanent: all enemies Lv.120, stronger HP and attacks. Attribute caps raised to 60.'};
+  }),
   edmundBreakthrough:()=>set(state=>{
     const dialogue=state.dialogue,npc=NPC_BY_ID[EDMUND_ATWOOD_ID];
     if(state.level<BASE_LEVEL_CAP||dialogue?.npcId!==EDMUND_ATWOOD_ID||dialogue.questId||dialogue.choices?.length
@@ -260,13 +277,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       toast:'Breakthrough complete! Level cap raised to 75. Barrage unlocks at level 60.'};
   }),
   discoverDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!state.dungeons[id]
-    ?{dungeons:{...state.dungeons,[id]:{discovered:true,defeated:0,claimed:false}},toast:`Discovered: ${DUNGEON_BY_ID[id].name}`} :{}),
+    ?{dungeons:{...state.dungeons,[id]:newDungeonProgress()},toast:`Discovered: ${DUNGEON_BY_ID[id].name}`} :{}),
   refreshDungeon:id=>set(state=>state.activeDungeonId!==id&&dungeonResetReady(state.dungeons[id])
-    ?{dungeons:{...state.dungeons,[id]:{discovered:true,defeated:0,claimed:false}}}:state),
+    ?{dungeons:{...state.dungeons,[id]:newDungeonProgress(((state.dungeons[id].rotation??0)+1)%1000000)}}:state),
   recordDungeonDefeat:(id,slot)=>set(state=>{
     const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
     if(!d||!p||state.activeDungeonId!==id||p.claimed||!Number.isInteger(slot)||slot<0||slot>=d.enemies.length||p.defeated&(1<<slot))return {};
-    return {dungeons:{...state.dungeons,[id]:{...p,defeated:p.defeated|(1<<slot)}},journal:discoverCreature(state.journal,d.enemies[slot],undefined,true)};
+    return {dungeons:{...state.dungeons,[id]:{...p,defeated:p.defeated|(1<<slot)}},journal:discoverCreature(state.journal,dungeonEnemyId(d,slot,p),undefined,true)};
   }),
   claimDungeonChest:id=>set(state=>{
     const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
@@ -462,7 +479,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       state.storyFlags['main-public-reports']?'We’ve sent warnings to the towns. I hope people take them seriously.':state.storyFlags['main-watch-reports']?'Isabel’s riders have been carrying letters to the other towns. I hope they get through safely.':'We’ve had some worrying reports from the other towns. I’m still trying to find out what’s true.':null;
     const reaction=reactiveStoryDialogue(npcId,state.quests,state.storyFlags);
     const lines=context?.objective.dialogue ?? (reaction??(highmereOutcome?[highmereOutcome,...npc.dialogue]:localOutcome?[localOutcome,...npc.dialogue]:outcome&&['mairin-reed','nella-harrow','maela-quill','renna-vale'].includes(npcId)?[outcome,...npc.dialogue]:npc.dialogue));
-    set({quests,trackedQuestId,journal:discoverJournalEntry(state.journal,'characters',npcId),dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
+    set({worldAscensionReadyAt:0,quests,trackedQuestId,journal:discoverJournalEntry(state.journal,'characters',npcId),dialogue:{npcId,lineIndex:0,lines,...(context?{questId:context.questId,objectiveId:context.objective.id,choices:context.objective.choices}:{})}});
   },
   advanceDialogue: () => set((state) => state.dialogue&&acceptUiAction()
     &&state.dialogue.lineIndex<(state.dialogue.lines??NPC_BY_ID[state.dialogue.npcId]?.dialogue??[]).length-1
@@ -470,7 +487,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   endDialogue: () => {
     const dialogue=get().dialogue;
     if(!dialogue||!acceptUiAction())return;
-    set({dialogue:null});
+    set({dialogue:null,worldAscensionReadyAt:0});
     // Opening/abandoning a conversation isn’t delivering evidence or hearing it.
     if(!dialogue||dialogue.choices?.length||!dialogue.questId
       ||dialogue.lineIndex<(dialogue.lines?.length??1)-1)return;
@@ -587,7 +604,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   dismissRareLoot:id=>set(state=>({rareLootQueue:state.rareLootQueue.filter(notice=>notice.id!==id)})),
   dismissLevelUp:id=>set(state=>state.levelUpNotice?.id===id?{levelUpNotice:null}:{}),
   allocateAttribute: (attribute) => set((state) => {
-    if (state.statPoints <= 0 || !Object.hasOwn(BASE_ATTRIBUTES,attribute) || state.attributes[attribute]>=ATTRIBUTE_CAP) return {};
+    if (state.statPoints <= 0 || !Object.hasOwn(BASE_ATTRIBUTES,attribute) || state.attributes[attribute]>=attributeCap(state.storyFlags)) return {};
     const attributes = { ...state.attributes, [attribute]: state.attributes[attribute] + 1 };
     const derived = progressionStats(attributes, state.learnedSkills,state.armorBonuses);
     const addedHp=Math.max(0,derived.maxHp-state.maxHp);

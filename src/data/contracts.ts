@@ -39,7 +39,7 @@ export const CONTRACTS:Contract[]=TOWNS.flatMap(town=>{
     title:`Bounty: ${boss.name}`,description:`${town.name} offers a reward for confronting ${boss.name}. ${boss.lore}`,
     enemyId:boss.enemyId,bossId:boss.id,amount:1,gold:250,xp:180});
   for(const d of DUNGEONS.filter(d=>d.townId===town.id))entries.push({id:`${town.id}:cave:${d.id}`,townId:town.id,regionId:town.regionId,
-    title:`Clear ${d.name}`,description:`${d.description} Look ${d.directions}. Recommended level ${d.minLevel}+. Defeat the defenders and open their war chest.`,
+    title:`Clear ${d.name}`,description:`${d.description} Look ${d.directions}. Defenders are fixed at level ${d.enemyLevel}. Survive five growing waves, defeat their leader and open the war chest.`,
     enemyId:d.enemies[0],dungeonId:d.id,amount:1,gold:Math.round(d.gold*.4),xp:Math.round(d.xp*.4)});
   return entries;
 });

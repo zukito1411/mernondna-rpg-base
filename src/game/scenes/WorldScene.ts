@@ -9,7 +9,8 @@ import {MAP_INNS,MAP_BLACKSMITHS} from '../../data/mapServices';
 import {getGraphicEffects} from '../systems/graphicsEffects';
 import {InteriorSession} from '../systems/InteriorSession';
 import {DungeonSystem} from '../systems/DungeonSystem';
-import type {DungeonDefinition} from '../../data/dungeons';
+import {DUNGEON_LEADER_SCALE,type DungeonDefinition} from '../../data/dungeons';
+import {CAVE_LEADER_PROFILES} from '../../data/bossCombatProfiles';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
 import {findCampaignPatrolPlacement} from '../systems/campaignPatrolPlacement';
 import {storyEncounterInCourtyard,type StoryEncounter} from '../../data/adventure';
@@ -17,8 +18,8 @@ import {citizenModel} from '../systems/RegionalCitizenArt';
 import {NPC_INTERIOR_BY_ID,INTERIOR_RESIDENTS,INTERIOR_ENTRIES} from '../../data/interiors';
 import type {StoryShot} from '../../data/cinematics';
 import {STORY_RESIDENTS} from '../../data/storyResidents';
-import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID,isWolfFamily } from '../../data/enemies';
-import { areaMonsterLevel, BOSS_RESPAWN_MS, encounterRewardFactor } from '../../data/enemyTiers';
+import { BOSSES,BOSS_BY_ID, ENEMIES, ENEMY_BY_ID,isWolfFamily,enemyAppearanceMultiplier } from '../../data/enemies';
+import { BOSS_RESPAWN_MS, encounterRewardFactor } from '../../data/enemyTiers';
 import {restoredEnemyHealth} from '../systems/enemyHealth';
 import {authoredRoofs} from '../systems/authoredRoofs';
 import { LEIGNERON } from '../../data/player';
@@ -154,14 +155,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const body=image.body as Phaser.Physics.Arcade.StaticBody;body.setSize(150,60);
     body.position.set(image.x-75,image.y-image.displayHeight+35);body.center.set(body.x+75,body.y+30);
   }
-  createDungeonEnemy(d:DungeonDefinition,slot:number,p:Vec2){
-    const base=ENEMY_BY_ID[d.enemies[slot]],elite=slot===d.enemies.length-1;
+  createDungeonEnemy(d:DungeonDefinition,slot:number,p:Vec2,enemyId=d.enemies[slot]){
+    const base=ENEMY_BY_ID[enemyId],elite=slot===d.enemies.length-1;
     const tuned={...base,boss:false,name:elite?d.captain:`Hardened ${base.name}`,
-      hp:Math.round(base.hp*(elite?2.8:1.65)),damage:Math.round(base.damage*(elite?1.55:1.25)),
+      appearanceMultiplier:enemyAppearanceMultiplier({...base,boss:false})*(elite?DUNGEON_LEADER_SCALE:1),
+      bodyRadius:(base.bodyRadius??11)*(elite?DUNGEON_LEADER_SCALE:1),
+      hp:Math.round(base.hp*(elite?4.2:1.65)),damage:Math.round(base.damage*(elite?1.9:1.25)),
       aggroRange:900,attackCooldownMs:Math.round(base.attackCooldownMs*(elite?.85:.95)),summonComposition:undefined,summonEnemyId:undefined,
       xp:0,goldMin:0,goldMax:0};
-    const level=Math.max(d.minLevel,areaMonsterLevel(d.door.x,d.door.y,d.regionId)+5)+(elite?5:0);
-    const enemy=new Enemy(this,tuned,p.x,p.y,`dungeon-event:${d.id}:${slot}`,true,null,false,null,undefined,level);
+    const enemy=new Enemy(this,tuned,p.x,p.y,`dungeon-event:${d.id}:${slot}`,true,null,false,null,undefined,d.enemyLevel,elite?CAVE_LEADER_PROFILES[d.id]:undefined);
     this.creatureBodies.add(enemy);this.enemies.add(enemy);this.combatEnemyListDirty=true;this.addInteriorContact(enemy);return enemy;
   }
   get combatAllowed(){return !this.inInterior||this.storyCombatActive;}
@@ -278,8 +280,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     return actor??(e.npcId?this.contentManager.getState('npc:'+e.npcId):e.contentId?
       this.contentManager.getState(e.contentId):undefined);
   }
-  storySpawnClear(p:Vec2,enemyId:string,from:Vec2=this.player){
-    const radius=ENEMY_BY_ID[enemyId].bodyRadius??11;
+  storySpawnClear(p:Vec2,enemyId:string,from:Vec2=this.player,radiusScale=1){
+    const radius=(ENEMY_BY_ID[enemyId].bodyRadius??11)*radiusScale;
     return this.inInterior?this.interiors.combatFeet(p.x,p.y,radius)&&this.interiors.combatPath(from,p,radius)
       :this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y)
         &&!this.worldSprites.blocksPath({x:p.x-radius,y:p.y},{x:p.x+radius,y:p.y},radius*2,radius*2)

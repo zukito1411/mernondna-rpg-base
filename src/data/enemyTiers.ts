@@ -1,5 +1,6 @@
 import { TOWNS } from './towns';
 import {MAX_PLAYER_LEVEL} from './progression';
+import {ASCENDED_MONSTER_LEVEL} from './breakthrough';
 import type { EnemyDefinition, RegionId } from '../game/types';
 
 /** Settlement-route danger tiers. There are twelve settlements but eight regions. */
@@ -24,7 +25,7 @@ export function areaMonsterLevel(x:number,y:number,regionId:RegionId):number {
  return Math.max(routeLevel,REGION_FALLBACK[regionId]);
 }
 /** Raise encounter danger in +5-level steps every five player levels from 20
- * through 50. Clamp invalid or out-of-range values to the playable cap. */
+ * through the playable cap. Clamp invalid or out-of-range values to that cap. */
 export function globalMonsterBonus(playerLevel:number){
  const level=Math.max(1,Math.min(MAX_PLAYER_LEVEL,Number.isFinite(playerLevel)?Math.floor(playerLevel):1));
  return level<20?0:5*(Math.floor((level-20)/5)+1);
@@ -36,15 +37,23 @@ export function enemyLevelAt(definition:EnemyDefinition,x:number,y:number,region
    ||['gray-wolf','frost-wolf'].includes(definition.id)&&wolfAlpha;
  return areaMonsterLevel(x,y,regionId)+(definition.boss?10:elite?5:0)+globalMonsterBonus(playerLevel);
 }
-export function scaledEnemy(definition:EnemyDefinition,level:number):EnemyDefinition {
+export function runtimeEnemyLevel(regionalLevel:number,playerLevel:number,ascended:boolean,fixedLevel?:number){
+ return ascended?ASCENDED_MONSTER_LEVEL:fixedLevel??regionalLevel+globalMonsterBonus(playerLevel);
+}
+export function scaledEnemy(definition:EnemyDefinition,level:number,ascended=false):EnemyDefinition {
  const steps=Math.max(0,level-5),boss=Boolean(definition.boss);
  // Durability and threat rise faster than XP rewards: high-tier targets are
  // not merely larger XP bags with nearly starter-tier attacks. Even the
  // starting tier is tougher; species/elite differences remain intact.
  const hpScale=1.2+steps*.19,damageScale=1.15+steps*.10;
+ // Boss threat outgrows late-game weapon upgrades without shortening warnings.
+ // Keep rewards on their original curve: extra durability is not an XP exploit.
+ const bossHp=boss?1.8+Math.min(1.7,steps*.02):1;
+ const bossDamage=boss?1.2+Math.min(.35,steps*.003):1;
  const xpScale=(1+steps*.065)*(boss?1.25:1),goldScale=1+steps*.025;
- return {...definition,hp:Math.round(definition.hp*hpScale),damage:Math.max(1,Math.round(definition.damage*damageScale)),
-  defense:Math.min(.45,.04+steps*.006),
+ return {...definition,hp:Math.round(definition.hp*hpScale*bossHp*(ascended?1.6:1)),
+  damage:Math.max(1,Math.round(definition.damage*damageScale*bossDamage*(ascended?1.35:1))),
+  defense:Math.min(boss ? .55 : .45,(boss ? .08 : .04)+steps*.006),
   moveSpeed:definition.moveSpeed*(1+Math.min(.12,steps*.003)),
   xp:Math.max(1,Math.round(definition.xp*xpScale)),
   goldMin:Math.floor(definition.goldMin*goldScale),goldMax:Math.ceil(definition.goldMax*goldScale)};

@@ -1,6 +1,7 @@
 import type {WeaponDefinition} from '../game/types';
 import {WEAPON_BY_ID} from './weapons';
 import {BOSS_WEAPONS} from './economy';
+import {ASCENDED_ATTRIBUTE_CAP} from './progression';
 
 export const MAX_WEAPON_UPGRADE=5;
 export const MAX_BOSS_MATERIALS=99;
@@ -18,5 +19,5 @@ export function enhancedWeapon(id:string,ledger:WeaponUpgradeLedger):WeaponDefin
    cooldownMs:Math.round(base.cooldownMs*(1-rank*.02))};
 }
 export function enhancedProcChance(id:string,baseChance:number,ledger:WeaponUpgradeLedger,luck:number):number {
- return Math.min(.35,baseChance+weaponUpgradeRank(id,ledger)*.01+Math.max(0,Math.min(40,luck))*.001);
+ return Math.min(.35,baseChance+weaponUpgradeRank(id,ledger)*.01+Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,luck))*.001);
 }

@@ -1,11 +1,13 @@
 import {NO_ARMOR_BONUSES,type ArmorBonuses} from './armor';
-import {BREAKTHROUGH_COMPLETE} from './breakthrough';
+import {BREAKTHROUGH_COMPLETE,WORLD_ASCENSION} from './breakthrough';
 export const XP_PER_LEVEL = 250; // Base requirement, retained for older callers.
 export const PLAYER_ACTOR_HEIGHT = 76;
 export const BASE_LEVEL_CAP = 50;
 export const MAX_PLAYER_LEVEL = 75;
 export const playerLevelCap=(flags:Record<string,boolean>)=>flags[BREAKTHROUGH_COMPLETE]?MAX_PLAYER_LEVEL:BASE_LEVEL_CAP;
 export const ATTRIBUTE_CAP = 40;
+export const ASCENDED_ATTRIBUTE_CAP = 60;
+export const attributeCap=(flags:Record<string,boolean>)=>flags[WORLD_ASCENSION]?ASCENDED_ATTRIBUTE_CAP:ATTRIBUTE_CAP;
 export const STAT_POINTS_PER_LEVEL = 3;
 // Learning points are shared by passive talents and purchased combat arts.
 // All 12 talents cost 22 points and the 3 optional combat arts cost 7, so
@@ -92,7 +94,7 @@ export const SKILLS:SkillDefinition[]=[
 ];
 export function progressionStats(attributes:PlayerAttributes,skills:SkillId[],armor:ArmorBonuses=NO_ARMOR_BONUSES){
  const has=(id:SkillId)=>skills.includes(id);
- const points=(id:AttributeId)=>Math.max(0,Math.min(ATTRIBUTE_CAP,attributes[id]??0));
+ const points=(id:AttributeId)=>Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes[id]??0));
  const str=points('strength'),vit=points('vitality'),agi=points('agility'),eva=points('evasion'),luk=points('luck');
  return {
   // STR grants a little toughness, while VIT is the primary survival stat.
@@ -100,13 +102,13 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[],ar
   maxStamina:100+agi*2+(has('deep-reserves') ? 30:0)+(has('second-wind') ? 20:0),
   damageMultiplier:1+str*.035+(has('heavy-strike') ? .12:0)+(has('steady-edge') ? .06:0)+(has('veteran-strike') ? .08:0),
   speedMultiplier:1+Math.min(20,agi)*.01+(has('fleet-foot') ? .06:0)+(has('windrunner') ? .04:0),
-  // Weapon recovery continues improving through AGI 40, independently of movement.
+  // Weapon recovery continues through the ascended cap, independently of movement.
   cooldownMultiplier:1-agi*.006-(has('spell-tempo') ? .06:0),
   evasionChance:Math.min(.6,eva*.01+armor.evasionChance),
   luckChance:Math.min(.6,luk*.00625+armor.critChance),
   rewardMultiplier:1+luk*.01,
-  rareDropChance:bossWeaponDropChance(attributes), // 25% -> 45% at LUK 40
-  supplyDropChance:supplyDropChance(attributes), // 6% -> 16% for supply carriers
+  rareDropChance:bossWeaponDropChance(attributes), // 25% -> 55% at LUK 60
+  supplyDropChance:supplyDropChance(attributes), // 6% -> 21% for supply carriers
   skillDamageMultiplier:1+(has('battle-focus') ? .05:0),
   incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1)*(1-Math.min(.35,armor.damageReduction)),
  };
@@ -114,25 +116,25 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[],ar
 
 /** AGI rewards short, frequent dashes; EVA rewards reliable damage-free dodge timing. */
 export function dodgeProfile(attributes:PlayerAttributes) {
- const agi=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.agility??0));
- const eva=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.evasion??0));
+ const agi=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.agility??0));
+ const eva=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.evasion??0));
  return {durationMs:210+Math.round(eva*1.5),invulnerableMs:260+eva*2,
    cooldownMs:850-agi*4,staminaCost:16-Math.floor(agi/8),speedMultiplier:2.65+agi*.0125};
 }
 
 /** The only rare weapon loot table is the boss trophy table. Use the same
- * capped attribute math as the stat screen so the published chance is real. */
+ * capped attribute math as the stat screen, including World Ascension. */
 export function bossWeaponDropChance(attributes:PlayerAttributes):number {
- const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
+ const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0));
  return .25+luk*.005;
 }
 /** Complete armor sets scale with Luck at the same ratio as individual loot. */
 export function bossArmorSetDropChance(attributes:PlayerAttributes):number {
- const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
+ const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0));
  return .1+luk*.002;
 }
 export function supplyDropChance(attributes:PlayerAttributes):number {
- const luk=Math.max(0,Math.min(ATTRIBUTE_CAP,attributes.luck??0));
+ const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0));
  return .06+luk*.0025;
 }
 

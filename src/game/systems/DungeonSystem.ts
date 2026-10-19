@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {DUNGEONS,DUNGEON_BY_ID,dungeonCleared,dungeonResetReady,type DungeonDefinition} from '../../data/dungeons';
+import {DUNGEONS,DUNGEON_BY_ID,DUNGEON_WAVE_SIZES,DUNGEON_LEADER_SCALE,dungeonWave,dungeonEnemyId,dungeonCleared,dungeonResetReady,type DungeonDefinition} from '../../data/dungeons';
 import {CAVE_ART_PATH,CAVE_ART_FRAMES} from '../../data/caveArt';
 import type {InteriorEntry} from '../../data/interiors';
 import {useGameStore} from '../../store/gameStore';
@@ -9,7 +9,7 @@ import type {Enemy} from '../entities/Enemy';
 import type {NavigationMarker,Vec2} from '../types';
 
 const EXTERIOR='cave-entrances-v1';
-/** Four authored sites, one active room, at most three live defenders. Outdoor
+/** Four authored sites, one active room, at most seven live defenders. Outdoor
  * work runs with the existing navigation snapshot, not a new update timer. */
 export class DungeonSystem {
   private readonly sites=new Map<string,{entry:InteriorEntry;image:Phaser.GameObjects.Image}>();
@@ -79,7 +79,7 @@ export class DungeonSystem {
       }
       if(Math.hypot(door.x-player.x,door.y-player.y)<=900)useGameStore.getState().discoverDungeon(d.id);
       const p=useGameStore.getState().dungeons[d.id];
-      if(p&&distance<=1200)markers.push({id:'cave:'+d.id,kind:'landmark',service:'cave',label:`${d.name}${p.claimed?' · Cleared':''} · Lv ${d.minLevel}+`,...door});
+      if(p&&distance<=1200)markers.push({id:'cave:'+d.id,kind:'landmark',service:'cave',label:`${d.name}${p.claimed?' · Cleared':''} · Enemies Lv ${d.enemyLevel}`,...door});
     }
     return markers;
   }
@@ -88,9 +88,9 @@ export class DungeonSystem {
     useGameStore.getState().refreshDungeon(id);
     this.session=d;useGameStore.getState().discoverDungeon(id);useGameStore.setState({activeDungeonId:id});
     this.retryAt=this.scene.time.now+1400;
-    for(const enemyId of new Set(d.enemies))this.scene.ensureStoryEnemy(enemyId);
+    for(const enemyId of new Set([...d.enemyPool,d.enemies[d.enemies.length-1]]))this.scene.ensureStoryEnemy(enemyId);
     if(dungeonCleared(d,useGameStore.getState().dungeons[id]))this.showChest();
-    else this.scene.notify(`${d.name} · hardened defenders, then ${d.captain}. Clear the cave to reveal its chest.`);
+    else this.scene.notify(`${d.name} · five growing waves of level ${d.enemyLevel} defenders, then ${d.captain}. Clear the cave to reveal its chest.`);
   }
   update(time:number,blocked:boolean){
     const d=this.session;if(!d||blocked)return;
@@ -98,20 +98,25 @@ export class DungeonSystem {
     if(dungeonCleared(d,p)){if(!this.chest)this.showChest();return;}
     if(this.actors.size||time<this.retryAt)return;
     this.retryAt=time+500;
-    const slots=[0,1,2,3,4,5,6].filter(slot=>!(p.defeated&(1<<slot)));
-    const wave=Math.floor(slots[0]/3),pending=slots.filter(slot=>Math.floor(slot/3)===wave);
-    const ready=pending.map(slot=>this.scene.ensureStoryEnemy(d.enemies[slot])).every(Boolean);if(!ready)return;
+    const slots=d.enemies.map((_,slot)=>slot).filter(slot=>!(p.defeated&(1<<slot)));
+    const wave=dungeonWave(slots[0]),pending=slots.filter(slot=>dungeonWave(slot)===wave);
+    const leader=wave===DUNGEON_WAVE_SIZES.length-1;
+    const enemyIds=pending.map(slot=>dungeonEnemyId(d,slot,p));
+    const ready=enemyIds.map(id=>this.scene.ensureStoryEnemy(id)).every(Boolean);if(!ready)return;
     const placed:Vec2[]=[];
-    for(const slot of pending){
-      const preferred=this.scene.dungeonPoint({x:[360,840,600][slot%3],y:wave===0?850:wave===1?530:350});
-      const candidates=[preferred,...Array.from({length:36},(_,i)=>({x:this.scene.player.x+Math.cos(i*Math.PI/6)*(210+Math.floor(i/12)*70),y:this.scene.player.y+Math.sin(i*Math.PI/6)*(210+Math.floor(i/12)*70)}))];
+    // A bounded room grid gives the larger waves alternatives even when the
+    // player stands beside their authored formation. Never spawn through walls.
+    const grid=Array.from({length:49},(_,i)=>this.scene.dungeonPoint({x:240+i%7*120,y:260+Math.floor(i/7)*100}));
+    for(let i=0;i<pending.length;i++){
+      const preferred=this.scene.dungeonPoint(leader?{x:600,y:350}:{x:330+i%4*180,y:wave===0?800-Math.floor(i/4)*150:400+Math.floor(i/4)*180});
+      const candidates=[preferred,...grid];
       const position=candidates.find(q=>Math.hypot(q.x-this.scene.player.x,q.y-this.scene.player.y)>=150
-        &&placed.every(other=>Math.hypot(q.x-other.x,q.y-other.y)>85)&&this.scene.storySpawnClear(q,d.enemies[slot]));
+        &&placed.every(other=>Math.hypot(q.x-other.x,q.y-other.y)>110)&&this.scene.storySpawnClear(q,enemyIds[i],this.scene.player,leader?DUNGEON_LEADER_SCALE:1));
       if(!position){if(!this.warned){this.warned=true;this.scene.notify('Move farther into the cavern to give the defenders a clear approach.');}return;}
       placed.push(position);
     }
-    try{pending.forEach((slot,i)=>{const enemy=this.scene.createDungeonEnemy(d,slot,placed[i]);this.actors.set(enemy,slot);});
-      this.warned=false;this.scene.notify(wave===2?`${d.captain} approaches!`:`${d.name} · defender group ${wave+1} of 2`);
+    try{pending.forEach((slot,i)=>{const enemy=this.scene.createDungeonEnemy(d,slot,placed[i],enemyIds[i]);this.actors.set(enemy,slot);});
+      this.warned=false;this.scene.notify(leader?`${d.captain} approaches!`:`${d.name} · wave ${wave+1} of 5 (${pending.length} defenders)`);
     }catch(error){for(const enemy of this.actors.keys())this.scene.releaseStoryEnemy(enemy);this.actors.clear();this.retryAt=time+1500;console.error('Cave defenders:',error);}
   }
   defeated(enemy:Enemy){

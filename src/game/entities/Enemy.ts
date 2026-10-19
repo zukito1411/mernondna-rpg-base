@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
-import { enemyLevelAt,scaledEnemy,globalMonsterBonus } from '../../data/enemyTiers';
+import { enemyLevelAt,scaledEnemy,runtimeEnemyLevel } from '../../data/enemyTiers';
+import {WORLD_ASCENSION} from '../../data/breakthrough';
 import {luckDamage,progressionStats,playerDamageGrowth} from '../../data/progression';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
@@ -18,7 +19,7 @@ import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningS
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
 import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
 import {enhancedWeapon,enhancedProcChance} from '../../data/weaponUpgrades';
-import {BOSS_COMBAT_PROFILES} from '../../data/bossCombatProfiles';
+import {BOSS_COMBAT_PROFILES,type BossCombatProfile} from '../../data/bossCombatProfiles';
 import {BossCombat} from '../systems/BossCombat';
 import {AttackTelegraph} from '../systems/AttackTelegraph';
 import type {Npc} from './Npc';
@@ -34,6 +35,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   definition: EnemyDefinition;
   private readonly authoredDefinition: EnemyDefinition;
   private readonly regionalLevel:number;
+  private readonly fixedLevel:number|undefined;
+  private ascended:boolean;
   hp: number;
   playerContributed=false;
   ambientDefeat=false;
@@ -154,7 +157,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string,
     eventSpawn = false, wolfPackId: string | null = null, wolfAlpha = false,
-    encounterId: string | null = null, encounterBehavior?: EncounterBehavior,levelOverride?:number) {
+    encounterId: string | null = null, encounterBehavior?: EncounterBehavior,fixedLevel?:number,combatProfile?:BossCombatProfile) {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
@@ -166,9 +169,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const levelHome=encounterBehavior?.home??{x,y};
     const zone=(scene as WorldScene).getRegionAtPosition(levelHome.x,levelHome.y);
     this.authoredDefinition=definition;
-    this.regionalLevel=levelOverride??enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
-    this.level=this.regionalLevel+globalMonsterBonus(useGameStore.getState().level);
-    const base=scaledEnemy(definition,this.level);
+    // Authored fixed-level encounters must not receive the global bonus,
+    // either on spawn or when the player levels up during the encounter.
+    this.fixedLevel=fixedLevel;
+    this.regionalLevel=fixedLevel??enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
+    const progression=useGameStore.getState();
+    this.ascended=Boolean(progression.storyFlags[WORLD_ASCENSION]);
+    this.level=runtimeEnemyLevel(this.regionalLevel,progression.level,this.ascended,this.fixedLevel);
+    const base=scaledEnemy(definition,this.level,this.ascended);
     this.wolfPackId=isWolfFamily(definition.id) ? wolfPackId : null;
     this.encounterKey=definition.boss ? null : this.wolfPackId ? `wolf:${this.wolfPackId}`
       : encounterId ? `encounter:${encounterId}` : null;
@@ -207,7 +215,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
     this.targetIndicator=scene.add.graphics().setName('enemy-target:'+instanceId);
     if(definition.combatStyle==='dragon')this.dragonCombat=new DragonCombat(this,scene);
-    else if(this.boss&&BOSS_COMBAT_PROFILES[this.boss.id])this.bossCombat=new BossCombat(this,scene,BOSS_COMBAT_PROFILES[this.boss.id]);
+    else {
+      const profile=combatProfile??(this.boss?BOSS_COMBAT_PROFILES[this.boss.id]:undefined);
+      if(profile)this.bossCombat=new BossCombat(this,scene,profile);
+    }
     this.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
       const state=useGameStore.getState();if(!state.panel&&!state.dialogue&&!state.cinematic)scene.targeting.select(this);
     });
@@ -234,14 +245,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
-    const nextLevel=this.regionalLevel+globalMonsterBonus(useGameStore.getState().level);
-    if(this.hp>0&&nextLevel!==this.level){
+    const progression=useGameStore.getState(),ascended=Boolean(progression.storyFlags[WORLD_ASCENSION]);
+    const nextLevel=runtimeEnemyLevel(this.regionalLevel,progression.level,ascended,this.fixedLevel);
+    if(this.hp>0&&(nextLevel!==this.level||ascended!==this.ascended)){
       const fraction=this.hp/this.definition.hp;
-      const base=scaledEnemy(this.authoredDefinition,nextLevel);
+      const base=scaledEnemy(this.authoredDefinition,nextLevel,ascended);
       this.definition=this.wolfAlpha?{...base,name:this.definition.name,hp:Math.round(base.hp*1.35),
         damage:Math.round(base.damage*1.12),xp:Math.round(base.xp*1.5),goldMax:Math.ceil(base.goldMax*1.25)}:base;
       this.hp=Math.max(1,Math.round(fraction*this.definition.hp));
       this.level=nextLevel;
+      this.ascended=ascended;
       this.nameLabel.setText(`Lv.${this.level} ${this.boss?.name??this.definition.name}`);
     }
     // Recover only after leaving combat, never during a chase or attack.
@@ -815,7 +828,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const duration=animationDuration(enemyAnimation(this.definition.spriteFrame,'hurt',directional?this.visualDirection:undefined));
     this.hitStunUntil=now+duration;
     // A full hurt pose is followed by a real opportunity to retaliate.
-    this.staggerImmuneUntil=this.hitStunUntil+(this.definition.combatStyle==='boatswain'?1800:this.boss?1500:1000);
+    this.staggerImmuneUntil=this.hitStunUntil+(this.definition.combatStyle==='boatswain'?1800:this.boss||this.bossCombat?1800:1000);
     this.lockedUntil=this.hitStunUntil;
     this.nextAttackAt=Math.max(this.nextAttackAt,this.hitStunUntil+150);
     this.interruptAttack();

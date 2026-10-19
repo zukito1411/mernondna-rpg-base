@@ -59,3 +59,26 @@ export function bossPattern(profile:BossCombatProfile,sequence:number,hpFraction
   const choices=hpFraction<=.5?profile.enraged:profile.patterns;
   return choices[Math.max(0,Math.floor(sequence))%choices.length];
 }
+
+/** Cave captains share the existing bounded, collision-aware combat controller,
+ * not world-boss identity, summons, loot or progression. Every combo is warned. */
+export const CAVE_LEADER_PROFILES:Record<string,BossCombatProfile>={
+ 'hollow-road':{identity:'Hideout duelist: feints, sweeping cuts and short committed lunges.',preferredRange:85,strafe:.4,color:0xe6b474,cooldown:950,
+  patterns:[[cone('hideout-cut','Paymaster cut',115,650,1)],
+   [charge('hideout-lunge','Hideout lunge',230,900,30)]],
+  enraged:[[cone('hideout-sweep','Stolen steel',135,800,1.1,1.4),charge('hideout-follow','Pursuing thrust',200,850,30)]]},
+ 'moonroot-den':{identity:'Hoard defender: keeps distance and marks stone impacts beneath intruders.',preferredRange:200,strafe:.5,color:0xc4d38a,cooldown:1100,
+  patterns:[[burst('hoard-stone','Hoardstone fall',80,1000,340)],
+   [cone('hoard-sweep','Hoardkeeper sweep',110,700,1.1)]],
+  enraged:[[burst('hoard-first','Scattered stones',75,950,340),burst('hoard-second','Falling cache',95,1100,340)],
+   [ring('hoard-ring','Root-hollow shock',210,100,1150)]]},
+ 'broken-pass':{identity:'Passbreaker: crushing blows and expanding quakes with a safe inner pocket.',preferredRange:115,strafe:0,color:0xcab99a,cooldown:1450,
+  patterns:[[slam('pass-crush','Passbreaker crush',155,1200,1.3)],
+   [ring('pass-quake','Cavern quake',245,110,1250)]],
+  enraged:[[slam('pass-double','Shattering blow',150,1150,1.15),ring('pass-echo','Deep echo',235,105,1200)]]},
+ 'redfang-hold':{identity:'Warleader: drives a charging lane, then punishes the flank with a broad sweep.',preferredRange:145,strafe:.15,color:0xeaa57e,cooldown:1150,
+  patterns:[[charge('redfang-charge','Redfang charge',290,1050,40)],
+   [cone('redfang-sweep','Warleader sweep',150,800,1.2,1.4)]],
+  enraged:[[charge('redfang-break','Breaking charge',270,1000,40),cone('redfang-turn','Warleader backhand',155,850,1.15,1.5)],
+   [slam('redfang-stamp','Underhold stamp',165,1050,1.25)]]},
+};

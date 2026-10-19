@@ -31,7 +31,7 @@ it('resets at the saved 20-minute deadline outside, allowing a fresh rewarded cl
  clock.mockReturnValue(start+DUNGEON_RESET_MS-1);useGameStore.getState().refreshDungeon(d.id);
  expect(useGameStore.getState().dungeons[d.id].claimed).toBe(true);
  clock.mockReturnValue(start+DUNGEON_RESET_MS);useGameStore.getState().refreshDungeon(d.id);
- expect(useGameStore.getState().dungeons[d.id]).toEqual({discovered:true,defeated:0,claimed:false});
+ expect(useGameStore.getState().dungeons[d.id]).toEqual({discovered:true,defeated:0,claimed:false,version:2,rotation:1});
  enter();clear();useGameStore.getState().claimDungeonChest(d.id);
  expect(useGameStore.getState().gold).toBe(firstGold+d.gold);
  expect(useGameStore.getState().dungeons[d.id].respawnAt).toBe(start+2*DUNGEON_RESET_MS);

@@ -9,7 +9,7 @@ import { PLAYER_COMBO_ATTACK_ANIMATIONS } from '../../data/spriteBoards';
 import {BASIC_ATTACK_CHAIN,BASIC_ATTACK_LINK_MS,basicAttackStamina,type BasicAttackStep} from '../../data/basicAttackCombo';
 import type {WeaponDefinition} from '../types';
 import { animationDuration } from '../../data/animationPacks';
-import { progressionStats,dodgeProfile } from '../../data/progression';
+import { progressionStats,dodgeProfile,ASCENDED_ATTRIBUTE_CAP } from '../../data/progression';
 import { slottedActiveSkills } from '../../data/activeSkills';
 import { PlayerSkillSystem } from '../systems/PlayerSkillSystem';
 import { RecoverySystem } from '../systems/RecoverySystem';
@@ -287,7 +287,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.resetBasicAttackCombo();
     if(this.attackVisual)this.clearAttackVisual();
     this.recovery.interrupt();
-    this.invulnerableUntil=now+320+Math.min(40,state.attributes.vitality)*2;
+    this.invulnerableUntil=now+320+Math.min(ASCENDED_ATTRIBUTE_CAP,state.attributes.vitality)*2;
     this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * stats.incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);

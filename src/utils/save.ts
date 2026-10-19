@@ -25,8 +25,8 @@ import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 import {parseContracts} from '../data/contracts';
 import {parseArmor,armorBonusesFor} from '../data/armor';
 import {parseDungeons} from '../data/dungeons';
-import {BASE_LEVEL_CAP,playerLevelCap} from '../data/progression';
-import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE} from '../data/breakthrough';
+import {BASE_LEVEL_CAP,playerLevelCap,attributeCap} from '../data/progression';
+import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASCENSION,ASCENDED_MONSTER_LEVEL} from '../data/breakthrough';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -53,9 +53,9 @@ function numberIn(value: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): value
 function strings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(v => typeof v === 'string');
 }
-function playerAttributes(value: unknown): value is PlayerAttributes {
+function playerAttributes(value: unknown,cap=ATTRIBUTE_CAP): value is PlayerAttributes {
   return record(value) && Object.keys(BASE_ATTRIBUTES).every(id =>
-    numberIn(value[id], 0, ATTRIBUTE_CAP) && Number.isInteger(value[id]));
+    numberIn(value[id], 0, cap) && Number.isInteger(value[id]));
 }
 function skillIds(value: unknown): value is SkillId[] {
   const allowed = SKILLS.map(skill => skill.id);
@@ -68,8 +68,8 @@ function skillIds(value: unknown): value is SkillId[] {
 // Validate against the maximum attainable scaling rather than a fixed ratio.
 function maximumSavedEnemyHp(definition:CreatureContentDefinition):number {
   const enemy=ENEMY_BY_ID[definition.enemyId];
-  const level=MAX_AREA_MONSTER_LEVEL+(enemy.boss?10:5)+globalMonsterBonus(MAX_PLAYER_LEVEL);
-  const scaled=scaledEnemy(enemy,level).hp;
+  const level=Math.max(ASCENDED_MONSTER_LEVEL,MAX_AREA_MONSTER_LEVEL+(enemy.boss?10:5)+globalMonsterBonus(MAX_PLAYER_LEVEL));
+  const scaled=scaledEnemy(enemy,level,true).hp;
   return definition.wolfAlpha?Math.round(scaled*1.35):scaled;
 }
 
@@ -364,11 +364,12 @@ export function parseSave(raw: string): SaveData | null {
     const cap=playerLevelCap(storyFlags);
     if(storyFlags[BREAKTHROUGH_TRIAL]&&!storyFlags[BREAKTHROUGH_ACCEPTED]
       ||storyFlags[BREAKTHROUGH_COMPLETE]&&!storyFlags[BREAKTHROUGH_TRIAL]
-      ||storyFlags[BREAKTHROUGH_ACCEPTED]&&(!numberIn(s.level,BASE_LEVEL_CAP,cap)))return invalidSave('invalid breakthrough trial history');
+      ||storyFlags[BREAKTHROUGH_ACCEPTED]&&(!numberIn(s.level,BASE_LEVEL_CAP,cap))
+      ||storyFlags[WORLD_ASCENSION]&&(!storyFlags[BREAKTHROUGH_COMPLETE]||s.level!==MAX_PLAYER_LEVEL))return invalidSave('invalid breakthrough trial history');
     const legacyCampaign=!storyFlags[CAMPAIGN_REVISION_FLAG];
     if (!strings(s.unlockedTownShrines) || new Set(s.unlockedTownShrines).size !== s.unlockedTownShrines.length
       || !s.unlockedTownShrines.every(id => Object.hasOwn(TOWN_BY_ID,id))) return invalidSave('invalid unlocked shrines');
-    if (!playerAttributes(s.attributes) || !numberIn(s.statPoints, 0, 10000) || !Number.isInteger(s.statPoints)
+    if (!playerAttributes(s.attributes,attributeCap(storyFlags)) || !numberIn(s.statPoints, 0, 10000) || !Number.isInteger(s.statPoints)
       || !numberIn(s.skillPoints, 0, 10000) || !Number.isInteger(s.skillPoints) || !skillIds(s.learnedSkills)) return invalidSave('invalid player attributes or skill points');
     const armor=parseArmor(s.armorInventory,s.equippedArmor);
     if(!armor)return invalidSave('invalid armor inventory or equipment slots');
@@ -668,7 +669,7 @@ export function loadGame(): boolean {
       levelUpNotice:null,nextLevelUpId:0,
       journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,
       armorInventory:s.armorInventory??[],equippedArmor:s.equippedArmor??{chest:null,boots:null,cape:null},armorBonuses,
-      level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,
+      level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,worldAscensionReadyAt:0,
       learnedSkills: s.learnedSkills, gold: s.gold,
       consumables:s.consumables??{'healing-potion':0,'stamina-potion':0},learnedCombatArts:s.learnedCombatArts??[],skillSlots:s.skillSlots??[...DEFAULT_SKILL_SLOTS],vitalRevision:0,
       weaponId: s.weaponId, inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{}, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
