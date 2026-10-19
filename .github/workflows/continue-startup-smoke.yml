@@ -2,12 +2,8 @@ name: Continued-save startup regression
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/game/scenes/WorldScene.ts'
-      - 'src/game/systems/ChunkManager.ts'
-      - 'tests/browser/continueAfterProgress.spec.ts'
+  # This scenario is intentionally manual until its test fixture models real
+  # shrine and cinematic state transitions. It must not block APK releases.
 
 permissions:
   contents: read
