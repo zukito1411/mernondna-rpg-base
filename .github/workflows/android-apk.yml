@@ -89,6 +89,9 @@ jobs:
 
       # Character sheets are assembled at runtime, not by the TypeScript bundler.
       # A regression in pose extraction must stop publication of an unusable APK.
+      - name: Audit actual directional PNG sheets (blocking)
+        run: java scripts/AuditDirectionalArt.java
+
       - name: Verify directional sprite recovery (blocking)
         run: npm test -- tests/directionalActors.test.ts
 
