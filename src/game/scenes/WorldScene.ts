@@ -27,6 +27,7 @@ import { NPCS, NPC_BY_ID } from '../../data/npcs';
 import {npcWorldPosition,npcEscortArrival} from '../../data/npcPositions';
 import {npcMayPatrol,npcPersonalSpace,npcStandingOffRoad} from '../systems/npcPlacement';
 import { TOWN_BY_ID } from '../../data/towns';
+import {nearestRespawnTown,respawnArrivalCandidates} from '../systems/respawnLocation';
 import { ROAD_ROUTES } from '../../data/roadRoutes';
 import { TOWN_SHRINE_BY_ID } from '../../data/townShrines';
 import { PORT_BY_ID,PORTS,onPortDeck } from '../../data/ports';
@@ -181,6 +182,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly shipPaths=new WeakMap<Enemy,{until:number;target:Vec2;point:Vec2}>();
   private focused = true;
   private wasBlocked = false;
+  // Lethal hits can arrive inside enemy timers and projectile iterations.
+  // Finish the transition at the start of a subsequent scene update.
+  private pendingRespawn:Vec2|null=null;
   private readonly panelActions = new Set<'map' | 'inventory' | 'character' | 'pause' | 'dialogue' | 'journal' | 'codex'>();
   private readonly heldPanelKeys = new Set<string>();
   private questGuide!: Phaser.GameObjects.Graphics;
@@ -505,6 +509,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.nextImpactSoundAt=0;this.nextCombatShakeAt=0;this.knockbackBudgetUntil=0;this.knockbackBudget=0;
     this.registry.set('loadingStage','Creating world actors');
     this.shuttingDown=false;
+    this.pendingRespawn=null;
     this.regionalNpcSlots.clear();
     this.regionalNpcRetryAt.clear();
     this.spearProjectiles=new SpearProjectileSystem(this);
@@ -743,6 +748,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   update(time: number, delta: number) {
+    if(this.pendingRespawn){
+      const death=this.pendingRespawn;this.pendingRespawn=null;
+      this.respawnPlayer(death);
+      return; // No combat or movement runs during the transition frame.
+    }
     const feedbackState=useGameStore.getState();
     const feedbackBlocked=!this.focused||Boolean(feedbackState.panel||feedbackState.dialogue||feedbackState.cinematic||feedbackState.pendingCinematic||this.passage?.active||this.cinematicDirector?.active);
     this.levelUpFeedback?.update(delta,feedbackBlocked);
@@ -1430,17 +1440,60 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(boss?.respawns)saveGame();
   }
 
-  respawnPlayer() {
-    this.cancelStoryEncounter();this.interiors.leaveOnDefeat();
-    const home = TOWN_BY_ID[LEIGNERON.homeTownId].world;
+  /** Called from Player.takeDamage without changing any world actors mid-hit. */
+  requestPlayerRespawn(){
+    if(this.pendingRespawn||this.shuttingDown)return;
+    // An interior has its own artificial coordinates; use its exterior door
+    // so the nearest town is calculated from the actual death region.
+    const outside=this.interiors?.safePosition??this.player;
+    this.pendingRespawn={x:outside.x,y:outside.y};
+    (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
+    this.player.discardActions();
+  }
+
+  private respawnPlayer(death:Vec2){
+    // This runs at the TOP of a new frame, never in an enemy windup timer,
+    // an enemy set iteration, or the projectile loop that delivered the hit.
+    const region=this.worldGenerator.getRegionAt(death.x,death.y);
+    const town=nearestRespawnTown(death,region);
+    this.cancelStoryEncounter();
+    this.interiors.leaveOnDefeat();
+    this.dungeons.close();
     this.spearProjectiles.clear();
-    useGameStore.getState().showToast('Leigneron collapses and wakes in Oakmere.');
-    this.player.restoreAt(home.x, home.y + 80);
-    this.playEffect('teleport', this.player.x, this.player.y);
-    this.lastSafe = { x: this.player.x, y: this.player.y };
-    this.cameras.main.centerOn(this.player.x,this.player.y).startFollow(this.player,true,1,1);
-    this.chunkManager.update(this.player.x,this.player.y);this.contentManager.update(this.player.x,this.player.y);
-    this.targeting.clear();this.refreshWorldLighting();
+    this.wildlife.reset();
+    const store=useGameStore.getState();
+    store.setBossEncounter(null);
+    store.clearShrineTravelRequest();
+    store.hydrate({passageRequest:null});
+
+    // Stream the landing view, not the whole nine-chunk travel neighborhood
+    // at once. Remaining offscreen scenery streams normally on later frames.
+    const candidates=respawnArrivalCandidates(town);
+    const anchor=candidates[0];
+    this.cameras.main.centerOn(anchor.x,anchor.y);
+    this.chunkManager.update(anchor.x,anchor.y,true);
+    this.contentManager.update(anchor.x,anchor.y);
+    const safe=(point:Vec2)=>this.worldGenerator.getRegionAt(point.x,point.y)===town.regionId
+      &&this.worldGenerator.isWalkable(point.x,point.y)
+      &&!this.isBlockedByBuilding(point.x,point.y)
+      &&!this.npcs.some(npc=>npc.active&&Math.hypot(npc.x-point.x,npc.y-point.y)<48);
+    const landing=candidates.find(safe)??LEIGNERON.spawn;
+    if(!candidates.some(safe))console.warn('[respawn] No safe town arrival:',town.id,'using Oakmere fallback');
+
+    this.player.restoreAt(landing.x,landing.y);
+    this.player.setVisible(true).setAlpha(1);
+    this.player.lastDirection.set(0,1);
+    this.lastSafe={...landing};
+    this.cameras.main.centerOn(landing.x,landing.y).startFollow(this.player,true,1,1);
+    this.chunkManager.update(landing.x,landing.y,true);
+    this.contentManager.update(landing.x,landing.y);
+    this.targeting.clear();
+    this.refreshWorldLighting();
+    this.physics.world.resume();
+    this.syncState();
+    this.updateNavigation();
+    store.showToast(`Leigneron awakens in ${town.name} after falling in battle.`);
+    saveGame();
   }
   refreshWorldLighting(){
     this.cameras.main.preRender();
