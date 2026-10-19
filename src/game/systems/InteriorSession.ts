@@ -559,6 +559,9 @@ export class InteriorSession {
   }
   leaveOnDefeat(){
     if(!this.active)return;
+    // Defeat can occur while a room is loading: the callback must not later
+    // reactivate the abandoned interior after the player has respawned.
+    this.detachLoader();this.settleLoad?.(false);this.settleLoad=null;
     this.closeRoom();this.outside=null;this.loading=false;
   }
   private detachLoader(){
