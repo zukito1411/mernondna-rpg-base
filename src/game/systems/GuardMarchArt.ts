@@ -4,6 +4,7 @@ import {GUARD_MARCH_ART,guardMarchFrameOrigin} from '../../data/guardMarchArt';
 import {NPC_IDLE_ART,npcIdleSources,npcIdleSilhouetteHeight} from '../../data/npcIdleArt';
 import {actorSpriteGridSubjects,actorSpriteSubjects} from './spriteComponents';
 import {spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 import type {SpriteAnimation} from '../../data/animationPacks';
 
 /** Complete marching poses with one family scale, padded GPU frames, and
@@ -29,22 +30,14 @@ export function prepareGuardMarchArt(scene:Phaser.Scene):SpriteAnimation[]{
   const gutter='frameGutter' in art?art.frameGutter:0;
   const texture=scene.textures.createCanvas(art.texture,(fw+gutter*2)*6,(fh+gutter*2)*4)!,ctx=texture.getContext();
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
-  const fit=subjects.reduce((scale,subject,frame)=>{
-   const [left,,width,height]=subject.region,rootX=(frame%6+.5)*source.width/6;
-   const leftOffset=rootX-left,rightOffset=left+width-rootX;
-   const horizontalFit=Math.min(
-    leftOffset>0?(fw/2-4)/(leftOffset*2):Infinity,
-    rightOffset>0?(fw/2-4)/(rightOffset*2):Infinity,
-   );
-   const verticalFit=(ground-4)/(height*2);
-   return Math.min(scale,horizontalFit,verticalFit);
-  },bodyHeight/art.bodyHeight);
+  const fit=fitAtlasPoses(bodyHeight/art.bodyHeight,sheet.frameWidth,sheet.frameHeight,
+   sheet.frameHeight-2,subjects.map((subject,frame)=>({region:subject.region,
+    rootX:(frame%6+.5)*source.width/6,rootY:subject.region[1]+subject.region[3]})));
   subjects.forEach((subject,frame)=>{
    const [left,top,width,height]=subject.region,rootX=(frame%6+.5)*source.width/6,rootY=top+height;
    const {x:cellX,y:cellY}=gutter?guardMarchFrameOrigin(frame,fw,fh):{x:frame%6*fw,y:Math.floor(frame/6)*fh};
    const x=cellX+fw/2+(left-rootX)*fit*2,y=cellY+ground-height*fit*2;
-   if(x<cellX+4||x+width*fit*2>cellX+fw-4||y<cellY+4)
-    throw new Error('Guard march pose exceeds its padded frame: '+art.walk+'/'+frame);
+   // Frame bounds are handled by fitAtlasPoses across all marching poses.
    ctx.save();ctx.beginPath();ctx.rect(cellX,cellY,fw,fh);ctx.clip();
    ctx.drawImage(spriteSubjectCanvas(subject),x,y,width*fit*2,height*fit*2);
    ctx.restore();
