@@ -11,7 +11,7 @@ const MAX_IMPORT_BYTES=64*1024*1024;
 
 /** Save transfers stay on-device. Android uses the system document picker;
  * browsers use Web Share or downloadable JSON plus the HTML file picker. */
-export function SaveTransferControls(){
+export function SaveTransferControls({exportOnly=false,storedOnly=false}:{exportOnly?:boolean;storedOnly?:boolean}={}){
   const fileInput=useRef<HTMLInputElement>(null);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState<string|null>(null);
@@ -21,7 +21,7 @@ export function SaveTransferControls(){
     setBusy(true);
     setMessage(null);
     try{
-      const backup=createSaveBackupExport();
+      const backup=createSaveBackupExport(!storedOnly);
       if(Capacitor.isNativePlatform()){
         // ACTION_CREATE_DOCUMENT asks the player where to store the file;
         // it does not depend on WebView blob-download support.
@@ -107,15 +107,15 @@ export function SaveTransferControls(){
       <button type="button" onClick={()=>{void exportBackup();}} disabled={busy}>
         {busy?'Working…':'Export Save Backup'}
       </button>
-      <button type="button" onClick={()=>{
+      {!exportOnly&&<button type="button" onClick={()=>{
         if(Capacitor.isNativePlatform())void importNative();
         else fileInput.current?.click();
       }} disabled={busy}>
         Import Save Backup
-      </button>
+      </button>}
     </div>
-    <input ref={fileInput} type="file" accept="application/json,.json"
-      onChange={event=>{void onFileChosen(event);}} hidden aria-label="Choose a saved game JSON backup"/>
+    {!exportOnly&&<input ref={fileInput} type="file" accept="application/json,.json"
+      onChange={event=>{void onFileChosen(event);}} hidden aria-label="Choose a saved game JSON backup"/>}
     {message&&<p className="save-transfer-message" role="status">{message}</p>}
   </div>;
 }
