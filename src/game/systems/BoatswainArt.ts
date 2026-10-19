@@ -3,6 +3,7 @@ import {ART_BY_KEY} from '../../data/art';
 import {BOATSWAIN_ART,BOATSWAIN_GAIT_ART,BOATSWAIN_SIDE_GAIT,BOATSWAIN_DOWN_PASSING,BOATSWAIN_UP_GAIT,BOATSWAIN_ATTACK_FEET,BOATSWAIN_TEXTURE} from '../../data/boatswainArt';
 import {actorSpriteSubjects,type ActorSpriteSubject} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 
 /** Calibrate complete poses by their standing body, never by mallet reach.
  * Connected-subject isolation preserves boots crossing approximate row seams. */
@@ -14,19 +15,19 @@ export function prepareBoatswainArt(scene:Phaser.Scene){
   const drawSubject=(subject:ActorSpriteSubject,fit:number,foot:number,frame:number,path:string,falling=false,mirror=false)=>{
     const [rx,ry,w,h]=subject.region;
     const root=falling?rx+w/2:scarfRoot(subject,foot,76/fit);
-    const left=sheet.frameWidth/2+(rx-root)*fit;
-    const top=sheet.frameHeight-(sheet.groundPadding??2)+(ry-foot)*fit;
-    if(left<2||top<2||left+w*fit>sheet.frameWidth-2||top+h*fit>sheet.frameHeight-1)
-      throw new Error(`Complete boatswain pose needs more atlas room: ${path}/${frame}`);
+    const safeFit=fitAtlasPoses(fit,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),
+      [{region:subject.region,rootX:root,rootY:foot}]);
+    const left=sheet.frameWidth/2+(rx-root)*safeFit;
+    const top=sheet.frameHeight-(sheet.groundPadding??2)+(ry-foot)*safeFit;
     const x=frame%columns*fw,y=Math.floor(frame/columns)*fh;
     ctx.save();
     if(mirror){ctx.translate(x+fw,y);ctx.scale(-1,1);}
-    draw(ctx,spriteSubjectCanvas(subject),[0,0,w,h],(mirror?0:x)+left*sheet.density,(mirror?0:y)+top*sheet.density,w*fit*sheet.density,h*fit*sheet.density);
+    draw(ctx,spriteSubjectCanvas(subject),[0,0,w,h],(mirror?0:x)+left*sheet.density,(mirror?0:y)+top*sheet.density,w*safeFit*sheet.density,h*safeFit*sheet.density);
     ctx.restore();
     texture.add(frame,0,x,y,fw,fh)!.customData={fullSprite:true,isolatedSubject:true,sourcePath:path,sourceRegion:subject.region,
-      sourceFit:fit,sourceMirrored:mirror,
+      sourceFit:safeFit,sourceMirrored:mirror,
       foreignProbes:mirror?subject.foreignProbes.map(([px,py])=>[w-1-px,py] as const):subject.foreignProbes,
-      visibleBounds:{left:mirror?sheet.frameWidth-left-w*fit:left,top,width:w*fit,height:h*fit}};
+      visibleBounds:{left:mirror?sheet.frameWidth-left-w*safeFit:left,top,width:w*safeFit,height:h*safeFit}};
   };
   for(const [kind,art] of Object.entries(BOATSWAIN_ART)){
     const source=scene.textures.get('boatswain-source:'+kind).getSourceImage() as HTMLImageElement;
