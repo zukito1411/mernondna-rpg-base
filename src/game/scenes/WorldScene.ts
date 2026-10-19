@@ -37,6 +37,7 @@ import { CHUNK_SIZE, STREAM_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from '../../data
 import { useGameStore } from '../../store/gameStore';
 import { seededRandom } from '../../utils/seededRandom';
 import { saveGame, setSaveSnapshotProvider } from '../../utils/save';
+import {authoritativeSavePosition} from '../systems/authoritativeSavePosition';
 import { mobileInput } from '../input';
 import { Enemy } from '../entities/Enemy';
 import { Npc } from '../entities/Npc';
@@ -1604,7 +1605,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if (!this.player?.active) return;
     this.player.syncInventoryVitals();
     this.reconcileStoryAffinity();
-    const position=this.interiors?.safePosition??this.passage?.safePosition??this.player;
+    const position=authoritativeSavePosition(this.player,this.interiors,this.cinematicDirector?.active??false,this.passage);
     const town = this.worldGenerator.getTownAt(position.x, position.y);
     const store = useGameStore.getState();
     store.setWorldStatus(position.x, position.y, this.worldGenerator.getRegionAt(position.x, position.y), town?.id ?? null);
