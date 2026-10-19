@@ -728,6 +728,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     }
     this.questGuide = this.add.graphics().setDepth(9100).setName('quest-direction-guide');
     this.updateNavigation();
+    // Older interrupted death transitions may have saved the hero at 0 HP.
+    // Recover that save on the next update, without resetting game progress.
+    if(this.player.hp<=0)this.requestPlayerRespawn();
 
     if (!this.input.keyboard) throw new Error('Keyboard input is unavailable.');
     for (const [action, key] of [['map', 'M'], ['inventory', 'I'], ['character', 'C'], ['pause', 'ESC'],['journal','J'],['codex','B']] as const) {
@@ -1477,11 +1480,12 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       &&this.worldGenerator.isWalkable(point.x,point.y)
       &&!this.isBlockedByBuilding(point.x,point.y)
       &&!this.npcs.some(npc=>npc.active&&Math.hypot(npc.x-point.x,npc.y-point.y)<48);
-    const landing=candidates.find(safe)??LEIGNERON.spawn;
-    if(!candidates.some(safe))console.warn('[respawn] No safe town arrival:',town.id,'using Oakmere fallback');
+    const chosen=candidates.find(safe);
+    if(!chosen)console.warn('[respawn] No safe town arrival:',town.id,'using Oakmere fallback');
+    const landing=chosen??LEIGNERON.spawn;
 
     this.player.restoreAt(landing.x,landing.y);
-    this.player.setVisible(true).setAlpha(1);
+    this.player.setVisible(true).setAlpha(1).setDepth(landing.y);
     this.player.lastDirection.set(0,1);
     this.lastSafe={...landing};
     this.cameras.main.centerOn(landing.x,landing.y).startFollow(this.player,true,1,1);
