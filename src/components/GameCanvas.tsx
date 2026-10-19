@@ -6,6 +6,7 @@ import type Phaser from 'phaser';
 import {TitleArtwork} from './TitleArtwork';
 import {refreshOfflineGameFiles} from '../utils/appStartup';
 import {saveGame} from '../utils/save';
+import {SaveTransferControls} from './SaveTransferControls';
 
 declare global { interface Window { __mernondnaGame?: Phaser.Game } }
 
@@ -18,7 +19,7 @@ const LOADING_QUOTES=[
   '“Some compasses point toward unfinished stories.”',
 ];
 
-export function GameCanvas() {
+export function GameCanvas({onReady,onExit}:{onReady:()=>void;onExit:()=>void}) {
   const ref = useRef<HTMLDivElement>(null);
   const [error,setError]=useState<string|null>(null);
   const [loading,setLoading]=useState({ready:false,progress:0,stage:'Loading artwork'});
@@ -47,7 +48,7 @@ export function GameCanvas() {
       game = createMernondnaGame(ref.current);
     }catch(reason){failed(reason);}
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('e2e')) window.__mernondnaGame = game;
-    let lastAdvance=Date.now(),lastProgress=-1,stalled=false,initialCheckpointSaved=false;
+    let lastAdvance=Date.now(),lastProgress=-1,stalled=false,initialCheckpointSaved=false,loadingStage='';
     const onVisible=()=>{if(!document.hidden)lastAdvance=Date.now();};
     document.addEventListener('visibilitychange',onVisible);
     const readinessPoll=window.setInterval(()=>{
@@ -64,13 +65,17 @@ export function GameCanvas() {
         if(!initialCheckpointSaved){
           initialCheckpointSaved=true;
           if(!saveGame())console.warn('[save] World-ready checkpoint could not be saved.');
+          onReady();
         }
       }
       if(typeof progress==='number'&&progress>lastProgress+.001){lastProgress=progress;lastAdvance=Date.now();}
-      if(!ready&&!document.hidden&&!stalled&&Date.now()-lastAdvance>90000){
+      if(typeof stage==='string'&&stage!==loadingStage){loadingStage=stage;lastAdvance=Date.now();}
+      if(!ready&&!document.hidden&&!stalled&&Date.now()-lastAdvance>60000){
         stalled=true;
         const stage=game.registry.get('loadingStage');
-        setError(`Loading stalled during ${typeof stage==='string'?stage:'game startup'}. Retry or refresh game files without deleting your save.`);
+        const stages=game.scene.scenes.map(scene=>`${scene.scene.key}:${scene.sys.settings.status}`).join(', ');
+        console.error('[startup] stalled', {stage,scenes:stages,progress});
+        setError(`Loading did not finish during ${typeof stage==='string'?stage:'game startup'} (scenes: ${stages}). Export your save below before retrying. Your progress has not been reset.`);
       }
       setLoading(current=>{
         const nextProgress=typeof progress==='number'?progress:current.progress;
@@ -103,6 +108,10 @@ export function GameCanvas() {
         </div>
         <small className="game-loading-stage" aria-live="polite" style={{opacity:.75,fontSize:12,letterSpacing:'.02em'}}>{loading.stage}</small>
       </div>
+      <div className="game-loading-recovery">
+        <SaveTransferControls exportOnly storedOnly/>
+        <button type="button" onClick={onExit}>Return to Main Menu</button>
+      </div>
     </div>}
-    {error&&<div className="startup-failure" role="alert"><h2>Game initialization stopped</h2><p>{error}</p><p>Your save was not deleted.</p><button onClick={()=>window.location.reload()}>Retry opening</button><button onClick={()=>{void refreshOfflineGameFiles();}}>Refresh game files (keeps save)</button></div>}</>;
+    {error&&<div className="startup-failure" role="alert"><h2>Game initialization stopped</h2><p>{error}</p><p>Your save was not deleted.</p><button onClick={()=>window.location.reload()}>Retry opening</button><button onClick={()=>{void refreshOfflineGameFiles();}}>Refresh game files (keeps save)</button><div className="game-recovery-controls"><SaveTransferControls exportOnly storedOnly/><button onClick={onExit}>Return to Main Menu</button></div></div>}</>;
 }
