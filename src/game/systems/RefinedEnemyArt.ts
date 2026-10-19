@@ -3,7 +3,7 @@ import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {enemyAnimation} from '../../data/animationPacks';
 import {actorSpriteSubjects} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
-import {fitAtlasPoses} from './atlasPoseFit';
+import {fitAtlasPoses,atlasGroundY} from './atlasPoseFit';
 
 export const REFINED_ENEMY_ART=[
  {species:4,id:'cave-troll'}, {species:5,id:'ash-dragon'},
@@ -51,7 +51,7 @@ export function prepareRefinedEnemyArt(scene:Phaser.Scene){
     ][i]:undefined;
     frame.customData={fullSprite:true,isolatedSubject:true,foreignProbes:subjects[i].foreignProbes,sourcePath:refinedEnemyPath(art.id,state),sourceImageSize:[source.width,source.height],sourceRegion:region,sourceFit:fit,
      visibleBounds:{left,top,width:w*fit,height:h*fit},
-     ...(mouth?{mouth:{x:sheet.frameWidth/2+(mouth[0]-root)*fit,y:sheet.frameHeight-(sheet.groundPadding??2)+(mouth[1]-ry-h)*fit}}:{})};
+     ...(mouth?{mouth:{x:sheet.frameWidth/2+(mouth[0]-root)*fit,y:drawGround+(mouth[1]-ry-h)*fit}}:{})};
    });
    scene.textures.remove(key);
   }
@@ -66,13 +66,14 @@ export function prepareRefinedEnemyArt(scene:Phaser.Scene){
  const subjects=actorSpriteSubjects(context.getImageData(0,0,source.width,source.height).data,source.width,source.height,3,2),regions=subjects.map(s=>s.region);
  const anchors=[[275,558],[670,547],[1080,543],[315,1078],[698,1104],[1115,1089]];
  const sheet=ART_BY_KEY.enemy_dragon_fly,density=sheet.density;
- const fit=fitAtlasPoses(.65,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),
-  regions.map((region,i)=>({region,rootX:anchors[i][0],rootY:anchors[i][1]})));
+ const flightPoses=regions.map((region,i)=>({region,rootX:anchors[i][0],rootY:anchors[i][1]}));
+ const fit=fitAtlasPoses(.65,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),flightPoses);
+ const drawGround=atlasGroundY(sheet.frameHeight-(sheet.groundPadding??2),sheet.frameHeight,flightPoses,fit);
  const texture=scene.textures.get('enemy_dragon_fly') as Phaser.Textures.CanvasTexture,ctx=texture.getContext();
  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  regions.forEach((region,i)=>{
   const [rx,ry,w,h]=region,[rootX,rootY]=anchors[i],frame=texture.get(i);
-  const left=sheet.frameWidth/2+(rx-rootX)*fit,top=sheet.frameHeight-(sheet.groundPadding??2)+(ry-rootY)*fit;
+  const left=sheet.frameWidth/2+(rx-rootX)*fit,top=drawGround+(ry-rootY)*fit;
   // Account for the complete wings without a fatal startup exception.
   ctx.clearRect(frame.cutX,frame.cutY,frame.cutWidth,frame.cutHeight);
   drawPose(ctx,spriteSubjectCanvas(subjects[i]),[0,0,w,h],frame.cutX+left*density,frame.cutY+top*density,w*fit*density,h*fit*density);
