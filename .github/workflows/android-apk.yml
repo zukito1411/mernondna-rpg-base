@@ -94,7 +94,7 @@ jobs:
       # Fast, pure geometry regression: prevents a single wide death pose
       # from blocking startup without launching the game or a browser.
       - name: Check sprite fitting and save recovery (fast)
-        run: npm test -- tests/atlasPoseFit.test.ts tests/saveRecovery.test.ts
+        run: npm test -- tests/atlasPoseFit.test.ts tests/saveRecovery.test.ts tests/savePosition.test.ts
 
       - name: Build web assets and sync Android
         run: npm run cap:android:refresh
