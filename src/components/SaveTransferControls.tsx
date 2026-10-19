@@ -3,7 +3,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { createSaveBackupExport, importSaveBackup, inspectSaveImport } from '../utils/save';
 
 interface SaveFilesNative {
-  exportJson(options:{filename:string;content:string}):Promise<{saved:boolean;bytes:number}>;
+  stageExportJson(options:{content:string}):Promise<{token:string;bytes:number}>;
+  exportStagedJson(options:{filename:string;token:string}):Promise<{saved:boolean;bytes:number;filename:string}>;
   importJson():Promise<{content:string}>;
 }
 const NativeSaveFiles=registerPlugin<SaveFilesNative>('SaveFiles');
@@ -23,12 +24,15 @@ export function SaveTransferControls({exportOnly=false,storedOnly=false}:{export
     try{
       const backup=createSaveBackupExport(!storedOnly);
       if(Capacitor.isNativePlatform()){
-        // ACTION_CREATE_DOCUMENT asks the player where to store the file;
-        // it does not depend on WebView blob-download support.
-        const result=await NativeSaveFiles.exportJson({filename:backup.filename,content:backup.json});
+        // Stage the JSON privately, then request Downloads with a tiny native
+        // call. On Android 10+ this NEVER opens a document picker and therefore
+        // cannot background/restart the heavy game WebView mid-export.
         const expected=new TextEncoder().encode(backup.json).length;
-        if(!result.saved||result.bytes!==expected)throw new Error(`Backup verification failed (expected ${expected} bytes, found ${result.bytes??0}). Your game save has not been changed.`);
-        setMessage(`Verified ${result.bytes.toLocaleString()}-byte backup in your selected folder (${backup.copies} copies).`);
+        const staged=await NativeSaveFiles.stageExportJson({content:backup.json});
+        if(staged.bytes!==expected)throw new Error('Staging did not preserve the full backup.');
+        const result=await NativeSaveFiles.exportStagedJson({filename:backup.filename,token:staged.token});
+        if(!result.saved||result.bytes!==expected)throw new Error(`Backup verification failed (expected ${expected} bytes, found ${result.bytes??0}). Original saves were not changed.`);
+        setMessage(`Verified ${result.bytes.toLocaleString()}-byte backup: Downloads/TalesOfLeigneron/${result.filename} (${backup.copies} copies).`);
         return;
       }
       const file=new File([backup.json],backup.filename,{type:'application/json'});
