@@ -764,6 +764,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       // Publish the failure to React, where the stored-save export stays usable.
       this.registry.set('assetError',`World startup failed while ${String(stage??'preparing the world')}: ${detail}. Your save remains available for export.`);
       setSaveSnapshotProvider();
+      this.scene.pause(); // Never update a partially constructed gameplay scene.
     }
   }
 
