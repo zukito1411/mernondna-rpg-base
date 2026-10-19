@@ -15,6 +15,7 @@ export function RareLootPopup(){
     return ()=>window.clearTimeout(timer);
   },[notice,blocked,dismiss]);
   if(!notice||blocked)return null;
+  if(notice.kind==='heart')return <aside className="rare-loot-popup" role="status" aria-live="polite" key={notice.id}><ItemIcon id={notice.weaponId}/><div><small>Awakening material found!</small><strong>{itemName(notice.weaponId)}</strong><span>+1 boss heart · Three matching hearts awaken its weapon at a blacksmith.</span></div></aside>;
   if(notice.kind==='armor-set'){
     const set=ARMOR_SET_BY_ID[ARMOR_BY_ID[notice.weaponId].setId];
     return <aside className="rare-loot-popup" role="status" aria-live="polite" key={notice.id}>

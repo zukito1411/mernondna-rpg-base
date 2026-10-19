@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {EquippedSwordVisual} from '../systems/EquippedSwordVisual';
+import {AwakenedHeroVisual} from '../systems/AwakenedHeroVisual';
 import { mobileInput, type MobileAction } from '../input';
 import { useGameStore } from '../../store/gameStore';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -42,6 +43,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly pressed = new Set<MobileAction>();
   private attackVisual:Phaser.GameObjects.Sprite | null = null;
   private readonly swordVisual:EquippedSwordVisual;
+  private readonly awakenedVisual:AwakenedHeroVisual;
   private weaponDrawnRemaining=0;
   // Arcade Physics applies its final displacement in POST_UPDATE, after the
   // scene's updatePlayer call. Attach visual layers only once that is done.
@@ -52,9 +54,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.updateSwordVisual();
   };
   private updateSwordVisual(){
+    const actor=this.awakenedVisual.update(this.skills.weaponActor??this.attackVisual??this);
     if(this.skills.hidesWeapon){this.swordVisual.hide();return;}
     const attacking=Boolean(this.attackVisual?.active)||this.skills.isCasting;
-    this.swordVisual.update(this.skills.weaponActor??this.attackVisual??this,
+    this.swordVisual.update(actor,
       !attacking&&this.weaponDrawnRemaining===0,
       this.lastDirection.y<0&&Math.abs(this.lastDirection.y)>=Math.abs(this.lastDirection.x));
   }
@@ -71,12 +74,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setScale(artScale('leigneron')).setOrigin(.5, layout.originY);
     scene.physics.add.existing(this);
     this.setDepth(y);
+    this.awakenedVisual=new AwakenedHeroVisual(scene,()=>this.swordVisual?.hide());
     this.swordVisual=new EquippedSwordVisual(scene);
     // The physics plugin has already registered its POST_UPDATE listener.
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE,this.syncSwordAfterPhysics);
     this.once('destroy',() => {
       scene.events.off(Phaser.Scenes.Events.POST_UPDATE,this.syncSwordAfterPhysics);
-      this.clearAttackVisual();this.skills?.destroy();this.swordVisual.destroy();
+      this.clearAttackVisual();this.skills?.destroy();this.swordVisual.destroy();this.awakenedVisual.destroy();
     });
 
     const body = this.body as Phaser.Physics.Arcade.Body;

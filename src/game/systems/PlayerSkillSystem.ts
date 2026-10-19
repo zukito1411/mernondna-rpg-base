@@ -89,7 +89,7 @@ export class PlayerSkillSystem {
     // thrusts retain their approved sheet and mirror only for left-facing aim.
     const verticalRush=id==='iron-tempest'&&Math.abs(direction.y)>Math.abs(direction.x);
     const texture=verticalRush?(direction.y<0?'skill_iron_rush_up':'skill_iron_rush_down'):skill.texture;
-    const effectColor=weaponEffect(state.weaponId)?.effectColor;
+    const effectColor=weaponEffect(state.weaponId,state.awakenedWeapons)?.effectColor;
     applySkillWeaponPalette(this.scene,texture,effectColor);
     // These effect canvases retain 20px below their centered ground anchor so
     // airborne poses are not cropped. Offset the presentation, not physics.

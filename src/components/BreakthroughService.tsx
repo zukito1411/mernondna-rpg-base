@@ -13,13 +13,14 @@ function WorldAscensionService(){
   return ()=>window.clearTimeout(timer);
  },[readyAt]);
  if(level<75||breakthroughPhase(flags)!=='complete')return null;
- if(flags[WORLD_ASCENSION])return <section className="contract-card"><h3>World Ascension · Permanent</h3><p>All enemies are level 120 with stronger health and attacks. Each attribute can be trained to 60. Player level cap remains 75.</p></section>;
+ if(flags[WORLD_ASCENSION])return <section className="contract-card"><h3>World Ascension · Permanent</h3><p>All enemies are level 120 with stronger health and attacks. Each attribute can be trained to 60. Player level cap remains 75.</p><p>Weapon awakening remains available: boss hearts have a 25% drop chance. Bring three matching hearts and that boss’s weapon to a blacksmith.</p></section>;
  return <section className="contract-card" aria-label="World Ascension">
   <h3>World Ascension · Level 75</h3><p>Ask Edmund to unlock a harsher world and raise each attribute cap from 40 to 60. No further trial is required.</p>
   {!readyAt?<button type="button" onClick={e=>{e.stopPropagation();act('warn');}}>Ask about permanent World Ascension</button>:
    <div role="alertdialog" aria-labelledby="ascension-title" aria-describedby="ascension-warning" onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onKeyDown={e=>{e.stopPropagation();if(e.repeat)e.preventDefault();}}>
     <h4 id="ascension-title">Warning: this cannot be undone</h4>
     <p id="ascension-warning">Every enemy in every region, including bosses and caves, will permanently become level 120 with 60% extra HP and 35% extra attack damage on top of level scaling. Each stat cap rises to 60, but your level cap stays 75 and no extra stat points are granted. Retraining cannot undo this choice.</p>
+    <p>Weapon awakening does not require World Ascension. Boss hearts keep their 25% drop chance before and after this choice.</p>
     <button type="button" onClick={()=>act('cancel')}>Keep my current world</button>
     <button type="button" disabled={!ready} onClick={()=>{
       act('confirm');

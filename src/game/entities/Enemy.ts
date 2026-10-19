@@ -3,6 +3,7 @@ import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../type
 import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
 import { enemyLevelAt,scaledEnemy,runtimeEnemyLevel } from '../../data/enemyTiers';
 import {WORLD_ASCENSION} from '../../data/breakthrough';
+import {awakenedProc} from '../../data/awakening';
 import {luckDamage,progressionStats,playerDamageGrowth} from '../../data/progression';
 import type { WorldScene } from '../scenes/WorldScene';
 import { seededRandom } from '../../utils/seededRandom';
@@ -865,10 +866,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(!fatal&&!support&&proc){
       // Damage over time is based on the attacker's effective weapon ATK,
       // not raw blade damage, enemy HP, or a multi-hit art's single tick.
-      const weapon=enhancedWeapon(options.weaponId!,state.weaponUpgrades);
+      const weapon=enhancedWeapon(options.weaponId!,state.weaponUpgrades,state.awakenedWeapons);
       const stats=progressionStats(state.attributes,state.learnedSkills);
       const attackPower=weapon.damage*stats.damageMultiplier*playerDamageGrowth(state.level)*WEAPON_STATUS_ATK_SCALE;
-      const improvedProc={...proc,chance:enhancedProcChance(options.weaponId!,proc.chance,state.weaponUpgrades,state.attributes.luck)};
+      const improvedProc={...awakenedProc(options.weaponId!,proc,state.awakenedWeapons),chance:enhancedProcChance(options.weaponId!,proc.chance,state.weaponUpgrades,state.attributes.luck,state.awakenedWeapons)};
       if(this.weaponStatus.tryApply(improvedProc,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
         this.syncStatusAttackSpeed(this.scene.time.now);
     }

@@ -4,10 +4,23 @@ import {itemIcon} from '../../data/economy';
 import {alphaFrameBounds} from './spriteArt';
 import {useGameStore} from '../../store/gameStore';
 import {heroFrameData} from './heroFrameData';
+import {AWAKENING_PROFILES,awakenedProfile,awakeningArtPath} from '../../data/awakening';
 
 interface SwordFrameData {gripX:number;gripY:number;nativeAngle:number;bladeLength:number}
 
 export const SWORD_SOURCE='equipped-sword-source',SWORD_TEXTURE='equipped-swords';
+export const awakenedSwordSource=(slug:string)=>'awakened-sword-source:'+slug;
+// Handle centres and blade tips inspected on the separate prepared artworks.
+const AWAKENED_REGISTRATION:Record<string,readonly [number,number,number,number]>={
+ varr:[130/256,260/320,125/256,11/320],warden:[128/256,259/320,145/256,10/320],
+ stonejaw:[.5,260/320,.5,8/320],'iron-tusk':[136/256,254/320,135/256,9/320],
+ rootfather:[.5,260/320,.5,9/320],'salt-king':[114/256,256/320,146/256,12/320],
+ 'frost-wyrm':[.5,264/320,.5,9/320],'ashen-seer':[.5,259/320,136/256,10/320],
+ varkhul:[.5,265/320,142/256,11/320],
+};
+export function loadAwakenedSwords(scene:Phaser.Scene){
+ for(const profile of AWAKENING_PROFILES)scene.load.image(awakenedSwordSource(profile.slug),awakeningArtPath(profile,'weapon-v1.png'));
+}
 // Cell-relative handle centers and blade tips, inspected on equipment-v1.png.
 // Curved/asymmetric blades must not use the alpha box's center as their handle.
 const SWORD_REGISTRATION:readonly (readonly [number,number,number,number])[]=[
@@ -23,7 +36,8 @@ export function prepareEquippedSwords(scene:Phaser.Scene){
   const context=read.getContext('2d',{willReadFrequently:true})!;context.drawImage(image,0,0);
   const rgba=context.getImageData(0,0,image.width,image.height).data;
   const swords=WEAPONS.filter(w=>w.kind==='sword'||w.kind==='greatsword');
-  const texture=scene.textures.createCanvas(SWORD_TEXTURE,512,Math.ceil(swords.length/4)*160)!;
+  const awakened=AWAKENING_PROFILES.filter(p=>scene.textures.exists(awakenedSwordSource(p.slug)));
+  const texture=scene.textures.createCanvas(SWORD_TEXTURE,512,Math.ceil((swords.length+awakened.length)/4)*160)!;
   const draw=texture.getContext();draw.imageSmoothingEnabled=true;
   swords.forEach((weapon,index)=>{
     const icon=itemIcon(weapon.id),cell=[Math.floor(icon%4*image.width/4),Math.floor(Math.floor(icon/4)*image.height/4),Math.floor(image.width/4),Math.floor(image.height/4)] as const;
@@ -38,6 +52,19 @@ export function prepareEquippedSwords(scene:Phaser.Scene){
       nativeAngle:Math.atan2(dx,-dy),bladeLength:Math.hypot(dx,dy)*fit,
     };
   });
+  awakened.forEach((profile,slot)=>{
+    const key=awakenedSwordSource(profile.slug),image=scene.textures.get(key).getSourceImage() as HTMLImageElement;
+    read.width=image.width;read.height=image.height;context.drawImage(image,0,0);
+    const bounds=alphaFrameBounds(context.getImageData(0,0,image.width,image.height).data,image.width,[0,0,image.width,image.height]);
+    if(!bounds)throw new Error('Empty awakened sword artwork: '+profile.slug);
+    const [x,y,w,h]=bounds,fit=Math.min(120/w,152/h),index=swords.length+slot,ox=index%4*128,oy=Math.floor(index/4)*160,left=(128-w*fit)/2,top=(160-h*fit)/2;
+    draw.drawImage(image,x,y,w,h,ox+left,oy+top,w*fit,h*fit);
+    const [gx,gy,tx,ty]=AWAKENED_REGISTRATION[profile.slug],dx=(tx-gx)*image.width,dy=(ty-gy)*image.height;
+    texture.add('awakened:'+profile.weaponId,0,ox,oy,128,160)!.customData={
+      gripX:(left+(gx*image.width-x)*fit)/128,gripY:(top+(gy*image.height-y)*fit)/160,
+      nativeAngle:Math.atan2(dx,-dy),bladeLength:Math.hypot(dx,dy)*fit,
+    };scene.textures.remove(key);
+  });
   texture.refresh();scene.textures.remove(SWORD_SOURCE);
 }
 
@@ -50,7 +77,8 @@ export class EquippedSwordVisual{
     this.hand=scene.add.sprite(0,0,'leigneron',0).setVisible(false).setName('equipped-sword-hand');
   }
   update(actor:Phaser.GameObjects.Sprite,stowed=false,facingUp=false){
-    const id=useGameStore.getState().weaponId,definition=WEAPON_BY_ID[id];
+    const state=useGameStore.getState(),id=state.weaponId,definition=WEAPON_BY_ID[id];
+    const frameId=awakenedProfile(id,state.awakenedWeapons)&&this.blade.scene.textures.get(SWORD_TEXTURE).has('awakened:'+id)?'awakened:'+id:id;
     const meta=heroFrameData(actor.frame),density=meta.heroDensity??4;
     // Back mount follows the foot-registered torso, not changing cape bounds
     // or the swinging glove. That keeps it stable throughout walking/running.
@@ -63,7 +91,8 @@ export class EquippedSwordVisual{
     }:meta.weaponGrip;
     if(!actor.active||actor.alpha<=0||!grip||!definition||!['sword','greatsword'].includes(definition.kind)
       ||grip.x<0||grip.y<0||grip.x>actor.width||grip.y>actor.height){this.hide();return;}
-    const frame=this.blade.scene.textures.get(SWORD_TEXTURE).get(id),data=frame.customData as SwordFrameData;
+    this.blade.cameraFilter=actor.cameraFilter;this.hand.cameraFilter=actor.cameraFilter;
+    const frame=this.blade.scene.textures.get(SWORD_TEXTURE).get(frameId),data=frame.customData as SwordFrameData;
     const x=actor.flipX?actor.width-grip.x:grip.x;
     const localX=(x-actor.width*actor.originX)*actor.scaleX;
     const localY=(grip.y-actor.height*actor.originY)*actor.scaleY;
@@ -72,7 +101,7 @@ export class EquippedSwordVisual{
     // Skill FX bounds include halos and must never be used as body dimensions.
     const bladeLength=36*Math.abs(actor.scaleY)*density;
     const rotation=Phaser.Math.DegToRad(grip.angle)-data.nativeAngle;
-    this.blade.setTexture(SWORD_TEXTURE,id).setFlipX(actor.flipX).setOrigin(actor.flipX?1-data.gripX:data.gripX,data.gripY)
+    this.blade.setTexture(SWORD_TEXTURE,frameId).setFlipX(actor.flipX).setOrigin(actor.flipX?1-data.gripX:data.gripX,data.gripY)
       .setScale(bladeLength/data.bladeLength).setRotation(actor.rotation+(actor.flipX?-rotation:rotation))
       .setPosition(actor.x+localX*cos-localY*sin,actor.y+localX*sin+localY*cos)
       .setDepth(actor.depth+(grip.behind?-.02:.02)).setAlpha(actor.alpha).setVisible(actor.visible);

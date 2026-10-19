@@ -1,6 +1,11 @@
 import {itemIcon} from '../data/economy';
 import {ARMOR_BY_ID,ARMOR_ART_FRAMES} from '../data/armor';
+import {useGameStore} from '../store/gameStore';
+import {AWAKENING_BY_WEAPON,heartProfile,awakeningArtPath} from '../data/awakening';
 export function ItemIcon({id}:{id:string}){
+  const awakened=useGameStore(s=>s.awakenedWeapons.includes(id));
+  const heart=heartProfile(id),final=awakened?AWAKENING_BY_WEAPON[id]:undefined;
+  if(heart||final){const profile=(heart??final)!;return <span className="item-icon awakened-item-icon" aria-hidden="true" style={{backgroundImage:'none'}}><img src={import.meta.env.BASE_URL+awakeningArtPath(profile,heart?'heart-v1.png':'weapon-v1.png')} alt="" draggable={false} style={{width:'100%',height:'100%',objectFit:'contain'}}/></span>;}
   const armor=ARMOR_BY_ID[id];
   if(armor){
     const [x,y,width,height]=ARMOR_ART_FRAMES[armor.icon],scale=90/Math.max(width,height);

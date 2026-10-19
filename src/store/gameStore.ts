@@ -17,6 +17,7 @@ import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {BOSS_WEAPONS,POTIONS,canDropPotion,merchantStock,isBlacksmith,itemName,type PotionId} from '../data/economy';
 import {MAX_WEAPON_UPGRADE,MAX_BOSS_MATERIALS,BOSS_WEAPON_IDS,type WeaponUpgradeLedger} from '../data/weaponUpgrades';
+import {AWAKENING_BY_BOSS,AWAKENING_BY_WEAPON,AWAKENING_PROFILES,AWAKENING_HEART_COST,AWAKENING_HEART_DROP_CHANCE,MAX_BOSS_HEARTS,awakeningHeartId} from '../data/awakening';
 import {WEAPON_BY_ID,WEAPONS} from '../data/weapons';
 import {localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {acceptUiAction} from '../utils/uiInputGuard';
@@ -50,7 +51,7 @@ export interface BossEncounter {
   attackName?:string|null;
   windup?:number|null;
 }
-export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'material'|'salvage'|'armor'|'armor-salvage'|'armor-set';gold:number;newArmorPieces?:number}
+export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'material'|'salvage'|'armor'|'armor-salvage'|'armor-set'|'heart';gold:number;newArmorPieces?:number}
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
@@ -96,6 +97,9 @@ export interface GameState {
   inventory: string[];
   weaponUpgrades:WeaponUpgradeLedger;
   bossMaterials:Record<string,number>;
+  bossHearts:Record<string,number>;
+  awakenedWeapons:string[];
+  awakenBossWeapon:(npcId:string,weaponId:string)=>void;
   resetAttributes:(npcId:string)=>void;
   enhanceBossWeapon:(npcId:string,weaponId:string)=>void;
   consumables:Record<PotionId,number>;
@@ -201,6 +205,7 @@ const baseState = () => ({
   weaponId: LEIGNERON.starterWeaponId,
   inventory: localPlayCheatsEnabled()?WEAPONS.map(w=>w.id):['roadwarden-sword'],
   weaponUpgrades:{} as WeaponUpgradeLedger,bossMaterials:{} as Record<string,number>,
+  bossHearts:{} as Record<string,number>,awakenedWeapons:localPlayCheatsEnabled()?AWAKENING_PROFILES.map(p=>p.weaponId):[],
   consumables:{'healing-potion':2,'stamina-potion':1},vitalRevision:0,
   learnedCombatArts:[] as ActiveSkillId[],skillSlots:[...DEFAULT_SKILL_SLOTS] as (ActiveSkillId|null)[],
   worldX: LEIGNERON.spawn.x,
@@ -261,7 +266,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // propagate a pointer/key event into an irreversible confirmation.
     if(!state.worldAscensionReadyAt||Date.now()<state.worldAscensionReadyAt||!acceptUiAction())return {};
     return {worldAscensionReadyAt:0,storyFlags:{...state.storyFlags,[WORLD_ASCENSION]:true},
-      dialogue:{...dialogue,lines:['Then there is no turning back, Leigneron. Every foe across these lands now stands at level 120, with greater strength and endurance. Your own limits have opened: you may train each attribute to sixty. Spend your remaining points wisely.'],lineIndex:0},
+      dialogue:{...dialogue,lines:['Then there is no turning back, Leigneron. Every foe across these lands now stands at level 120, with greater strength and endurance. Your own limits have opened: you may train each attribute to sixty. Spend your remaining points wisely.','Should you find a heart among a great foe’s spoils, keep it. Three matching hearts and its blade are worth a visit to a blacksmith. That craft has always been open to you; this choice changes neither the hearts nor your chance of finding them.'],lineIndex:0},
       toast:'World Ascension is permanent: all enemies Lv.120, stronger HP and attacks. Attribute caps raised to 60.'};
   }),
   edmundBreakthrough:()=>set(state=>{
@@ -343,6 +348,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       vitalRevision:state.vitalRevision+1,
       toast:`Edmund returned ${spent} attribute points for 1,500 gold. Your skills are unchanged.`};
   }),
+  awakenBossWeapon:(npcId,weaponId)=>set(state=>{
+    const profile=AWAKENING_BY_WEAPON[weaponId],dialogue=state.dialogue;
+    if(!profile||!state.inventory.includes(weaponId)||state.awakenedWeapons.includes(weaponId)
+      ||dialogue?.npcId!==npcId||!isBlacksmith(npcId)||dialogue.questId||dialogue.choices?.length
+      ||dialogue.lineIndex<(dialogue.lines??NPC_BY_ID[npcId]?.dialogue??[]).length-1
+      ||state.panel||state.cinematic||state.activeSkillStatus.casting||state.hp<=0)return {};
+    const hearts=state.bossHearts[profile.bossId]??0;
+    if(hearts<AWAKENING_HEART_COST)return {toast:`Bring ${AWAKENING_HEART_COST} ${profile.heart} to awaken this weapon.`};
+    if(!acceptUiAction())return {};
+    return {bossHearts:{...state.bossHearts,[profile.bossId]:hearts-AWAKENING_HEART_COST},
+      awakenedWeapons:[...state.awakenedWeapons,weaponId],toast:`${profile.name} awakened! Equip it to wear ${profile.form}. Enhancement rank preserved; armor stats are unchanged.`};
+  }),
   enhanceBossWeapon:(npcId,weaponId)=>set(state=>{
     const dialogue=state.dialogue,lines=dialogue?.lines??NPC_BY_ID[npcId]?.dialogue??[];
     if(dialogue?.npcId!==npcId||!isBlacksmith(npcId)||!dialogue||dialogue.choices?.length
@@ -353,10 +370,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(materials<1)return {toast:'Bring a duplicate of this same boss weapon to the forge.'};
     return {weaponUpgrades:{...state.weaponUpgrades,[weaponId]:rank+1},
       bossMaterials:{...state.bossMaterials,[weaponId]:materials-1},
-      toast:`${itemName(weaponId)} enhanced to +${rank+1}!`};
+      toast:`${state.awakenedWeapons.includes(weaponId)?AWAKENING_BY_WEAPON[weaponId].name:itemName(weaponId)} enhanced to +${rank+1}!`};
   }),
   equipWeapon:id=>set(state=>state.panel==='inventory'&&!state.dialogue&&!state.cinematic&&!state.activeSkillStatus.casting&&state.inventory.includes(id)&&Object.hasOwn(WEAPON_BY_ID,id)
-    ?{weaponId:id,toast:`Equipped ${WEAPON_BY_ID[id].name}.`}:{}),
+    ?{weaponId:id,toast:`Equipped ${state.awakenedWeapons.includes(id)?AWAKENING_BY_WEAPON[id]?.name??WEAPON_BY_ID[id].name:WEAPON_BY_ID[id].name}.`}:{}),
   equipArmor:id=>set(state=>{
     const item=Object.hasOwn(ARMOR_BY_ID,id)?ARMOR_BY_ID[id]:undefined;
     if(!item||state.panel!=='inventory'||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting
@@ -568,7 +585,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     const armorSalvage=armorDrops.reduce((total,a)=>total+(state.armorInventory.includes(a.id)
       ?earnedRewards(0,a.salvage,state.attributes,state.learnedSkills).gold:0),0);
     const notices:RareLootNotice[]=[];
-    if(dropped)notices.push({id:state.nextRareLootId,weaponId:dropped.id,kind:duplicate?(excess?'salvage':'material'):'weapon',gold:salvage});
+    const heart=bossId&&lootEligible?AWAKENING_BY_BOSS[bossId]:undefined;
+    const heartCount=heart?(state.bossHearts[heart.bossId]??0):0;
+    const heartDrop=Boolean(heart&&heartCount<MAX_BOSS_HEARTS&&Math.random()<AWAKENING_HEART_DROP_CHANCE);
+    if(heart&&heartDrop)notices.push({id:state.nextRareLootId,weaponId:awakeningHeartId(heart.bossId),kind:'heart',gold:0});
+    if(dropped)notices.push({id:state.nextRareLootId+notices.length,weaponId:dropped.id,kind:duplicate?(excess?'salvage':'material'):'weapon',gold:salvage});
     if(fullArmorSet)notices.push({id:state.nextRareLootId+notices.length,weaponId:armorDrops[0].id,kind:'armor-set',gold:armorSalvage,newArmorPieces:newArmor.length});
     else if(armorDrop)notices.push({id:state.nextRareLootId+notices.length,weaponId:armorDrop.id,kind:newArmor.length?'armor':'armor-salvage',gold:armorSalvage});
     // Ordinary enemies can occasionally drop a carried draught. No extra
@@ -589,6 +610,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const breakthroughKill=bossId==='varkhul'&&lootEligible&&state.storyFlags[BREAKTHROUGH_ACCEPTED]&&!state.storyFlags[BREAKTHROUGH_TRIAL];
     const consequenceFlags=questConsequences(result.quests,state.storyFlags);
     return { defeatedBosses, journal, quests: result.quests, ...progression, gold: state.gold + rewards.gold+salvage+armorSalvage,
+      ...(heart&&heartDrop?{bossHearts:{...state.bossHearts,[heart.bossId]:heartCount+1}}:{}),
       ...(notices.length?{rareLootQueue:[...state.rareLootQueue,...notices].slice(-8),nextRareLootId:state.nextRareLootId+notices.length}:{}),
       ...(newArmor.length?{armorInventory:[...state.armorInventory,...newArmor.map(a=>a.id)]}:{}),
       contracts,...(ready?{toast:`Contract ready: ${contractById(ready)!.title}. Return to its town notice board.`}:{}),
@@ -636,7 +658,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       statPoints:(partial.statPoints??state.statPoints)+gained*STAT_POINTS_PER_LEVEL,
       skillPoints:(partial.skillPoints??state.skillPoints)
         +Math.max(0,skillBudget(cap)-skillBudget(level)),
-      gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id)};
+      gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id),awakenedWeapons:AWAKENING_PROFILES.map(p=>p.weaponId)};
   }),
   resetGame: () => set(baseState()),
 }));

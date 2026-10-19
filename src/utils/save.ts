@@ -20,6 +20,7 @@ import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
 import {BOSS_WEAPON_IDS,MAX_WEAPON_UPGRADE,MAX_BOSS_MATERIALS} from '../data/weaponUpgrades';
+import {AWAKENING_BY_BOSS,MAX_BOSS_HEARTS} from '../data/awakening';
 import {MAX_AREA_MONSTER_LEVEL,globalMonsterBonus,scaledEnemy} from '../data/enemyTiers';
 import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 import {parseContracts} from '../data/contracts';
@@ -30,7 +31,7 @@ import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASC
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
-export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'>>;
+export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'|'bossHearts'|'awakenedWeapons'>>;
 export interface SaveData { version: 7; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
 
 let syncSnapshot: (() => void) | undefined;
@@ -474,6 +475,10 @@ export function parseSave(raw: string): SaveData | null {
     const consumables=s.consumables===undefined?{'healing-potion':0,'stamina-potion':0}:s.consumables;
     if(!record(consumables)||!Object.keys(POTIONS).every(id=>numberIn(consumables[id],0,99)&&Number.isInteger(consumables[id])))return invalidSave('invalid consumables');
     const weaponUpgrades=s.weaponUpgrades??{},bossMaterials=s.bossMaterials??{};
+    const bossHearts=s.bossHearts??{},awakenedWeapons=s.awakenedWeapons??[];
+    if(!record(bossHearts)||Object.entries(bossHearts).some(([id,count])=>!Object.hasOwn(AWAKENING_BY_BOSS,id)||!numberIn(count,0,MAX_BOSS_HEARTS)||!Number.isInteger(count))
+      ||!strings(awakenedWeapons)||new Set(awakenedWeapons).size!==awakenedWeapons.length
+      ||awakenedWeapons.some(id=>!BOSS_WEAPON_IDS.has(id)||!(s.inventory as string[]).includes(id)))return invalidSave('invalid awakening hearts or weapons');
     const validForgeLedger=(value:unknown,max:number)=>record(value)&&Object.entries(value).every(([id,count])=>
       BOSS_WEAPON_IDS.has(id)&&numberIn(count,0,max)&&Number.isInteger(count));
     if(!validForgeLedger(weaponUpgrades,MAX_WEAPON_UPGRADE)
@@ -515,7 +520,7 @@ export function parseSave(raw: string): SaveData | null {
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 7, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state,journal:restoreJournal(journal,state),contracts,...armor,dungeons,
-       weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,
+       weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,bossHearts:bossHearts as Record<string,number>,awakenedWeapons,
        consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
       cinematicQueue:strings(s.cinematicQueue)?[...new Set(s.cinematicQueue)].filter(id=>Object.hasOwn(CINEMATICS,id)&&!storyFlags['scene:'+id]):[],
@@ -554,7 +559,7 @@ function serializeCurrentSaveSnapshot():string {
       hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,dungeons:s.dungeons,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
-      inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{}, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
+      inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{},bossHearts:s.bossHearts??{},awakenedWeapons:s.awakenedWeapons??[], worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
       day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,
@@ -672,7 +677,7 @@ export function loadGame(): boolean {
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,worldAscensionReadyAt:0,
       learnedSkills: s.learnedSkills, gold: s.gold,
       consumables:s.consumables??{'healing-potion':0,'stamina-potion':0},learnedCombatArts:s.learnedCombatArts??[],skillSlots:s.skillSlots??[...DEFAULT_SKILL_SLOTS],vitalRevision:0,
-      weaponId: s.weaponId, inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{}, worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
+      weaponId: s.weaponId, inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{},bossHearts:s.bossHearts??{},awakenedWeapons:s.awakenedWeapons??[], worldX: s.worldX, worldY: s.worldY, regionId: s.regionId,
       townId: s.townId, day: s.day, minuteOfDay: s.minuteOfDay, quests: s.quests, defeatedBosses: s.defeatedBosses,
       worldContent: s.worldContent,unlockedTownShrines:s.unlockedTownShrines,
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
@@ -697,7 +702,7 @@ export function watchProgressSaves() {
     }
     if (s.dungeons!==previous.dungeons||s.armorInventory!==previous.armorInventory||s.equippedArmor!==previous.equippedArmor||s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
-       || s.weaponUpgrades!==previous.weaponUpgrades || s.bossMaterials!==previous.bossMaterials
+       || s.weaponUpgrades!==previous.weaponUpgrades || s.bossMaterials!==previous.bossMaterials || s.bossHearts!==previous.bossHearts || s.awakenedWeapons!==previous.awakenedWeapons
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots
       || s.xp !== previous.xp || s.gold !== previous.gold || s.attributes !== previous.attributes
       || s.statPoints !== previous.statPoints || s.skillPoints !== previous.skillPoints

@@ -379,7 +379,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
     const level=useGameStore.getState().level;
     const growth=playerDamageGrowth(level);
-    const weapon=enhancedWeapon(weaponId,useGameStore.getState().weaponUpgrades);
+    const inventory=useGameStore.getState(),weapon=enhancedWeapon(weaponId,inventory.weaponUpgrades,inventory.awakenedWeapons);
     enemy.takeDamage(Math.max(1,Math.round(weapon.damage*progression.damageMultiplier*progression.skillDamageMultiplier*growth*multiplier)),direction,
       {forceStagger:skill.id==='crescent-flurry',weaponId:weapon.id,procHitWeight:Math.min(1,multiplier),
         impact:skill.id==='skyfall-slam'?'slam':skill.id==='iron-tempest'?'heavy':'light'});
@@ -888,7 +888,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
   getEquippedWeapon(): WeaponDefinition {
     const state=useGameStore.getState();
-    return enhancedWeapon(state.weaponId,state.weaponUpgrades);
+    return enhancedWeapon(state.weaponId,state.weaponUpgrades,state.awakenedWeapons);
   }
 
   performPlayerAttack(player: Player, direction: Phaser.Math.Vector2, weapon: WeaponDefinition,step:BasicAttackStep=BASIC_ATTACK_CHAIN[0]) {
@@ -923,7 +923,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     player.recovery.interrupt();
     this.recordTraining(skill.id);
     const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
-    const weapon=enhancedWeapon(weaponId,useGameStore.getState().weaponUpgrades);
+    const inventory=useGameStore.getState(),weapon=enhancedWeapon(weaponId,inventory.weaponUpgrades,inventory.awakenedWeapons);
     const damage = Math.max(1,Math.round(weapon.damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
     for (const enemy of this.skillTargets(player,direction,skill)){
       const outward=new Phaser.Math.Vector2(enemy.x-player.x,enemy.y-player.y);

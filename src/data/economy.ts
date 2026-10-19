@@ -3,6 +3,7 @@ import {TOWN_BY_ID} from './towns';
 import {WEAPON_BY_ID} from './weapons';
 import {REGIONAL_SWORDS,WEAPON_PROFILES} from './weaponProfiles';
 import {ARMORS,ARMOR_BY_ID} from './armor';
+import {awakenedProfile,heartProfile} from './awakening';
 
 export const POTIONS={
   'healing-potion':{name:'Healing Draught',price:28,hp:50,stamina:0,icon:13,description:'Restores 50 health. No use at full health.'},
@@ -37,7 +38,7 @@ export const BOSS_WEAPONS:Record<string,{id:string;icon:number;salvage:number;ef
   varkhul:{id:'varkhul-emberfang',icon:12,salvage:450,effectColor:0xff774a,effectName:'Ember red'},
 };
 const weaponEffects=new Map(Object.values(BOSS_WEAPONS).map(w=>[w.id,w]));
-export function weaponEffect(id:string){return weaponEffects.get(id);}
+export function weaponEffect(id:string,awakened:readonly string[]=[]){const final=awakenedProfile(id,awakened),base=weaponEffects.get(id);return final&&base?{...base,effectColor:final.color,effectName:final.form}:base;}
 export function itemIcon(id:string){
   if(WEAPON_PROFILES[id])return WEAPON_PROFILES[id].icon;
   if(id==='portquill-cutlass')return 9;
@@ -63,4 +64,4 @@ export function merchantStock(npcId:string):Array<{id:string;price:number;minLev
     ...REGIONAL_SWORDS.filter(o=>o.region===region).map(({id,price,minLevel})=>({id,price,minLevel})),
     ...Object.entries(POTIONS).map(([id,p])=>({id,price:p.price,minLevel:1}))];
 }
-export function itemName(id:string){return ARMOR_BY_ID[id]?.name??WEAPON_BY_ID[id]?.name??POTIONS[id as PotionId]?.name??id;}
+export function itemName(id:string){return heartProfile(id)?.heart??ARMOR_BY_ID[id]?.name??WEAPON_BY_ID[id]?.name??POTIONS[id as PotionId]?.name??id;}

@@ -1015,3 +1015,12 @@
 .pause-panel .graphics-effect-toggle strong {font-size:12px;color:inherit;}
 .pause-panel .graphics-effect-toggle small {font-size:10px;line-height:1.2;color:inherit;opacity:.77;}
 .pause-panel .graphics-effects-reset {min-height:36px!important;font-size:11px!important;}
+.awakening-forge-row {flex-wrap:wrap;}
+.awakening-recipe {flex:1 1 100%;grid-column:1/-1;min-width:0;border-top:1px solid #ad895a;padding-top:8px;}
+.awakening-recipe p,.awakening-materials p {font-size:.85em;line-height:1.45;}
+.awakening-recipe button {max-width:100%;white-space:normal;}
+.awakening-materials {margin:12px 0;padding:10px;border:1px solid #ad895a;}
+.awakening-materials summary {cursor:pointer;font-weight:bold;}
+.awakening-materials .item-row {min-width:0;overflow-wrap:anywhere;}
+.awakening-materials .item-row small {display:block;}
+.awakened-item-icon {background-repeat:no-repeat;overflow:hidden;}

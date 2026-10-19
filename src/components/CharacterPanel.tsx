@@ -19,6 +19,7 @@ export function CharacterPanel(){
   const status=useGameStore(s=>s.activeSkillStatus),allocate=useGameStore(s=>s.allocateAttribute),unlock=useGameStore(s=>s.unlockSkill);
   const slots=useGameStore(s=>s.skillSlots),learnedArts=useGameStore(s=>s.learnedCombatArts),learnArt=useGameStore(s=>s.learnCombatArt),setSlot=useGameStore(s=>s.setSkillSlot),weaponId=useGameStore(s=>s.weaponId);
   const upgrades=useGameStore(s=>s.weaponUpgrades);
+  const awakened=useGameStore(s=>s.awakenedWeapons);
   const cap=useGameStore(s=>playerLevelCap(s.storyFlags));
   const statCap=useGameStore(s=>attributeCap(s.storyFlags));
   const armorBonuses=useGameStore(s=>s.armorBonuses);
@@ -52,7 +53,7 @@ export function CharacterPanel(){
             </div></article>;
           })}</div>
         </section>:tab==='attributes'?<section>
-          <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round(enhancedWeapon(weaponId,upgrades).damage*stats.damageMultiplier*playerDamageGrowth(level))}</b></span><span>Damage reduction <b>{Math.round((1-stats.incomingDamageMultiplier)*1000)/10}%</b></span><span>Rare boss loot <b>{(stats.rareDropChance*100).toFixed(1)}%</b></span></div>
+          <div className="vital-summary"><span>Maximum health <b>{stats.maxHp}</b></span><span>Maximum stamina <b>{stats.maxStamina}</b></span><span>Attack damage <b>{Math.round(enhancedWeapon(weaponId,upgrades,awakened).damage*stats.damageMultiplier*playerDamageGrowth(level))}</b></span><span>Damage reduction <b>{Math.round((1-stats.incomingDamageMultiplier)*1000)/10}%</b></span><span>Rare boss loot <b>{(stats.rareDropChance*100).toFixed(1)}%</b></span></div>
           <p className="equipment-help">Critical chance: {(stats.luckChance*100).toFixed(1)}% · Evasion: {(stats.evasionChance*100).toFixed(1)}%. Includes equipped armor and active set bonuses.</p>
           <p className="equipment-help">Complete boss armor set: {(bossArmorSetDropChance(attributes)*100).toFixed(1)}% chance. Awards chest, boots and cape together from bosses that carry an armor set.</p>
           <div className="progression-heading"><h3>Attributes</h3><span>{statPoints} points available</span></div>

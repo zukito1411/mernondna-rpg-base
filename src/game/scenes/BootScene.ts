@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {heroBodySource,heroGrip} from '../../data/modularHero';
 import {heroFrameData} from '../systems/heroFrameData';
 import {isolateAtlasFrames} from '../systems/AtlasFrameIsolation';
-import {SWORD_SOURCE,prepareEquippedSwords} from '../systems/EquippedSwordVisual';
+import {SWORD_SOURCE,prepareEquippedSwords,loadAwakenedSwords} from '../systems/EquippedSwordVisual';
 import {COMBAT_EFFECT_TEXTURE,DISTINCT_EFFECT_TEXTURE,prepareCombatArtEffects,prepareSlashWeaponEffect} from '../systems/CombatArtEffects';
 import {applySkillWeaponPalette} from '../systems/WeaponSkillPalette';
 import {CITIZEN_SOURCES,prepareCitizenArt} from '../systems/RegionalCitizenArt';
@@ -205,6 +205,7 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.image(SWORD_SOURCE,'assets/items/equipment-v1.png');
+    loadAwakenedSwords(this);
     this.load.image(COMBAT_EFFECT_TEXTURE,'assets/effects/combat-arts-v1.png');
     this.load.image(DISTINCT_EFFECT_TEXTURE,'assets/effects/distinct-combat-arts-v2.png');
     for(const source of CITIZEN_SOURCES)this.load.image(source.key,source.path);
@@ -262,32 +263,11 @@ export class BootScene extends Phaser.Scene {
     for (const path of files) this.load.image(`source:${path}`, heroBodySource(path));
   }
 
-  create() {
-    // Check registered textures *before* reporting generic file failures;
-    // a single missing sprite can be repaired without discarding the save.
-    if(this.repairSpriteSources())return;
-    if (this.failures.length) {
-      const message = `Art could not load:\n${this.failures.join('\n')}\nCheck public/assets and the pack manifests, then reload.`;
-      this.registry.set('assetError', message);
-      const density=renderDensity(this);
-      this.add.text(20*density,20*density,message,{
-        fontSize: `${16*density}px`, color: '#ffe1bd',
-        wordWrap: { width: Math.max(280*density,this.scale.width-40*density) }
-      });
-      return;
-    }
-    this.registry.set('loadingStage','Preparing character art');
-    registerAttackWarningFrames(this);
-    prepareCombatArtEffects(this);
-    prepareCombatArtEffects(this,DISTINCT_EFFECT_TEXTURE,'distinct-art-effect');
-    prepareCitizenArt(this);
-    prepareEquippedSwords(this);
-
-    prepareVehicleArt(this);
-    prepareDragonBreathArt(this);
+  /** Shared production packer; focused art reviews may load only hero sheets. */
+  prepareRegisteredSheets(sheets:typeof ART_SHEETS=ART_SHEETS){
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
     const remainingSources=new Map<string,number>();
-    for(const sheet of ART_SHEETS.filter(s=>s.key!=='walls'))
+    for(const sheet of sheets.filter(s=>s.key!=='walls'))
       for(const path of new Set([sheet.path,...(sheet.sources?.map(source=>source.path)??[])]))
         remainingSources.set(path,(remainingSources.get(path)??0)+1);
     const loaded = new Set<string>();
@@ -295,7 +275,7 @@ export class BootScene extends Phaser.Scene {
     const heroGrounds=new Map<string,number>();
     const drawEnemyPose=createSpriteCropper();
 
-    for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
+    for (const sheet of sheets.filter(s => s.key !== 'walls')) {
       // Some multi-source sheets use a descriptive path that is not itself
       // queued as an image. The first registered frame source is the correct
       // reference for those sheets; never accept Phaser's missing placeholder.
@@ -560,6 +540,33 @@ export class BootScene extends Phaser.Scene {
         }
       }
     }
+    return loaded;
+  }
+
+  create() {
+    // Check registered textures *before* reporting generic file failures;
+    // a single missing sprite can be repaired without discarding the save.
+    if(this.repairSpriteSources())return;
+    if (this.failures.length) {
+      const message = `Art could not load:\n${this.failures.join('\n')}\nCheck public/assets and the pack manifests, then reload.`;
+      this.registry.set('assetError', message);
+      const density=renderDensity(this);
+      this.add.text(20*density,20*density,message,{
+        fontSize: `${16*density}px`, color: '#ffe1bd',
+        wordWrap: { width: Math.max(280*density,this.scale.width-40*density) }
+      });
+      return;
+    }
+    this.registry.set('loadingStage','Preparing character art');
+    registerAttackWarningFrames(this);
+    prepareCombatArtEffects(this);
+    prepareCombatArtEffects(this,DISTINCT_EFFECT_TEXTURE,'distinct-art-effect');
+    prepareCitizenArt(this);
+    prepareEquippedSwords(this);
+
+    prepareVehicleArt(this);
+    prepareDragonBreathArt(this);
+    const loaded=this.prepareRegisteredSheets();
 
     this.registry.set('loadingStage','Finalizing animations');
     prepareRabbitArt(this);

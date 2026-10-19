@@ -65,7 +65,7 @@ export class AliceCompanionSystem {
       &&(aliceIsFollowing(useGameStore.getState().storyFlags)||Boolean(this.npc?.active)),console.warn);
     this.arrows=new AmbientNpcArrowSystem(scene,(_npc,enemy,direction)=>{
       const state=useGameStore.getState(),stats=progressionStats(state.attributes,state.learnedSkills);
-      const weapon=enhancedWeapon(state.weaponId,state.weaponUpgrades);
+      const weapon=enhancedWeapon(state.weaponId,state.weaponUpgrades,state.awakenedWeapons);
       const damage=Math.max(18+state.level*2.8,weapon.damage*stats.damageMultiplier*playerDamageGrowth(state.level)*.65);
       enemy.takeDamage(damage,direction,{source:'companion'});
     });

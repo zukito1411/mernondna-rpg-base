@@ -6,6 +6,7 @@ import {goldLabel} from '../utils/localPlayCheats';
 import {WEAPON_PROFILES,weaponProcDescription} from '../data/weaponProfiles';
 import {enhancedWeapon,weaponUpgradeRank,enhancedProcChance} from '../data/weaponUpgrades';
 import {ARMOR_BY_ID,ARMOR_SET_BY_ID,ARMOR_SLOTS,ARMOR_SLOT_NAMES,armorBonusLines,armorBonusesFor,type ArmorSlot} from '../data/armor';
+import {AWAKENING_PROFILES,awakenedProfile,awakeningHeartId} from '../data/awakening';
 
 export function InventoryPanel(){
   const panel=useGameStore(s=>s.panel);
@@ -24,9 +25,10 @@ function OpenInventory(){
   const gold=useGameStore(s=>s.gold),potions=useGameStore(s=>s.consumables),upgrades=useGameStore(s=>s.weaponUpgrades),materials=useGameStore(s=>s.bossMaterials),luck=useGameStore(s=>s.attributes.luck);
   const equip=useGameStore(s=>s.equipWeapon),drink=useGameStore(s=>s.usePotion);
   const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),stamina=useGameStore(s=>s.stamina),maxStamina=useGameStore(s=>s.maxStamina),casting=useGameStore(s=>s.activeSkillStatus.casting);
-  const current=useMemo(()=>enhancedWeapon(weaponId,upgrades),[weaponId,upgrades]);
-  const weapons=useMemo(()=>inventory.map(id=>enhancedWeapon(id,upgrades))
-    .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage),[inventory,upgrades,weaponId]);
+  const awakened=useGameStore(s=>s.awakenedWeapons),hearts=useGameStore(s=>s.bossHearts);
+  const current=useMemo(()=>enhancedWeapon(weaponId,upgrades,awakened),[weaponId,upgrades,awakened]);
+  const weapons=useMemo(()=>inventory.map(id=>enhancedWeapon(id,upgrades,awakened))
+    .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage),[inventory,upgrades,weaponId,awakened]);
   const selected=kind==='weapons'?(weapons.find(w=>w.id===selection)??weapons[0]):undefined;
   const rank=(id:string)=>weaponUpgradeRank(id,upgrades);
   const change=selected?selected.damage-current.damage:0;
@@ -59,13 +61,17 @@ function OpenInventory(){
           {selected&&<section className="bag-inspection" key={selected.id} aria-label="Selected weapon details">
             <div className="bag-inspection-title"><ItemIcon id={selected.id}/><div><small>{selected.id===weaponId?'Currently equipped':'Selected weapon'}</small><h3>{selected.name}{rank(selected.id)>0?` +${rank(selected.id)}`:''}</h3></div>{selected.id!==weaponId&&<strong className={change>0?'stat-gain':change<0?'stat-loss':''}>{change>=0?'+':''}{change} ATK</strong>}</div>
             <dl className="bag-stats"><div><dt>Attack</dt><dd>{selected.damage}</dd></div><div><dt>Recovery</dt><dd>{(selected.cooldownMs/1000).toFixed(2)}s</dd></div><div><dt>Stamina</dt><dd>{selected.staminaCost}</dd></div><div><dt>Reach</dt><dd>{(selected.reach/32).toFixed(1)} paces</dd></div></dl>
-            {weaponEffect(selected.id)&&<p>Skill effects: {weaponEffect(selected.id)!.effectName}</p>}
-            <p>{weaponProcDescription(selected.id)}</p>
-            {profile?.proc&&<p className="bag-detail-note">Status chance: {(enhancedProcChance(selected.id,profile.proc.chance,upgrades,luck)*100).toFixed(1)}% before hit weighting.</p>}
+            {weaponEffect(selected.id,awakened)&&<p>Skill effects: {weaponEffect(selected.id,awakened)!.effectName}</p>}
+            {awakenedProfile(selected.id,awakened)&&<p className="bag-detail-note">Final form · {awakenedProfile(selected.id,awakened)!.form}. Equipping changes appearance only; equipped armor stats and set bonuses stay active.</p>}
+            <p>{weaponProcDescription(selected.id,awakened,profile?.proc?enhancedProcChance(selected.id,profile.proc.chance,upgrades,luck,awakened):undefined)}</p>
+            {profile?.proc&&<p className="bag-detail-note">Status chance: {(enhancedProcChance(selected.id,profile.proc.chance,upgrades,luck,awakened)*100).toFixed(1)}% before hit weighting.</p>}
             {(rank(selected.id)>0||(materials[selected.id]??0)>0)&&<p className="bag-detail-note">Forge level +{rank(selected.id)} · {materials[selected.id]??0} duplicate materials</p>}
             <details><summary>Weapon story & details</summary><p>{selected.description}</p><p>{profile?.origin}</p><p>{profile?.history}</p></details>
           </section>}
           {selectedArmor&&kind!=='weapons'&&<section className="bag-inspection"><div className="bag-inspection-title"><ItemIcon id={selectedArmor.id}/><div><small>{ARMOR_SLOT_NAMES[selectedArmor.slot]} · Level {selectedArmor.minLevel}</small><h3>{selectedArmor.name}</h3></div></div><p>{armorBonusLines(selectedArmor.bonuses).join(' · ')}</p><p><strong>{ARMOR_SET_BY_ID[selectedArmor.setId].name} set ({ARMOR_SLOTS.filter(s=>equippedArmor[s]&&ARMOR_BY_ID[equippedArmor[s]!].setId===selectedArmor.setId).length}/3)</strong><br/>Full set: {armorBonusLines(ARMOR_SET_BY_ID[selectedArmor.setId].bonus).join(' · ')}</p>{equippedArmor[selectedArmor.slot]!==selectedArmor.id&&<p className="bag-detail-note">Current armor: {armorBonusLines(armorBonuses).join(' · ')||'None'}.<br/>After equipping, including set changes: {armorBonusLines(preview).join(' · ')}. Current HP is retained, capped at your new maximum.</p>}<details><summary>Armor profile & provenance</summary><p>{selectedArmor.appearance}</p><p>{selectedArmor.origin}</p><p>{selectedArmor.history}</p><p>{selectedArmor.bossId?'Found only among its regional boss’s spoils.':'Available from traveling suppliers and smiths.'}</p></details></section>}
+          <details className="awakening-materials"><summary>Boss hearts & weapon awakening</summary><p>Each world boss victory has a 25% chance to drop its matching heart, at any level and before or after breakthrough. Three awaken that boss’s owned weapon at a blacksmith. Duplicates remain separate enhancement materials.</p>
+            {AWAKENING_PROFILES.map(p=><div className="item-row" key={p.bossId}><ItemIcon id={awakeningHeartId(p.bossId)}/><span>{p.heart}<small>{hearts[p.bossId]??0} / 3 · {awakened.includes(p.weaponId)?'Weapon awakened':p.name}</small></span></div>)}
+          </details>
           <button type="button" className="bag-lore-link" onClick={()=>useGameStore.getState().openPanel('codex')}>Open the world codex →</button>
         </>:<section className="potion-cards"><div className="vital-summary"><span>Health <b>{Math.ceil(hp)} / {maxHp}</b></span><span>Stamina <b>{Math.ceil(stamina)} / {maxStamina}</b></span></div>
           {Object.entries(POTIONS).map(([key,p])=>{const id=key as PotionId,full=p.hp?hp>=maxHp:stamina>=maxStamina,count=potions[id];return <article className="potion-card item-row" key={id}><ItemIcon id={id}/><div><strong>{p.name}</strong><small>{count} / 99 bottles</small><p>{p.hp?`Restores ${p.hp} health`:`Restores ${p.stamina} stamina`}</p></div><button type="button" disabled={count===0||full||Boolean(casting)} onClick={()=>drink(id)}>{count===0?'Empty':full?'Full':'Drink'}</button></article>;})}

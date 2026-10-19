@@ -11,14 +11,15 @@ const guards:Record<string,readonly Rect[]>={
   skill_crown_rally:[[65,270,210,324],[400,295,230,300],[725,265,250,328],[1040,260,400,333],[1540,268,220,326],[1910,269,220,324]],
   skill_crescent_flurry:[[60,262,250,289],[385,260,280,294],[720,277,260,272],[1090,270,280,280],[1465,285,250,270],[60,262,250,289]],
 };
+export const skillBodyGuard=(key:string,frame:number)=>guards[key]?.[frame];
 interface Palette {indices:Uint32Array;rgb:Uint8Array;color:number|undefined}
 const palettes=new WeakMap<Phaser.Textures.CanvasTexture,Palette>();
 
 /** Reuse the prepared atlas in place; no texture per weapon, frame or cast.
  * Sparse original RGB values allow exact default restoration. Only isolated
  * energy colors outside registered body guards are eligible for recoloring. */
-export function applySkillWeaponPalette(scene:Phaser.Scene,key:string,color?:number,prepareOnly=false){
-  if(!guards[key])return;
+export function applySkillWeaponPalette(scene:Phaser.Scene,key:string,color?:number,prepareOnly=false,bodyGuardKey=key,includeGuardedEnergy=false){
+  if(!guards[bodyGuardKey])return;
   const texture=scene.textures.get(key) as Phaser.Textures.CanvasTexture;
   let palette=palettes.get(texture);
   if(!palette&&color===undefined&&!prepareOnly)return;
@@ -30,15 +31,17 @@ export function applySkillWeaponPalette(scene:Phaser.Scene,key:string,color?:num
       const frame=texture.get(frameIndex),meta=heroFrameData(frame);
       const region=meta.sourceRegion,bounds=meta.visibleBounds,density=meta.heroDensity??2;
       if(!region||!bounds||!meta.sourceFit)continue;
-      const rect=guards[key][frameIndex],fit=meta.sourceFit*density;
+        const rect=guards[bodyGuardKey][frameIndex],fit=meta.sourceFit*density;
       for(let y=0;y<frame.height;y++)for(let x=0;x<frame.width;x++){
         const sx=region[0]+(x-bounds.left*density)/fit,sy=region[1]+(y-bounds.top*density)/fit;
-        if(sx>=rect[0]&&sx<=rect[0]+rect[2]&&sy>=rect[1]&&sy<=rect[1]+rect[3])continue;
+        if(!includeGuardedEnergy&&sx>=rect[0]&&sx<=rect[0]+rect[2]&&sy>=rect[1]&&sy<=rect[1]+rect[3])continue;
         const i=((frame.cutY+y)*texture.width+frame.cutX+x)*4;
         if(!data[i+3])continue;
         const r=data[i],g=data[i+1],b=data[i+2];
-        const blue=b>60&&b>r*1.4&&g>r*1.2;
-        const gold=key==='skill_crown_rally'&&r>120&&g>90&&r>b*1.25&&g>b*1.15;
+        // Generated cosmetic effects also contain saturated pure-blue edge
+        // pixels. Tint those without turning the pirate's dark navy cloth gold.
+        const blue=includeGuardedEnergy?b>120&&b>r*1.25&&b>g*.95:b>60&&b>r*1.4&&g>r*1.2;
+        const gold=bodyGuardKey==='skill_crown_rally'&&r>120&&g>90&&r>b*1.25&&g>b*1.15;
         if(!blue&&!gold)continue;
         indices.push(i);rgb.push(r,g,b);
       }

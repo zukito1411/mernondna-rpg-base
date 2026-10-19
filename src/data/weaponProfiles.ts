@@ -1,4 +1,5 @@
 import type {RegionId} from '../game/types';
+import {awakenedProc} from './awakening';
 
 export type WeaponStatus = 'burn'|'poison'|'bleed'|'frost'|'expose';
 // Bleed, burn and poison use the player's effective weapon ATK, including
@@ -53,8 +54,9 @@ export function weaponLegend(id:string):string {
   if(status==='expose')return 'Its makers favored certainty over spectacle. A well-placed stroke can catch a buckle, pry a seam or turn a guarded edge aside, leaving a fleeting opening for the next blow. Veterans prize those quiet moments more than any flash of light.';
   return 'No charm is bound into this weapon. Its story belongs to the hands that carried it: watch shifts, repairs beside the road, and journeys made safer by honest craft. A smith’s care has kept it useful where a richer blade might have failed.';
 }
-export function weaponProcDescription(id:string):string {
-  const p=WEAPON_PROFILES[id]?.proc;if(!p)return 'No random status effect.';
+export function weaponProcDescription(id:string,awakened:readonly string[]=[],effectiveChance?:number):string {
+  const base=WEAPON_PROFILES[id]?.proc;if(!base)return 'No random status effect.';
+  const p=awakenedProc(id,base,awakened);
   const effect=p.status==='frost'?'chill a foe, slowing movement and attacks by 45% (bosses: 20% for at most 1.4s)':p.status==='expose'?'expose a foe to 20% more direct damage (bosses: 10%)':`inflict ${p.status==='bleed'?'bleeding':p.status==='burn'?'burning':'poison'}, dealing ${Math.round(p.damagePerSecond*WEAPON_STATUS_ATK_SCALE*100)}% of effective weapon ATK per second`;
-  return `${p.name}: ${Math.round(p.chance*100)}% chance on a weapon hit or a single heavy combat-art hit to ${effect}. Repeated light art hits have a smaller per-hit chance. Lasts ${(p.durationMs/1000).toFixed(1)}s. One weapon effect per target; 6s between successful triggers. Boss damage over time is halved.`;
+  return `${p.name}: ${Math.round((effectiveChance??p.chance)*100)}% chance on a weapon hit or a single heavy combat-art hit to ${effect}. Repeated light art hits have a smaller per-hit chance. Lasts ${(p.durationMs/1000).toFixed(1)}s. One weapon effect per target; 6s between successful triggers. Boss damage over time is halved.`;
 }
