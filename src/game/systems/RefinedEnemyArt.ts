@@ -51,7 +51,7 @@ export function prepareRefinedEnemyArt(scene:Phaser.Scene){
     ][i]:undefined;
     frame.customData={fullSprite:true,isolatedSubject:true,foreignProbes:subjects[i].foreignProbes,sourcePath:refinedEnemyPath(art.id,state),sourceImageSize:[source.width,source.height],sourceRegion:region,sourceFit:fit,
      visibleBounds:{left,top,width:w*fit,height:h*fit},
-     ...(mouth?{mouth:{x:sheet.frameWidth/2+(mouth[0]-root)*fit,y:drawGround+(mouth[1]-ry-h)*fit}}:{})};
+     ...(mouth?{mouth:{x:sheet.frameWidth/2+(mouth[0]-root)*fit,y:sheet.frameHeight-(sheet.groundPadding??2)+(mouth[1]-ry-h)*fit}}:{})};
    });
    scene.textures.remove(key);
   }
