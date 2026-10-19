@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SafeDialoguePanel } from './components/DialoguePanel';
 import { CharacterPanel } from './components/CharacterPanel';
 import { GameCanvas } from './components/GameCanvas';
@@ -29,9 +29,34 @@ export default function App() {
   const [worldReady, setWorldReady] = useState(false);
   const [canContinue, setCanContinue] = useState(hasSavedGame);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
+  const [startupRetryUsed,setStartupRetryUsed]=useState(false);
+  const startupRetryTimer=useRef<number|null>(null);
   const resetGame = useGameStore(state => state.resetGame);
 
   useEffect(dismissStartupSplash,[]);
+  useEffect(()=>()=>{
+    if(startupRetryTimer.current!==null)window.clearTimeout(startupRetryTimer.current);
+  },[]);
+
+  // A cold WebView can stall while decoding optional assets. A second Continue
+  // works on the same save; recreate the complete Phaser instance once rather
+  // than trying to reuse the possibly stalled image/audio loader.
+  const retryColdStartup=()=>{
+    if(startupRetryUsed||startupRetryTimer.current!==null)return;
+    console.warn('[startup] Retrying cold artwork load with the saved checkpoint');
+    setStartupRetryUsed(true);
+    setWorldReady(false);
+    setPlaying(false); // unmount and destroy stalled Phaser before remounting
+    setCanContinue(false);
+    setMenuMessage('Retrying game startup using your existing save…');
+    startupRetryTimer.current=window.setTimeout(()=>{
+      startupRetryTimer.current=null;
+      const recovered=loadGame(); // reload the checkpoint, never write to it
+      setCanContinue(hasSavedGame());
+      setMenuMessage(recovered?null:getSaveRecoveryNotice()??'Could not reload the stored checkpoint.');
+      if(recovered)setPlaying(true);
+    },850);
+  };
 
   useEffect(()=>{
     const dispose=installUiInputGuard(()=>{
@@ -79,6 +104,7 @@ export default function App() {
   const continueGame = () => {
     if (loadGame()) {
       setMenuMessage(null);
+      setStartupRetryUsed(false);
       setWorldReady(false);
       setPlaying(true);
       return;
@@ -98,6 +124,7 @@ export default function App() {
     if (!saveGame()) setMenuMessage('The new game started, but could not be saved on this device.');
     else setMenuMessage(null);
     setCanContinue(true);
+    setStartupRetryUsed(false);
     setWorldReady(false);
     setPlaying(true);
   };
@@ -114,7 +141,7 @@ export default function App() {
       if(event.target instanceof Element&&event.target.closest('.overlay-backdrop,.dialogue-wrap,.cinematic-presentation'))event.stopPropagation();
     }}>
       {playing ? <>
-        <GameCanvas onReady={() => setWorldReady(true)} onExit={() => {
+        <GameCanvas onReady={() => setWorldReady(true)} onRetry={retryColdStartup} retryAvailable={!startupRetryUsed} onExit={() => {
           // Unmount Phaser without saving a partially initialized world.
           setWorldReady(false);
           setPlaying(false);
