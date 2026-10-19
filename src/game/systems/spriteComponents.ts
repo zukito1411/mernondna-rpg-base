@@ -5,10 +5,15 @@ import {alphaFrameBounds} from './spriteArt';
 export interface ActorSpriteSubject {region:SpriteRegion;pixels:Uint8ClampedArray;foreignProbes:Array<readonly [number,number]>}
 export function actorSpriteGridSubjects(pixels:Uint8ClampedArray,width:number,height:number,columns:number,rows:number,
  options:{rejectEdgeFragments?:boolean;keepDetachedDetails?:boolean}={}):ActorSpriteSubject[]{
- if(width%columns||height%rows)throw new Error('Actor sprite sheet does not match its declared frame grid.');
- const cellWidth=width/columns,cellHeight=height/rows,subjects:ActorSpriteSubject[]=[];
+ if(!Number.isInteger(width)||!Number.isInteger(height)||width<columns||height<rows||pixels.length!==width*height*4)
+  throw new Error('Invalid dimensions or RGBA pixels for actor sprite sheet.');
+ const subjects:ActorSpriteSubject[]=[];
  for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
-  const cellX=column*cellWidth,cellY=row*cellHeight,labels=new Uint32Array(cellWidth*cellHeight);
+  // Generated artwork is not guaranteed to divide evenly into declared cells.
+  const cellX=Math.floor(column*width/columns),cellY=Math.floor(row*height/rows);
+  const cellWidth=Math.floor((column+1)*width/columns)-cellX;
+  const cellHeight=Math.floor((row+1)*height/rows)-cellY;
+  const labels=new Uint32Array(cellWidth*cellHeight);
   const queue=new Int32Array(cellWidth*cellHeight),components:Array<{label:number;count:number;left:number;right:number;top:number;bottom:number}>=[];
   for(let start=0;start<labels.length;start++){
    const source=(cellY+Math.floor(start/cellWidth))*width+cellX+start%cellWidth;
@@ -60,7 +65,9 @@ export function actorSpriteGridSubjects(pixels:Uint8ClampedArray,width:number,he
  }
  return subjects;
 }
-export function actorSpriteSubjects(pixels:Uint8ClampedArray,width:number,height:number,columns:number,rows:number):ActorSpriteSubject[]{
+export function actorSpriteSubjects(pixels:Uint8ClampedArray,width:number,height:number,columns:number,rows:number,source='unnamed sprite sheet'):ActorSpriteSubject[]{
+ if(!Number.isInteger(width)||!Number.isInteger(height)||columns<1||rows<1||width<columns||height<rows||pixels.length!==width*height*4)
+  throw new Error(`Invalid directional sprite dimensions: ${source}.`);
  const labels=new Uint32Array(width*height),queue=new Int32Array(width*height);
  const components:Array<{region:SpriteRegion;count:number;label:number}>=[];
  for(let start=0;start<labels.length;start++){
@@ -79,7 +86,28 @@ export function actorSpriteSubjects(pixels:Uint8ClampedArray,width:number,height
  }
  components.sort((a,b)=>b.count-a.count);
  const main=components.slice(0,columns*rows);
- if(main.length!==columns*rows||main.some(c=>c.count<100))throw new Error('Directional sheet does not contain the expected complete actors.');
+ if(main.length!==columns*rows||main.some(c=>c.count<100)){
+  // Connected-component counts are not a reliable measure of the number of
+  // authored poses: swords can touch their neighboring pose, while detached
+  // limbs/effects can form separate components. Keep the existing complete-
+  // silhouette algorithm for valid sheets, but recover ambiguous sheets by
+  // extracting each declared cell independently instead of aborting startup.
+  let recovered:ActorSpriteSubject[];
+  try {
+   recovered=actorSpriteGridSubjects(pixels,width,height,columns,rows,
+    {rejectEdgeFragments:true,keepDetachedDetails:true});
+  } catch(error){
+   throw new Error(`Unable to prepare ${source}: ${error instanceof Error?error.message:String(error)}`);
+  }
+  const incomplete=recovered.findIndex(actor=>{
+   let opaque=0;
+   for(let i=3;i<actor.pixels.length;i+=4)if(actor.pixels[i]>64&&++opaque>=100)break;
+   return opaque<100;
+  });
+  if(incomplete>=0)throw new Error(`Incomplete directional artwork in ${source}: pose ${incomplete+1} of ${columns*rows} has too few visible pixels.`);
+  console.warn(`[sprite art] ${source}: ${main.length}/${columns*rows} distinct full poses; recovered ${recovered.length} poses from their authored grid.`);
+  return recovered;
+ }
  const owners=new Map<number,number>(main.map(c=>[c.label,c.label]));
  // Keep nearby disconnected details (a claw or weapon tip) with their subject.
  for(const extra of components.slice(columns*rows)){
