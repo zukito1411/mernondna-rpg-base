@@ -122,7 +122,10 @@ public class SaveFilesPlugin extends Plugin {
             staged.delete();
             resolveExport(call, bytes, filename);
         } catch (Exception error) {
-            if (uri != null) getContext().getContentResolver().delete(uri, null, null);
+            if (uri != null) {
+                try { getContext().getContentResolver().delete(uri, null, null); }
+                catch (Exception ignored) { /* Preserve original write failure. */ }
+            }
             call.reject("Could not save verified backup to Downloads: " + error.getMessage());
         }
     }
@@ -142,7 +145,8 @@ public class SaveFilesPlugin extends Plugin {
             staged.delete();
             resolveExport(call, bytes, call.getString("filename", "backup.json"));
         } catch (Exception error) {
-            getContext().getContentResolver().delete(data.getData(), null, null);
+            try { getContext().getContentResolver().delete(data.getData(), null, null); }
+            catch (Exception ignored) { /* Keep reporting the primary error. */ }
             call.reject("Could not export verified backup: " + error.getMessage());
         }
     }
