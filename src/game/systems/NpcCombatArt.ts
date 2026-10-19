@@ -5,6 +5,7 @@ import {NPC_IDLE_ART,npcIdleBodyHeight} from '../../data/npcIdleArt';
 import type {SpriteAnimation} from '../../data/animationPacks';
 import {actorSpriteSubjects} from './spriteComponents';
 import {spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 
 export function npcCombatSourceKey(spec:NpcCombatSpec,index:number){return `npc-combat-source:${spec.id}:${index}`;}
 /** Complete isolated poses, never stitched body parts. One body calibration per
@@ -43,17 +44,23 @@ export function prepareNpcCombatSheet(scene:Phaser.Scene,spec:NpcCombatSpec):Spr
     const input=inputs[vertical?1:state==='walk'?(spec.walkSource??0):0],row=vertical?(direction==='up'?1:0):(state==='walk'?spec.walkRows!:spec.attackRows)[directionIndex];
     const mirrored=Boolean(spec.mirrorLeft&&direction==='left');
     const start=(state==='walk'?4:0)*spec.frames+directionIndex*spec.frames;
+    const order=vertical&&spec.id==='huntress'?[0,1,3,0]:state==='attack'?spec.attackOrder:undefined;
+    const side=state==='attack'&&(direction==='left'||direction==='right');
+    const sourceIndex=(pose:number)=>side&&spec.sideFrames?spec.sideFrames[pose]:row*input.file.columns+(order?.[pose]??pose);
+    const requestedFit=input.fit/(input.file.rowBodyRatios?.[row]??1)/(state==='attack'?(spec.attackBodyRatio??1):1);
+    const fit=fitAtlasPoses(requestedFit,sheet.frameWidth,sheet.frameHeight,ground,
+      Array.from({length:spec.frames},(_,pose)=>{
+        const index=sourceIndex(pose);
+        return {region:input.subjects[index].region,
+          rootX:input.roots[index][0],rootY:input.roots[index][1]};
+      }));
     for(let pose=0;pose<spec.frames;pose++){
       // The huntress's vertical sheet releases on its fourth source pose; recovery
       // returns to the complete ready pose, never another draw/false release.
-      const order=vertical&&spec.id==='huntress'?[0,1,3,0]:state==='attack'?spec.attackOrder:undefined;
-      const side=state==='attack'&&(direction==='left'||direction==='right');
-      const index=side&&spec.sideFrames?spec.sideFrames[pose]:row*input.file.columns+(order?.[pose]??pose);
+      const index=sourceIndex(pose);
       const subject=input.subjects[index],[left,top,width,height]=subject.region,[rootX,rootY]=input.roots[index];
-      const fit=input.fit/(input.file.rowBodyRatios?.[row]??1)/(state==='attack'?(spec.attackBodyRatio??1):1);
       const x=sheet.frameWidth/2+(left-rootX)*fit,y=ground+(top-rootY)*fit;
-      if(x<2||y<2||x+width*fit>sheet.frameWidth-2||y+height*fit>sheet.frameHeight-2)
-        throw new Error(`NPC complete pose exceeds its frame: ${spec.id}/${state}/${direction}/${pose}`);
+      // One fitted scale covers every pose in this direction and state.
       const frame=start+pose,cx=frame%columns*(fw+2*gutter)+gutter,cy=Math.floor(frame/columns)*(fh+2*gutter)+gutter;
       ctx.save();ctx.translate(cx+(mirrored?fw:0),cy);if(mirrored)ctx.scale(-1,1);
       ctx.drawImage(spriteSubjectCanvas(subject),x*d,y*d,width*fit*d,height*fit*d);ctx.restore();
