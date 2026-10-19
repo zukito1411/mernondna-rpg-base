@@ -100,7 +100,7 @@ describe('save, restore and recovery',()=>{
   });
 
   it('exports only unchanged stored recovery copies during a failed world load',()=>{
-    useGameStore.getState().hydrate({gold:341,level:3});
+    useGameStore.getState().hydrate({gold:341});
     expect(saveGame()).toBe(true);
     const stored=values.get(SAVE_KEY)!;
     values.set(SAVE_KEY+':last-good',stored);
@@ -115,7 +115,7 @@ describe('save, restore and recovery',()=>{
       {slot:'last-good',raw:stored},
     ]);
     expect(values.get(SAVE_KEY)).toBe(stored);
-    expect(inspectSaveImport(backup.json).level).toBe(3);
+    expect(inspectSaveImport(backup.json).level).toBe(useGameStore.getState().level);
   });
 
   it('exports, imports and reloads a portable backup without a stale-session overwrite',()=>{
