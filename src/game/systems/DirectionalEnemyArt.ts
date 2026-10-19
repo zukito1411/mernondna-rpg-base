@@ -15,7 +15,7 @@ export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]
   const sourceCanvas=document.createElement('canvas');sourceCanvas.width=source.width;sourceCanvas.height=source.height;
   const sourceCtx=sourceCanvas.getContext('2d',{willReadFrequently:true})!;sourceCtx.drawImage(source,0,0);
   const pixels=sourceCtx.getImageData(0,0,source.width,source.height).data;
-  const subjects=actorSpriteSubjects(pixels,source.width,source.height,columns,4),regions=subjects.map(s=>s.region);
+  const subjects=actorSpriteSubjects(pixels,source.width,source.height,columns,4,art.sourcePath),regions=subjects.map(s=>s.region);
   const cells=Array.from({length:frameCount},(_,i)=>{
    const x=Math.floor(i%columns*source.width/columns),y=Math.floor(Math.floor(i/columns)*source.height/4);
    const w=Math.floor((i%columns+1)*source.width/columns)-x,h=Math.floor((Math.floor(i/columns)+1)*source.height/4)-y;
