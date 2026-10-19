@@ -215,7 +215,13 @@ export class BootScene extends Phaser.Scene {
   }
 
   /** Shared production packer; focused art reviews may load only hero sheets. */
-  prepareRegisteredSheets(sheets:typeof ART_SHEETS=ART_SHEETS){
+  private async yieldArtworkFrame(){
+    // Flush canvas uploads and let Android WebView process input/GC between
+    // atlas batches instead of monopolizing its UI thread for all assets.
+    await new Promise<void>(resolve=>window.setTimeout(resolve,0));
+  }
+
+  async prepareRegisteredSheets(sheets:typeof ART_SHEETS=ART_SHEETS){
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
     const remainingSources=new Map<string,number>();
     for(const sheet of sheets.filter(s=>s.key!=='walls'))
@@ -227,7 +233,11 @@ export class BootScene extends Phaser.Scene {
     const heroGrounds=new Map<string,number>();
     const drawEnemyPose=createSpriteCropper();
 
+    let sheetsPrepared=0;
+    const totalSheets=sheets.filter(s=>s.key!=='walls').length;
     for (const sheet of sheets.filter(s => s.key !== 'walls')) {
+      if(!this.sys.isActive())return loaded;
+      this.registry.set('loadingStage',`Preparing sprite sheets ${++sheetsPrepared}/${totalSheets}`);
       // Some multi-source sheets use a descriptive path that is not itself
       // queued as an image. The first registered frame source is the correct
       // reference for those sheets; never accept Phaser's missing placeholder.
@@ -509,11 +519,22 @@ export class BootScene extends Phaser.Scene {
           if(this.textures.exists(`source:${path}`))this.textures.remove(`source:${path}`);
         }
       }
+      if(sheetsPrepared%2===0)await this.yieldArtworkFrame();
     }
     return loaded;
   }
 
   create() {
+    void this.finishStartup().catch(error=>{
+      if(!this.sys.isActive())return;
+      const stage=this.registry.get('loadingStage');
+      const detail=error instanceof Error?error.message:String(error);
+      console.error('[startup] Failed while',stage,error);
+      this.registry.set('assetError',`Art preparation failed during ${String(stage??'startup')}: ${detail}. The stored save has not been changed.`);
+    });
+  }
+
+  private async finishStartup() {
     // Check registered textures *before* reporting generic file failures;
     // a single missing sprite can be repaired without discarding the save.
     if(this.repairSpriteSources())return;
@@ -527,7 +548,9 @@ export class BootScene extends Phaser.Scene {
       });
       return;
     }
-    this.registry.set('loadingStage','Preparing character art');
+    this.registry.set('loadingStage','Preparing essential artwork');
+    await this.yieldArtworkFrame();
+    if(!this.sys.isActive())return;
     registerAttackWarningFrames(this);
     prepareCombatArtEffects(this);
     prepareCombatArtEffects(this,DISTINCT_EFFECT_TEXTURE,'distinct-art-effect');
@@ -536,9 +559,14 @@ export class BootScene extends Phaser.Scene {
 
     prepareVehicleArt(this);
     prepareDragonBreathArt(this);
-    const loaded=this.prepareRegisteredSheets();
+    await this.yieldArtworkFrame();
+    if(!this.sys.isActive())return;
+    const loaded=await this.prepareRegisteredSheets();
+    if(!this.sys.isActive())return;
 
-    this.registry.set('loadingStage','Finalizing animations');
+    this.registry.set('loadingStage','Preparing wildlife and enemy animations');
+    await this.yieldArtworkFrame();
+    if(!this.sys.isActive())return;
     prepareRabbitArt(this);
     prepareSquirrelArt(this);
     prepareWoodlandBirdArt(this);
@@ -547,6 +575,9 @@ export class BootScene extends Phaser.Scene {
     prepareRefinedEnemyArt(this);
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
     prepareBanditCombatArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.sys.isActive())return;
+    this.registry.set('loadingStage','Preparing boss and companion artwork');
     const saltKingAnimations=prepareSaltKingArt(this);
     const pirateAnimations=preparePirateArt(this);
     prepareBoatswainArt(this);
@@ -559,6 +590,8 @@ export class BootScene extends Phaser.Scene {
     for(const art of NPC_WALK_ART)this.textures.remove(art.walk);
     const guardMarchAnimations=prepareGuardMarchArt(this);
     const npcCombatAnimations=prepareNpcCombatArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.sys.isActive())return;
     prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
@@ -591,16 +624,24 @@ export class BootScene extends Phaser.Scene {
       });
     }
     prepareSlashWeaponEffect(this);
+    await this.yieldArtworkFrame();
+    if(!this.sys.isActive())return;
     // All derived layers are ready. Repack runtime atlases with clear sampling
     // gutters; terrain and tile textures are deliberately excluded.
-    for(const key of this.textures.getTextureKeys()){
+    const atlasKeys=this.textures.getTextureKeys();
+    let optimized=0;
+    for(const key of atlasKeys){
+      if(!this.sys.isActive())return;
+      this.registry.set('loadingStage',`Optimizing atlases ${++optimized}/${atlasKeys.length}`);
       const texture=this.textures.get(key);
       if(key!=='terrain'&&texture instanceof Phaser.Textures.CanvasTexture){
         isolateAtlasFrames(texture);
         // Palette indices address atlas pixels; cache them after final packing.
         applySkillWeaponPalette(this,key,undefined,true);
       }
+      if(optimized%3===0)await this.yieldArtworkFrame();
     }
+    if(!this.sys.isActive())return;
     this.registry.set('loadingStage','Preparing world');
     this.scene.start('world');
   }
