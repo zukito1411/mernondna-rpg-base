@@ -34,6 +34,12 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
    travelRequest:townId,travelRequestSource:'map'});
   // Exercise the real gameplay teleport rather than mutating physics position.
   (scene as unknown as {handleShrineTravel:()=>void}).handleShrineTravel();
+  const travel={position:{x:scene.player.x,y:scene.player.y},
+   region:(scene as unknown as {worldGenerator:{getRegionAt:(x:number,y:number)=>string}})
+    .worldGenerator.getRegionAt(scene.player.x,scene.player.y),
+   notice:useGameStore.getState().toast,
+   interiorPosition:(scene as unknown as {interiors:{safePosition:unknown}}).interiors.safePosition,
+   requestedDestination:townId};
   const dayNight=(scene as unknown as {dayNight:{minuteOfDay:number;sleepUntilMorning:()=>boolean}}).dayNight;
   dayNight.minuteOfDay=19*60;
   if(!dayNight.sleepUntilMorning())throw new Error('Inn-time sleep failed in resume fixture');
@@ -41,9 +47,9 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
   if(!saveGame())throw new Error('Progressed save was rejected');
   const saved=JSON.parse(localStorage.getItem('mernondna-save-v1')!);
   return {region:saved.state.regionId,day:saved.state.day,gold:saved.state.gold,
-   bosses:saved.state.defeatedBosses,clock:saved.state.minuteOfDay};
+   bosses:saved.state.defeatedBosses,clock:saved.state.minuteOfDay,travel};
  },TOWN_BY_ID.redmesa.id);
- expect(initial.region).toBe('rindass');
+ expect(initial.region,JSON.stringify(initial.travel)).toBe('rindass');
  expect(initial.gold).toBe(5000);
  expect(initial.bosses).toContain('captain-varr');
  expect(initial.clock).toBe(360);
