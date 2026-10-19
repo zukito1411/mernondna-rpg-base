@@ -22,7 +22,7 @@ export function prepareNpcDirectionalIdleArt(scene:Phaser.Scene):SpriteAnimation
    poseCtx.drawImage(source.source.image as CanvasImageSource,source.cutX,source.cutY,fw,fh,0,0,fw,fh);
    // Preserve the whole actor and attached weapon; discard source-row debris
    // such as a neighboring boot above the royal guard's back-facing head.
-   const subject=actorSpriteSubjects(poseCtx.getImageData(0,0,fw,fh).data,fw,fh,1,1)[0];
+   const subject=actorSpriteSubjects(poseCtx.getImageData(0,0,fw,fh).data,fw,fh,1,1,`NPC idle: ${art.walk}`)[0];
    const clean=spriteSubjectCanvas(subject),[left,top,width,height]=subject.region;
    const bounds={left:left/sheet.density,top:top/sheet.density,width:width/sheet.density,height:height/sheet.density};
    // Reuse the four breath poses on the exhale instead of storing duplicates.
