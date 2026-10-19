@@ -13,8 +13,7 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
  await page.goto('/?e2e');
  await page.getByRole('button',{name:'Start New Game',exact:true}).click();
  await ready(page);
- const skip=page.getByRole('button',{name:/Skip scene/});
- if(await skip.isVisible())await skip.click();
+ await page.getByRole('button',{name:/Skip scene/}).click({timeout:30000});
 
  const initial=await page.evaluate(async (destination)=>{
   const {useGameStore}=await import('/src/store/gameStore.ts');
