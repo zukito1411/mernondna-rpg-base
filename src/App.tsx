@@ -25,6 +25,8 @@ import {ContractBoard} from './components/ContractBoard';
 
 export default function App() {
   const [playing, setPlaying] = useState(false);
+  // Continue must not write a checkpoint until Phaser has a playable world.
+  const [worldReady, setWorldReady] = useState(false);
   const [canContinue, setCanContinue] = useState(hasSavedGame);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
   const resetGame = useGameStore(state => state.resetGame);
@@ -44,7 +46,7 @@ export default function App() {
   },[]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || !worldReady) return;
     // Periodic autosave, plus progress-triggered saves and a checkpoint
     // whenever the player opens the pause menu.
     const interval = window.setInterval(saveGame, 12000);
@@ -72,11 +74,12 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('freeze',onPageHide);
     };
-  }, [playing]);
+  }, [playing, worldReady]);
 
   const continueGame = () => {
     if (loadGame()) {
       setMenuMessage(null);
+      setWorldReady(false);
       setPlaying(true);
       return;
     }
@@ -95,6 +98,7 @@ export default function App() {
     if (!saveGame()) setMenuMessage('The new game started, but could not be saved on this device.');
     else setMenuMessage(null);
     setCanContinue(true);
+    setWorldReady(false);
     setPlaying(true);
   };
 
@@ -110,7 +114,12 @@ export default function App() {
       if(event.target instanceof Element&&event.target.closest('.overlay-backdrop,.dialogue-wrap,.cinematic-presentation'))event.stopPropagation();
     }}>
       {playing ? <>
-        <GameCanvas />
+        <GameCanvas onReady={() => setWorldReady(true)} onExit={() => {
+          // Unmount Phaser without saving a partially initialized world.
+          setWorldReady(false);
+          setPlaying(false);
+          setCanContinue(hasSavedGame());
+        }} />
         <HUD />
         <MobileControls />
         <SafeDialoguePanel />
