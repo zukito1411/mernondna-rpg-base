@@ -23,9 +23,8 @@ export function prepareNpcWalkArt(scene:Phaser.Scene):SpriteAnimation[]{
     const modelHeight=npcIdleSilhouetteHeight(idle);
     // All frames share the front contact's scale, not a separate stretch per pose.
     const requestedFit=modelHeight/subjects[0].region[3];
-    const fit=fitAtlasPoses(requestedFit,ART_BY_KEY[npcWalkTexture(spec.walk)!].frameWidth,
-      ART_BY_KEY[npcWalkTexture(spec.walk)!].frameHeight,
-      ART_BY_KEY[npcWalkTexture(spec.walk)!].frameHeight-ART_BY_KEY[npcWalkTexture(spec.walk)!].groundPadding!,
+    const fit=fitAtlasPoses(requestedFit,sheet.frameWidth,sheet.frameHeight,
+      sheet.frameHeight-sheet.groundPadding!,
       Array.from({length:12},(_,index)=>{
         const sourceRow=Math.floor(index/4),pose=index%4;
         const bounds=subjects.slice(sourceRow*4,sourceRow*4+4).map(actor=>actor.region[1]+actor.region[3]).sort((a,b)=>a-b);
