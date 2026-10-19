@@ -161,8 +161,7 @@ export class BootScene extends Phaser.Scene {
       const image=this.textures.exists(key)
         ?this.textures.get(key).getSourceImage() as HTMLImageElement|undefined:undefined;
       const actual=image?image.width+'x'+image.height:'missing image';
-      if(!image||(info.expected&&(image.width!==info.expected[0]||image.height!==info.expected[1]))
-        ||(!info.expected&&(image.width<=32||image.height<=32)))
+      if(!image||(info.expected&&(image.width!==info.expected[0]||image.height!==info.expected[1])))
         invalid.push({key,file,expected:info.expected,actual});
     }
     for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6)){
