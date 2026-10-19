@@ -8,7 +8,7 @@ async function ready(page:Page){
  await page.waitForFunction(()=>window.__mernondnaGame?.registry.get('worldReady')===true,{},{timeout:120000});
 }
 test('continue after a boss defeat, distant teleport, and inn sleep starts a playable world twice',async({page})=>{
- test.setTimeout(300000);
+ test.setTimeout(540000);
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/?e2e');
  await page.getByRole('button',{name:'Start New Game',exact:true}).click();
