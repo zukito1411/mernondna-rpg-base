@@ -21,7 +21,7 @@ const LOADING_QUOTES=[
 export function GameCanvas() {
   const ref = useRef<HTMLDivElement>(null);
   const [error,setError]=useState<string|null>(null);
-  const [loading,setLoading]=useState({ready:false,progress:0});
+  const [loading,setLoading]=useState({ready:false,progress:0,stage:'Loading artwork'});
   const [quoteIndex,setQuoteIndex]=useState(()=>Math.floor(Math.random()*LOADING_QUOTES.length));
 
   useEffect(() => {
@@ -55,6 +55,7 @@ export function GameCanvas() {
       const assetError=game.registry.get('assetError');
       if(typeof assetError==='string'){setError(assetError);return;}
       const progress=game.registry.get('loadingProgress');
+      const stage=game.registry.get('loadingStage');
       const ready=game.registry.get('worldReady')===true;
       if(ready){
         setError(null);
@@ -71,8 +72,12 @@ export function GameCanvas() {
         const stage=game.registry.get('loadingStage');
         setError(`Loading stalled during ${typeof stage==='string'?stage:'game startup'}. Retry or refresh game files without deleting your save.`);
       }
-      setLoading(current=>current.ready===ready&&current.progress===progress?current:
-        {...current,ready,progress:typeof progress==='number'?progress:current.progress});
+      setLoading(current=>{
+        const nextProgress=typeof progress==='number'?progress:current.progress;
+        const nextStage=typeof stage==='string'?stage:current.stage;
+        return current.ready===ready&&current.progress===nextProgress&&current.stage===nextStage?current:
+          {ready,progress:nextProgress,stage:nextStage};
+      });
     },100);
     return () => {window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);window.removeEventListener('keydown',onInteractKey);document.removeEventListener('visibilitychange',onVisible);
       if (window.__mernondnaGame === game) delete window.__mernondnaGame; game?.destroy(true); };
@@ -96,6 +101,7 @@ export function GameCanvas() {
         <div className="game-loading-track" role="progressbar" aria-label="Loading game" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
           <span style={{width:`${progress}%`}}/>
         </div>
+        <small className="game-loading-stage" aria-live="polite" style={{opacity:.75,fontSize:12,letterSpacing:'.02em'}}>{loading.stage}</small>
       </div>
     </div>}
     {error&&<div className="startup-failure" role="alert"><h2>Game initialization stopped</h2><p>{error}</p><p>Your save was not deleted.</p><button onClick={()=>window.location.reload()}>Retry opening</button><button onClick={()=>{void refreshOfflineGameFiles();}}>Refresh game files (keeps save)</button></div>}</>;
