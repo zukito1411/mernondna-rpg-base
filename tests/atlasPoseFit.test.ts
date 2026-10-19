@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {fitAtlasPoses,type AtlasPose} from '../src/game/systems/atlasPoseFit';
+import {fitAtlasPoses,atlasGroundY,type AtlasPose} from '../src/game/systems/atlasPoseFit';
 
 function bounds(pose:AtlasPose,fit:number,width:number,ground:number){
  const [x,y,w,h]=pose.region;
@@ -8,9 +8,9 @@ function bounds(pose:AtlasPose,fit:number,width:number,ground:number){
 }
 describe('resilient boot-time sprite atlas geometry',()=>{
  const width=192,height=144,ground=142;
- const safe=(poses:AtlasPose[],fit:number,pad=2)=>{
+ const safe=(poses:AtlasPose[],fit:number,pad=2,origin=ground)=>{
   for(const pose of poses){
-   const b=bounds(pose,fit,width,ground);
+   const b=bounds(pose,fit,width,origin);
    expect(b.left).toBeGreaterThanOrEqual(pad-.0001);
    expect(b.right).toBeLessThanOrEqual(width-pad+.0001);
    expect(b.top).toBeGreaterThanOrEqual(pad-.0001);
@@ -43,7 +43,7 @@ describe('resilient boot-time sprite atlas geometry',()=>{
    {region:[0,0,90,100],rootX:45,rootY:70}
   ];
   const fit=fitAtlasPoses(1,width,height,ground,poses);
-  safe(poses,fit);
+  safe(poses,fit,2,atlasGroundY(ground,height,poses,fit));
  });
  it('calculates a common per-animation fit regardless of pose order',()=>{
   const poses:AtlasPose[]=[
@@ -56,7 +56,8 @@ describe('resilient boot-time sprite atlas geometry',()=>{
  it('accounts for source roots and frames with non-bottom alignment',()=>{
   const poses:AtlasPose[]=[{region:[90,30,170,120],rootX:140,rootY:90}];
   const fit=fitAtlasPoses(.8,width,height,112,poses,3);
-  const b=bounds(poses[0],fit,width,112);
+  const origin=atlasGroundY(112,height,poses,fit,3);
+  const b=bounds(poses[0],fit,width,origin);
   expect(b.left).toBeGreaterThanOrEqual(3);
   expect(b.top).toBeGreaterThanOrEqual(3);
   expect(b.bottom).toBeLessThanOrEqual(height-3);
