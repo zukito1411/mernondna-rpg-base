@@ -14,15 +14,26 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
  await page.getByRole('button',{name:'Start New Game',exact:true}).click();
  await ready(page);
  await page.getByRole('button',{name:/Skip scene/}).click({timeout:30000});
+ // The opening cinematic may temporarily own the interior-safe position.
+ await page.waitForFunction(async()=>{
+  const {useGameStore}=await import('/src/store/gameStore.ts');
+  const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
+  const state=useGameStore.getState();
+  const interiors=(scene as unknown as {interiors:{safePosition:unknown}}).interiors;
+  return !state.cinematic&&!state.pendingCinematic&&!interiors.safePosition;
+ },null,{timeout:30000});
 
- const initial=await page.evaluate(async (destination)=>{
+ const initial=await page.evaluate(async (townId:string)=>{
   const {useGameStore}=await import('/src/store/gameStore.ts');
   const {saveGame}=await import('/src/utils/save.ts');
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
   const store=useGameStore.getState();
   store.markBossDefeated('captain-varr');
-  store.hydrate({gold:5000});
-  scene.player.restoreAt(destination.x,destination.y);
+  store.hydrate({gold:5000,
+   unlockedTownShrines:[...new Set([...store.unlockedTownShrines,townId])],
+   travelRequest:townId,travelRequestSource:'map'});
+  // Exercise the real gameplay teleport rather than mutating physics position.
+  (scene as unknown as {handleShrineTravel:()=>void}).handleShrineTravel();
   const dayNight=(scene as unknown as {dayNight:{minuteOfDay:number;sleepUntilMorning:()=>boolean}}).dayNight;
   dayNight.minuteOfDay=19*60;
   if(!dayNight.sleepUntilMorning())throw new Error('Inn-time sleep failed in resume fixture');
@@ -31,7 +42,7 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
   const saved=JSON.parse(localStorage.getItem('mernondna-save-v1')!);
   return {region:saved.state.regionId,day:saved.state.day,gold:saved.state.gold,
    bosses:saved.state.defeatedBosses,clock:saved.state.minuteOfDay};
- },TOWN_BY_ID.redmesa.world);
+ },TOWN_BY_ID.redmesa.id);
  expect(initial.region).toBe('rindass');
  expect(initial.gold).toBe(5000);
  expect(initial.bosses).toContain('captain-varr');
