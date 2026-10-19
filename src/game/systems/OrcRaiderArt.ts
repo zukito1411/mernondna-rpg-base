@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {ART_BY_KEY,HERO_VISIBLE_HEIGHT} from '../../data/art';
 import {actorSpriteSubjects} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 
 const COMBAT_SOURCE='rindass-orc-raider:actions';
 const COMBAT_TEXTURE='enemy_orc_raider';
@@ -14,7 +15,7 @@ export function prepareOrcRaiderCombatArt(scene:Phaser.Scene){
  const walkCanvas=document.createElement('canvas');walkCanvas.width=walk.width;walkCanvas.height=walk.height;
  const walkContext=walkCanvas.getContext('2d',{willReadFrequently:true})!;walkContext.drawImage(walk,0,0);
  const walkSubjects=actorSpriteSubjects(walkContext.getImageData(0,0,walk.width,walk.height).data,walk.width,walk.height,7,4);
- const fit=HERO_VISIBLE_HEIGHT/walkSubjects[0].region[3];
+ const desiredFit=HERO_VISIBLE_HEIGHT/walkSubjects[0].region[3];
  const source=scene.textures.get(COMBAT_SOURCE).getSourceImage() as HTMLImageElement;
  const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
  const context=canvas.getContext('2d',{willReadFrequently:true})!;context.drawImage(source,0,0);
@@ -23,17 +24,21 @@ export function prepareOrcRaiderCombatArt(scene:Phaser.Scene){
  const fw=sheet.frameWidth*sheet.density,fh=sheet.frameHeight*sheet.density;
  const texture=scene.textures.createCanvas(COMBAT_TEXTURE,columns*fw,Math.ceil(subjects.length/columns)*fh)!;
  const ctx=texture.getContext(),drawPose=createSpriteCropper();
- ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
- subjects.forEach((subject,index)=>{
-  const [rx,ry,w,h]=subject.region;let sum=0,weight=0;
-  const footStart=Math.floor(h*.84);
-  for(let py=footStart;py<h;py++)for(let px=0;px<w;px++){
+ const roots=subjects.map(subject=>{
+  const [rx,,w,h]=subject.region;let sum=0,weight=0;
+  for(let py=Math.floor(h*.84);py<h;py++)for(let px=0;px<w;px++){
    const alpha=subject.pixels[(py*w+px)*4+3];if(alpha>128){sum+=px*alpha;weight+=alpha;}
   }
-  const root=weight?sum/weight:w/2,frameX=index%columns*fw,frameY=Math.floor(index/columns)*fh;
+  return rx+(weight?sum/weight:w/2);
+ });
+ const fit=fitAtlasPoses(desiredFit,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),
+  subjects.map((subject,i)=>({region:subject.region,rootX:roots[i],rootY:subject.region[1]+subject.region[3]})));
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+ subjects.forEach((subject,index)=>{
+  const [rx,ry,w,h]=subject.region,root=roots[index]-rx;
+  const frameX=index%columns*fw,frameY=Math.floor(index/columns)*fh;
   const drawX=fw/2-root*fit*sheet.density,drawY=fh-(sheet.groundPadding??2)*sheet.density-h*fit*sheet.density;
-  if(drawX<4||drawY<4||drawX+w*fit*sheet.density>fw-4||drawY+h*fit*sheet.density>fh-4)
-   throw new Error(`Complete Rindass raider combat pose exceeds its padded cell: ${index}`);
+  // One uniform safe fit retains the full motion, including the longest weapon reach.
   ctx.save();ctx.beginPath();ctx.rect(frameX,frameY,fw,fh);ctx.clip();
   drawPose(ctx,spriteSubjectCanvas(subject),[0,0,w,h],frameX+drawX,frameY+drawY,w*fit*sheet.density,h*fit*sheet.density);ctx.restore();
   const frame=texture.add(index,0,frameX,frameY,fw,fh);
