@@ -15,15 +15,14 @@ test('lethal damage finishes on the next frame and respawns in the local region'
  test.setTimeout(120000);
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await worldReady(page);
- const death=await page.evaluate(()=>{
+ const death=await page.evaluate((destination)=>{
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
-  const town=TOWN_BY_ID.elarion;
-  scene.player.restoreAt(town.world.x,town.world.y);
+  scene.player.restoreAt(destination.x,destination.y);
   scene.player.hp=1;
   scene.player.takeDamage(999999);
   // Death may only request a transition, never destroy current combat actors.
   return {hp:scene.player.hp,x:scene.player.x,y:scene.player.y};
- });
+ },TOWN_BY_ID.elarion.world);
  expect(death.hp).toBe(0);
  await expect.poll(()=>page.evaluate(()=>{
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
@@ -48,14 +47,13 @@ test('lethal damage finishes on the next frame and respawns in the local region'
 test('a death near another Trandum town does not force the Oakmere spawn',async({page})=>{
  test.setTimeout(120000);
  await worldReady(page);
- await page.evaluate(()=>{
+ await page.evaluate((destination)=>{
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
-  const town=TOWN_BY_ID.highmere;
-  scene.player.restoreAt(town.world.x,town.world.y);
+  scene.player.restoreAt(destination.x,destination.y);
   scene.player.hp=1;
   scene.player.takeDamage(999999);
- });
- await expect(page.locator('.status-card')).toContainText('Highmere',{timeout:60000});
+ },TOWN_BY_ID.willowcross.world);
+ await expect(page.locator('.status-card')).toContainText('Willowcross',{timeout:60000});
  await expect.poll(()=>page.evaluate(()=>{
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
   return scene.player.hp>0&&!scene.physics.world.isPaused;
