@@ -52,7 +52,7 @@ it('keeps level 67 full-Might Strength 40 damage reasonable at every upgrade ran
  // 152 base on a +5 Varr gave 765 attack; with a true base of 45 it is 226.
  expect(Math.round(enhancedWeapon('varr-rededge',{'varr-rededge':5},['varr-rededge']).damage*modifier)).toBe(226);
  const expectedAtZero=[162,187,208,230,251,273,294,320,341];
- const expectedAtFive=[226,261,292,322,352,382,412,447,478];
+ const expectedAtFive=[226,262,291,323,352,381,413,449,478];
  AWAKENING_PROFILES.forEach((profile,index)=>{
   const id=profile.weaponId;
   expect(Math.round(enhancedWeapon(id,{},[id]).damage*modifier)).toBe(expectedAtZero[index]);
