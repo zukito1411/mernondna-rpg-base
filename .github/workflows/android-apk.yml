@@ -91,6 +91,11 @@ jobs:
       # compilation. Unit, artwork and browser regression tests stay available
       # in the repository, but no longer hold up every APK publication.
 
+      # Fast, pure geometry regression: prevents a single wide death pose
+      # from blocking startup without launching the game or a browser.
+      - name: Check startup sprite fitting (fast)
+        run: npm test -- tests/atlasPoseFit.test.ts
+
       - name: Build web assets and sync Android
         run: npm run cap:android:refresh
 
