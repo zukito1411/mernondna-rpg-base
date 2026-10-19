@@ -4,7 +4,7 @@ import {ENEMIES} from '../src/data/enemies';
 import {ART_BY_KEY,NPC_ANIMATIONS} from '../src/data/art';
 import {NPC_IDLE_ART} from '../src/data/npcIdleArt';
 import {GUARD_MARCH_ART,GUARD_MARCH_FRAME_GUTTER,guardMarchFrameOrigin} from '../src/data/guardMarchArt';
-import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorTravelDirection,enemyLocomotionKey} from '../src/data/directionalEnemyArt';
+import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorTravelDirection,enemyLocomotionKey,validDirectionalSourceSize} from '../src/data/directionalEnemyArt';
 import {actorSpriteGridSubjects,actorSpriteSubjects} from '../src/game/systems/spriteComponents';
 import {PIRATE_SPECIES,PIRATE_TEXTURE,PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../src/data/pirateArt';
 import {SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH} from '../src/data/saltKingArt';
@@ -42,6 +42,12 @@ describe('complete actor walking coverage',()=>{
   const subjects=actorSpriteGridSubjects(pixels,width,height,2,2);
   expect(subjects).toHaveLength(4);
   expect(subjects.map(subject=>subject.region)).toEqual([[3,1,3,3],[9,1,3,3],[3,5,3,3],[9,5,3,3]]);
+ });
+ it('rejects unloaded Phaser placeholders without rejecting original enemy art',()=>{
+  expect(validDirectionalSourceSize(32,32,5)).toBe(false);
+  expect(validDirectionalSourceSize(32,32,7)).toBe(false);
+  expect(validDirectionalSourceSize(1402,1122,5)).toBe(true);
+  expect(validDirectionalSourceSize(1659,948,7)).toBe(true);
  });
  it('recovers a full directional sheet when adjacent character silhouettes touch',()=>{
   const width=64,height=48,pixels=new Uint8ClampedArray(width*height*4);
