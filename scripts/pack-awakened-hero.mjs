@@ -19,7 +19,12 @@ if(uprightRunRequested){
  const packed=spawnSync(process.execPath,['scripts/pack-compact-side-run.mjs',...(selectedForms??[])],{stdio:'inherit'});
  if(packed.status!==0)throw Error('Upright running preparation failed');
 }
-if(selectedStates?.every(s=>nativeStates.includes(s)||s==='run-side'))process.exit(0);
+const rearRequested=!selectedStates||selectedStates.includes('walk-up');
+if(rearRequested){
+ const packed=spawnSync(process.execPath,['scripts/pack-awakened-rear.mjs',...(selectedForms??[])],{stdio:'inherit'});
+ if(packed.status!==0)throw Error('Cape-covered rear preparation failed');
+}
+if(selectedStates?.every(s=>nativeStates.includes(s)||s==='run-side'||s==='walk-up'))process.exit(0);
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const report=[];
 const force=process.argv.includes('--force');
@@ -34,7 +39,7 @@ try{
   const root=`public/assets/characters/leigneron/awakened/${slug}`;
   const manifest=JSON.parse(await readFile(root+'/manifest-v1.json','utf8'));
   for(const state of states){
-   if(nativeStates.includes(state)||state==='run-side')continue;
+   if(nativeStates.includes(state)||state==='run-side'||state==='walk-up')continue;
    if(selectedStates&&!selectedStates.includes(state))continue;
    const output=root+'/'+state+'-atlas-v1.png';
    const candidates=[4,3,2,1].flatMap(version=>[root+'/'+state+`-v${version}.png`,`docs/art/awakening-source/${slug}/${state}-v${version}.png`]);

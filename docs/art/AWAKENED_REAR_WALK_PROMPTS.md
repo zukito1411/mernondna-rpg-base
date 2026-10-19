@@ -6,6 +6,37 @@ a `walk-up-v4.layout.json` declaring three columns and two rows. Whole subjects
 are isolated before packing, so approximate cell spacing never crops a neighbor.
 Older v1/v2 sources remain.
 
+## Front-idle cape correction (v5)
+
+Only Warden, Iron-Tusk, Salt King and Varkhul receive `walk-up-v5.png` masters
+and matching 3-by-2 layout files. Other outfits retain their approved v4 rear.
+These four had the largest rear/front cape-width discrepancies at equal body
+height. The built-in image tool redraws the cape rather than squeezing the
+whole character or changing runtime body scale.
+
+Edit prompt set: image 1 is the existing v4 rear-walk sheet; image 2 is the
+same outfit's actual front-idle atlas. Change only cape tailoring: reduce
+widest-hem flare by approximately 18% for Warden, 15% for Iron-Tusk, 18% for
+Salt King and 21% for Varkhul. Match the front-idle cloak width at equal
+head-to-boot height. Preserve head, hood/hat, shoulders, torso, total height,
+ankle-length hem, boots, six alternating foot poses, original palette, piping,
+embroidery and rear motif. Arms/hands remain hidden under the cloth. Retain
+the detailed outlined pixel-RPG style, restrained walking cloth sway, six
+complete rear-facing poses in three columns by two rows, generous clear
+gutters and actual transparency. No sword, floor, shadow, labels, glow or
+costume redesign. Never shrink the whole body or stretch individual limbs.
+
+Salt King and Varkhul also received a targeted follow-up using the narrowed
+rear as target and the base `walk_up.png` as the walking reference: preserve
+the narrowed cloth exactly while drawing distinct small left-contact, passing,
+right-contact and opposite push-off poses. Both boots must exist in every
+complete pose (one may be partly covered); do not repeat one centered boot.
+Retain covered arms, proportions, transparency and all costume details.
+
+The rear packer prefers v5 when present and preserves every other manifest
+state. Old masters remain for recovery. No game/browser tests or builds are
+run for this correction; rendered gameplay still needs manual verification.
+
 The authoritative anatomy/pose reference is
 `public/assets/characters/leigneron/walk_up.png`. Its WebP counterpart was also
 inspected. Each outfit's existing `walk-down-v1.png` and `walk-side-v1.png` are

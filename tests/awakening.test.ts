@@ -24,14 +24,14 @@ it('gives every final form its own stronger technique without changing ordinary 
  }
  expect(enhancedWeapon('roadwarden-sword',{})).toBe(WEAPON_BY_ID['roadwarden-sword']);
 });
-it.each([false,true])('rolls a fixed 25% heart drop and prevents duplicate rewards (ascended=%s)',ascended=>{
- expect(AWAKENING_HEART_DROP_CHANCE).toBe(.25);
- const roll=vi.spyOn(Math,'random').mockReturnValue(.25);
+it.each([false,true])('rolls a fixed 50% heart drop and prevents duplicate rewards (ascended=%s)',ascended=>{
+ expect(AWAKENING_HEART_DROP_CHANCE).toBe(.5);
+ const roll=vi.spyOn(Math,'random').mockReturnValue(.5);
  useGameStore.setState({storyFlags:ascended?{[WORLD_ASCENSION]:true}:{}});
  useGameStore.getState().recordEnemyDefeat('bandit-captain',0,0,'captain-varr');
  expect(useGameStore.getState().bossHearts).toEqual({});
  useGameStore.getState().resetGame();useGameStore.setState({storyFlags:ascended?{[WORLD_ASCENSION]:true}:{}});
- roll.mockReturnValue(.249999);
+ roll.mockReturnValue(.499999);
  useGameStore.getState().recordEnemyDefeat('bandit-captain',0,0,'captain-varr');
  expect(useGameStore.getState().bossHearts['captain-varr']).toBe(1);
  useGameStore.getState().recordEnemyDefeat('bandit-captain',0,0,'captain-varr');

@@ -1,6 +1,6 @@
 // Asset preparation, NOT a gameplay/browser test. No game/dev server is opened.
 // Only walk-up is replaced; all front, side, idle and combat states are retained.
-import {readFile,writeFile} from 'node:fs/promises';
+import {access,readFile,writeFile} from 'node:fs/promises';
 import {registerHooks} from 'node:module';
 import {readRgbaPng,writeRgbaPng} from './lib/png-rgba.mjs';
 import {registerHeroBodyFrames,HERO_BODY_HEIGHT,HERO_BODY_REGISTRATION_VERSION} from '../src/data/heroBodyRegistration.ts';
@@ -43,8 +43,12 @@ function drawPose(target,atlasWidth,pose,dx,dy,scale){
   if(alpha>0){const at=(y*atlasWidth+x)*4;for(let c=0;c<3;c++)target[at+c]=Math.round(rgb[c]/alpha);target[at+3]=Math.round(alpha);}
  }
 }
+const writes=[];
 for(const slug of slugs){
- const root=`public/assets/characters/leigneron/awakened/${slug}/`,source=`docs/art/awakening-source/${slug}/walk-up-v4.png`;
+ const root=`public/assets/characters/leigneron/awakened/${slug}/`,sourceRoot=`docs/art/awakening-source/${slug}/`;
+ let sourceVersion=4;
+ try{await access(sourceRoot+'walk-up-v5.png');sourceVersion=5;}catch(error){if(error.code!=='ENOENT')throw error;}
+ const source=sourceRoot+`walk-up-v${sourceVersion}.png`;
  const image=readRgbaPng(await readFile(source)),poses=actorSpriteSubjects(image.pixels,image.width,image.height,3,2);
  if(poses.some(p=>p.region[0]<=1||p.region[1]<=1||p.region[0]+p.region[2]>=image.width-1||p.region[1]+p.region[3]>=image.height-1))throw Error('Source pose touches outer image edge: '+slug);
  const heights=poses.map(p=>p.region[3]);
@@ -72,10 +76,13 @@ for(const slug of slugs){
  }
  frames=registerHeroBodyFrames('walk-up',frames,bounds,density);
  const spec={width:atlasWidth,height:atlasHeight,frames,preparationVersion:1,bodyRegistrationVersion:HERO_BODY_REGISTRATION_VERSION,
-  sourceVersion:4,rearPoseReference:'assets/characters/leigneron/walk_up.png',coveredArms:true};
+  sourceVersion,rearPoseReference:'assets/characters/leigneron/walk_up.png',coveredArms:true,
+  ...(sourceVersion>=5?{capeReference:'idle-front',capeFit:'restrained-hem'}:{})};
  const manifest=JSON.parse(await readFile(root+'manifest-v1.json','utf8'));manifest.states['walk-up']=spec;
- await writeFile(root+'walk-up-atlas-v1.png',writeRgbaPng(atlasWidth,atlasHeight,pixels));
- await writeFile(root+'walk-up-registration-v1.json',JSON.stringify(spec));
- await writeFile(root+'manifest-v1.json',JSON.stringify(manifest));
+ writes.push([root+'walk-up-atlas-v1.png',writeRgbaPng(atlasWidth,atlasHeight,pixels)]);
+ writes.push([root+'walk-up-registration-v1.json',JSON.stringify(spec)]);
+ writes.push([root+'manifest-v1.json',JSON.stringify(manifest)]);
  console.log('Prepared cape-covered rear walk:',slug,`${atlasWidth}x${atlasHeight}`);
 }
+// Do not publish a partially prepared selection if a later source is invalid.
+for(const [path,data] of writes)await writeFile(path,data);

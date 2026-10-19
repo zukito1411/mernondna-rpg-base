@@ -32,7 +32,7 @@ export function NpcServices({npcId}:{npcId:string}){
    {smith&&<details>
      <summary>Boss weapon forge · Enhance & awaken · {ownedBossWeapons.length} owned</summary>
      <p>A duplicate of the same boss weapon is needed for each enhancement. Each rank adds 8% base damage, 2% faster attack recovery and +1 percentage point status chance. Maximum +{MAX_WEAPON_UPGRADE}. No gold cost.</p>
-     <p>Boss hearts have a 25% drop chance per victory. Three matching hearts awaken an owned boss weapon. No level-75 breakthrough or World Ascension is required.</p>
+     <p>Boss hearts have a 50% drop chance per victory. Three matching hearts awaken an owned boss weapon. No level-75 breakthrough or World Ascension is required.</p>
      {!ownedBossWeapons.length&&<p>Find a boss weapon first. Extra copies become forge materials instead of being automatically sold.</p>}
      {ownedBossWeapons.map(id=>{
        const rank=weaponUpgradeRank(id,upgrades),qty=materials[id]??0,weapon=enhancedWeapon(id,upgrades,awakened),profile=AWAKENING_BY_WEAPON[id],final=awakened.includes(id);

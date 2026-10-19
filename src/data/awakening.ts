@@ -3,7 +3,7 @@ import type {WeaponProc} from './weaponProfiles';
  * item ID. Duplicate enhancement ranks and all old equipment saves survive. */
 export const AWAKENING_HEART_COST=3;
 /** Fixed per eligible boss victory, regardless of level, luck or breakthrough. */
-export const AWAKENING_HEART_DROP_CHANCE=.25;
+export const AWAKENING_HEART_DROP_CHANCE=.5;
 export const MAX_BOSS_HEARTS=99;
 export interface AwakeningProfile {bossId:string;weaponId:string;slug:string;name:string;form:string;heart:string;color:number;description:string}
 export const AWAKENING_PROFILES:readonly AwakeningProfile[]=[
