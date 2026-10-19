@@ -506,6 +506,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    try {
     this.nextImpactSoundAt=0;this.nextCombatShakeAt=0;this.knockbackBudgetUntil=0;this.knockbackBudget=0;
     this.registry.set('loadingStage','Creating world actors');
     this.shuttingDown=false;
@@ -755,6 +756,15 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.game.events.once(Phaser.Core.Events.POST_RENDER,()=>{
       if(this.sys.isActive())this.registry.set('worldReady',true);
     });
+    } catch (error) {
+      const stage=this.registry.get('loadingStage');
+      const detail=error instanceof Error?error.message:String(error);
+      console.error('[startup] WorldScene construction failed at',stage,error);
+      // A failed scene construction can be swallowed by the engine's lifecycle.
+      // Publish the failure to React, where the stored-save export stays usable.
+      this.registry.set('assetError',`World startup failed while ${String(stage??'preparing the world')}: ${detail}. Your save remains available for export.`);
+      setSaveSnapshotProvider();
+    }
   }
 
   update(time: number, delta: number) {
