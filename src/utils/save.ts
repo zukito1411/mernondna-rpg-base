@@ -723,7 +723,7 @@ export interface SaveBackupExport { filename:string; json:string; copies:number;
 export interface SaveImportPreview { raw:string; savedAt:string; level:number; source:string; }
 const MAX_IMPORT_BYTES=64*1024*1024;
 
-export function createSaveBackupExport():SaveBackupExport {
+export function createSaveBackupExport(includeLiveSession=true):SaveBackupExport {
   const copies:{slot:string;raw:string}[]=[];
   for(const key of RECOVERY_KEYS){
     const raw=localStorage.getItem(key);
@@ -731,7 +731,7 @@ export function createSaveBackupExport():SaveBackupExport {
   }
   // Even if a broken world record prevents an autosave, export the live
   // session as evidence for later recovery. Never overwrite disk to do so.
-  if(syncSnapshot){
+  if(includeLiveSession&&syncSnapshot){
     try{copies.push({slot:'current-session',raw:serializeCurrentSaveSnapshot()});}
     catch(error){console.warn('[save] Live snapshot unavailable for backup:',error);}
   }
