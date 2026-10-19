@@ -74,8 +74,10 @@ export function GameCanvas({onReady,onExit}:{onReady:()=>void;onExit:()=>void}) 
         stalled=true;
         const stage=game.registry.get('loadingStage');
         const stages=game.scene.scenes.map(scene=>`${scene.scene.key}:${scene.sys.settings.status}`).join(', ');
-        console.error('[startup] stalled', {stage,scenes:stages,progress});
-        setError(`Loading did not finish during ${typeof stage==='string'?stage:'game startup'} (scenes: ${stages}). Export your save below before retrying. Your progress has not been reset.`);
+        const lastAsset=game.registry.get('loadingLastAsset');
+        console.error('[startup] stalled', {stage,scenes:stages,progress,lastAsset});
+        const file=typeof lastAsset==='string'&&lastAsset.length<160?` Last asset: ${lastAsset}.`:'';
+        setError(`Loading did not finish during ${typeof stage==='string'?stage:'game startup'} (scenes: ${stages}).${file} Export your save below before retrying. Your progress has not been reset.`);
       }
       setLoading(current=>{
         const nextProgress=typeof progress==='number'?progress:current.progress;
