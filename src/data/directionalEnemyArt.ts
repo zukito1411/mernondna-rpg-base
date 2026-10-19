@@ -15,6 +15,10 @@ export const DIRECTIONAL_ENEMY_ART=[
  {species:9,id:'rindass-orc-spearman',texture:'enemy_orc_spearman',walkTexture:'enemy_walk_orc_spearman',
   sourcePath:'assets/enemies/rindass_orc_range/walk.png',sourceColumns:7,framesPerDirection:7,frameCount:28,frameWidth:160,frameHeight:128},
 ] as const;
+/** Reject Phaser's tiny missing-texture placeholder before silhouette extraction. */
+export function validDirectionalSourceSize(width:number,height:number,columns:number):boolean {
+ return Number.isInteger(width)&&Number.isInteger(height)&&width>=columns*80&&height>=400;
+}
 export function enemyLocomotionKey(species:number,state:'idle'|'walk',direction:ActorDirection){
  return `enemy:${species}:${state}:${direction}`;
 }
