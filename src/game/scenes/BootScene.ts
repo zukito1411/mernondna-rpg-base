@@ -372,13 +372,13 @@ export class BootScene extends Phaser.Scene {
         // Segment once per board and copy ONLY owned pixels, never neighboring art.
         const spearmanBoard=sheet.key==='enemy_orc_spearman_actions'||sheet.key==='enemy_orc_spearman_states';
         if(spearmanBoard&&data&&!spearmanSubjects){
-          spearmanSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4);
+          spearmanSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4,`${sheet.key}: ${packed?.path??sheet.path}`);
           const neutral=this.textures.get('enemy_orc_spearman').get(0).customData as {visibleBounds:{height:number}};
           spearmanFit=neutral.visibleBounds.height/spearmanSubjects[0].region[3];
         }
         const subject=spearmanSubjects?.[frame];
         if(sheet.key==='leigneron_attack'&&data&&!attackSubjects){
-          attackSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4);
+          attackSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4,`${sheet.key}: ${packed?.path??sheet.path}`);
           attackFits=Array.from({length:4},(_,direction)=>HERO_VISIBLE_HEIGHT/heroReferenceHeight(
             [0,5].map(i=>attackSubjects![direction*6+i].region[3])));
           attackGrounds=Array.from({length:4},(_,direction)=>Math.max(...attackSubjects!.slice(direction*6,direction*6+6).map(s=>s.region[1]+s.region[3])));
