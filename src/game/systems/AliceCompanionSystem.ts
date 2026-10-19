@@ -15,6 +15,7 @@ import {companionPath} from './companionNavigation';
 import {approachVelocity} from './locomotion';
 import {aliceTravelRemark} from '../../data/aliceTravelRemarks';
 import {AliceSpeechBubble} from './AliceSpeechBubble';
+import {companionCameraFilter} from './companionVisibility';
 
 const FOLLOW_SIDES=[46,-46,24,-24,0] as const;
 const COMBAT_TURNS=[0,.6,-.6,1.2,-1.2] as const;
@@ -139,7 +140,10 @@ export class AliceCompanionSystem {
       this.location=location;this.contact?.destroy();this.contact=null;
       if(this.scene.inInterior)this.contact=this.scene.addInteriorContact(npc);
     }
-    npc.setCompanionCamera(player.cameraFilter);npc.setVisible(true);
+    // The awakened-hero renderer hides only the ORIGINAL player sprite via
+    // main-camera filtering; inheriting that bit makes Alice invisible.
+    npc.setCompanionCamera(companionCameraFilter(player.cameraFilter,this.scene.cameras.main.id));
+    npc.setVisible(true);
     const previous=this.previousPlayer??player;
     const distanceMoved=Math.hypot(player.x-previous.x,player.y-previous.y);
     const playerSpeed=Math.min(310,distanceMoved/Math.max(.001,step/1000));
