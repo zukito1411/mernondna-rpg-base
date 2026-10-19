@@ -99,6 +99,25 @@ describe('save, restore and recovery',()=>{
     expect(saveGame()).toBe(false);expect(values.get(SAVE_KEY)).toBe('{broken');
   });
 
+  it('exports only unchanged stored recovery copies during a failed world load',()=>{
+    useGameStore.getState().hydrate({gold:341,level:3});
+    expect(saveGame()).toBe(true);
+    const stored=values.get(SAVE_KEY)!;
+    values.set(SAVE_KEY+':last-good',stored);
+    let touchedWorld=false;
+    setSaveSnapshotProvider(()=>{touchedWorld=true;throw new Error('world still loading');});
+    const backup=createSaveBackupExport(false);
+    const archive=JSON.parse(backup.json);
+    expect(touchedWorld).toBe(false);
+    expect(backup.copies).toBe(2);
+    expect(archive.copies).toEqual([
+      {slot:'primary',raw:stored},
+      {slot:'last-good',raw:stored},
+    ]);
+    expect(values.get(SAVE_KEY)).toBe(stored);
+    expect(inspectSaveImport(backup.json).level).toBe(3);
+  });
+
   it('exports, imports and reloads a portable backup without a stale-session overwrite',()=>{
     useGameStore.getState().hydrate({gold:123});expect(saveGame()).toBe(true);
     const exported=createSaveBackupExport(),preview=inspectSaveImport(exported.json);
