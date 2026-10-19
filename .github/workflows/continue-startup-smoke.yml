@@ -1,0 +1,41 @@
+name: Continued-save startup regression
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/game/scenes/WorldScene.ts'
+      - 'src/game/systems/ChunkManager.ts'
+      - 'tests/browser/continueAfterProgress.spec.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: continue-startup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  continue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify continued saved gameplay in Chromium
+        run: npm run test:browser -- tests/browser/continueAfterProgress.spec.ts
+      - name: Keep failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continued-save-failure
+          path: test-results/
+          if-no-files-found: ignore
