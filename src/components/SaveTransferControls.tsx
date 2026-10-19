@@ -3,7 +3,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { createSaveBackupExport, importSaveBackup, inspectSaveImport } from '../utils/save';
 
 interface SaveFilesNative {
-  exportJson(options:{filename:string;content:string}):Promise<{saved:boolean}>;
+  exportJson(options:{filename:string;content:string}):Promise<{saved:boolean;bytes:number}>;
   importJson():Promise<{content:string}>;
 }
 const NativeSaveFiles=registerPlugin<SaveFilesNative>('SaveFiles');
@@ -25,8 +25,10 @@ export function SaveTransferControls({exportOnly=false,storedOnly=false}:{export
       if(Capacitor.isNativePlatform()){
         // ACTION_CREATE_DOCUMENT asks the player where to store the file;
         // it does not depend on WebView blob-download support.
-        await NativeSaveFiles.exportJson({filename:backup.filename,content:backup.json});
-        setMessage(`Backup saved to your selected folder (${backup.copies} copies).`);
+        const result=await NativeSaveFiles.exportJson({filename:backup.filename,content:backup.json});
+        const expected=new TextEncoder().encode(backup.json).length;
+        if(!result.saved||result.bytes!==expected)throw new Error(`Backup verification failed (expected ${expected} bytes, found ${result.bytes??0}). Your game save has not been changed.`);
+        setMessage(`Verified ${result.bytes.toLocaleString()}-byte backup in your selected folder (${backup.copies} copies).`);
         return;
       }
       const file=new File([backup.json],backup.filename,{type:'application/json'});
