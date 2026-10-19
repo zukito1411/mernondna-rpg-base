@@ -296,7 +296,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);
     scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });
-    if (this.hp <= 0) scene.respawnPlayer();
+    if (this.hp <= 0) scene.requestPlayerRespawn();
   }
 
   restoreAt(x: number, y: number) {
@@ -312,6 +312,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.stamina = this.maxStamina;
     (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     this.weaponDrawnRemaining=0;
+    this.clearTint();
     this.updateSwordVisual();
   }
 
