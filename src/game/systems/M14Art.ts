@@ -4,6 +4,7 @@ import {ART_BY_KEY} from '../../data/art';
 import type {M14ArtSpec} from '../../data/m14Art';
 import {actorSpriteSubjects,type ActorSpriteSubject} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 
 export function m14Sources(spec:M14ArtSpec){
   const files=[{kind:'walk',path:`assets/enemies/${spec.folder}/${spec.boss?'walk-v2':'walk'}.png`,columns:spec.boss?4:5,rows:3},
@@ -42,13 +43,15 @@ export function prepareM14Art(scene:Phaser.Scene,spec:M14ArtSpec){
     if(!falling&&spec.species!==14)for(let y=start;y<end;y++)for(let x=0;x<w;x++){
       const alpha=subject.pixels[(y*w+x)*4+3];if(alpha>128){sum+=x*alpha;weight+=alpha;}
     }
-    const root=weight?sum/weight:w/2,left=sheet.frameWidth/2-root*fit,top=sheet.frameHeight-sheet.groundPadding!-h*fit;
-    if(left<2||top<2||left+w*fit>sheet.frameWidth-2)throw new Error(`Complete ${spec.id} pose exceeds padded cell ${frame}`);
+    const root=weight?sum/weight:w/2;
+    const safeFit=fitAtlasPoses(fit,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-sheet.groundPadding!,
+      [{region:subject.region,rootX:subject.region[0]+root,rootY:subject.region[1]+h}]);
+    const left=sheet.frameWidth/2-root*safeFit,top=sheet.frameHeight-sheet.groundPadding!-h*safeFit;
     const x=frame%columns*fw,y=Math.floor(frame/columns)*fh;
     ctx.save();if(mirror){ctx.translate(x+fw,y);ctx.scale(-1,1);}
-    draw(ctx,spriteSubjectCanvas(subject),[0,0,w,h],(mirror?0:x)+left*sheet.density,(mirror?0:y)+top*sheet.density,w*fit*sheet.density,h*fit*sheet.density);ctx.restore();
-    texture.add(frame,0,x,y,fw,fh)!.customData={fullSprite:true,isolatedSubject:true,...sources.get(subject),foreignProbes:subject.foreignProbes,sourceRegion:subject.region,sourceFit:fit,sourceMirrored:mirror,
-      visibleBounds:{left:mirror?sheet.frameWidth-left-w*fit:left,top,width:w*fit,height:h*fit}};
+    draw(ctx,spriteSubjectCanvas(subject),[0,0,w,h],(mirror?0:x)+left*sheet.density,(mirror?0:y)+top*sheet.density,w*safeFit*sheet.density,h*safeFit*sheet.density);ctx.restore();
+    texture.add(frame,0,x,y,fw,fh)!.customData={fullSprite:true,isolatedSubject:true,...sources.get(subject),foreignProbes:subject.foreignProbes,sourceRegion:subject.region,sourceFit:safeFit,sourceMirrored:mirror,
+      visibleBounds:{left:mirror?sheet.frameWidth-left-w*safeFit:left,top,width:w*safeFit,height:h*safeFit}};
   };
   for(const [row,sourceRow] of [0,1,1,2].entries()){
     const mirror=row===1,walk=sourceRow*(spec.boss?4:5),actions=sourceRow*6;
