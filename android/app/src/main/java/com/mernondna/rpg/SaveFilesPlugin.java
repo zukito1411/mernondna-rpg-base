@@ -17,6 +17,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Arrays;
 
 /**
  * Save backup file access through Android's Storage Access Framework.
@@ -38,7 +40,7 @@ public class SaveFilesPlugin extends Plugin {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("application/json");
         intent.putExtra(Intent.EXTRA_TITLE, filename);
-        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivityForResult(call, intent, "writeDocument");
     }
 
@@ -52,15 +54,40 @@ public class SaveFilesPlugin extends Plugin {
         }
         Uri uri = data.getData();
         byte[] bytes = call.getString("content", "").getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < 32) {
+            call.reject("Save export received empty content. Existing saves were not changed.");
+            return;
+        }
         try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
             if (output == null) throw new IllegalStateException("Cannot open the selected document.");
             output.write(bytes);
             output.flush();
-            JSObject response = new JSObject();
-            response.put("saved", true);
-            call.resolve(response);
         } catch (Exception error) {
             call.reject("Could not write the backup: " + error.getMessage());
+            return;
+        }
+        // The Android document picker may create a zero-byte document when the
+        // provider fails to persist the buffered write. Verify its size/hash
+        // before telling the player that the backup was successful.
+        try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IllegalStateException("Cannot re-open exported document.");
+            MessageDigest checksum = MessageDigest.getInstance("SHA-256");
+            byte[] expected = checksum.digest(bytes);
+            checksum.reset();
+            byte[] buffer = new byte[8192];
+            int read, written = 0;
+            while ((read = input.read(buffer)) != -1) {
+                checksum.update(buffer, 0, read);
+                written += read;
+            }
+            if (written != bytes.length || !Arrays.equals(checksum.digest(), expected))
+                throw new IllegalStateException("Exported document did not retain its contents.");
+            JSObject response = new JSObject();
+            response.put("saved", true);
+            response.put("bytes", written);
+            call.resolve(response);
+        } catch (Exception error) {
+            call.reject("Could not verify the exported backup: " + error.getMessage());
         }
     }
 
