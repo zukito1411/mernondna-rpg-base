@@ -26,7 +26,8 @@ describe('rare boss weapons and matching duplicate enhancements',()=>{
   it.each([[.249,true],[.25,false]])('uses the real drop boundary at roll %s',(roll,drops)=>{
     vi.spyOn(Math,'random').mockReturnValue(roll);defeat();
     expect(useGameStore.getState().inventory.includes('varr-rededge')).toBe(drops);
-    expect(useGameStore.getState().rareLootQueue).toHaveLength(drops?1:0);
+    // Heart and armor rewards are independent rolls; check only this boss weapon.
+    expect(useGameStore.getState().rareLootQueue.filter(n=>n.weaponId==='varr-rededge')).toHaveLength(drops?1:0);
   });
   it('keeps one owned weapon, consumes exactly one matching duplicate and applies the upgrade',()=>{
     useGameStore.getState().hydrate({inventory:['roadwarden-sword','varr-rededge','stonejaw-edge'],
@@ -50,9 +51,9 @@ describe('rare boss weapons and matching duplicate enhancements',()=>{
     vi.spyOn(Math,'random').mockReturnValue(0);
     useGameStore.getState().hydrate({inventory:['roadwarden-sword','varr-rededge']});defeat();
     expect(useGameStore.getState().bossMaterials['varr-rededge']).toBe(1);
-    expect(useGameStore.getState().rareLootQueue[0]).toMatchObject({weaponId:'varr-rededge',kind:'material'});
+    expect(useGameStore.getState().rareLootQueue.find(n=>n.weaponId==='varr-rededge')).toMatchObject({weaponId:'varr-rededge',kind:'material'});
     defeat();expect(useGameStore.getState().bossMaterials['varr-rededge']).toBe(1);
-    expect(useGameStore.getState().rareLootQueue).toHaveLength(1);
+    expect(useGameStore.getState().rareLootQueue.filter(n=>n.weaponId==='varr-rededge')).toHaveLength(1);
   });
   it('rejects another weapon’s material, missing service access and upgrades beyond +5',()=>{
     useGameStore.getState().hydrate({inventory:['roadwarden-sword','varr-rededge'],bossMaterials:{'stonejaw-edge':2}});
