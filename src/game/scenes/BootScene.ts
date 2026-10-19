@@ -203,6 +203,12 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    // Large source PNGs can decode simultaneously on Android WebView,
+    // exhausting graphics memory while Continue is still loading artwork.
+    // Limit parallel image decodes without modifying any visual assets.
+    if(/Android/i.test(navigator.userAgent))this.load.maxParallelDownloads=4;
+    this.registry.set('loadingLastAsset','Waiting for first asset');
+    this.load.on('filecomplete',(key:string)=>this.registry.set('loadingLastAsset',key));
     this.load.image(SWORD_SOURCE,'assets/items/equipment-v1.png');
     loadAwakenedSwords(this);
     this.load.image(COMBAT_EFFECT_TEXTURE,'assets/effects/combat-arts-v1.png');
@@ -213,6 +219,7 @@ export class BootScene extends Phaser.Scene {
     this.registry.set('loadingStage','Loading artwork');
     this.load.on('progress',(progress:number)=>this.registry.set('loadingProgress',progress));
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      this.registry.set('loadingLastAsset',String(file.key)+' (load error)');
       if (file.type === 'audio') {
         console.warn(`[audio] Could not load ${file.url}`);
         return;
