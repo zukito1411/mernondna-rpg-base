@@ -37,6 +37,7 @@ import { CHUNK_SIZE, STREAM_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from '../../data
 import { useGameStore } from '../../store/gameStore';
 import { seededRandom } from '../../utils/seededRandom';
 import { saveGame, setSaveSnapshotProvider } from '../../utils/save';
+import {BOOT_OPTIONAL_AUDIO_ASSETS} from '../../data/bootOptionalAudio';
 import {authoritativeSavePosition} from '../systems/authoritativeSavePosition';
 import { mobileInput } from '../input';
 import { Enemy } from '../entities/Enemy';
@@ -755,7 +756,22 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.notify('Oakmere is open to explore. Follow the eastern road and speak with Edmund beyond the farms.');
     this.registry.set('loadingStage','Waiting for first frame');
     this.game.events.once(Phaser.Core.Events.POST_RENDER,()=>{
-      if(this.sys.isActive())this.registry.set('worldReady',true);
+      if(!this.sys.isActive())return;
+      this.registry.set('worldReady',true);
+      // Optional sound effects must not prevent the first playable frame.
+      // All combat callers already skip sounds absent from the audio cache.
+      // Decode them AFTER the world is playable, with limited concurrency
+      // to protect cold Android WebView startups.
+      this.time.delayedCall(900,()=>{
+        if(!this.sys.isActive())return;
+        this.load.maxParallelDownloads=2;
+        this.load.on('loaderror',(file:Phaser.Loader.File)=>{
+          if(file.type==='audio')console.warn('[audio] Optional effect unavailable:',file.key);
+        });
+        for(const [key,path] of BOOT_OPTIONAL_AUDIO_ASSETS)
+          if(!this.cache.audio.exists(key))this.load.audio(key,path);
+        this.load.start();
+      });
     });
     } catch (error) {
       const stage=this.registry.get('loadingStage');
