@@ -1,10 +1,9 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { createSaveBackupExport, importSaveBackup, inspectSaveImport } from '../utils/save';
+import {saveVerifiedNativeBackup,type NativeBackupBridge} from '../utils/nativeBackupFlow';
 
-interface SaveFilesNative {
-  stageExportJson(options:{content:string}):Promise<{token:string;bytes:number}>;
-  exportStagedJson(options:{filename:string;token:string}):Promise<{saved:boolean;bytes:number;filename:string}>;
+interface SaveFilesNative extends NativeBackupBridge {
   importJson():Promise<{content:string}>;
 }
 const NativeSaveFiles=registerPlugin<SaveFilesNative>('SaveFiles');
@@ -27,11 +26,7 @@ export function SaveTransferControls({exportOnly=false,storedOnly=false}:{export
         // Stage the JSON privately, then request Downloads with a tiny native
         // call. On Android 10+ this NEVER opens a document picker and therefore
         // cannot background/restart the heavy game WebView mid-export.
-        const expected=new TextEncoder().encode(backup.json).length;
-        const staged=await NativeSaveFiles.stageExportJson({content:backup.json});
-        if(staged.bytes!==expected)throw new Error('Staging did not preserve the full backup.');
-        const result=await NativeSaveFiles.exportStagedJson({filename:backup.filename,token:staged.token});
-        if(!result.saved||result.bytes!==expected)throw new Error(`Backup verification failed (expected ${expected} bytes, found ${result.bytes??0}). Original saves were not changed.`);
+        const result=await saveVerifiedNativeBackup(NativeSaveFiles,backup);
         setMessage(`Verified ${result.bytes.toLocaleString()}-byte backup: Downloads/TalesOfLeigneron/${result.filename} (${backup.copies} copies).`);
         return;
       }
