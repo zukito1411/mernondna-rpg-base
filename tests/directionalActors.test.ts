@@ -5,7 +5,7 @@ import {ART_BY_KEY,NPC_ANIMATIONS} from '../src/data/art';
 import {NPC_IDLE_ART} from '../src/data/npcIdleArt';
 import {GUARD_MARCH_ART,GUARD_MARCH_FRAME_GUTTER,guardMarchFrameOrigin} from '../src/data/guardMarchArt';
 import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorTravelDirection,enemyLocomotionKey} from '../src/data/directionalEnemyArt';
-import {actorSpriteGridSubjects} from '../src/game/systems/spriteComponents';
+import {actorSpriteGridSubjects,actorSpriteSubjects} from '../src/game/systems/spriteComponents';
 import {PIRATE_SPECIES,PIRATE_TEXTURE,PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../src/data/pirateArt';
 import {SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH} from '../src/data/saltKingArt';
 import {BOATSWAIN_SPECIES,BOATSWAIN_TEXTURE,BOATSWAIN_ANIMATIONS} from '../src/data/boatswainArt';
@@ -42,6 +42,42 @@ describe('complete actor walking coverage',()=>{
   const subjects=actorSpriteGridSubjects(pixels,width,height,2,2);
   expect(subjects).toHaveLength(4);
   expect(subjects.map(subject=>subject.region)).toEqual([[3,1,3,3],[9,1,3,3],[3,5,3,3],[9,5,3,3]]);
+ });
+ it('recovers a full directional sheet when adjacent character silhouettes touch',()=>{
+  const width=64,height=48,pixels=new Uint8ClampedArray(width*height*4);
+  const paint=(left:number,top:number,right:number,bottom:number)=>{
+   for(let y=top;y<bottom;y++)for(let x=left;x<right;x++)pixels[(y*width+x)*4+3]=255;
+  };
+  // Four 14x14 actors, with the two top-row actors connected by one sword.
+  // The old global connected-component check counted three actors and aborted.
+  for(const y of [4,28])for(const x of [8,40])paint(x,y,x+14,y+14);
+  paint(21,10,41,12);
+  const subjects=actorSpriteSubjects(pixels,width,height,2,2,'connected-test.png');
+  expect(subjects).toHaveLength(4);
+  for(let i=0;i<4;i++){
+   const [x,y,w,h]=subjects[i].region;
+   expect(x).toBeGreaterThanOrEqual(i%2*32);
+   expect(y).toBeGreaterThanOrEqual(Math.floor(i/2)*24);
+   expect(w).toBeGreaterThan(10);
+   expect(h).toBeGreaterThan(10);
+  }
+ });
+ it('reports the artwork filename and pose when a directional frame really is empty',()=>{
+  const width=64,height=48,pixels=new Uint8ClampedArray(width*height*4);
+  for(const [x,y] of [[8,4],[40,4],[8,28]])
+   for(let dy=0;dy<14;dy++)for(let dx=0;dx<14;dx++)
+    pixels[((y+dy)*width+x+dx)*4+3]=255;
+  expect(()=>actorSpriteSubjects(pixels,width,height,2,2,'missing-pose.png'))
+   .toThrow(/missing-pose\.png/);
+ });
+ it('recovers grid poses on sheets whose source width is not divisible by columns',()=>{
+  const width=65,height=49,pixels=new Uint8ClampedArray(width*height*4);
+  for(const y of [5,30])for(const x of [9,42])
+   for(let dy=0;dy<14;dy++)for(let dx=0;dx<14;dx++)
+    pixels[((y+dy)*width+x+dx)*4+3]=255;
+  for(let x=22;x<43;x++)pixels[(11*width+x)*4+3]=255;
+  const subjects=actorSpriteSubjects(pixels,width,height,2,2,'odd-width.png');
+  expect(subjects).toHaveLength(4);
  });
  it('drops disconnected debris above a grid-isolated guard pose',()=>{
   const width=32,height=32,pixels=new Uint8ClampedArray(width*height*4);
