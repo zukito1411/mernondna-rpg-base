@@ -7,7 +7,7 @@ import {WORLD_ASCENSION} from '../src/data/breakthrough';
 import {enhancedWeapon,weaponUpgradeRank,enhancedProcChance} from '../src/data/weaponUpgrades';
 import {WEAPON_PROFILES} from '../src/data/weaponProfiles';
 import {WEAPON_BY_ID} from '../src/data/weapons';
-import {progressionStats} from '../src/data/progression';
+import {progressionStats,playerDamageGrowth,BASE_ATTRIBUTES} from '../src/data/progression';
 import {allowExplicitNewGame,setSaveSnapshotProvider,saveGame,parseSave,SAVE_KEY} from '../src/utils/save';
 
 beforeEach(()=>{
@@ -24,8 +24,8 @@ it('gives every final form its own stronger technique without changing ordinary 
  }
  expect(enhancedWeapon('roadwarden-sword',{})).toBe(WEAPON_BY_ID['roadwarden-sword']);
 });
-it('assigns ascending awakened base ATK from Varr 152 to Varkhul 220 without changing normal weapons',()=>{
- const expected=[152,161,169,178,186,195,203,212,220];
+it('balances awakened base ATK against player growth without changing normal weapons without changing normal weapons',()=>{
+ const expected=[45,52,58,64,70,76,82,89,95];
  expect(AWAKENING_PROFILES.map(p=>p.baseAttack)).toEqual(expected);
  for(const [index,profile] of AWAKENING_PROFILES.entries()){
   const id=profile.weaponId;
@@ -41,8 +41,33 @@ it('assigns ascending awakened base ATK from Varr 152 to Varkhul 220 without cha
    expect(awakened.cooldownMs).toBe(normal.cooldownMs);
   }
  }
- expect(enhancedWeapon('varr-rededge',{'varr-rededge':5},['varr-rededge']).damage).toBe(213);
- expect(enhancedWeapon('varkhul-emberfang',{'varkhul-emberfang':5},['varkhul-emberfang']).damage).toBe(308);
+ expect(enhancedWeapon('varr-rededge',{'varr-rededge':5},['varr-rededge']).damage).toBe(63);
+ expect(enhancedWeapon('varkhul-emberfang',{'varkhul-emberfang':5},['varkhul-emberfang']).damage).toBe(133);
+});
+it('keeps level 67 full-Might Strength 40 damage reasonable at every upgrade rank',()=>{
+ const attributes={...BASE_ATTRIBUTES,strength:40};
+ const talents=['heavy-strike','steady-edge','veteran-strike'] as const;
+ const modifier=progressionStats(attributes,[...talents]).damageMultiplier*playerDamageGrowth(67);
+ expect(modifier).toBeCloseTo(3.591);
+ // 152 base on a +5 Varr gave 765 attack; with a true base of 45 it is 226.
+ expect(Math.round(enhancedWeapon('varr-rededge',{'varr-rededge':5},['varr-rededge']).damage*modifier)).toBe(226);
+ const expectedAtZero=[162,187,208,230,251,273,294,320,341];
+ const expectedAtFive=[226,261,292,322,352,382,412,447,478];
+ AWAKENING_PROFILES.forEach((profile,index)=>{
+  const id=profile.weaponId;
+  expect(Math.round(enhancedWeapon(id,{},[id]).damage*modifier)).toBe(expectedAtZero[index]);
+  expect(Math.round(enhancedWeapon(id,{[id]:5},[id]).damage*modifier)).toBe(expectedAtFive[index]);
+  expect(enhancedWeapon(id,{[id]:5},[id]).damage).toBeGreaterThan(enhancedWeapon(id,{[id]:5},[]).damage);
+ });
+});
+it('caps fully ascended maximum-strength Varkhul at a predictable damage range',()=>{
+ const attributes={...BASE_ATTRIBUTES,strength:60};
+ const talents=['heavy-strike','steady-edge','veteran-strike'] as const;
+ const multiplier=progressionStats(attributes,[...talents]).damageMultiplier*playerDamageGrowth(75);
+ const damage=enhancedWeapon('varkhul-emberfang',{'varkhul-emberfang':5},['varkhul-emberfang']).damage;
+ expect(multiplier).toBeCloseTo(4.536);
+ expect(damage).toBe(133);
+ expect(Math.round(damage*multiplier)).toBe(603);
 });
 it.each([false,true])('rolls a fixed 50% heart drop and prevents duplicate rewards (ascended=%s)',ascended=>{
  expect(AWAKENING_HEART_DROP_CHANCE).toBe(.5);
