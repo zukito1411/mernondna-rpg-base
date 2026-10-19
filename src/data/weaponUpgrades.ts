@@ -17,7 +17,10 @@ export function enhancedWeapon(id:string,ledger:WeaponUpgradeLedger,awakened:rea
  const base=WEAPON_BY_ID[id]??WEAPON_BY_ID['roadwarden-sword'];
  const rank=weaponUpgradeRank(base.id,ledger);
  const final=awakenedProfile(base.id,awakened);
- return rank===0&&!final?base:{...base,name:final?.name??base.name,damage:Math.round(base.damage*(1+rank*.08)*(final?1.2:1)),
+ return rank===0&&!final?base:{...base,name:final?.name??base.name,
+   // Once awakened, enhancements continue to scale from that weapon's new
+   // base ATK, never the unawakened base nor a stacked percentage multiplier.
+   damage:Math.round((final?.baseAttack??base.damage)*(1+rank*.08)),
    cooldownMs:Math.round(base.cooldownMs*(1-rank*.02))};
 }
 export function enhancedProcChance(id:string,baseChance:number,ledger:WeaponUpgradeLedger,luck:number,awakened:readonly string[]=[]):number {
