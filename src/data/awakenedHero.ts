@@ -20,6 +20,8 @@ export const AWAKENED_HERO_STATES=[
 ] as const;
 export interface AwakenedPoseFrame {
  x:number;y:number;width:number;height:number;originX:number;originY:number;
+ /** Uniform clip calibration; independent of transparent padding and effects. */
+ bodyScale?:number;bodyOffsetY?:number;
  grip?:{x:number;y:number;angle:number;behind?:boolean};
 }
 export interface AwakenedHeroManifest {version:1;density:3;states:Record<string,{width:number;height:number;frames:AwakenedPoseFrame[]}>}

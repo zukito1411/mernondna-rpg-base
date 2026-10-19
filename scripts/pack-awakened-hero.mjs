@@ -1,10 +1,25 @@
 import {chromium} from '@playwright/test';
 import {mkdir,readFile,writeFile,access,stat} from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
 const forms=[['varr','varr-rededge'],['warden','moonlit-oathblade'],['stonejaw','stonejaw-edge'],['iron-tusk','iron-tusk-fang'],['rootfather','rootfather-thornblade'],['salt-king','salt-kings-cutlass'],['frost-wyrm','wyrm-frostedge'],['ashen-seer','seer-obsidian-edge'],['varkhul','varkhul-emberfang']];
 const states=['walk-down','walk-side','walk-up','idle-front','idle-side','run-side','attack','azure-cleave','skyfall-slam','crown-rally','crescent-flurry','ember-snare','iron-rush','iron-rush-up','iron-rush-down'];
 const selection=prefix=>process.argv.find(a=>a.startsWith(prefix))?.slice(prefix.length).split(',');
 const selectedForms=selection('--forms='),selectedStates=selection('--states=');
 if(selectedForms?.some(s=>!forms.some(([slug])=>slug===s))||selectedStates?.some(s=>!states.includes(s)))throw Error('Unknown awakening form or animation selection');
+// Complete skill masters have authored body pivots and fists, not the base
+// outfit's crop envelopes. One native authoring path owns their registration.
+const nativeStates=['azure-cleave','skyfall-slam','crown-rally','crescent-flurry','iron-rush-down'];
+const requestedNative=nativeStates.filter(s=>!selectedStates||selectedStates.includes(s));
+if(requestedNative.length){
+ const packed=spawnSync(process.execPath,['scripts/pack-cosmetic-skills.mjs',...(selectedForms??[]),'--states='+requestedNative.join(',')],{stdio:'inherit'});
+ if(packed.status!==0)throw Error('Complete skill preparation failed');
+}
+const uprightRunRequested=!selectedStates||selectedStates.includes('run-side');
+if(uprightRunRequested){
+ const packed=spawnSync(process.execPath,['scripts/pack-compact-side-run.mjs',...(selectedForms??[])],{stdio:'inherit'});
+ if(packed.status!==0)throw Error('Upright running preparation failed');
+}
+if(selectedStates?.every(s=>nativeStates.includes(s)||s==='run-side'))process.exit(0);
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const report=[];
 const force=process.argv.includes('--force');
@@ -17,11 +32,12 @@ try{
  for(const [slug,weaponId] of forms){
   if(selectedForms&&!selectedForms.includes(slug))continue;
   const root=`public/assets/characters/leigneron/awakened/${slug}`;
-  const manifest=selectedStates?JSON.parse(await readFile(root+'/manifest-v1.json','utf8')):{version:1,density:3,states:{}};
+  const manifest=JSON.parse(await readFile(root+'/manifest-v1.json','utf8'));
   for(const state of states){
+   if(nativeStates.includes(state)||state==='run-side')continue;
    if(selectedStates&&!selectedStates.includes(state))continue;
    const output=root+'/'+state+'-atlas-v1.png';
-   const candidates=[root+'/'+state+'-v2.png',`docs/art/awakening-source/${slug}/${state}-v2.png`,root+'/'+state+'-v1.png',`docs/art/awakening-source/${slug}/${state}-v1.png`];
+   const candidates=[4,3,2,1].flatMap(version=>[root+'/'+state+`-v${version}.png`,`docs/art/awakening-source/${slug}/${state}-v${version}.png`]);
    let source;for(const candidate of candidates)if(await exists(candidate)){source=candidate;break;}
    if(!source)continue;
    const previous=root+'/'+state+'-registration-v1.json';
@@ -29,7 +45,7 @@ try{
    const sourceStamp=Math.max((await stat(source)).mtimeMs,await exists(layout)?(await stat(layout)).mtimeMs:0);
    if(!force&&await exists(output)&&await exists(previous)&&(await stat(output)).mtimeMs>=sourceStamp){
     const meta=JSON.parse(await readFile(previous,'utf8'));
-    if(!['azure-cleave','skyfall-slam','crown-rally','crescent-flurry'].includes(state)||meta.preparationVersion===5){manifest.states[state]=meta;continue;}
+    if(meta.bodyRegistrationVersion===1){manifest.states[state]=meta;continue;}
    }
    try{
     const grid=await exists(layout)?JSON.parse(await readFile(layout,'utf8')):undefined;

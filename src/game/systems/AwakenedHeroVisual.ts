@@ -37,8 +37,11 @@ export class AwakenedHeroVisual{
   if(!spec||!key)return actor;
   const density=ART_BY_KEY[actor.texture.key as ArtTextureKey]?.density??heroFrameData(actor.frame).heroDensity??2;
   if(this.model.texture.key!==key||Number(this.model.frame.name)!==frame)this.model.setTexture(key,frame);
-  this.model.setOrigin(spec.originX,spec.originY)
-   .setScale(actor.scaleX*density/AWAKENED_HERO_DENSITY,actor.scaleY*density/AWAKENED_HERO_DENSITY).setPosition(actor.x,actor.y)
+  const bodyScale=spec.bodyScale??1,bodyOffsetY=spec.bodyOffsetY??0;
+  // Keep actor position/physics fixed. An adjusted origin moves the entire
+  // registered pose AND its gripping hand together, with no recrop/resampling.
+  this.model.setOrigin(spec.originX,spec.originY-bodyOffsetY*AWAKENED_HERO_DENSITY/(bodyScale*spec.height))
+   .setScale(actor.scaleX*density*bodyScale/AWAKENED_HERO_DENSITY,actor.scaleY*density*bodyScale/AWAKENED_HERO_DENSITY).setPosition(actor.x,actor.y)
    .setRotation(actor.rotation).setFlip(actor.flipX,actor.flipY).setAlpha(actor.alpha).setDepth(actor.depth).setVisible(actor.visible);
   this.model.cameraFilter=actor.cameraFilter;
   if(actor.tintFill)this.model.setTintFill(actor.tintTopLeft,actor.tintTopRight,actor.tintBottomLeft,actor.tintBottomRight);
@@ -66,6 +69,8 @@ export class AwakenedHeroVisual{
      ||!Array.isArray(state.frames)||state.frames.length!==s.frames||state.frames.some(f=>
       ![f.x,f.y,f.width,f.height].every(Number.isInteger)||f.x<0||f.y<0||f.width<=0||f.height<=0||f.x+f.width>state.width||f.y+f.height>state.height
       ||f.originX!==.5||!finite(f.originY)||Math.abs(f.originY)>8
+      ||Boolean(f.bodyScale!==undefined&&(!finite(f.bodyScale)||f.bodyScale<.5||f.bodyScale>2))
+      ||Boolean(f.bodyOffsetY!==undefined&&(!finite(f.bodyOffsetY)||Math.abs(f.bodyOffsetY)>128))
       ||Boolean(f.grip&&(![f.grip.x,f.grip.y,f.grip.angle].every(finite)||f.grip.x<0||f.grip.y<0||f.grip.x>f.width||f.grip.y>f.height)));
    }))throw new Error('Incomplete or invalid cosmetic animation registration');
    // Decode/upload at most two small prepared state atlases concurrently. Raw
@@ -86,7 +91,7 @@ export class AwakenedHeroVisual{
     if(!texture)throw new Error('Could not register cosmetic atlas');keys.set(spec.state,key);
     meta.frames.forEach((f,i)=>{
      const frame=texture.add(i,0,f.x,f.y,f.width,f.height);
-     if(frame)frame.customData={weaponGrip:f.grip,heroDensity:AWAKENED_HERO_DENSITY,visibleBounds:{left:0,top:0,width:f.width/AWAKENED_HERO_DENSITY,height:f.height/AWAKENED_HERO_DENSITY}};
+     if(frame)frame.customData={weaponGrip:f.grip,heroDensity:AWAKENED_HERO_DENSITY,heroBodyScale:f.bodyScale??1,visibleBounds:{left:0,top:0,width:f.width/AWAKENED_HERO_DENSITY,height:f.height/AWAKENED_HERO_DENSITY}};
     });
    }};
    const results=await Promise.allSettled([worker(),worker()]);

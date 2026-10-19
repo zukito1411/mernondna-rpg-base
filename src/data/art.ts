@@ -1,4 +1,5 @@
 import {NATIVE_PROP_ART,type NativePropTexture} from './nativePropArt';
+import {HERO_BODY_HEIGHT} from './heroBodyRegistration';
 import { HERO_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,TROLL_SOURCES,DRAGON_SOURCES,DRAGON_FLY_SOURCES,TROLL_IMPACT_SOURCES,DIRECTION_CLIPS,ORC_SPEARMAN_IDLE_SOURCES,ORC_SPEARMAN_ATTACK_SOURCES,ORC_SPEARMAN_STATE_SOURCES, type SpriteSource } from './animationPacks';
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
@@ -25,8 +26,9 @@ export type ArtTextureKey=SourceArtTextureKey|NpcWalkTexture|NpcDirectionalIdleT
 
 export type SpriteRegion = readonly [x: number, y: number, width: number, height: number];
 
-// Shared target for all player walking, running and idle animations.
-export const HERO_VISIBLE_HEIGHT = 76;
+// Upright player-body reference. Running keeps this source scale, not this
+// bounding height: bent knees/forward lean must not enlarge the whole body.
+export const HERO_VISIBLE_HEIGHT = HERO_BODY_HEIGHT;
 
 interface ArtSheet {
 

@@ -108,6 +108,7 @@ export interface GameState {
   skillSlots:(ActiveSkillId|null)[];
   buyItem:(npcId:string,itemId:string)=>void;
   equipWeapon:(id:string)=>void;
+  equipLocalWeaponForm:(id:string,awakened:boolean)=>void;
   usePotion:(id:PotionId)=>void;
   learnCombatArt:(id:ActiveSkillId)=>void;
   setSkillSlot:(slot:number,id:ActiveSkillId|null)=>void;
@@ -374,6 +375,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   equipWeapon:id=>set(state=>state.panel==='inventory'&&!state.dialogue&&!state.cinematic&&!state.activeSkillStatus.casting&&state.inventory.includes(id)&&Object.hasOwn(WEAPON_BY_ID,id)
     ?{weaponId:id,toast:`Equipped ${state.awakenedWeapons.includes(id)?AWAKENING_BY_WEAPON[id]?.name??WEAPON_BY_ID[id].name:WEAPON_BY_ID[id].name}.`}:{}),
+  equipLocalWeaponForm:(id,awakened)=>set(state=>{
+    const profile=AWAKENING_BY_WEAPON[id];
+    if(!localPlayCheatsEnabled()||!profile||!state.inventory.includes(id)||state.panel!=='inventory'
+      ||state.dialogue||state.cinematic||state.activeSkillStatus.casting||state.hp<=0)return {};
+    const forms=state.awakenedWeapons.filter(weaponId=>weaponId!==id);
+    return {weaponId:id,awakenedWeapons:awakened?[...forms,id]:forms,
+      toast:`Local test: equipped ${awakened?profile.name:WEAPON_BY_ID[id].name}. Enhancement rank preserved.`};
+  }),
   equipArmor:id=>set(state=>{
     const item=Object.hasOwn(ARMOR_BY_ID,id)?ARMOR_BY_ID[id]:undefined;
     if(!item||state.panel!=='inventory'||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting
@@ -658,7 +667,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       statPoints:(partial.statPoints??state.statPoints)+gained*STAT_POINTS_PER_LEVEL,
       skillPoints:(partial.skillPoints??state.skillPoints)
         +Math.max(0,skillBudget(cap)-skillBudget(level)),
-      gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id),awakenedWeapons:AWAKENING_PROFILES.map(p=>p.weaponId)};
+      gold:LOCAL_TEST_GOLD,inventory:WEAPONS.map(w=>w.id),
+      // Unlock on save hydration, but don't undo a local form selection every
+      // time weather, streaming, cinematics or UI state call hydrate().
+      awakenedWeapons:partial.awakenedWeapons!==undefined?AWAKENING_PROFILES.map(p=>p.weaponId):state.awakenedWeapons};
   }),
   resetGame: () => set(baseState()),
 }));

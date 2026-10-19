@@ -1,16 +1,11 @@
 import Phaser from 'phaser';
 import {heroFrameData} from './heroFrameData';
+import {HERO_SKILL_BODY_GUARDS} from '../../data/heroSkillBodyGuards';
 
-type Rect=readonly [number,number,number,number];
 // Authored source-space body guards for the four original skill strips.
 // Never recolor the hero's armor/skin to match a spell. New thrust/casting
 // strips have no baked energy, so their separate effect layers handle color.
-const guards:Record<string,readonly Rect[]>={
-  skill_azure_cleave:[[50,228,230,295],[380,235,260,290],[720,250,240,275],[1034,250,295,275],[1485,245,270,280],[1910,230,220,294]],
-  skill_skyfall_slam:[[55,347,220,282],[380,390,290,240],[740,190,260,325],[1080,265,230,240],[1510,400,240,230],[1900,345,245,290]],
-  skill_crown_rally:[[65,270,210,324],[400,295,230,300],[725,265,250,328],[1040,260,400,333],[1540,268,220,326],[1910,269,220,324]],
-  skill_crescent_flurry:[[60,262,250,289],[385,260,280,294],[720,277,260,272],[1090,270,280,280],[1465,285,250,270],[60,262,250,289]],
-};
+const guards=HERO_SKILL_BODY_GUARDS;
 export const skillBodyGuard=(key:string,frame:number)=>guards[key]?.[frame];
 interface Palette {indices:Uint32Array;rgb:Uint8Array;color:number|undefined}
 const palettes=new WeakMap<Phaser.Textures.CanvasTexture,Palette>();

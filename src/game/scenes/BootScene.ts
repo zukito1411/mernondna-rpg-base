@@ -4,12 +4,13 @@ import {heroFrameData} from '../systems/heroFrameData';
 import {isolateAtlasFrames} from '../systems/AtlasFrameIsolation';
 import {SWORD_SOURCE,prepareEquippedSwords,loadAwakenedSwords} from '../systems/EquippedSwordVisual';
 import {COMBAT_EFFECT_TEXTURE,DISTINCT_EFFECT_TEXTURE,prepareCombatArtEffects,prepareSlashWeaponEffect} from '../systems/CombatArtEffects';
-import {applySkillWeaponPalette} from '../systems/WeaponSkillPalette';
+import {applySkillWeaponPalette,skillBodyGuard} from '../systems/WeaponSkillPalette';
+import {heroReferenceHeight} from '../../data/heroBodyRegistration';
 import {CITIZEN_SOURCES,prepareCitizenArt} from '../systems/RegionalCitizenArt';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIBLE_HEIGHT } from '../../data/art';
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
 import { PLAYER_COMBO_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
-import { PLAYER_SKILL_ANIMATIONS } from '../../data/playerSkillArt';
+import { PLAYER_SKILL_ANIMATIONS,PLAYER_SKILL_ART } from '../../data/playerSkillArt';
 import { alphaFrameBounds,createSpriteCropper,spriteSubjectCanvas } from '../systems/spriteArt';
 import {actorSpriteSubjects,actorSpriteGridSubjects,type ActorSpriteSubject} from '../systems/spriteComponents';
 import { prepareEnvironmentLightArt } from '../systems/EnvironmentLightArt';
@@ -272,6 +273,7 @@ export class BootScene extends Phaser.Scene {
         remainingSources.set(path,(remainingSources.get(path)??0)+1);
     const loaded = new Set<string>();
     const heroFits=new Map<string,number>();
+    const sideWalkPath=sheets.find(sheet=>sheet.key==='leigneron')?.sources?.[6]?.path;
     const heroGrounds=new Map<string,number>();
     const drawEnemyPose=createSpriteCropper();
 
@@ -302,6 +304,9 @@ export class BootScene extends Phaser.Scene {
         sheet.key === 'leigneron_idle_sides' || sheet.key === 'leigneron_running';
       let spearmanSubjects:ActorSpriteSubject[]|undefined;
       let attackSubjects:ActorSpriteSubject[]|undefined;
+      let attackFits:number[]|undefined,attackGrounds:number[]|undefined;
+      let skillFit:number|undefined,skillGround:number|undefined;
+      const heroSkill=PLAYER_SKILL_ART.find(art=>art.texture===sheet.key);
       let spearmanFit:number|undefined;
 
       for (let frame = 0; frame < sheet.columns; frame++) {
@@ -372,9 +377,21 @@ export class BootScene extends Phaser.Scene {
           spearmanFit=neutral.visibleBounds.height/spearmanSubjects[0].region[3];
         }
         const subject=spearmanSubjects?.[frame];
-        if(sheet.key==='leigneron_attack'&&data&&!attackSubjects)
+        if(sheet.key==='leigneron_attack'&&data&&!attackSubjects){
           attackSubjects=actorSpriteSubjects(data.data,data.width,frameSource.height,6,4);
-        const region = subject?.region ?? (data && cell
+          attackFits=Array.from({length:4},(_,direction)=>HERO_VISIBLE_HEIGHT/heroReferenceHeight(
+            [0,5].map(i=>attackSubjects![direction*6+i].region[3])));
+          attackGrounds=Array.from({length:4},(_,direction)=>Math.max(...attackSubjects!.slice(direction*6,direction*6+6).map(s=>s.region[1]+s.region[3])));
+        }
+        if(heroSkill&&packed&&data&&skillFit===undefined){
+          // Measure only neutral body poses, never a spell's full FX extent.
+          const references=[0,5].map(i=>heroVisibleBounds(data.data,data.width,skillBodyGuard(sheet.key,i)??sheet.sources![i].cell));
+          if(references.some(r=>!r))throw new Error(`Missing neutral hero skill pose: ${sheet.key}`);
+          const bodies=references.filter((r):r is readonly [number,number,number,number]=>Boolean(r));
+          skillFit=HERO_VISIBLE_HEIGHT/heroReferenceHeight(bodies.map(r=>r[3]));
+          skillGround=Math.max(...bodies.map(r=>r[1]+r[3]));
+        }
+        const region = subject?.region ?? attackSubjects?.[frame]?.region ?? (data && cell
           ? isHeroArt
             ? heroVisibleBounds(data.data, data.width, cell)
             : alphaFrameBounds(data.data, data.width, cell)
@@ -391,16 +408,17 @@ export class BootScene extends Phaser.Scene {
           const cells=packed?sheet.sources!.filter(s=>s.path===packed.path).map((s,i)=>isHeroWalk&&wrongDimensions
             ?[Math.floor(i%6*frameSource.width/6),0,Math.floor((i%6+1)*frameSource.width/6)-Math.floor(i%6*frameSource.width/6),frameSource.height] as const:s.cell):sheet.regions!;
           const bounds=cells.map(c=>heroVisibleBounds(data.data,data.width,c)).filter((r):r is readonly [number,number,number,number]=>Boolean(r));
-          if(isHeroWalk&&wrongDimensions&&!packed?.groundAnchor)heroGrounds.set(packed?.path??sheet.path,Math.max(...bounds.map(r=>r[1]+r[3])));
-          // Registered clips can share the upright walking scale so a leaning
-          // or airborne running pose does not grow to fill the same height.
-          const registeredScale = packed?.groundAnchor ? packed.renderScale : undefined;
+          if(!packed?.groundAnchor)heroGrounds.set(packed?.path??sheet.path,Math.max(...bounds.map(r=>r[1]+r[3])));
+          // Sprint source art shares walking anatomy/source units. Its bent
+          // knees and forward lean must make it LOWER, not trigger enlargement.
+          const runFit=sheet.key==='leigneron_running'
+            ?(sideWalkPath?heroFits.get(sideWalkPath):undefined)??packed?.renderScale:undefined;
           heroFits.set(packed?.path??sheet.path,Math.min((sheet.frameWidth-4)/Math.max(...bounds.map(r=>r[2])),
-            registeredScale ?? HERO_VISIBLE_HEIGHT/Math.max(...bounds.map(r=>r[3]))));
+            runFit??HERO_VISIBLE_HEIGHT/heroReferenceHeight(bounds.map(r=>r[3]))));
         }
         const fit = isHeroArt && region
           ? heroFits.get(packed?.path??sheet.path)!
-          : spearmanFit ?? packed?.renderScale ?? (sheet.contentSize
+          : attackFits?.[Math.floor(frame/6)] ?? skillFit ?? spearmanFit ?? packed?.renderScale ?? (sheet.contentSize
             ? Math.min(
                 (sheet.frameWidth - 4) / sheet.contentSize[0],
                 (sheet.frameHeight - 4) / sheet.contentSize[1]
@@ -449,6 +467,8 @@ export class BootScene extends Phaser.Scene {
             : x + (width - drawWidth) / 2;
         const drawY = subject&&region
           ? y+height-(sheet.groundPadding??2)*sheet.density-region[3]*fit*sheet.density
+          : attackGrounds&&region
+          ? y+height-(sheet.groundPadding??2)*sheet.density+(region[1]-attackGrounds[Math.floor(frame/6)])*fit*sheet.density
           : packed?.groundAnchor && region
           ? y + height - (sheet.groundPadding??2) * sheet.density + (region[1] - packed.groundAnchor[1]) * fit * sheet.density
           // Don't reset the hero's vertical foot position from each cropped
@@ -458,7 +478,7 @@ export class BootScene extends Phaser.Scene {
           : isHeroArt
           ? y + height - 2 * sheet.density - drawHeight
           : packed?.anchor && region
-            ? y + height / 2 + (region[1] - packed.anchor[1]) * fit * sheet.density
+            ? y + height / 2 + (region[1] - (skillGround===undefined?packed.anchor[1]:skillGround-20/fit)) * fit * sheet.density
             : y + (region ? height - 2 * sheet.density - drawHeight : 0);
 
         // Tiny original pixel sprites must not be blurred by an interpolated

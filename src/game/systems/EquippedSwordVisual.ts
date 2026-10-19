@@ -79,14 +79,14 @@ export class EquippedSwordVisual{
   update(actor:Phaser.GameObjects.Sprite,stowed=false,facingUp=false){
     const state=useGameStore.getState(),id=state.weaponId,definition=WEAPON_BY_ID[id];
     const frameId=awakenedProfile(id,state.awakenedWeapons)&&this.blade.scene.textures.get(SWORD_TEXTURE).has('awakened:'+id)?'awakened:'+id:id;
-    const meta=heroFrameData(actor.frame),density=meta.heroDensity??4;
+    const meta=heroFrameData(actor.frame),density=meta.heroDensity??4,bodyScale=meta.heroBodyScale??1;
     // Back mount follows the foot-registered torso, not changing cape bounds
     // or the swinging glove. That keeps it stable throughout walking/running.
     // Rear-facing art exposes the blade over the cape; front/side art hides it
     // behind the body. This never changes the player's collision footprint.
     const grip=stowed?{
-      x:actor.width*actor.originX-9*density,
-      y:actor.height*actor.originY-54*density,
+      x:actor.width*actor.originX-9*density/bodyScale,
+      y:actor.height*actor.originY-54*density/bodyScale,
       angle:150,behind:!facingUp,
     }:meta.weaponGrip;
     if(!actor.active||actor.alpha<=0||!grip||!definition||!['sword','greatsword'].includes(definition.kind)
@@ -99,7 +99,9 @@ export class EquippedSwordVisual{
     const cos=Math.cos(actor.rotation),sin=Math.sin(actor.rotation);
     // Scale relative to the body's prepared density, not a fixed world size.
     // Skill FX bounds include halos and must never be used as body dimensions.
-    const bladeLength=36*Math.abs(actor.scaleY)*density;
+    // Registration makes every neutral body the same world height. It must
+    // not independently enlarge/shrink the equipped blade or its back mount.
+    const bladeLength=36*Math.abs(actor.scaleY)*density/bodyScale;
     const rotation=Phaser.Math.DegToRad(grip.angle)-data.nativeAngle;
     this.blade.setTexture(SWORD_TEXTURE,frameId).setFlipX(actor.flipX).setOrigin(actor.flipX?1-data.gripX:data.gripX,data.gripY)
       .setScale(bladeLength/data.bladeLength).setRotation(actor.rotation+(actor.flipX?-rotation:rotation))

@@ -1,10 +1,11 @@
 /** Source-space registration. Angles rotate an upright weapon; x/y identify
  * the grip, not the end of its blade. Originals remain available on disk. */
+import runRegistration from './heroRunRegistration.json' with {type:'json'};
 export interface HeroGrip {x:number;y:number;angle:number;behind?:boolean}
 const root='assets/characters/leigneron/';
 const variants:Record<string,string>={
   'attack.png':'attack-body-v1.png','idle.png':'idle-front-body-v1.png','walking.png':'walk-side-body-v1.png',
-  'idle_sides.png':'idle-side-body-v1.png','running.png':'run-side-body-v1.png','walk_down.png':'walk-down-body-v1.png',
+  'idle_sides.png':'idle-side-body-v1.png','running.png':'run-side-body-v3.png','walk_down.png':'walk-down-body-v1.png',
   'skills/azure_cleave.png':'azure-cleave-body-v1.png','skills/skyfall_slam.png':'skyfall-slam-body-v1.png',
   'skills/crown_rally.png':'crown-rally-body-v1.png','skills/crescent_flurry.png':'crescent-flurry-body-v1.png',
 };
@@ -41,7 +42,7 @@ export function heroGrip(path:string,index:number,width=2172,height=724):HeroGri
   if(file==='idle.png')return grip(i*362+95,435,200);
   if(file==='idle_sides.png')return grip(i*362+[145,146,149,147,147,148][i],430,155);
   if(file==='walking.png')return grip(i*362+[239,239,177,238,244,210][i],[432,432,432,433,440,432][i],155);
-  if(file==='running.png')return grip(i*362+[203,174,184,192,171,220][i],[410,395,410,405,387,410][i],130);
+  if(file==='running.png')return grip(runRegistration.grips[i][0],runRegistration.grips[i][1],runRegistration.angle);
   if(file==='walk_down.png')return grip((i+[.27,.20,.23,.22,.25,.26][i])*width/6,height*[.59,.57,.56,.56,.58,.58][i],200);
   if(file==='walk_up.png')return grip(i*128+86,95,135,true);
 }

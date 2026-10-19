@@ -2,11 +2,12 @@ import {useMemo,useState} from 'react';
 import {useGameStore} from '../store/gameStore';
 import {POTIONS,weaponEffect,type PotionId} from '../data/economy';
 import {ItemIcon} from './ItemIcon';
-import {goldLabel} from '../utils/localPlayCheats';
+import {goldLabel,localPlayCheatsEnabled} from '../utils/localPlayCheats';
 import {WEAPON_PROFILES,weaponProcDescription} from '../data/weaponProfiles';
 import {enhancedWeapon,weaponUpgradeRank,enhancedProcChance} from '../data/weaponUpgrades';
 import {ARMOR_BY_ID,ARMOR_SET_BY_ID,ARMOR_SLOTS,ARMOR_SLOT_NAMES,armorBonusLines,armorBonusesFor,type ArmorSlot} from '../data/armor';
-import {AWAKENING_PROFILES,awakenedProfile,awakeningHeartId} from '../data/awakening';
+import {AWAKENING_PROFILES,AWAKENING_BY_WEAPON,awakenedProfile,awakeningHeartId} from '../data/awakening';
+import {WEAPON_BY_ID} from '../data/weapons';
 
 export function InventoryPanel(){
   const panel=useGameStore(s=>s.panel);
@@ -16,6 +17,9 @@ function OpenInventory(){
   const [tab,setTab]=useState<'equipment'|'potions'>('equipment');
   const close=useGameStore(s=>s.closePanel),weaponId=useGameStore(s=>s.weaponId),inventory=useGameStore(s=>s.inventory);
   const [selection,setSelection]=useState(weaponId);
+  const [weaponSearch,setWeaponSearch]=useState('');
+  const localForms=localPlayCheatsEnabled();
+  const equipLocalForm=useGameStore(s=>s.equipLocalWeaponForm);
   const [kind,setKind]=useState<'weapons'|ArmorSlot>('weapons');
   const armorInventory=useGameStore(s=>s.armorInventory),equippedArmor=useGameStore(s=>s.equippedArmor),armorBonuses=useGameStore(s=>s.armorBonuses),level=useGameStore(s=>s.level);
   const equipArmor=useGameStore(s=>s.equipArmor),unequipArmor=useGameStore(s=>s.unequipArmor);
@@ -29,7 +33,12 @@ function OpenInventory(){
   const current=useMemo(()=>enhancedWeapon(weaponId,upgrades,awakened),[weaponId,upgrades,awakened]);
   const weapons=useMemo(()=>inventory.map(id=>enhancedWeapon(id,upgrades,awakened))
     .sort((a,b)=>Number(b.id===weaponId)-Number(a.id===weaponId)||b.damage-a.damage),[inventory,upgrades,weaponId,awakened]);
+  const listedWeapons=useMemo(()=>{
+    const query=weaponSearch.trim().toLocaleLowerCase().replace(/[’']/g,'');
+    return weapons.filter(w=>[w.name,WEAPON_BY_ID[w.id]?.name,AWAKENING_BY_WEAPON[w.id]?.name].some(name=>name?.toLocaleLowerCase().replace(/[’']/g,'').includes(query)));
+  },[weapons,weaponSearch]);
   const selected=kind==='weapons'?(weapons.find(w=>w.id===selection)??weapons[0]):undefined;
+  const selectedAwakening=selected?AWAKENING_BY_WEAPON[selected.id]:undefined;
   const rank=(id:string)=>weaponUpgradeRank(id,upgrades);
   const change=selected?selected.damage-current.damage:0;
   const profile=selected?WEAPON_PROFILES[selected.id]:undefined;
@@ -42,11 +51,12 @@ function OpenInventory(){
           <nav className="equipment-tabs armor-categories" aria-label="Equipment types">{(['weapons',...ARMOR_SLOTS] as const).map(k=><button type="button" key={k} aria-pressed={kind===k} onClick={()=>setKind(k)}>{k==='weapons'?'Weapons':ARMOR_SLOT_NAMES[k]}</button>)}</nav>
           <div className="bag-loadout">
             <section className="bag-weapons" aria-label="Owned equipment"><div className="bag-section-title"><h3>{kind==='weapons'?'Weapons':ARMOR_SLOT_NAMES[kind]}</h3><small>{kind==='weapons'?weapons.length:armors.length} in bag</small></div>
-              <div className={`bag-weapon-list${kind==='weapons'?' is-weapons':''}`}>{kind==='weapons'&&weapons.map(w=><div key={w.id} className={`bag-weapon-row${selected?.id===w.id?' is-selected':''}${w.id===weaponId?' is-equipped':''}`}>
-                <button type="button" className="bag-weapon-name" aria-pressed={selected?.id===w.id} title={w.name} onClick={()=>setSelection(w.id)}><ItemIcon id={w.id}/><strong>{w.name}{rank(w.id)>0?` +${rank(w.id)}`:''}</strong></button>
+              {kind==='weapons'&&<label className="bag-weapon-search">Find a weapon<input type="search" value={weaponSearch} onChange={event=>setWeaponSearch(event.target.value)} placeholder="Normal or awakened name"/></label>}
+              <div className={`bag-weapon-list${kind==='weapons'?' is-weapons':''}`}>{kind==='weapons'&&listedWeapons.map(w=><div key={w.id} className={`bag-weapon-row${selected?.id===w.id?' is-selected':''}${w.id===weaponId?' is-equipped':''}`}>
+                <button type="button" className="bag-weapon-name" aria-pressed={selected?.id===w.id} title={w.name} onClick={()=>setSelection(w.id)}><ItemIcon id={w.id}/><span className="bag-weapon-label"><strong>{w.name}{rank(w.id)>0?` +${rank(w.id)}`:''}</strong>{AWAKENING_BY_WEAPON[w.id]&&<small>{awakened.includes(w.id)?`Normal: ${WEAPON_BY_ID[w.id].name}`:`Awakened: ${AWAKENING_BY_WEAPON[w.id].name}`}</small>}</span></button>
                 <span className="bag-weapon-numbers"><strong>{w.damage} <small>ATK</small></strong><small>Tier {w.tier}</small></span>
                 <button type="button" className="bag-row-equip" aria-label={`${w.id===weaponId?'Equipped':'Equip'} ${w.name}`} disabled={w.id===weaponId||Boolean(casting)} onClick={()=>{setSelection(w.id);equip(w.id);}}>{w.id===weaponId?'✓':'Equip'}</button>
-              </div>)}{kind!=='weapons'&&armors.map(a=><button type="button" key={a.id} className={`bag-weapon-choice${equippedArmor[a.slot]===a.id?' is-equipped':''}`} aria-pressed={selectedArmor?.id===a.id} onClick={()=>setSelection(a.id)}><ItemIcon id={a.id}/><span><strong>{a.name}</strong><small>{ARMOR_SET_BY_ID[a.setId].name}</small>{equippedArmor[a.slot]===a.id&&<em>Equipped</em>}</span></button>)}{!(kind==='weapons'?weapons.length:armors.length)&&<p>No equipment here yet. Visit a merchant or seek regional bosses.</p>}</div>
+              </div>)}{kind!=='weapons'&&armors.map(a=><button type="button" key={a.id} className={`bag-weapon-choice${equippedArmor[a.slot]===a.id?' is-equipped':''}`} aria-pressed={selectedArmor?.id===a.id} onClick={()=>setSelection(a.id)}><ItemIcon id={a.id}/><span><strong>{a.name}</strong><small>{ARMOR_SET_BY_ID[a.setId].name}</small>{equippedArmor[a.slot]===a.id&&<em>Equipped</em>}</span></button>)}{kind==='weapons'&&weapons.length>0&&!listedWeapons.length&&<p>No matching weapons. Try the normal or awakened name.</p>}{!(kind==='weapons'?weapons.length:armors.length)&&<p>No equipment here yet. Visit a merchant or seek regional bosses.</p>}</div>
             </section>
             <aside className="bag-slots" aria-label="Equipment slots"><h3>Equipment</h3>
               <div className="armor-slot-grid"><button type="button" className="bag-weapon-slot" onClick={()=>{setKind('weapons');setSelection(current.id);}} aria-pressed={kind==='weapons'} aria-label={`Weapon slot: ${current.name}`} title={current.name}><small>Weapon</small><ItemIcon id={current.id}/><strong>{current.name}{rank(current.id)>0?` +${rank(current.id)}`:''}</strong></button>
@@ -60,6 +70,8 @@ function OpenInventory(){
           </div>
           {selected&&<section className="bag-inspection" key={selected.id} aria-label="Selected weapon details">
             <div className="bag-inspection-title"><ItemIcon id={selected.id}/><div><small>{selected.id===weaponId?'Currently equipped':'Selected weapon'}</small><h3>{selected.name}{rank(selected.id)>0?` +${rank(selected.id)}`:''}</h3></div>{selected.id!==weaponId&&<strong className={change>0?'stat-gain':change<0?'stat-loss':''}>{change>=0?'+':''}{change} ATK</strong>}</div>
+            {selectedAwakening&&<p className="bag-detail-note">Normal: {WEAPON_BY_ID[selected.id].name} · Awakened: {selectedAwakening.name}. These are two forms of the same weapon, not separate bag items.</p>}
+            {localForms&&selectedAwakening&&<div className="bag-local-forms" role="group" aria-label="Local weapon form testing"><small>Local testing — both forms unlocked</small><button type="button" disabled={Boolean(casting)||selected.id===weaponId&&!awakened.includes(selected.id)} onClick={()=>equipLocalForm(selected.id,false)}>Equip normal: {WEAPON_BY_ID[selected.id].name}</button><button type="button" disabled={Boolean(casting)||selected.id===weaponId&&awakened.includes(selected.id)} onClick={()=>equipLocalForm(selected.id,true)}>Equip awakened: {selectedAwakening.name}</button></div>}
             <dl className="bag-stats"><div><dt>Attack</dt><dd>{selected.damage}</dd></div><div><dt>Recovery</dt><dd>{(selected.cooldownMs/1000).toFixed(2)}s</dd></div><div><dt>Stamina</dt><dd>{selected.staminaCost}</dd></div><div><dt>Reach</dt><dd>{(selected.reach/32).toFixed(1)} paces</dd></div></dl>
             {weaponEffect(selected.id,awakened)&&<p>Skill effects: {weaponEffect(selected.id,awakened)!.effectName}</p>}
             {awakenedProfile(selected.id,awakened)&&<p className="bag-detail-note">Final form · {awakenedProfile(selected.id,awakened)!.form}. Equipping changes appearance only; equipped armor stats and set bonuses stay active.</p>}

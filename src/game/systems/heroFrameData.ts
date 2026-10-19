@@ -5,6 +5,8 @@ import type {HeroGrip} from '../../data/modularHero';
 export interface HeroFrameData {
   weaponGrip?:HeroGrip;
   heroDensity?:number;
+  /** Prepared cosmetic's uniform registration correction, not gameplay scale. */
+  heroBodyScale?:number;
   visibleBounds?:{left:number;top:number;width:number;height:number};
   sourceRegion?:readonly [number,number,number,number];
   sourceFit?:number;
