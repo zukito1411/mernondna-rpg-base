@@ -13,7 +13,7 @@ describe('region-local death and respawn destinations',()=>{
    expect(nearestRespawnTown(death,town.regionId).id).toBe(town.id);
   }
   const between={x:(TOWN_BY_ID.highmere.world.x+TOWN_BY_ID.willowcross.world.x)/2+10,
-    y:TOWN_BY_ID.highmere.world.y};
+    y:(TOWN_BY_ID.highmere.world.y+TOWN_BY_ID.willowcross.world.y)/2};
   expect(nearestRespawnTown(between,'trandum').id).toBe('willowcross');
  });
 
