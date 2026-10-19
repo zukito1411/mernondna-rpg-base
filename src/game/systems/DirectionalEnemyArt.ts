@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {ART_BY_KEY} from '../../data/art';
 import {enemyAnimation,type SpriteAnimation} from '../../data/animationPacks';
-import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,enemyLocomotionKey} from '../../data/directionalEnemyArt';
+import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,enemyLocomotionKey,validDirectionalSourceSize} from '../../data/directionalEnemyArt';
 import {actorSpriteSubjects} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
 /** Dedicated locomotion atlases keep combat UVs immutable. Size each family
@@ -12,6 +12,8 @@ export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]
  for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6)){
   const columns=art.sourceColumns??5,stride=art.framesPerDirection??5,frameCount=art.frameCount??20;
   const sourceKey='directional-source:'+art.id,source=scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
+  if(!source||!validDirectionalSourceSize(source.width,source.height,columns))
+   throw new Error('Missing or incomplete directional image: '+art.sourcePath+'. Refresh game files without deleting your save.');
   const sourceCanvas=document.createElement('canvas');sourceCanvas.width=source.width;sourceCanvas.height=source.height;
   const sourceCtx=sourceCanvas.getContext('2d',{willReadFrequently:true})!;sourceCtx.drawImage(source,0,0);
   const pixels=sourceCtx.getImageData(0,0,source.width,source.height).data;
