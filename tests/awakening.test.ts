@@ -24,6 +24,26 @@ it('gives every final form its own stronger technique without changing ordinary 
  }
  expect(enhancedWeapon('roadwarden-sword',{})).toBe(WEAPON_BY_ID['roadwarden-sword']);
 });
+it('assigns ascending awakened base ATK from Varr 152 to Varkhul 220 without changing normal weapons',()=>{
+ const expected=[152,161,169,178,186,195,203,212,220];
+ expect(AWAKENING_PROFILES.map(p=>p.baseAttack)).toEqual(expected);
+ for(const [index,profile] of AWAKENING_PROFILES.entries()){
+  const id=profile.weaponId;
+  expect(WEAPON_BY_ID[id].damage).toBeLessThan(profile.baseAttack);
+  expect(enhancedWeapon(id,{},[]).damage).toBe(WEAPON_BY_ID[id].damage);
+  expect(enhancedWeapon(id,{},[id]).damage).toBe(expected[index]);
+  for(let rank=0;rank<=5;rank++){
+   const upgrades={[id]:rank};
+   const normal=enhancedWeapon(id,upgrades,[]);
+   const awakened=enhancedWeapon(id,upgrades,[id]);
+   expect(normal.damage).toBe(Math.round(WEAPON_BY_ID[id].damage*(1+rank*.08)));
+   expect(awakened.damage).toBe(Math.round(expected[index]*(1+rank*.08)));
+   expect(awakened.cooldownMs).toBe(normal.cooldownMs);
+  }
+ }
+ expect(enhancedWeapon('varr-rededge',{'varr-rededge':5},['varr-rededge']).damage).toBe(213);
+ expect(enhancedWeapon('varkhul-emberfang',{'varkhul-emberfang':5},['varkhul-emberfang']).damage).toBe(308);
+});
 it.each([false,true])('rolls a fixed 50% heart drop and prevents duplicate rewards (ascended=%s)',ascended=>{
  expect(AWAKENING_HEART_DROP_CHANCE).toBe(.5);
  const roll=vi.spyOn(Math,'random').mockReturnValue(.5);
