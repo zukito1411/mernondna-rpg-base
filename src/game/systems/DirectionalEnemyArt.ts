@@ -4,6 +4,7 @@ import {enemyAnimation,type SpriteAnimation} from '../../data/animationPacks';
 import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,enemyLocomotionKey,validDirectionalSourceSize} from '../../data/directionalEnemyArt';
 import {actorSpriteSubjects} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
+import {fitAtlasPoses} from './atlasPoseFit';
 /** Dedicated locomotion atlases keep combat UVs immutable. Size each family
  * against the original neutral profile, allowing room for wings and weapons. */
 export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]{
@@ -43,7 +44,7 @@ export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]
   const banditVerticalFit=Math.min((sheet.frameWidth/2-4)/banditReach,
    (sheet.frameHeight-8)/Math.max(...cells.map(c=>c.region[3])),
    targetHeight/((cells[5].region[3]+cells[10].region[3])/2));
-  const fits=ACTOR_DIRECTIONS.map((direction,row)=>art.species===1&&(direction==='down'||direction==='up')
+  const desiredFits=ACTOR_DIRECTIONS.map((direction,row)=>art.species===1&&(direction==='down'||direction==='up')
    ?banditVerticalFit:targetHeight/cells[row*stride].region[3]);
   // The bandit's authored side poses drift within their source cells. Register
   // each complete pose by its hood, keeping the torso steady as the boots move.
@@ -57,6 +58,14 @@ export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]
    }
    return weight?sum/weight:0;
   });
+  // A complete pose can exceed its reference standing body's footprint.
+  // Restrict each direction's common scale once, preserving stride continuity.
+  const fits=ACTOR_DIRECTIONS.map((_,row)=>fitAtlasPoses(desiredFits[row],sheet.frameWidth,sheet.frameHeight,
+    sheet.frameHeight-(sheet.groundPadding??2),cells.slice(row*stride,(row+1)*stride).map((cell,i)=>{
+      const index=row*stride+i,sideOffset=sideHoods[row*stride]-sideHoods[index];
+      return {region:cell.region,rootX:cell.x+roots[row]-sideOffset,
+        rootY:cell.region[1]+cell.region[3]};
+    }),4/sheet.density));
   const atlasColumns=sheet.atlasColumns??sheet.columns,fw=sheet.frameWidth*sheet.density,fh=sheet.frameHeight*sheet.density;
   const texture=scene.textures.createCanvas(art.walkTexture,atlasColumns*fw,Math.ceil(frameCount/atlasColumns)*fh)!;
   const ctx=texture.getContext();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
@@ -65,7 +74,7 @@ export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]
    const sideOffset=sideHoods[Math.floor(i/stride)*stride]-sideHoods[i];
    const drawX=fw/2+(rx-cell.x-roots[Math.floor(i/stride)]+sideOffset)*fit*sheet.density;
    const drawY=fh-(sheet.groundPadding??2)*sheet.density-h*fit*sheet.density;
-   if(drawX<4||drawY<4||drawX+w*fit*sheet.density>fw-4)throw new Error('Complete directional pose needs more canvas room: '+art.id+'/'+i);
+   // Bounds are guaranteed by the per-direction shared safe fit.
    ctx.save();ctx.beginPath();ctx.rect(x,y,fw,fh);ctx.clip();
    drawPose(ctx,spriteSubjectCanvas(subjects[i]),[0,0,w,h],x+drawX,y+drawY,w*fit*sheet.density,h*fit*sheet.density);ctx.restore();
    const prepared=texture.add(frame,0,x,y,fw,fh);
