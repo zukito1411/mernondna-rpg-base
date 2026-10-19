@@ -95,6 +95,9 @@ jobs:
       - name: Verify directional sprite recovery (blocking)
         run: npm test -- tests/directionalActors.test.ts
 
+      - name: Verify awakened weapon balance (blocking)
+        run: npm test -- tests/awakening.test.ts tests/bossLootAndForging.test.ts
+
       - name: Check test TypeScript (non-blocking)
         continue-on-error: true
         run: npm run test:types
