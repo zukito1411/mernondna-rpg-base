@@ -20,7 +20,7 @@ import {renderDensity} from '../systems/renderSizing';
 import {prepareScorchedArt} from '../systems/ScorchedArt';
 import {VEHICLE_ART,MOTION_ART,prepareVehicleArt} from '../systems/VehicleArt';
 import {DRAGON_BREATH_ART,prepareDragonBreathArt} from '../systems/DragonBreathArt';
-import {DIRECTIONAL_ENEMY_ART} from '../../data/directionalEnemyArt';
+import {DIRECTIONAL_ENEMY_ART,validDirectionalSourceSize} from '../../data/directionalEnemyArt';
 import {prepareDirectionalEnemyArt} from '../systems/DirectionalEnemyArt';
 import {prepareNpcDirectionalIdleArt} from '../systems/NpcDirectionalIdleArt';
 import {GUARD_MARCH_ART} from '../../data/guardMarchArt';
@@ -152,48 +152,47 @@ export class BootScene extends Phaser.Scene {
         }
       }else required.set(sheet.path,{name:sheet.key});
     }
-    const invalid:Array<{path:string;expected?:readonly [number,number];actual:string}>=[];
+    // Standalone enemy locomotion sprites bypass ART_SHEETS and previously
+    // bypassed the repair pass. Missing textures become Phaser 32x32 placeholders,
+    // causing the misleading "expected complete actors" segmentation error.
+    const invalid:Array<{key:string;file:string;expected?:readonly [number,number];actual:string}>=[];
     for(const [path,info] of required){
-      const key=`source:${path}`;
-      if(!this.textures.exists(key)){
-        invalid.push({path,expected:info.expected,actual:'missing texture'});
-        continue;
-      }
-      const image=this.textures.get(key).getSourceImage() as HTMLImageElement|undefined;
-      if(!image){
-        invalid.push({path,expected:info.expected,actual:'missing image'});
-        continue;
-      }
-      if(info.expected&&(image.width!==info.expected[0]||image.height!==info.expected[1]))
-        invalid.push({path,expected:info.expected,actual:`${image.width}x${image.height}`});
+      const key='source:'+path,file=heroBodySource(path);
+      const image=this.textures.exists(key)
+        ?this.textures.get(key).getSourceImage() as HTMLImageElement|undefined:undefined;
+      const actual=image?image.width+'x'+image.height:'missing image';
+      if(!image||(info.expected&&(image.width!==info.expected[0]||image.height!==info.expected[1]))
+        ||(!info.expected&&(image.width<=32||image.height<=32)))
+        invalid.push({key,file,expected:info.expected,actual});
+    }
+    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6)){
+      const key='directional-source:'+art.id,file=art.sourcePath;
+      const image=this.textures.exists(key)
+        ?this.textures.get(key).getSourceImage() as HTMLImageElement|undefined:undefined;
+      if(!image||!validDirectionalSourceSize(image.width,image.height,art.sourceColumns))
+        invalid.push({key,file,actual:image?image.width+'x'+image.height:'missing image'});
     }
     if(!invalid.length)return false;
     if(this.sourceRepairAttempted){
-      const details=invalid.slice(0,8).map(({path,expected,actual})=>
-        `${path} (source: ${heroBodySource(path)}): expected ${expected?.join('x')??'an image'}, got ${actual}`).join('\n');
+      const details=invalid.slice(0,8).map(({file,expected,actual})=>
+        file+': expected '+(expected?.join('x')??'complete sprite source')+', got '+actual).join('\n');
       this.registry.set('assetError',
-        `Required artwork is missing or outdated after a retry:\n${details}\n`
+        'Required artwork is missing or outdated after a retry:\n'+details+'\n'
         +'Refresh game files (keeps save), then reopen the game. Your saved progress is safe.');
       return true;
     }
     this.sourceRepairAttempted=true;
     this.registry.set('loadingStage','Repairing missing character artwork');
     this.registry.set('loadingProgress',0);
-    // A stale PWA cache may hold an old asset at the same filename. The
-    // query parameter bypasses that cache without changing game/save data.
     const token=Date.now().toString(36);
-    // A source-image loaderror can accompany an absent TextureManager key.
-    // Retrying that exact source supersedes its original load failure, but
-    // unrelated art failures must remain visible to the player.
-    const repairedFiles=new Set(invalid.map(({path})=>heroBodySource(path)));
+    const repairedFiles=new Set(invalid.map(({file})=>file));
     for(let i=this.failures.length-1;i>=0;i--){
       const url=this.failures[i].split('?')[0];
       if([...repairedFiles].some(file=>url.endsWith(file)))this.failures.splice(i,1);
     }
-    for(const {path} of invalid){
-      const key=`source:${path}`,file=heroBodySource(path);
+    for(const {key,file} of invalid){
       if(this.textures.exists(key))this.textures.remove(key);
-      this.load.image(key,`${file}${file.includes('?')?'&':'?'}sprite-repair=${token}`);
+      this.load.image(key,file+(file.includes('?')?'&':'?')+'sprite-repair='+token);
     }
     this.load.once('complete',()=>this.create());
     this.load.start();
