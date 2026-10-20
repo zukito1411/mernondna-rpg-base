@@ -140,7 +140,7 @@ export function MobileControls() {
             mobileInput.press('attack');mobileInput.setAttackHeld(true);
           }} onPointerUp={event=>releaseAttack(event.pointerId)} onPointerCancel={event=>releaseAttack(event.pointerId)}
           onLostPointerCapture={event=>releaseAttack(event.pointerId)}>
-          <span className="touch-glyph"><img src="/icons/basic_attack.png" alt="" /></span><small>Attack</small>
+          <span className="touch-glyph"><img src={`${import.meta.env.BASE_URL}icons/basic_attack.png`} alt="" /></span><small>Attack</small>
         </button>
         <button type="button" aria-label="Tap to dash, hold to sprint" title="Tap to dash · Hold to sprint" className="touch-button sprint"
           onPointerDown={(event) => {
@@ -155,7 +155,7 @@ export function MobileControls() {
           onPointerUp={(event) => releaseSprint(event.pointerId, true)}
           onPointerCancel={(event) => releaseSprint(event.pointerId, false)}
           onLostPointerCapture={(event) => releaseSprint(event.pointerId, false)}>
-          <span className="touch-glyph"><img src="/assets/ui/actions/dash.svg" alt="" /></span><small>Dash / Sprint</small>
+          <span className="touch-glyph"><img src={`${import.meta.env.BASE_URL}assets/ui/actions/dash.svg`} alt="" /></span><small>Dash / Sprint</small>
         </button>
       </div>
     </div>
