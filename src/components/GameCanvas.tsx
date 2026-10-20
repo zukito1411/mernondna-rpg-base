@@ -1,6 +1,6 @@
 import { useEffect, useRef,useState } from 'react';
 import { createMernondnaGame } from '../game/MernondnaGame';
-import {disposeGame} from '../game/systems/gameLifetime';
+import {disposeGame,waitForGameDisposal} from '../game/systems/gameLifetime';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 import type Phaser from 'phaser';
@@ -62,10 +62,12 @@ export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>
       mobileInput.press('interact');
     };
     window.addEventListener('keydown',onInteractKey);
-    try{
-      game = createMernondnaGame(ref.current);
-    }catch(reason){failed(reason);}
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('e2e')) window.__mernondnaGame = game;
+    // Also serialize manual menu re-entry and React's development remounts.
+    void waitForGameDisposal().then(()=>{
+      if(disposed||recovering)return;
+      game=createMernondnaGame(canvasHost);
+      if(import.meta.env.DEV&&new URLSearchParams(window.location.search).has('e2e'))window.__mernondnaGame=game;
+    }).catch(failed);
     let lastAdvance=Date.now(),lastProgress=-1,stalled=false,initialCheckpointSaved=false,loadingStage='',lastAsset='';
     const onVisible=()=>{if(!document.hidden)lastAdvance=Date.now();};
     document.addEventListener('visibilitychange',onVisible);

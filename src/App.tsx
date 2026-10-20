@@ -24,6 +24,7 @@ import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSav
 import {RareLootPopup} from './components/RareLootPopup';
 import {LevelUpNotice} from './components/LevelUpNotice';
 import {ContractBoard} from './components/ContractBoard';
+import {waitForGameDisposal} from './game/systems/gameLifetime';
 
 export default function App() {
   const [playing, setPlaying] = useState(false);
@@ -33,19 +34,15 @@ export default function App() {
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
   const [startupRetryUsed,setStartupRetryUsed]=useState(false);
   const [startupRecovering,setStartupRecovering]=useState(false);
-  const startupRetryTimer=useRef<number|null>(null);
   const freshStartup=useRef(false);
   const resetGame = useGameStore(state => state.resetGame);
 
   useEffect(dismissStartupSplash,[]);
-  useEffect(()=>()=>{
-    if(startupRetryTimer.current!==null)window.clearTimeout(startupRetryTimer.current);
-  },[]);
 
   // Recover a failed/stalled startup once, disposing its Phaser instance before
   // restoring the requested journey. Never autosave partial initialization.
   const retryColdStartup=()=>{
-    if(startupRetryUsed||startupRetryTimer.current!==null)return;
+    if(startupRetryUsed||startupRecovering)return;
     console.warn('[startup] Retrying cold artwork load with the saved checkpoint');
     setStartupRetryUsed(true);
     setStartupRecovering(true);
@@ -53,8 +50,15 @@ export default function App() {
     setPlaying(false); // unmount and destroy stalled Phaser before remounting
     setCanContinue(false);
     setMenuMessage(null);
-    startupRetryTimer.current=window.setTimeout(()=>{
-      startupRetryTimer.current=null;
+  };
+
+  // Passive unmount cleanup disposes GameCanvas before this effect restores
+  // state. Wait for actual engine teardown, not an arbitrary restart delay.
+  useEffect(()=>{
+    if(!startupRecovering)return;
+    let cancelled=false;
+    void waitForGameDisposal().then(()=>{
+      if(cancelled)return;
       let recovered=false;
       try{
         if(freshStartup.current){
@@ -70,8 +74,15 @@ export default function App() {
       if(!recovered)console.warn('[startup] Checkpoint recovery:',getSaveRecoveryNotice());
       setMenuMessage(recovered?null:'Please try reopening your journey. Existing save files have been left unchanged; you can keep a backup from this menu.');
       if(recovered)setPlaying(true);
-    },850);
-  };
+    }).catch(error=>{
+      if(cancelled)return;
+      console.warn('[startup] Previous journey cleanup could not finish:',error);
+      setStartupRecovering(false);
+      setCanContinue(hasSavedGame());
+      setMenuMessage('Please close and reopen the game to continue your journey. Your saved progress has been kept.');
+    });
+    return ()=>{cancelled=true;};
+  },[startupRecovering,resetGame]);
 
   useEffect(()=>{
     const dispose=installUiInputGuard(()=>{

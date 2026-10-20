@@ -521,10 +521,13 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   create() {
+    this.shuttingDown=false;
+    // Register before constructing anything that owns listeners or resources.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,this.shutdown,this);
+    this.events.once(Phaser.Scenes.Events.DESTROY,this.shutdown,this);
     try {
     this.nextImpactSoundAt=0;this.nextCombatShakeAt=0;this.knockbackBudgetUntil=0;this.knockbackBudget=0;
     this.registry.set('loadingStage','Creating world actors');
-    this.shuttingDown=false;
     this.pendingRespawn=null;
     this.regionalNpcSlots.clear();
     this.regionalNpcRetryAt.clear();
@@ -723,8 +726,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.scale.on('resize', this.updateCameraZoom, this);
     this.game.events.on(Phaser.Core.Events.BLUR, this.onBlur, this);
     this.game.events.on(Phaser.Core.Events.FOCUS, this.onFocus, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
-    this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     setSaveSnapshotProvider(() => this.syncState());
     this.interiors=new InteriorSession(this);
     this.dungeons=new DungeonSystem(this);
@@ -2156,40 +2157,47 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   shutdown() {
     if(this.shuttingDown)return;
     this.shuttingDown=true;
+    // A partially created system (or an already destroyed sprite) must not
+    // prevent other systems from releasing their listeners and resources.
+    const release=(name:string,cleanup:()=>void)=>{
+      try{cleanup();}catch(error){console.warn(`[shutdown] Could not release ${name}:`,error);}
+    };
     this.game.events.off(Phaser.Core.Events.POST_RENDER,this.onFirstWorldRender,this);
-    this.aliceCompanion?.destroy();this.roadLife?.destroy();this.levelUpFeedback?.destroy();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN,this.shutdown,this);
     this.events.off(Phaser.Scenes.Events.DESTROY,this.shutdown,this);
-    this.cinematicDirector?.destroy();
-    this.storyEncounters?.destroy();
-    this.interiors?.destroy();
-    this.dungeons?.destroy();
-    this.spearProjectiles?.clear();
-    this.wildlife?.destroy();
-    this.encounters.clear();
-    this.volcanicTremor?.destroy();
-    this.passage?.destroy();
-    this.targeting?.clear();
-    useGameStore.getState().setBossEncounter(null);
     setSaveSnapshotProvider();
-    mobileInput.reset();
-    this.panelActions.clear();
     this.scale.off('resize', this.updateCameraZoom, this);
     this.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this);
     this.game.events.off(Phaser.Core.Events.FOCUS, this.onFocus, this);
-    this.dayNight?.destroy();
-    this.enemySounds?.destroy();
-    this.traffic?.destroy();
-    this.groundShadows?.destroy();
-    this.weather?.destroy();
-    this.contentManager?.destroy();
-    this.m14Art?.destroy();
-    this.questGuide?.destroy();
-    this.chunkManager?.destroy();
-    this.treeSway?.destroy();
-    this.waterSurface?.destroy();
-    this.worldSprites?.destroy();
-    this.flagshipArt?.destroy();
+    release('Alice companion',()=>this.aliceCompanion?.destroy());
+    release('road life',()=>this.roadLife?.destroy());
+    release('level-up feedback',()=>this.levelUpFeedback?.destroy());
+    release('cinematics',()=>this.cinematicDirector?.destroy());
+    release('story encounters',()=>this.storyEncounters?.destroy());
+    release('interiors',()=>this.interiors?.destroy());
+    release('dungeons',()=>this.dungeons?.destroy());
+    release('spear projectiles',()=>this.spearProjectiles?.clear());
+    release('wildlife',()=>this.wildlife?.destroy());
+    this.encounters.clear();
+    release('volcanic tremor',()=>this.volcanicTremor?.destroy());
+    release('ship passage',()=>this.passage?.destroy());
+    release('targeting',()=>this.targeting?.clear());
+    release('boss display',()=>useGameStore.getState().setBossEncounter(null));
+    mobileInput.reset();
+    this.panelActions.clear();
+    release('night lighting',()=>this.dayNight?.destroy());
+    release('enemy sounds',()=>this.enemySounds?.destroy());
+    release('traffic',()=>this.traffic?.destroy());
+    release('ground shadows',()=>this.groundShadows?.destroy());
+    release('weather',()=>this.weather?.destroy());
+    release('content chunks',()=>this.contentManager?.destroy());
+    release('regional enemy art',()=>this.m14Art?.destroy());
+    release('quest guide',()=>this.questGuide?.destroy());
+    release('terrain chunks',()=>this.chunkManager?.destroy());
+    release('tree sway',()=>this.treeSway?.destroy());
+    release('water surface',()=>this.waterSurface?.destroy());
+    release('world sprites',()=>this.worldSprites?.destroy());
+    release('flagship art',()=>this.flagshipArt?.destroy());
   }
 
   private wildlifeRouteClear(from:Vec2,to:Vec2){
