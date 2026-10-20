@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import {ART_BY_KEY} from '../../data/art';
-import {NPC_COMBAT_ART,NPC_COMBAT_DIRECTIONS,npcCombatKey,NPC_ARROW_TEXTURE,type NpcCombatSpec} from '../../data/npcCombatArt';
+import {NPC_COMBAT_ART,NPC_COMBAT_DIRECTIONS,npcCombatKey,NPC_ARROW_TEXTURE,type CombatSource,type NpcCombatSpec} from '../../data/npcCombatArt';
 import {NPC_IDLE_ART,npcIdleBodyHeight} from '../../data/npcIdleArt';
 import type {SpriteAnimation} from '../../data/animationPacks';
-import {actorSpriteSubjects} from './spriteComponents';
+import {actorSpriteSubjects,type ActorSpriteSubject} from './spriteComponents';
 import {spriteSubjectCanvas} from './spriteArt';
 import {fitAtlasPoses,atlasGroundY} from './atlasPoseFit';
 
@@ -29,7 +29,7 @@ export function* prepareNpcCombatSheetSteps(scene:Phaser.Scene,spec:NpcCombatSpe
   const ctx=texture.getContext();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   const idle=NPC_IDLE_ART.find(entry=>entry.walk===spec.walk)!;
   const modelHeight=spec.modelHeight??npcIdleBodyHeight(idle);
-  const inputs=[];
+  const inputs:Array<{file:CombatSource;subjects:ActorSpriteSubject[];roots:readonly (readonly [number,number])[];fit:number}>=[];
   yield;
   for(const [index,file] of spec.sources.entries()){
     const image=scene.textures.get(npcCombatSourceKey(spec,index)).getSourceImage() as HTMLImageElement;
