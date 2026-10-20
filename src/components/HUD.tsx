@@ -12,6 +12,7 @@ import { QuestCompass } from './QuestCompass';
 import { experienceWithinLevel,playerLevelCap } from '../data/progression';
 import {questObjectiveText} from '../game/systems/questDestinations';
 import {goldLabel} from '../utils/localPlayCheats';
+import {isPlayerHome} from '../data/playerHomes';
 
 function barPercent(value: number, max: number) {
   return `${Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))}%`;
@@ -43,6 +44,8 @@ export function HUD() {
   const blocked = useGameStore(s => Boolean(s.panel || s.dialogue || s.cinematic));
   const bossEncounter = useGameStore(s => s.bossEncounter);
   const cinematic=useGameStore(s=>s.cinematic);
+  const housingEditing=useGameStore(s=>s.housingEditing);
+  const atHome=useGameStore(s=>isPlayerHome(s.housingContext));
 
   const active = activeObjective(quests,tracked);
 
@@ -53,7 +56,7 @@ export function HUD() {
   const regionName = regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[regionId]?.name ?? regionId;
   const location = townId ? TOWN_BY_ID[townId]?.name ?? regionName : regionName;
 
-  if(cinematic)return null;
+  if(cinematic||housingEditing)return null;
   return (
     <div className="hud-layer" data-compact-hud={compactHud} aria-live="polite">
       <div className="hud-primary-stack">
@@ -112,13 +115,16 @@ export function HUD() {
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Gear" onClick={() => openPanel('inventory')}><span className="hud-icon"><GameIcon name="bag" /></span><span>Bag</span><kbd>I</kbd></button>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Status" onClick={() => openPanel('character')}><span className="hud-icon"><GameIcon name="status" /></span><span>Status</span><kbd>C</kbd></button>
           <button type="button" tabIndex={menuExpanded ? 0 : -1} aria-label="Menu" onClick={() => openPanel('pause')}><span className="hud-icon"><GameIcon name="menu" /></span><span>Menu</span><kbd>Esc</kbd></button>
+          {atHome&&<>
+            <button type="button" tabIndex={menuExpanded?0:-1} aria-label="Furnish home" title="Furnish home" onClick={()=>useGameStore.setState({panel:'housing',housingEditing:true})}><span className="hud-icon"><GameIcon name="menu"/></span><span>Furnish</span></button>
+          </>}
         </nav>
         <button type="button" className="hud-dock-toggle" aria-controls="hud-main-actions" aria-expanded={menuExpanded} aria-label={menuExpanded ? 'Hide menu buttons' : 'Show menu buttons'} onClick={() => setMenuExpanded(value => !value)}>
           <GameIcon name={menuExpanded ? 'chevron-right' : 'chevron-left'} />
         </button>
       </div>
 
-      <DesktopSkillBar />
+      {!atHome&&<DesktopSkillBar />}
     </div>
   );
 }

@@ -18,7 +18,7 @@ Generated 2026-10-13 with the built-in imagegen tool. **Now integrated through `
 - North/side walls follow exposed edges of the floor union only. Corridor joins
   remain open. Regional timber/stone floors, room labels and floor-clipped lighting
   distinguish private, service and public spaces.
-- Full player feet stay within the floor/corridor union. Movement and dash advance in bounded swept steps and check explicit furniture/NPC footprints. Combat arts are suppressed indoors.
+- Full player feet stay within the floor/corridor union. Movement and dash use bounded swept steps against walls and furniture. Players can pass through Alice, residents and enemies; actor feet must not seal narrow house/cave paths. Combat arts remain restricted to authorized indoor story/cave battles.
 - Existing named local residents occupy appropriate indoor work positions and retain their dialogue, quests and affinity. Exterior actors are camera-filtered and outdoor physics/AI/streaming are paused, so there are no simultaneously visible indoor/outdoor duplicates.
   Story preparation now uses explicit one-building-per-NPC assignments instead
   of occupation-based room borrowing; their exterior chunk actors are suppressed

@@ -18,6 +18,8 @@ import { mobileInput } from './game/input';
 import { useGameStore } from './store/gameStore';
 import {installUiInputGuard,noteUiTransition} from './utils/uiInputGuard';
 import {dismissStartupSplash} from './utils/startupSplash';
+import {HousingPanel} from './components/HousingPanel';
+import {TitleArtwork} from './components/TitleArtwork';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
 import {RareLootPopup} from './components/RareLootPopup';
 import {LevelUpNotice} from './components/LevelUpNotice';
@@ -30,7 +32,9 @@ export default function App() {
   const [canContinue, setCanContinue] = useState(hasSavedGame);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
   const [startupRetryUsed,setStartupRetryUsed]=useState(false);
+  const [startupRecovering,setStartupRecovering]=useState(false);
   const startupRetryTimer=useRef<number|null>(null);
+  const freshStartup=useRef(false);
   const resetGame = useGameStore(state => state.resetGame);
 
   useEffect(dismissStartupSplash,[]);
@@ -38,22 +42,33 @@ export default function App() {
     if(startupRetryTimer.current!==null)window.clearTimeout(startupRetryTimer.current);
   },[]);
 
-  // A cold WebView can stall while decoding optional assets. A second Continue
-  // works on the same save; recreate the complete Phaser instance once rather
-  // than trying to reuse the possibly stalled image/audio loader.
+  // Recover a failed/stalled startup once, disposing its Phaser instance before
+  // restoring the requested journey. Never autosave partial initialization.
   const retryColdStartup=()=>{
     if(startupRetryUsed||startupRetryTimer.current!==null)return;
     console.warn('[startup] Retrying cold artwork load with the saved checkpoint');
     setStartupRetryUsed(true);
+    setStartupRecovering(true);
     setWorldReady(false);
     setPlaying(false); // unmount and destroy stalled Phaser before remounting
     setCanContinue(false);
-    setMenuMessage('Retrying game startup using your existing save…');
+    setMenuMessage(null);
     startupRetryTimer.current=window.setTimeout(()=>{
       startupRetryTimer.current=null;
-      const recovered=loadGame(); // reload the checkpoint, never write to it
+      let recovered=false;
+      try{
+        if(freshStartup.current){
+          // No gameplay has begun yet. Recreate the requested fresh character,
+          // not an older disk save when the initial new-game write failed.
+          const ambience=useGameStore.getState().weatherAudio;
+          resetGame();useGameStore.getState().hydrate({weatherAudio:ambience});
+          recovered=true;
+        }else recovered=loadGame(); // reload the checkpoint, never write to it
+      }catch(error){console.warn('[startup] Journey recovery could not finish:',error);}
+      setStartupRecovering(false);
       setCanContinue(hasSavedGame());
-      setMenuMessage(recovered?null:getSaveRecoveryNotice()??'Could not reload the stored checkpoint.');
+      if(!recovered)console.warn('[startup] Checkpoint recovery:',getSaveRecoveryNotice());
+      setMenuMessage(recovered?null:'Please try reopening your journey. Existing save files have been left unchanged; you can keep a backup from this menu.');
       if(recovered)setPlaying(true);
     },850);
   };
@@ -103,6 +118,7 @@ export default function App() {
 
   const continueGame = () => {
     if (loadGame()) {
+      freshStartup.current=false;
       setMenuMessage(null);
       setStartupRetryUsed(false);
       setWorldReady(false);
@@ -120,6 +136,7 @@ export default function App() {
     const ambience = useGameStore.getState().weatherAudio;
     allowExplicitNewGame();
     resetGame();
+    freshStartup.current=true;
     useGameStore.getState().hydrate({ weatherAudio: ambience });
     if (!saveGame()) setMenuMessage('The new game started, but could not be saved on this device.');
     else setMenuMessage(null);
@@ -127,6 +144,22 @@ export default function App() {
     setStartupRetryUsed(false);
     setWorldReady(false);
     setPlaying(true);
+  };
+
+  const returnToHome=()=>{
+    // Only a fully initialized world can replace the stored checkpoint. Keep
+    // the live session available if saving fails instead of losing its progress.
+    if(!worldReady)return;
+    if(!saveGame()){
+      useGameStore.getState().showToast('Please keep the game open. Save your progress or export a backup before returning home.');
+      return;
+    }
+    mobileInput.reset();
+    useGameStore.getState().closePanel();
+    setWorldReady(false);
+    setPlaying(false);
+    setMenuMessage(null);
+    setCanContinue(hasSavedGame());
   };
 
   return (
@@ -153,7 +186,7 @@ export default function App() {
         <MapPanel />
         <InventoryPanel />
         <CharacterPanel />
-        <PausePanel />
+        <PausePanel onReturnHome={returnToHome} canReturnHome={worldReady}/>
         <ShrineTravelPanel />
         <QuestJournal />
         <LoreJournal />
@@ -163,7 +196,10 @@ export default function App() {
         <RareLootPopup />
         <LevelUpNotice />
         <ContractBoard />
-      </> : <HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}
+        <HousingPanel />
+      </> : startupRecovering?<div className="game-loading" role="status" aria-live="polite">
+        <TitleArtwork/><div className="game-loading-content"><p>Preparing your journey…</p></div>
+      </div>:<HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}
     </main>
   );
 }

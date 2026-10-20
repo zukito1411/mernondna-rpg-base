@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import {housingFor} from '../../data/housing';
+import {isGameDisposing} from '../systems/gameLifetime';
+import {PLAYER_HOMES,PLAYER_HOME_BY_ID,isPlayerHome} from '../../data/playerHomes';
 import {BASIC_ATTACK_CHAIN,type BasicAttackStep} from '../../data/basicAttackCombo';
 import {LevelUpFeedback} from '../systems/LevelUpFeedback';
 import {AmbientRoadLifeSystem} from '../systems/AmbientRoadLifeSystem';
@@ -204,6 +207,17 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   private readonly combatReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly pathObstacleBounds=new Phaser.Geom.Rectangle(0,0,0,0);
   getWorldHour(){return this.dayNight.getHour();}
+  restAtHome(){
+    const s=useGameStore.getState();
+    const id=this.interiors.currentEntry?.id,home=housingFor(s.housing,id);
+    if(!this.focused||!isPlayerHome(id)||!this.interiors.ready||!home.owned
+      ||!this.interiors.homeBedInReach()||this.cinematicDirector.active||this.storyCombatActive||s.panel||s.cinematic||s.dialogue||s.housingEditing)return;
+    if(!this.dayNight.sleepUntilMorning()){
+      this.notify('You can sleep at home at night, from 18:00 until 06:00.');return;
+    }
+    this.player.restoreRestVitals();this.player.resetInput();
+    this.syncState();this.cameras.main.flash(650,0,0,0);this.notify('You rest at home. Health and stamina restored; it is 06:00.');saveGame();
+  }
   restAtInn(){
     const store=useGameStore.getState(),entry=this.interiors.currentEntry;
     if(!this.focused||!this.interiors.ready||entry?.profile!=='inn'||this.storyCombatActive
@@ -214,9 +228,9 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(store.gold<INN_REST_COST){this.notify(`You need ${INN_REST_COST}G for a room until morning.`);return;}
     if(!this.dayNight.sleepUntilMorning())return;
     store.hydrate({gold:store.gold-INN_REST_COST});
-    this.player.resetInput();
+    this.player.restoreRestVitals();this.player.resetInput();
     this.cameras.main.flash(650,0,0,0);
-    this.notify(`You slept at ${entry.name}. It is now 06:00. Room: ${INN_REST_COST}G.`);
+    this.notify(`You slept at ${entry.name}. Health and stamina restored. It is now 06:00. Room: ${INN_REST_COST}G.`);
     // The snapshot provider captures the authoritative clock and safe exterior
     // position. This one-off save also persists payment without a new schema.
     saveGame();
@@ -245,12 +259,11 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   companionCanStand(point:Vec2,npc:Npc){
     return Math.hypot(point.x-this.player.x,point.y-this.player.y)>=52
-      &&(this.inInterior?this.interiors.ready&&this.interiors.combatFeet(point.x,point.y,18,npc):this.npcCanStandAt(point.x,point.y,npc));
+      &&(this.inInterior?this.interiors.ready&&this.interiors.combatFeet(point.x,point.y,18,npc,true):this.npcCanStandAt(point.x,point.y,npc));
   }
   companionPathClear(from:Vec2,to:Vec2,npc:Npc){
-    // Interior furniture/residents use room-local collision geometry. Outdoor
-    // NPC lists and the generic room check (which sees Alice as an obstacle)
-    // must not block her own movement while the physics world is paused.
+    // Use static room geometry indoors. Transient actors must not turn a
+    // narrow hallway into a blocked route while outdoor physics is paused.
     if(this.inInterior)return this.interiors.ready&&this.interiors.companionPath(from,to,npc);
     return this.canNpcVisit(from,to)&&this.canTraverseGround(from,to)
       &&!this.npcPathBlocker(from,to,npc);
@@ -755,8 +768,24 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
 
     this.notify('Oakmere is open to explore. Follow the eastern road and speak with Edmund beyond the farms.');
     this.registry.set('loadingStage','Waiting for first frame');
-    this.game.events.once(Phaser.Core.Events.POST_RENDER,()=>{
-      if(!this.sys.isActive())return;
+    this.game.events.on(Phaser.Core.Events.POST_RENDER,this.onFirstWorldRender,this);
+    } catch (error) {
+      const stage=this.registry.get('loadingStage');
+      const detail=error instanceof Error?error.message:String(error);
+      console.error('[startup] WorldScene construction failed at',stage,error);
+      // A failed scene construction can be swallowed by the engine's lifecycle.
+      // Publish the failure to React, where the stored-save export stays usable.
+      this.registry.set('assetError',`World startup failed while ${String(stage??'preparing the world')}: ${detail}. Your save remains available for export.`);
+      setSaveSnapshotProvider();
+      this.scene.pause(); // Never update a partially constructed gameplay scene.
+    }
+  }
+
+  private onFirstWorldRender(){
+      // Do not consume readiness on an inactive frame, or announce a world
+      // whose game has already been scheduled for disposal by React/retry.
+      if(this.shuttingDown||isGameDisposing(this.game)||!this.sys.isActive())return;
+      this.game.events.off(Phaser.Core.Events.POST_RENDER,this.onFirstWorldRender,this);
       this.registry.set('worldReady',true);
       // Optional sound effects must not prevent the first playable frame.
       // All combat callers already skip sounds absent from the audio cache.
@@ -772,17 +801,6 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
           if(!this.cache.audio.exists(key))this.load.audio(key,path);
         this.load.start();
       });
-    });
-    } catch (error) {
-      const stage=this.registry.get('loadingStage');
-      const detail=error instanceof Error?error.message:String(error);
-      console.error('[startup] WorldScene construction failed at',stage,error);
-      // A failed scene construction can be swallowed by the engine's lifecycle.
-      // Publish the failure to React, where the stored-save export stays usable.
-      this.registry.set('assetError',`World startup failed while ${String(stage??'preparing the world')}: ${detail}. Your save remains available for export.`);
-      setSaveSnapshotProvider();
-      this.scene.pause(); // Never update a partially constructed gameplay scene.
-    }
   }
 
   update(time: number, delta: number) {
@@ -1553,14 +1571,14 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     return this.enemies.size;
   }
 
-  isWalkable(x: number, y: number) { return this.inInterior?this.interiors.combatFeet(x,y):this.worldGenerator.isWalkable(x, y); }
+  isWalkable(x: number, y: number) { return this.inInterior?this.interiors.playerFeet(x,y):this.worldGenerator.isWalkable(x, y); }
   interiorDoorClear(x:number,y:number){return this.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y);}
   isEnemyTerritory(x: number, y: number) { return this.worldGenerator.canCreatureOccupy(x,y)
     &&!(useGameStore.getState().storyFlags['oakmere-road-open']&&Math.hypot(x-TOWN_BY_ID.oakmere.world.x,y-TOWN_BY_ID.oakmere.world.y)<5000&&this.worldGenerator.isRoad(x,y,30))
     &&!WILDERNESS_SITES.some(s=>((s.style==='camp'&&!s.hostile)||s.id==='royal-waystone'||s.id==='greenward-ruin')&&Math.hypot(s.world.x-x,s.world.y-y)<300); }
   canEnemyOccupy(x: number, y: number,enemy?:Enemy) {
     if(enemy&&this.storyActor(enemy))return (this.dungeons?.owns(enemy)?this.dungeons.allows({x,y}):this.storyEncounters.owns(enemy)&&this.storyEncounters.allows({x,y}))
-      &&(this.inInterior?this.interiors.combatFeet(x,y):this.worldGenerator.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y));
+      &&(this.inInterior?this.interiors.combatFeet(x,y,enemy.definition.bodyRadius??12,undefined,true):this.worldGenerator.isWalkable(x,y)&&!this.isBlockedByBuilding(x,y));
     if(this.inInterior)return false;
     if(enemy&&isFlagshipCombatant(enemy.instanceId,enemy.encounterKey,enemy.encounterBehavior?.home)
       &&(!onFlagshipDeck(x,y)||!flagshipWalkable(x,y,enemy.definition.bodyRadius??(enemy.definition.boss?24:11))))return false;
@@ -1663,6 +1681,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     this.questTarget = resolveQuestTarget(store.quests, store.worldContent, this.player,
       id => this.contentManager.getActor(id),store.trackedQuestId,undefined,store.storyFlags);
     const markers: NavigationMarker[] = [];
+    for(const home of PLAYER_HOMES)if(housingFor(store.housing,home.id).owned)markers.push({id:'player-home:'+home.id,kind:'building',service:'home',label:home.homeName,...home.door});
     markers.push(...this.dungeons.exteriorMarkers());
     for(const resident of INTERIOR_RESIDENTS){
       const p=resident.entry.door;
@@ -1690,7 +1709,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       id:enemy.instanceId,kind:'enemy',label:enemy.definition.name,x:enemy.x,y:enemy.y});
     let interaction: string | null = null, distance = 72;
     const building=this.interiors.nearest(this.player.x,this.player.y);
-    if(building){interaction=`Enter ${building.name}`;distance=0;}
+    if(building){const home=PLAYER_HOME_BY_ID[building.id];interaction=home?housingFor(store.housing,home.id).owned?`Enter ${home.homeName}`:`Home for sale · Speak with ${home.agentName}`:`Enter ${building.name}`;distance=0;}
     const elarionShrine=this.nearbyElarionShrine(this.player.x,this.player.y);
     if(elarionShrine){interaction=elarionShrine.definition.name;distance=0;}
     for (const npc of this.npcs) {
@@ -2137,6 +2156,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   shutdown() {
     if(this.shuttingDown)return;
     this.shuttingDown=true;
+    this.game.events.off(Phaser.Core.Events.POST_RENDER,this.onFirstWorldRender,this);
     this.aliceCompanion?.destroy();this.roadLife?.destroy();this.levelUpFeedback?.destroy();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN,this.shutdown,this);
     this.events.off(Phaser.Scenes.Events.DESTROY,this.shutdown,this);

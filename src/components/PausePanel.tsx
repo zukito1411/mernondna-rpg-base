@@ -1,13 +1,12 @@
-import { saveGame, setSaveSnapshotProvider,allowExplicitNewGame,getSaveRecoveryNotice,getSaveFailureReason } from '../utils/save';
+import { saveGame,getSaveRecoveryNotice,getSaveFailureReason } from '../utils/save';
 import { useGameStore } from '../store/gameStore';
 import { GraphicsQualityControl } from './GraphicsQualityControl';
 import { GraphicsEffectsControl } from './GraphicsEffectsControl';
 import {SaveTransferControls} from './SaveTransferControls';
 
-export function PausePanel() {
+export function PausePanel({onReturnHome,canReturnHome}:{onReturnHome:()=>void;canReturnHome:boolean}) {
   const panel = useGameStore((s) => s.panel);
   const close = useGameStore((s) => s.closePanel);
-  const reset = useGameStore((s) => s.resetGame);
   const showToast = useGameStore((s) => s.showToast);
   const ambience=useGameStore(s=>s.weatherAudio);
   const recovery=getSaveRecoveryNotice();
@@ -23,7 +22,7 @@ export function PausePanel() {
           <button type="button" onClick={()=>{useGameStore.getState().hydrate({weatherAudio:!ambience});window.dispatchEvent(new Event('mernondna-weather-audio'));}}>World sounds: {ambience?'on':'off'}</button>
           <button type="button" onClick={() => { const saved = saveGame(); showToast(saved ? 'Game saved and verified locally.' : getSaveFailureReason() ?? 'Saving is unavailable. Check browser storage.'); close(); }}>Save game</button>
           <SaveTransferControls/>
-          <button type="button" onClick={() => { if(!window.confirm('Start a new game? Your current progress will be replaced.'))return;setSaveSnapshotProvider();allowExplicitNewGame();reset(); saveGame(); window.location.reload(); }}>Start new game</button>
+          <button type="button" disabled={!canReturnHome} onClick={onReturnHome}>Return to Home</button>
         </div>
         {recovery&&<p className="menu-note" role="status">{recovery}</p>}
         <p className="menu-note">Regional background music continues while this menu is open. Desktop: WASD, Shift, Q, Space, E, M, I, C. Mobile: virtual joystick plus Attack, Dash and Interact buttons. Spend level-up status and skill points in Status.</p>

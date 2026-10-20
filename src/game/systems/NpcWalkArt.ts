@@ -10,7 +10,10 @@ import {fitAtlasPoses,atlasGroundY} from './atlasPoseFit';
 /** Segment complete actors before packing. Transparent gutters isolate linear
  * GPU sampling, while one scale per sheet preserves anatomy across the cycle. */
 export function prepareNpcWalkArt(scene:Phaser.Scene):SpriteAnimation[]{
-  return NPC_WALK_ART.flatMap(spec=>{
+  return Array.from(npcWalkArtBatches(scene)).flat();
+}
+export function* npcWalkArtBatches(scene:Phaser.Scene):Generator<SpriteAnimation[]>{
+  for(const spec of NPC_WALK_ART){
     const sourceKey='npc-walk-source:'+spec.walk;
     const image=scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
     const native=document.createElement('canvas');native.width=image.width;native.height=image.height;
@@ -55,6 +58,7 @@ export function prepareNpcWalkArt(scene:Phaser.Scene):SpriteAnimation[]{
     });
     texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     native.width=native.height=1;scene.textures.remove(sourceKey);
-    return clips;
-  });
+    subjects.length=0;
+    yield clips;
+  }
 }

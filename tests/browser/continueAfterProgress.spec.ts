@@ -16,7 +16,7 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
  await page.getByRole('button',{name:/Skip scene/}).click({timeout:30000});
  // The opening cinematic may temporarily own the interior-safe position.
  await page.waitForFunction(async()=>{
-  const {useGameStore}=await import('/src/store/gameStore.ts');
+  const {useGameStore}=await import('/src/'+'store/gameStore.ts') as typeof import('../../src/store/gameStore');
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
   const state=useGameStore.getState();
   const interiors=(scene as unknown as {interiors:{safePosition:unknown}}).interiors;
@@ -24,8 +24,8 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
  },null,{timeout:30000});
 
  const initial=await page.evaluate(async (townId:string)=>{
-  const {useGameStore}=await import('/src/store/gameStore.ts');
-  const {saveGame}=await import('/src/utils/save.ts');
+  const {useGameStore}=await import('/src/'+'store/gameStore.ts') as typeof import('../../src/store/gameStore');
+  const {saveGame}=await import('/src/'+'utils/save.ts') as typeof import('../../src/utils/save');
   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
   const store=useGameStore.getState();
   store.markBossDefeated('captain-varr');
@@ -59,7 +59,7 @@ test('continue after a boss defeat, distant teleport, and inn sleep starts a pla
   await page.getByRole('button',{name:'Continue',exact:true}).click();
   await ready(page);
   const state=await page.evaluate(async()=>{
-   const {useGameStore}=await import('/src/store/gameStore.ts');
+   const {useGameStore}=await import('/src/'+'store/gameStore.ts') as typeof import('../../src/store/gameStore');
    const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
    const game=useGameStore.getState();
    return {region:game.regionId,day:game.day,gold:game.gold,

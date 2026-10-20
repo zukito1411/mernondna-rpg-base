@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import {installBootImageLoading} from '../systems/BootImageLoading';
+import {isGameDisposing} from '../systems/gameLifetime';
 import {heroBodySource,heroGrip} from '../../data/modularHero';
 import {heroFrameData} from '../systems/heroFrameData';
 import {isolateAtlasFrames} from '../systems/AtlasFrameIsolation';
@@ -6,7 +8,7 @@ import {SWORD_SOURCE,prepareEquippedSwords,loadAwakenedSwords} from '../systems/
 import {COMBAT_EFFECT_TEXTURE,DISTINCT_EFFECT_TEXTURE,prepareCombatArtEffects,prepareSlashWeaponEffect} from '../systems/CombatArtEffects';
 import {applySkillWeaponPalette,skillBodyGuard} from '../systems/WeaponSkillPalette';
 import {heroReferenceHeight} from '../../data/heroBodyRegistration';
-import {CITIZEN_SOURCES,prepareCitizenArt} from '../systems/RegionalCitizenArt';
+import {CITIZEN_SOURCES,citizenArtBatches} from '../systems/RegionalCitizenArt';
 import { ART_SHEETS, PLAYER_ANIMATIONS, NPC_ANIMATIONS, artFrameSize, HERO_VISIBLE_HEIGHT } from '../../data/art';
 import { ENEMY_ANIMATIONS, type SpriteAnimation } from '../../data/animationPacks';
 import { PLAYER_COMBO_ATTACK_ANIMATIONS, PLAYER_EFFECT_ANIMATIONS } from '../../data/spriteBoards';
@@ -28,7 +30,7 @@ import {prepareGuardMarchArt} from '../systems/GuardMarchArt';
 import {NPC_COMBAT_ART} from '../../data/npcCombatArt';
 import {prepareNpcCombatArt} from '../systems/NpcCombatArt';
 import {NPC_WALK_ART,npcWalkPath} from '../../data/npcWalkArt';
-import {prepareNpcWalkArt} from '../systems/NpcWalkArt';
+import {npcWalkArtBatches} from '../systems/NpcWalkArt';
 import {BANDIT_COMBAT_ART,banditCombatPath} from '../../data/banditCombatArt';
 import {prepareBanditCombatArt} from '../systems/BanditCombatArt';
 import {prepareSaltKingArt} from '../systems/SaltKingArt';
@@ -82,6 +84,17 @@ function heroVisibleBounds(
 export class BootScene extends Phaser.Scene {
   private readonly failures: string[] = [];
   private sourceRepairAttempted=false;
+  private startupCancelled=false;
+  private startupPhase:'loading'|'repairing'|'preparing'|'world'='loading';
+
+  private startupActive(){
+    // Phaser calls create() before switching CREATING -> RUNNING. Rejecting
+    // CREATING silently aborts finishStartup before its first await, leaving
+    // both New Game and Continue permanently at "Loading artwork".
+    const status=this.sys.settings.status;
+    return !this.startupCancelled&&!isGameDisposing(this.game)&&
+      (status===Phaser.Scenes.CREATING||status===Phaser.Scenes.RUNNING);
+  }
 
   /** A missing Phaser TextureManager key resolves to its 32x32 placeholder,
    * which otherwise looks like a broken art manifest. Validate source keys and
@@ -125,6 +138,7 @@ export class BootScene extends Phaser.Scene {
       return true;
     }
     this.sourceRepairAttempted=true;
+    this.startupPhase='repairing';
     this.registry.set('loadingStage','Repairing missing character artwork');
     this.registry.set('loadingProgress',0);
     const token=Date.now().toString(36);
@@ -147,10 +161,17 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Large source PNGs can decode simultaneously on Android WebView,
-    // exhausting graphics memory while Continue is still loading artwork.
-    // Limit parallel image decodes without modifying any visual assets.
-    if(/Android/i.test(navigator.userAgent))this.load.maxParallelDownloads=4;
+    this.startupCancelled=false;
+    const cancel=()=>{this.startupCancelled=true;};
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,cancel);
+    this.events.once(Phaser.Scenes.Events.DESTROY,cancel);
+    // XHR releases download slots before image decoding, so its concurrency
+    // setting alone does not bound decoded images on a cold APK startup.
+    // Image-element slots include decoding. Keep this specific to Boot:
+    // gameplay loaders retain their XHR timeouts for interior/optional art.
+    this.load.imageLoadType='HTMLImageElement';
+    this.load.maxParallelDownloads=4;
+    installBootImageLoading(this);
     this.registry.set('loadingLastAsset','Waiting for first asset');
     this.load.on('filecomplete',(key:string)=>this.registry.set('loadingLastAsset',key));
     this.load.image(SWORD_SOURCE,'assets/items/equipment-v1.png');
@@ -236,7 +257,7 @@ export class BootScene extends Phaser.Scene {
     let sheetsPrepared=0;
     const totalSheets=sheets.filter(s=>s.key!=='walls').length;
     for (const sheet of sheets.filter(s => s.key !== 'walls')) {
-      if(!this.sys.isActive())return loaded;
+      if(!this.startupActive())return loaded;
       this.registry.set('loadingStage',`Preparing sprite sheets ${++sheetsPrepared}/${totalSheets}`);
       // Some multi-source sheets use a descriptive path that is not itself
       // queued as an image. The first registered frame source is the correct
@@ -525,8 +546,15 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    void this.finishStartup().catch(error=>{
-      if(!this.sys.isActive())return;
+    this.startupPhase='preparing';
+    void this.finishStartup().then(()=>{
+      // A lifecycle guard must not silently strand the loading screen. Repair
+      // deliberately waits for another loader pass; successful preparation
+      // must queue the world, while cancellation must do neither.
+      if(this.startupActive()&&this.startupPhase==='preparing'&&!this.registry.get('assetError'))
+        throw new Error('Artwork preparation ended without starting the world');
+    }).catch(error=>{
+      if(!this.startupActive())return;
       const stage=this.registry.get('loadingStage');
       const detail=error instanceof Error?error.message:String(error);
       console.error('[startup] Failed while',stage,error);
@@ -535,6 +563,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   private async finishStartup() {
+    if(!this.startupActive())return;
     // Check registered textures *before* reporting generic file failures;
     // a single missing sprite can be repaired without discarding the save.
     if(this.repairSpriteSources())return;
@@ -550,48 +579,74 @@ export class BootScene extends Phaser.Scene {
     }
     this.registry.set('loadingStage','Preparing essential artwork');
     await this.yieldArtworkFrame();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     registerAttackWarningFrames(this);
     prepareCombatArtEffects(this);
     prepareCombatArtEffects(this,DISTINCT_EFFECT_TEXTURE,'distinct-art-effect');
-    prepareCitizenArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
+    for(const culture of citizenArtBatches(this)){
+      this.registry.set('loadingStage',`Preparing citizens · ${culture}`);
+      await this.yieldArtworkFrame();
+      if(!this.startupActive())return;
+    }
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     prepareEquippedSwords(this);
 
     prepareVehicleArt(this);
     prepareDragonBreathArt(this);
     await this.yieldArtworkFrame();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     const loaded=await this.prepareRegisteredSheets();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
 
     this.registry.set('loadingStage','Preparing wildlife and enemy animations');
     await this.yieldArtworkFrame();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     prepareRabbitArt(this);
     prepareSquirrelArt(this);
     prepareWoodlandBirdArt(this);
     prepareCoastalGullArt(this);
     prepareOrcRaiderCombatArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     prepareRefinedEnemyArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     prepareBanditCombatArt(this);
     await this.yieldArtworkFrame();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     this.registry.set('loadingStage','Preparing boss and companion artwork');
     const saltKingAnimations=prepareSaltKingArt(this);
     const pirateAnimations=preparePirateArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     prepareBoatswainArt(this);
     prepareGoblinArt(this);
     preparePirateFlagshipArt(this);
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     const directionalNpcIdles=prepareNpcDirectionalIdleArt(this);
-    const npcWalkAnimations=prepareNpcWalkArt(this);
+    const npcWalkAnimations:SpriteAnimation[]=[];
+    for(const clips of npcWalkArtBatches(this)){
+      npcWalkAnimations.push(...clips);
+      this.registry.set('loadingStage',`Preparing resident movement · ${npcWalkAnimations.length} clips`);
+      await this.yieldArtworkFrame();
+      if(!this.startupActive())return;
+    }
+    await this.yieldArtworkFrame();
+    if(!this.startupActive())return;
     // Directional idles/portraits have already captured the original poses.
     // Retire replaced walking atlases instead of doubling resident GPU memory.
     for(const art of NPC_WALK_ART)this.textures.remove(art.walk);
     const guardMarchAnimations=prepareGuardMarchArt(this);
     const npcCombatAnimations=prepareNpcCombatArt(this);
     await this.yieldArtworkFrame();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     prepareScorchedArt(this);
     prepareBridgeRail(this);
     prepareTreeArt(this);
@@ -625,13 +680,13 @@ export class BootScene extends Phaser.Scene {
     }
     prepareSlashWeaponEffect(this);
     await this.yieldArtworkFrame();
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     // All derived layers are ready. Repack runtime atlases with clear sampling
     // gutters; terrain and tile textures are deliberately excluded.
     const atlasKeys=this.textures.getTextureKeys();
     let optimized=0;
     for(const key of atlasKeys){
-      if(!this.sys.isActive())return;
+      if(!this.startupActive())return;
       this.registry.set('loadingStage',`Optimizing atlases ${++optimized}/${atlasKeys.length}`);
       const texture=this.textures.get(key);
       if(key!=='terrain'&&texture instanceof Phaser.Textures.CanvasTexture){
@@ -641,8 +696,9 @@ export class BootScene extends Phaser.Scene {
       }
       if(optimized%3===0)await this.yieldArtworkFrame();
     }
-    if(!this.sys.isActive())return;
+    if(!this.startupActive())return;
     this.registry.set('loadingStage','Preparing world');
+    this.startupPhase='world';
     this.scene.start('world');
   }
 }

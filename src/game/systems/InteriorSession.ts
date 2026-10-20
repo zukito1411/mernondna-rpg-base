@@ -1,4 +1,8 @@
 import Phaser from 'phaser';
+import {housingFor,HOME_FLOORS,HOME_ENTRANCE,FURNITURE_BY_ART,furnitureFootprint,homeWeaponMount,type HomeItem} from '../../data/housing';
+import {isPlayerHome,PLAYER_HOME_BY_ID} from '../../data/playerHomes';
+import housingArt from '../../data/housingArt.json';
+import {SWORD_TEXTURE} from './EquippedSwordVisual';
 import {INTERIOR_ENTRIES,INTERIOR_RESIDENTS_BY_ENTRY,roomPlan,type InteriorEntry,type RoomPlan,type RoomRect} from '../../data/interiors';
 import {NPC_BY_ID} from '../../data/npcs';
 import {useGameStore} from '../../store/gameStore';
@@ -17,6 +21,7 @@ import {CAVE_ART_PATH,CAVE_ART_FRAMES,CAVE_FLOOR} from '../../data/caveArt';
 const DEPTH=10_000_000;
 const SOURCE='interior-source',ATLAS='interior-furniture';
 const FLOORS=['interior-floor','interior-floor-secondary'] as const;
+const HOME_ATLASES=[0,1,2].map(i=>'home-furniture:'+i);
 
 /** A bounded room overlay in the existing scene. Outdoor physics/streaming
  * freeze; only the local player's swept feet advance, so hidden world actors
@@ -33,6 +38,7 @@ export class InteriorSession {
   private readonly innBeds:Vec2[]=[];
   private readonly innBedMarkers:NavigationMarker[]=[];
   private nearInnBed=false;
+  private nearHomeBed=false;
   private nextBedHintAt=0;
   private hidden:Array<{object:Phaser.GameObjects.GameObject;visible:boolean;filter:number}>=[];
   private formerBounds:Phaser.Geom.Rectangle|null=null;
@@ -48,6 +54,8 @@ export class InteriorSession {
   private settleLoad:((ready:boolean)=>void)|null=null;
   private loadingPromise:Promise<boolean>|null=null;
   private readonly combatPaths=new WeakMap<Enemy,{key:string;until:number;point:Vec2}>();
+  private homeObjects:Phaser.GameObjects.GameObject[]=[];
+  private homeItems:HomeItem[]|null=null;
   constructor(private readonly scene:WorldScene){}
   get active(){return this.loading||this.entry!==null;}
   get ready(){return this.entry!==null&&!this.loading;}
@@ -138,6 +146,10 @@ export class InteriorSession {
       &&Math.hypot(enemy.x-this.scene.player.x,enemy.y-this.scene.player.y)<500){
       this.scene.notify('Leave combat before entering a building.');return;
     }
+    if(isPlayerHome(entry.id)&&!housingFor(useGameStore.getState().housing,entry.id).owned){
+      const property=PLAYER_HOME_BY_ID[entry.id]!;
+      this.scene.notify(`Home for sale · 7,500G. Speak with ${property.agentName} at ${property.agentLocation}.`);this.scene.player.resetInput();return;
+    }
     this.outside={x:this.scene.player.x,y:this.scene.player.y};
     if(entry.profile==='cave')this.scene.prepareStoryArena();
     this.scene.player.resetInput();this.scene.targeting.clear();this.scene.physics.world.pause();
@@ -157,24 +169,31 @@ export class InteriorSession {
       this.scene.notify(message);settle(false);
     };
     const complete=()=>{
+      if(!this.scene.textures.exists(SOURCE)||isPlayerHome(entry.id)&&HOME_ATLASES.some(key=>!this.scene.textures.exists(key)))return;
       this.detachLoader();
       if(this.disposed){settle(false);return;}
       try{
         if(!this.scene.textures.exists(SOURCE))throw new Error('Interior kit unavailable');
         if(entry.profile==='cave')this.prepareCaveArt();else this.prepareArt();
+        if(isPlayerHome(entry.id))for(const [id,frame] of Object.entries(housingArt.frames)){
+          const texture=this.scene.textures.get(HOME_ATLASES[frame.atlas]);
+          if(!texture.has(id))texture.add(id,0,frame.x,frame.y,frame.width,frame.height);
+        }
         this.open(entry,anchor,cinematic);settle(true);
       }catch(error){fail(`Could not enter: ${error instanceof Error?error.message:String(error)}`);}
     };
     const error=(file:Phaser.Loader.File)=>{
-      if(file.key!==SOURCE)return;
+      if(file.key!==SOURCE&&!HOME_ATLASES.includes(String(file.key)))return;
       fail('Interior art could not load.');
     };
     this.callbacks={complete,error};
     // Only this kit gates the room, not unrelated enemy-art requests sharing
     // the scene loader. Bound network waits so skip/restoration can settle.
-    this.scene.load.once('filecomplete-image-'+SOURCE,complete);
+    this.scene.load.on('filecomplete',complete);
     this.scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR,error);
     try{
+      if(isPlayerHome(entry.id))for(const [i,key] of HOME_ATLASES.entries())if(!this.scene.textures.exists(key))
+        this.scene.load.image({key,url:`assets/interiors/housing-furniture-${i}-v1.png`,xhrSettings:{responseType:'blob',timeout:15000}});
       this.scene.load.image({
         key:SOURCE,url:entry.profile==='cave'?CAVE_ART_PATH:`assets/interiors/${entry.kit}/kit.png`,
         xhrSettings:{responseType:'blob',timeout:15000},
@@ -254,7 +273,9 @@ export class InteriorSession {
           :{x:side==='west'?axis:axis-22,y:start,width:22,height:length});
         for(let i=0;i<count;i++){
           if(north)this.drawArt('northWall',start+(i+.5)*step,axis+38,step+1,DEPTH+axis+38);
-          else {
+          else if(!isPlayerHome(this.entry?.id)){
+            // Homes retain the existing horizontal timber and exact collision
+            // boundary, without repeated upright decorative side-wall strips.
             const x=axis+(side==='west'?10:-10),y=start+(i+1)*step;
             const ratio=this.artHeight('sideWall',1);
             this.drawArt('sideWall',x,y,step/ratio,DEPTH+y).setFlipX(side==='east');
@@ -264,7 +285,12 @@ export class InteriorSession {
     }
   }
   private open(entry:InteriorEntry,anchor:Vec2,cinematic=false){
-    const scene=this.scene,plan=roomPlan(entry.hall,entry.name,entry.profile,entry.kit);this.entry=entry;this.plan=plan;this.loading=false;
+    const scene=this.scene,plan:RoomPlan=isPlayerHome(entry.id)&&housingFor(useGameStore.getState().housing,entry.id).owned?
+      {floors:HOME_FLOORS.map(r=>({...r,material:0})),rooms:[{id:'living',label:'Living room',kind:'living',...HOME_FLOORS[0],material:0},
+        {id:'bedroom',label:'Bedroom',kind:'bedroom',...HOME_FLOORS[1],material:0},
+        {id:'kitchen',label:'Kitchen',kind:'kitchen',...HOME_FLOORS[2],material:0}],
+        objects:[],entrance:HOME_ENTRANCE,residents:[]}:
+      roomPlan(entry.hall,entry.name,entry.profile,entry.kit);this.entry=entry;this.plan=plan;this.loading=false;
     this.origin={x:anchor.x-plan.entrance.x,y:anchor.y-plan.entrance.y};
     this.mapFloors=plan.floors.map(r=>({x:this.origin.x+r.x,y:this.origin.y+r.y,width:r.width,height:r.height}));
     const camera=scene.cameras.main;
@@ -305,6 +331,9 @@ export class InteriorSession {
       }
     }
     this.renderWalls();
+    if(isPlayerHome(entry.id)&&housingFor(useGameStore.getState().housing,entry.id).owned){
+      useGameStore.setState({housingContext:entry.id,housingEditing:false});this.refreshHomeFurniture();
+    }
     // The open arch is a doorway, never the wardrobe/counter source. Its
     // transparent opening and the vestibule footprint share the same centre.
     this.drawArt('doorway',plan.entrance.x,plan.entrance.y+55,190,DEPTH+plan.entrance.y+55);
@@ -390,35 +419,30 @@ export class InteriorSession {
       &&(ignoreResidents||!this.getResidents().some(n=>n!==ignoreResident&&overlaps({x:n.x-this.origin.x-14,y:n.y-this.origin.y-24,width:28,height:24})));
   }
   playerFeet(x:number,y:number){
-    return this.combatFeet(x,y)&&!this.scene.getCombatEnemies().some(e=>e.active&&e.hp>0
-      &&Math.hypot(e.x-x,e.y-y)<(e.definition.bodyRadius??11)+12);
+    // Player movement/skills are blocked by room geometry, never by transient
+    // actor feet. Alice, residents and enemies remain visible/interactive and
+    // damageable, but cannot trap the hero in a doorway or narrow cave.
+    return this.combatFeet(x,y,12,undefined,true);
   }
-  private validFeet(x:number,y:number,ignoreResident?:Npc){
-    return this.combatFeet(x,y,12,ignoreResident)&&!this.scene.getCombatEnemies().some(e=>e.active&&e.hp>0
-      &&Math.hypot(e.x-x,e.y-y)<(e.definition.bodyRadius??11)+12);
+  private validFeet(x:number,y:number){
+    return this.playerFeet(x,y);
   }
   combatPath(a:Vec2,b:Vec2,radius=12){
     const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));
     for(let i=0;i<=steps;i++)if(!this.combatFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,radius,undefined,true))return false;
     return true;
   }
-  /** Companion-only indoor path check. Outdoor NPC collisions must not affect
-   * rooms, and Alice must not collide with her own footprint while walking.
-   * Keep walls, furniture and other residents solid along the swept path. */
-  companionPath(a:Vec2,b:Vec2,companion:Npc){
-    const radius=12,steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));
-    for(let i=0;i<=steps;i++){
-      const t=i/steps,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
-      if(!this.combatFeet(x,y,radius,companion))return false;
-    }
-    return true;
+  /** Alice follows the same static room paths, without actor-sized barriers.
+   * Follow goals still keep her spaced from the hero. */
+  companionPath(a:Vec2,b:Vec2,_companion:Npc){
+    return this.combatPath(a,b);
   }
   navigationPoint(enemy:Enemy,target:Vec2):Vec2{
     if(this.combatPath(enemy,target))return target;
     const key=Math.floor(target.x/48)+':'+Math.floor(target.y/48),cached=this.combatPaths.get(enemy);
     if(cached&&cached.key===key&&cached.until>this.scene.time.now&&Math.hypot(enemy.x-cached.point.x,enemy.y-cached.point.y)>10)return cached.point;
-    // Bounded local grid through the existing floor union. Furniture and
-    // resident feet are obstacles; no outdoor route finder is used indoors.
+    // Bounded local grid through static room geometry; no outdoor route
+    // finder is used indoors and transient actors cannot invalidate a route.
     const nodes:Array<{point:Vec2;parent:number}>=[{point:{x:enemy.x,y:enemy.y},parent:-1}],seen=new Set<string>();
     let found=-1;
     for(let head=0;head<nodes.length&&head<1800;head++){
@@ -437,19 +461,18 @@ export class InteriorSession {
   advanceEnemy(enemy:Enemy,delta:number){
     const body=enemy.body as Phaser.Physics.Arcade.Body,velocity=body.velocity.clone(),dt=Math.min(delta,80)/1000;
     const dx=velocity.x*dt,dy=velocity.y*dt,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/6)),radius=enemy.definition.bodyRadius??11;
-    const valid=(x:number,y:number)=>this.combatFeet(x,y,radius)
-      &&Math.hypot(x-this.scene.player.x,y-this.scene.player.y)>=radius+12
+    const valid=(x:number,y:number)=>this.combatFeet(x,y,radius,undefined,true)
       &&!this.scene.getCombatEnemies().some(e=>e!==enemy&&e.hp>0&&Math.hypot(e.x-x,e.y-y)<radius+(e.definition.bodyRadius??11)+2);
     let x=enemy.x,y=enemy.y;
     for(let i=0;i<steps;i++){if(valid(x+dx/steps,y))x+=dx/steps;if(valid(x,y+dy/steps))y+=dy/steps;}
     body.reset(x,y);body.setVelocity(velocity.x,velocity.y);enemy.setDepth(this.playerRenderDepth(y));
   }
-  clearPath(a:Vec2,b:Vec2,skipResident?:Npc){
-    if(!this.validFeet(b.x,b.y,skipResident))return false;
+  clearPath(a:Vec2,b:Vec2,_skipResident?:Npc){
+    if(!this.validFeet(b.x,b.y))return false;
     const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));
-    // Ignore only the person being spoken to, not intervening furniture, walls
-    // or other residents. Include the endpoint even for a sub-six-unit path.
-    for(let i=1;i<steps;i++)if(!this.validFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,skipResident))return false;
+    // Actors are pass-through, but intervening furniture and walls remain
+    // solid. Include the endpoint even for a sub-six-unit path.
+    for(let i=1;i<steps;i++)if(!this.validFeet(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps))return false;
     return true;
   }
   private reachableResident(npc:Npc){return Math.hypot(npc.x-this.scene.player.x,npc.y-this.scene.player.y)<90
@@ -458,11 +481,27 @@ export class InteriorSession {
     const player=this.scene.player;
     return Math.hypot(point.x-player.x,point.y-player.y)<90&&this.clearPath(player,point);
   }
+  private homeBedReachable(item:HomeItem){
+    if(item.stored||item.art!=='bed')return false;
+    const r=furnitureFootprint(item),p=this.scene.player;
+    const x=Math.max(r.x,Math.min(r.x+r.width,p.x-this.origin.x)),y=Math.max(r.y,Math.min(r.y+r.height,p.y-this.origin.y));
+    // Stand beside a real, reachable bed edge; never sleep through a wall or
+    // another piece of furniture. Rotation uses the bed's actual footprint.
+    return [{x,y:r.y-18},{x,y:r.y+r.height+18},{x:r.x-18,y},{x:r.x+r.width+18,y}]
+      .some(point=>this.bedReachable(this.localPoint(point)));
+  }
+  homeBedInReach(){
+    return isPlayerHome(this.entry?.id)&&housingFor(useGameStore.getState().housing,this.entry?.id).owned
+      &&Boolean(this.homeItems?.some(item=>this.homeBedReachable(item)));
+  }
   update(time:number,delta:number,blocked:boolean){
     this.scene.physics.world.pause();
     this.fitBackdrop();
     if(this.loading){this.scene.player.discardActions();return;}
     if(!this.entry||!this.plan)return;
+    if(isPlayerHome(this.entry.id)){
+      if(this.homeItems!==housingFor(useGameStore.getState().housing,this.entry.id).items)this.refreshHomeFurniture();
+    }
     const player=this.scene.player,body=player.body as Phaser.Physics.Arcade.Body;
     this.scene.updateInteriorStoryCombat(time,delta,blocked);
     if(!this.entry||!this.plan)return; // A combat hit may have caused a respawn.
@@ -486,11 +525,13 @@ export class InteriorSession {
     const near=this.residents.find(n=>this.reachableResident(n));
     // Only the nearby prompt is sampled. Actually paying for a bed always
     // rechecks reachability at input time, without a per-frame furniture scan.
-    if(this.innBeds.length&&time>=this.nextBedHintAt){
+    if(time>=this.nextBedHintAt){
       this.nextBedHintAt=time+150;
       this.nearInnBed=this.innBeds.some(point=>this.bedReachable(point));
+      this.nearHomeBed=this.homeBedInReach();
     }
     const nearBed=!near&&!this.scene.storyCombatActive&&this.nearInnBed;
+    const nearHomeBed=!near&&!this.scene.storyCombatActive&&this.nearHomeBed;
     const exit=this.plan.entrance,nearExit=Math.hypot(x-this.origin.x-exit.x,y-this.origin.y-exit.y)<80;
     const store=useGameStore.getState();
     let target=resolveQuestTarget(store.quests,store.worldContent,player,id=>{
@@ -515,12 +556,15 @@ export class InteriorSession {
         ...this.innBedMarkers,...this.scene.dungeonMarkers,
         ...this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0).map(e=>({id:e.instanceId,kind:'enemy' as const,label:e.definition.name,x:e.x,y:e.y}))],
       interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':this.scene.storyInteraction??
-        (nearBed?(innRestAvailable(this.scene.getWorldHour()*60)?`Sleep until 06:00 — ${INN_REST_COST}G`:'Guest bed — available from 18:00'):
+        (nearHomeBed?(innRestAvailable(this.scene.getWorldHour()*60)?'Sleep in your bed until 06:00':'Home bed — available from 18:00'):nearBed?(innRestAvailable(this.scene.getWorldHour()*60)?`Sleep until 06:00 — ${INN_REST_COST}G`:'Guest bed — available from 18:00'):
         this.scene.companionActor&&Math.hypot(this.scene.companionActor.x-x,this.scene.companionActor.y-y)<180?'Talk to Alice Fen':null)});
     this.syncMs+=Math.min(delta,80);
     if(this.syncMs>=500){this.syncMs=0;this.scene.syncState();}
   }
   interact(){
+    if(this.homeBedInReach()){
+      this.scene.restAtHome();return;
+    }
     if(this.scene.storyInteraction&&this.scene.interactWithStory())return;
     if(this.scene.storyCombatActive){
       if(this.plan&&Math.hypot(this.scene.player.x-this.origin.x-this.plan.entrance.x,this.scene.player.y-this.origin.y-this.plan.entrance.y)<80){this.exit();return;}
@@ -545,10 +589,11 @@ export class InteriorSession {
   private closeRoom(){
     if(!this.entry&&!this.objects.length){this.releaseArt();return;}
     if(this.entry?.profile==='cave')this.scene.closeDungeon();
-    this.entry=null;this.plan=null;this.backdrop=null;
+    this.entry=null;this.plan=null;this.backdrop=null;this.homeObjects=[];this.homeItems=null;
+    useGameStore.setState({housingContext:null,housingEditing:false,...(useGameStore.getState().panel==='housing'?{panel:null}:{})});
     this.innBeds.length=0;
     this.innBedMarkers.length=0;
-    this.nearInnBed=false;this.nextBedHintAt=0;
+    this.nearInnBed=false;this.nearHomeBed=false;this.nextBedHintAt=0;
     this.mapFloors=[];
     for(const object of this.objects){this.scene.tweens.killTweensOf(object);object.destroy();}this.objects=[];this.residents=[];this.guide=null;
     this.floorMask?.destroy();this.floorMask=null;this.wallSolids=[];
@@ -566,7 +611,7 @@ export class InteriorSession {
   }
   private detachLoader(){
     if(!this.callbacks)return;
-    this.scene.load.off('filecomplete-image-'+SOURCE,this.callbacks.complete);
+    this.scene.load.off('filecomplete',this.callbacks.complete);
     this.scene.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR,this.callbacks.error);this.callbacks=null;
   }
   private fitBackdrop(){
@@ -574,6 +619,42 @@ export class InteriorSession {
     this.backdrop?.setPosition(camera.width/2*(1-1/z)-2,camera.height/2*(1-1/z)-2)
       .setDisplaySize(camera.width/z+4,camera.height/z+4);
   }
-  private releaseArt(){for(const key of [SOURCE,ATLAS,...FLOORS])if(this.scene.textures.exists(key))this.scene.textures.remove(key);}
+  private releaseArt(){for(const key of [SOURCE,ATLAS,...FLOORS,...HOME_ATLASES])if(this.scene.textures.exists(key))this.scene.textures.remove(key);}
+  private refreshHomeFurniture(){
+    if(!this.plan)return;
+    const retired=new Set(this.homeObjects);for(const object of retired)object.destroy();
+    this.objects=this.objects.filter(o=>!retired.has(o));this.homeObjects=[];
+    this.homeItems=housingFor(useGameStore.getState().housing,this.entry?.id).items;this.plan.objects=[];
+    for(const item of this.homeItems){
+      if(item.stored)continue;
+      const spec=FURNITURE_BY_ART[item.art]!,r=furnitureFootprint(item);
+      const frame=housingArt.frames[(item.kit+':'+item.art) as keyof typeof housingArt.frames];
+      const a=item.rotation*Math.PI/180,bottom=spec.h*16;
+      const x=r.x+r.width/2-Math.sin(a)*bottom,y=r.y+r.height/2+Math.cos(a)*bottom;
+      // A shallow shelf/rack can have its base inside the wall's 40px band.
+      // Its upright art must render in front of that wall, not be cut by it.
+      const depth=DEPTH+Math.max(r.y+r.height,...HOME_FLOORS.filter(f=>r.x<f.x+f.width&&r.x+r.width>f.x&&r.y>=f.y&&r.y<f.y+40).map(f=>f.y+39));
+      const image=this.own(this.scene.add.image(this.origin.x+x,this.origin.y+y,HOME_ATLASES[frame.atlas],item.kit+':'+item.art)
+        .setOrigin(.5,186/192).setScale(spec.width/frame.visibleWidth).setAngle(item.rotation)
+        .setDepth(spec.walkable?DEPTH-750:depth));
+      this.homeObjects.push(image);
+      if(item.art==='bed')image.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
+        const state=useGameStore.getState();
+        if(this.loading||this.cinematicContext||state.panel||state.dialogue||state.cinematic||state.housingEditing)return;
+        if(this.homeBedReachable(item))this.scene.restAtHome();
+        else this.scene.notify('Walk beside the bed to sleep.');
+      });
+      this.plan.objects.push({art:item.art==='weaponRack'?'pantry':item.art,x:r.x+r.width/2,y:r.y+r.height,width:spec.width,...(!spec.walkable?{solid:r}:{})});
+      if(item.weaponId&&this.scene.textures.get(SWORD_TEXTURE).has(item.weaponId)){
+        const mount=homeWeaponMount(item);
+        const sword=this.own(this.scene.add.image(this.origin.x+mount.x,this.origin.y+mount.y,SWORD_TEXTURE,item.weaponId)
+          .setDisplaySize(25,58).setAngle(item.rotation).setDepth(depth+1));this.homeObjects.push(sword);
+      }
+    }
+    // Editing may cover the player's previous feet. Always return to the
+    // protected foyer after committing, not into newly solid furniture.
+    const p=this.localPoint(HOME_ENTRANCE);(this.scene.player.body as Phaser.Physics.Arcade.Body).reset(p.x,p.y);
+    this.scene.player.resetInput();
+  }
   destroy(){this.disposed=true;this.detachLoader();this.settleLoad?.(false);this.settleLoad=null;this.cinematicContext=null;this.closeRoom();this.loading=false;this.outside=null;}
 }

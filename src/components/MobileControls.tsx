@@ -5,6 +5,7 @@ import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 import {ItemIcon} from './ItemIcon';
 import {POTIONS,type PotionId} from '../data/economy';
+import {isPlayerHome} from '../data/playerHomes';
 
 export function MobileControls() {
   const joystickRef = useRef<HTMLDivElement>(null);
@@ -12,6 +13,8 @@ export function MobileControls() {
   const attackPointer=useRef<number|null>(null);
   const sprintPointer = useRef<{id:number;startedAt:number;timer:number}|null>(null);
   const panel = useGameStore(s => s.panel);
+  const housingEditing=useGameStore(s=>s.housingEditing);
+  const atHome=useGameStore(s=>isPlayerHome(s.housingContext));
   const dialogue = useGameStore(s => s.dialogue);
   const cinematic=useGameStore(s=>s.cinematic);
   const activeSkillStatus = useGameStore(s => s.activeSkillStatus);
@@ -20,7 +23,7 @@ export function MobileControls() {
   const interaction = useGameStore(s => s.navigation.interaction);
   const potions=useGameStore(s=>s.consumables);
   const hp=useGameStore(s=>s.hp),maxHp=useGameStore(s=>s.maxHp),stamina=useGameStore(s=>s.stamina),maxStamina=useGameStore(s=>s.maxStamina);
-  const blocked = Boolean(panel || dialogue || cinematic);
+  const blocked = Boolean(panel || dialogue || cinematic || housingEditing);
   useEffect(() => {
     const reset = () => {
       pointerId.current = null;
@@ -73,7 +76,7 @@ export function MobileControls() {
   };
 
   return (
-    <div className="mobile-controls" aria-label="Touch controls" style={blocked ? { display: 'none' } : undefined}>
+    <div className="mobile-controls" data-at-home={atHome} aria-label="Touch controls" style={blocked ? { display: 'none' } : undefined}>
       <div
         ref={joystickRef}
         className="joystick"

@@ -6,6 +6,8 @@ import {goldLabel} from '../utils/localPlayCheats';
 import {AWAKENING_BY_WEAPON,AWAKENING_HEART_COST} from '../data/awakening';
 import {saveGame} from '../utils/save';
 import {AWAKENED_TECHNIQUES} from '../data/awakening';
+import {PLAYER_HOMES} from '../data/playerHomes';
+import {housingFor,HOME_PRICE} from '../data/housing';
 
 const bossIds=[...new Set(Object.values(BOSS_WEAPONS).map(b=>b.id))];
 
@@ -18,9 +20,15 @@ export function NpcServices({npcId}:{npcId:string}){
  const awaken=useGameStore(s=>s.awakenBossWeapon);
  const spent=Object.values(attributes).reduce((sum,n)=>sum+n,0);
  const smith=isBlacksmith(npcId);
- if(npcId!==EDMUND_ATWOOD_ID&&!smith)return null;
+ const housing=useGameStore(s=>s.housing),property=PLAYER_HOMES.find(h=>h.agentId===npcId);
+ if(npcId!==EDMUND_ATWOOD_ID&&!smith&&!property)return null;
  const ownedBossWeapons=bossIds.filter(id=>inventory.includes(id));
  return <section className="merchant-stock" aria-label="NPC services">
+   {property&&<div><h3>{property.homeName}</h3>
+    <p>{housingFor(housing,property.id).owned?`Your key still fits. ${property.name} is yours whenever the road grows weary.`:
+      `Looking for a place of your own? I hold the deed to ${property.name}. For 7,500 gold, the key is yours for good. Furnish it as you please; owning a home elsewhere is no trouble.`}</p>
+    {!housingFor(housing,property.id).owned&&<button type="button" onClick={()=>useGameStore.setState({dialogue:null,housingContext:'purchase:'+property.id,panel:'housing',housingEditing:false})}>Discuss the deed · {HOME_PRICE.toLocaleString()}G</button>}
+   </div>}
    {npcId===EDMUND_ATWOOD_ID&&<>
      <h3>Retrain attributes</h3>
      <p>Return {spent} spent attribute points to redistribute freely. Keep your level, talents, skills and equipment.</p>

@@ -9,6 +9,9 @@ export {CITIZEN_SOURCES,citizenModel,citizenHeight} from '../../data/regionalCit
 const texture='regional-citizens-v2',FRAME=160,GROUND=156;
 
 export function prepareCitizenArt(scene:Phaser.Scene){
+  for(const _culture of citizenArtBatches(scene)){/* Synchronous preview callers. */}
+}
+export function* citizenArtBatches(scene:Phaser.Scene):Generator<string>{
   const atlas=scene.textures.createCanvas(texture,FRAME*12,FRAME*12)!,ctx=atlas.getContext();
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   const warnings:string[]=[],draw=createSpriteCropper();
@@ -60,6 +63,9 @@ export function prepareCitizenArt(scene:Phaser.Scene){
         frameRate:3,repeat:-1});
     }
     scene.textures.remove(spec.key);
+    source.width=source.height=1;
+    subjects.length=0;
+    yield spec.region;
   }
   atlas.refresh();scene.registry.set('citizenArtWarnings',warnings);
   for(const warning of warnings)console.warn(warning);

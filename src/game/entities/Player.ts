@@ -66,6 +66,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const state=useGameStore.getState();if(state.vitalRevision===this.vitalRevision)return;
     this.hp=state.hp;this.stamina=state.stamina;this.vitalRevision=state.vitalRevision;
   }
+  /** Use current equipment-derived limits, not a stale pre-menu maximum.
+   * Consume pending potion/equipment vitals before restoring, so a later
+   * revision sync cannot undo the completed rest. */
+  restoreRestVitals(){
+    this.syncInventoryVitals();
+    const state=useGameStore.getState(),stats=progressionStats(state.attributes,state.learnedSkills,state.armorBonuses);
+    this.maxHp=stats.maxHp;this.maxStamina=stats.maxStamina;
+    this.hp=this.maxHp;this.stamina=this.maxStamina;
+    state.setVitals(this.hp,this.stamina);
+  }
 
   constructor(scene: WorldScene, x: number, y: number) {
     super(scene, x, y, 'leigneron', 0);

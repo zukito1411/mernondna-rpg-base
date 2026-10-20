@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import {HOME_PRICE,FURNITURE_BY_ART,emptyHousing,parseHousing,housingFor,withHome,allHomeItems,type PlayerHousing,type HomeItem} from '../data/housing';
+import {PLAYER_HOME_BY_ID} from '../data/playerHomes';
 import type { ContentWorldState, NavigationState, QuestObjective, QuestRuntimeState, RegionId } from '../game/types';
 import { LEIGNERON } from '../data/player';
 import { NPC_BY_ID,EDMUND_ATWOOD_ID } from '../data/npcs';
@@ -32,7 +34,7 @@ import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASC
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
-type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | 'housing' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -55,6 +57,11 @@ export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'materi
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}
 
 export interface GameState {
+  housing:PlayerHousing;
+  housingContext:string|null;
+  housingEditing:boolean;
+  buyHome:()=>boolean;
+  saveHomeLayout:(items:HomeItem[],nextId:number)=>string|null;
   edmundBreakthrough:()=>void;
   edmundWorldAscension:(step:'warn'|'confirm'|'cancel')=>void;
   worldAscensionReadyAt:number;
@@ -185,6 +192,7 @@ export interface GameState {
 const initialQuestState = initialQuests;
 
 const baseState = () => ({
+  housing:emptyHousing(),housingContext:null as string|null,housingEditing:false,
   worldAscensionReadyAt:0,
   dungeons:{} as DungeonLedger,activeDungeonId:null as string|null,
   armorInventory:[] as string[],equippedArmor:emptyArmorLoadout(),armorBonuses:{...NO_ARMOR_BONUSES},
@@ -579,7 +587,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
     const dropped=trophy&&Math.random()<bossWeaponDropChance(state.attributes)?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
-    const excess=Boolean(duplicate&&dropped&&(state.bossMaterials[dropped.id]??0)>=MAX_BOSS_MATERIALS);
+    const displayedCopies=dropped?allHomeItems(state.housing).filter(i=>!i.stored&&i.weaponId===dropped.id).length:0;
+    const excess=Boolean(duplicate&&dropped&&(state.bossMaterials[dropped.id]??0)+displayedCopies>=MAX_BOSS_MATERIALS);
     const salvage=excess&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
     const armorPool=bossId&&lootEligible?BOSS_ARMOR[bossId]:undefined;
     const fullArmorSet=Boolean(armorPool?.length&&Math.random()<bossArmorSetDropChance(state.attributes));
@@ -672,5 +681,35 @@ export const useGameStore = create<GameState>((set, get) => ({
       // time weather, streaming, cinematics or UI state call hydrate().
       awakenedWeapons:partial.awakenedWeapons!==undefined?AWAKENING_PROFILES.map(p=>p.weaponId):state.awakenedWeapons};
   }),
+  buyHome:()=>{
+    const s=get();
+    const id=s.housingContext?.startsWith('purchase:')?s.housingContext.slice(9):'',property=PLAYER_HOME_BY_ID[id],home=housingFor(s.housing,id);
+    if(!property||s.panel!=='housing'||home.owned||s.gold<HOME_PRICE||s.cinematic||s.hp<=0)return false;
+    if(!acceptUiAction())return false;
+    set({housing:withHome(s.housing,id,{...home,owned:true}),gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:s.gold-HOME_PRICE,
+      toast:`${property.homeName} is yours. Enter through ${property.name}.`});return true;
+  },
+  saveHomeLayout:(items,nextId)=>{
+    const s=get();
+    const id=s.housingContext??'',home=housingFor(s.housing,id);
+    if(!PLAYER_HOME_BY_ID[id]||!home.owned||s.panel!=='housing'||!s.housingEditing||s.cinematic)return 'Open the editor inside your home first.';
+    const parsed=parseHousing({owned:true,items,nextId});if(!parsed)return 'This layout is invalid. Keep rooms, doors and beds reachable.';
+    const old=new Map(home.items.map(i=>[i.id,i]));let cost=0;
+    const materials={...s.bossMaterials};
+    for(const i of home.items)if(i.weaponId)materials[i.weaponId]=(materials[i.weaponId]??0)+1;
+    for(const i of parsed.items){
+      const previous=old.get(i.id);
+      if(previous&&(previous.art!==i.art||previous.kit!==i.kit))return 'An existing furniture item cannot change its type.';
+      if(!previous){if(i.id<home.nextId||i.stored)return 'Invalid new furniture item.';cost+=FURNITURE_BY_ART[i.art]!.price;}
+      if(i.weaponId){if(!BOSS_WEAPON_IDS.has(i.weaponId)||(materials[i.weaponId]??0)<1)return 'A spare copy of that boss weapon is required for the rack.';materials[i.weaponId]--;}
+    }
+    if(s.gold<cost)return `You need ${cost}G to finish this layout.`;
+    if(Object.values(materials).some(n=>n>MAX_BOSS_MATERIALS))return 'Your spare-weapon storage is full. Use a duplicate at the forge before clearing this rack.';
+    if(nextId<home.nextId)return 'Invalid furniture sequence.';
+    const housing=withHome(s.housing,id,parsed);
+    if([...BOSS_WEAPON_IDS].some(weaponId=>(materials[weaponId]??0)+allHomeItems(housing).filter(i=>i.weaponId===weaponId).length>MAX_BOSS_MATERIALS))return 'Your spare-weapon storage is full.';
+    set({housing,bossMaterials:materials,gold:localPlayCheatsEnabled()?LOCAL_TEST_GOLD:s.gold-cost,housingEditing:false,
+      toast:`Home furnished${cost?` for ${cost}G`:''}. Your rooms are ready.`});return null;
+  },
   resetGame: () => set(baseState()),
 }));

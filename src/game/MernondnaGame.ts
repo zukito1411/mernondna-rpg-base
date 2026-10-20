@@ -40,6 +40,10 @@ export function createMernondnaGame(parent: HTMLElement) {
     backgroundColor: '#1b2418',
     pixelArt: false,
     antialias: true,
+    loader: {
+      maxParallelDownloads: 4,
+      timeout: 30000,
+    },
     scale: {
       // Phaser 3.90 has no renderer-resolution config. FIT maps the physical
       // buffer to CSS bounds and supplies the correct pointer displayScale.

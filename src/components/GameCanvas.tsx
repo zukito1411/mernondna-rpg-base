@@ -1,5 +1,6 @@
 import { useEffect, useRef,useState } from 'react';
 import { createMernondnaGame } from '../game/MernondnaGame';
+import {disposeGame} from '../game/systems/gameLifetime';
 import { mobileInput } from '../game/input';
 import { useGameStore } from '../store/gameStore';
 import type Phaser from 'phaser';
@@ -28,10 +29,27 @@ export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>
   useEffect(() => {
     if (!ref.current) return;
     let game:Phaser.Game|undefined;
-    const failed=(reason:unknown)=>{if(game?.registry.get('worldReady'))return;
-      setError(reason instanceof Error?reason.message:'The game could not finish initializing.');};
-    const onError=(event:ErrorEvent)=>{if(event.error)failed(event.error);};
+    let recovering=false,disposed=false,failureReported=false;
+    const failed=(reason:unknown)=>{
+      if(disposed||recovering||failureReported||game?.registry.get('worldReady'))return;
+      failureReported=true;
+      // Diagnostics belong in the developer console, not the player's screen.
+      // Retry the same journey once; never loop forever or reset a saved game.
+      console.warn('[startup] Opening the world needs recovery:',reason);
+      if(retryAvailable){recovering=true;onRetry();return;}
+      setError('Your journey could not be opened just now. Please try again. No saved progress was replaced during loading.');
+    };
+    const onError=(event:ErrorEvent)=>{
+      // WebViews may supply a message without an Error object. Resource error
+      // events have neither; the Phaser asset loader handles those separately.
+      if(event.error||event.message)failed(event.error??new Error(event.message));
+    };
     const onRejection=(event:PromiseRejectionEvent)=>failed(event.reason);
+    const canvasHost=ref.current;
+    const onContextLost=()=>failed(new Error('The graphics context was lost while preparing the game. Return to the menu and retry; your stored save has not been reset.'));
+    // Capture because WebGL context events do not bubble, and Phaser adds its
+    // canvas after construction. A lost context may never reach POST_RENDER.
+    canvasHost.addEventListener('webglcontextlost',onContextLost,true);
     window.addEventListener('error',onError);window.addEventListener('unhandledrejection',onRejection);
     // Some overlay focus transitions prevent Phaser from seeing a keydown.
     // Both inputs use the same boolean action queue, so a duplicate event is harmless.
@@ -48,16 +66,16 @@ export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>
       game = createMernondnaGame(ref.current);
     }catch(reason){failed(reason);}
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('e2e')) window.__mernondnaGame = game;
-    const startedAt=Date.now();
-    let lastAdvance=startedAt,lastProgress=-1,stalled=false,initialCheckpointSaved=false,loadingStage='';
+    let lastAdvance=Date.now(),lastProgress=-1,stalled=false,initialCheckpointSaved=false,loadingStage='',lastAsset='';
     const onVisible=()=>{if(!document.hidden)lastAdvance=Date.now();};
     document.addEventListener('visibilitychange',onVisible);
     const readinessPoll=window.setInterval(()=>{
-      if(!game)return;
+      if(!game||recovering)return;
       const assetError=game.registry.get('assetError');
-      if(typeof assetError==='string'){setError(assetError);return;}
+      if(typeof assetError==='string'){failed(new Error(assetError));return;}
       const progress=game.registry.get('loadingProgress');
       const stage=game.registry.get('loadingStage');
+      const completedAsset=game.registry.get('loadingLastAsset');
       const ready=game.registry.get('worldReady')===true;
       if(ready){
         setError(null);
@@ -71,21 +89,17 @@ export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>
       }
       if(typeof progress==='number'&&progress>lastProgress+.001){lastProgress=progress;lastAdvance=Date.now();}
       if(typeof stage==='string'&&stage!==loadingStage){loadingStage=stage;lastAdvance=Date.now();}
+      if(typeof completedAsset==='string'&&completedAsset!==lastAsset){lastAsset=completedAsset;lastAdvance=Date.now();}
       if(!ready&&!document.hidden&&!stalled&&
-        (Date.now()-lastAdvance>45000 || Date.now()-startedAt>120000)){
+        Date.now()-lastAdvance>90000){
         stalled=true;
         const stage=game.registry.get('loadingStage');
         const stages=game.scene.scenes.map(scene=>`${scene.scene.key}:${scene.sys.settings.status}`).join(', ');
         const lastAsset=game.registry.get('loadingLastAsset');
         console.warn('[startup] cold load stalled', {stage,scenes:stages,progress,lastAsset,retryAvailable});
-        if(retryAvailable){
-          // Recreate the entire WebView canvas / Phaser loader once, matching
-          // the confirmed manual Main Menu → Continue recovery sequence.
-          onRetry();
-          return;
-        }
         const file=typeof lastAsset==='string'&&lastAsset.length<160?` Last asset: ${lastAsset}.`:'';
-        setError(`Loading did not finish during ${typeof stage==='string'?stage:'game startup'} (scenes: ${stages}).${file} Export your save below before retrying. Your progress has not been reset.`);
+        failed(new Error(`Loading did not finish during ${typeof stage==='string'?stage:'game startup'} (scenes: ${stages}).${file}`));
+        return;
       }
       setLoading(current=>{
         const nextProgress=typeof progress==='number'?progress:current.progress;
@@ -94,8 +108,9 @@ export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>
           {ready,progress:nextProgress,stage:nextStage};
       });
     },100);
-    return () => {window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);window.removeEventListener('keydown',onInteractKey);document.removeEventListener('visibilitychange',onVisible);
-      if (window.__mernondnaGame === game) delete window.__mernondnaGame; game?.destroy(true); };
+    return () => {disposed=true;window.clearInterval(readinessPoll);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onRejection);window.removeEventListener('keydown',onInteractKey);document.removeEventListener('visibilitychange',onVisible);
+      canvasHost.removeEventListener('webglcontextlost',onContextLost,true);
+      if (window.__mernondnaGame === game) delete window.__mernondnaGame; if(game)disposeGame(game); };
   }, []);
 
   useEffect(()=>{
@@ -114,14 +129,14 @@ export function GameCanvas({onReady,onExit,onRetry,retryAvailable}:{onReady:()=>
       <div className="game-loading-content">
         <p className="game-loading-quote" key={quoteIndex}>{LOADING_QUOTES[quoteIndex]}</p>
         <div className="game-loading-track" role="progressbar" aria-label="Loading game" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
-          <span style={{width:`${progress}%`}}/>
+          <span className="game-loading-fill" style={{width:`${progress}%`}}/>
+          <span className="game-loading-percentage" aria-hidden="true">{progress}%</span>
         </div>
-        <small className="game-loading-stage" aria-live="polite" style={{opacity:.75,fontSize:12,letterSpacing:'.02em'}}>{loading.stage}</small>
+        <small className="game-loading-stage" aria-live="polite" style={{opacity:.75,fontSize:12,letterSpacing:'.02em'}}>Preparing your journey…</small>
       </div>
       <div className="game-loading-recovery">
-        <SaveTransferControls exportOnly storedOnly/>
         <button type="button" onClick={onExit}>Return to Main Menu</button>
       </div>
     </div>}
-    {error&&<div className="startup-failure" role="alert"><h2>Game initialization stopped</h2><p>{error}</p><p>Your save was not deleted.</p><button onClick={()=>window.location.reload()}>Retry opening</button><button onClick={()=>{void refreshOfflineGameFiles();}}>Refresh game files (keeps save)</button><div className="game-recovery-controls"><SaveTransferControls exportOnly storedOnly/><button onClick={onExit}>Return to Main Menu</button></div></div>}</>;
+    {error&&<div className="startup-failure" role="alert"><h2>Your journey is waiting</h2><p>{error}</p><button onClick={()=>window.location.reload()}>Try again</button><button onClick={()=>{void refreshOfflineGameFiles();}}>Refresh game files (keeps save)</button><div className="game-recovery-controls"><SaveTransferControls exportOnly storedOnly/><button onClick={onExit}>Return to Main Menu</button></div></div>}</>;
 }

@@ -1,4 +1,5 @@
 import { useGameStore, type GameState } from '../store/gameStore';
+import {parseHousing,allHomeItems} from '../data/housing';
 import { BOSSES, ENEMY_BY_ID,isWolfFamily } from '../data/enemies';
 import { QUESTS } from '../data/quests';
 import { REGIONS } from '../data/regions';
@@ -32,7 +33,7 @@ import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASC
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
 export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'|'bossHearts'|'awakenedWeapons'>>;
-export interface SaveData { version: 7; savedAt: string; state: SavedState & {cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
+export interface SaveData { version: 7; savedAt: string; state: SavedState & {housing?:GameState['housing'];cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
 
 let syncSnapshot: (() => void) | undefined;
 let saving = false;
@@ -485,6 +486,14 @@ export function parseSave(raw: string): SaveData | null {
       ||!validForgeLedger(bossMaterials,MAX_BOSS_MATERIALS)
       ||Object.keys(weaponUpgrades).some(id=>Number((weaponUpgrades as Record<string,number>)[id])>0&&!(s.inventory as string[]).includes(id)))
       return invalidSave('invalid boss weapon upgrades or forge materials');
+    let invalidReturnedWeapon=false;
+    const housing=parseHousing(s.housing,{returnWeapon:id=>{
+      if(!BOSS_WEAPON_IDS.has(id)||!(s.inventory as string[]).includes(id)){invalidReturnedWeapon=true;return;}
+      const ledger=bossMaterials as Record<string,number>;ledger[id]=(ledger[id]??0)+1;
+    }});
+    if(invalidReturnedWeapon||!validForgeLedger(bossMaterials,MAX_BOSS_MATERIALS))return invalidSave('invalid recovered housing weapon copies');
+    if(!housing||allHomeItems(housing).some(i=>i.weaponId&&(!BOSS_WEAPON_IDS.has(i.weaponId)||!(s.inventory as string[]).includes(i.weaponId))))return invalidSave('invalid player housing');
+    if([...BOSS_WEAPON_IDS].some(id=>Number((bossMaterials as Record<string,number>)[id]??0)+allHomeItems(housing).filter(i=>i.weaponId===id).length>MAX_BOSS_MATERIALS))return invalidSave('too many stored and displayed weapon copies');
     const learnedCombatArts=s.learnedCombatArts??[];
     if(!strings(learnedCombatArts)||new Set(learnedCombatArts).size!==learnedCombatArts.length
       ||!learnedCombatArts.every(id=>Object.hasOwn(ACTIVE_SKILL_BY_ID,id)&&Boolean(ACTIVE_SKILL_BY_ID[id as ActiveSkillId].learnCost)))return invalidSave('invalid learned combat arts');
@@ -519,7 +528,7 @@ export function parseSave(raw: string): SaveData | null {
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 7, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
-      ...state,journal:restoreJournal(journal,state),contracts,...armor,dungeons,
+      ...state,journal:restoreJournal(journal,state),contracts,...armor,dungeons,housing,
        weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,bossHearts:bossHearts as Record<string,number>,awakenedWeapons,
        consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
@@ -556,7 +565,7 @@ function serializeCurrentSaveSnapshot():string {
     syncSnapshot?.();
     const s = useGameStore.getState();
     const data: SaveData = { version: 7, savedAt: new Date().toISOString(), state: {
-      hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
+      housing:s.housing,hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
       journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,dungeons:s.dungeons,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{},bossHearts:s.bossHearts??{},awakenedWeapons:s.awakenedWeapons??[], worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
@@ -617,17 +626,21 @@ export function loadGame(): boolean {
     // unreadable. Recheck *all* retained copies with today's parser and
     // restore the most recent valid timestamp rather than blindly rolling
     // back to the last-good slot.
-    const copies=RECOVERY_KEYS.map(key=>{
+    // A healthy primary is authoritative, even when a backup has a newer date
+    // (for example after an intentional import). Do not parse every potentially
+    // large historical world snapshot on the normal Continue path.
+    const primaryRaw=localStorage.getItem(SAVE_KEY);
+    const primary={key:SAVE_KEY,raw:primaryRaw,data:primaryRaw?parseSave(primaryRaw):null};
+    const copies=primary.data?[primary]:[primary,...RECOVERY_KEYS.filter(key=>key!==SAVE_KEY).map(key=>{
       const raw=localStorage.getItem(key);
       return {key,raw,data:raw?parseSave(raw):null};
-    });
+    })];
     const candidates: Array<{key:string;data:SaveData}>=[];
     for(const copy of copies)if(copy.data)candidates.push({key:copy.key,data:copy.data});
     candidates.sort((a,b)=>{
       const time=(value:SaveData)=>Number.isFinite(Date.parse(value.savedAt))?Date.parse(value.savedAt):0;
       return time(b.data)-time(a.data);
     });
-    const primary=copies[0];
     // An imported save may be older than the prior game. Prefer a valid
     // primary; use the newest dated backup only when primary fails parsing.
     const chosen=primary.data?{key:SAVE_KEY,data:primary.data}:candidates[0];
@@ -672,6 +685,7 @@ export function loadGame(): boolean {
     useGameStore.getState().hydrate({ hp: s.hp, maxHp: derived.maxHp, stamina: s.stamina, maxStamina: derived.maxStamina,
       rareLootQueue:[],nextRareLootId:0,
       levelUpNotice:null,nextLevelUpId:0,
+      housing:s.housing??parseHousing(undefined)!,housingContext:null,housingEditing:false,
       journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,
       armorInventory:s.armorInventory??[],equippedArmor:s.equippedArmor??{chest:null,boots:null,cape:null},armorBonuses,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,worldAscensionReadyAt:0,
@@ -683,7 +697,14 @@ export function loadGame(): boolean {
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
       pendingCinematic:s.cinematicQueue?.[0]??null,cinematicQueue:s.cinematicQueue?.slice(1)??[] });
     return true;
-  } catch { return false; }
+  } catch(error) {
+    // Storage access and hydration failures must not look like a dead Continue
+    // button. Retain every stored copy and prevent writes from partial state.
+    saveBlocked=true;
+    recoveryNotice='The saved game could not be restored. Your stored copies were kept. Export your save before trying again.';
+    console.error('[save] Restore failed:',error);
+    return false;
+  }
 }
 
 export function watchProgressSaves() {
@@ -700,7 +721,7 @@ export function watchProgressSaves() {
       saveGame();
       return;
     }
-    if (s.dungeons!==previous.dungeons||s.armorInventory!==previous.armorInventory||s.equippedArmor!==previous.equippedArmor||s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
+    if (s.housing!==previous.housing||s.dungeons!==previous.dungeons||s.armorInventory!==previous.armorInventory||s.equippedArmor!==previous.equippedArmor||s.contracts!==previous.contracts || s.journal!==previous.journal || s.quests !== previous.quests || s.defeatedBosses !== previous.defeatedBosses
       || s.inventory !== previous.inventory || s.weaponId !== previous.weaponId
        || s.weaponUpgrades!==previous.weaponUpgrades || s.bossMaterials!==previous.bossMaterials || s.bossHearts!==previous.bossHearts || s.awakenedWeapons!==previous.awakenedWeapons
       || s.consumables!==previous.consumables || s.learnedCombatArts!==previous.learnedCombatArts || s.skillSlots!==previous.skillSlots
