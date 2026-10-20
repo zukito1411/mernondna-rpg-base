@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { CHUNK_SIZE, TILE_SIZE } from '../../data/world';
 import { WorldGenerator } from './WorldGenerator';
-import { sampleTerrainGrid, seamlessTerrainPixels, TERRAIN_MASK_SIZE, TERRAIN_PATTERN_SIZE } from './terrainArt';
+import { sampleTerrainGridSteps, seamlessTerrainPixels, TERRAIN_MASK_SIZE, TERRAIN_PATTERN_SIZE } from './terrainArt';
 import {drawGroundRelief} from './GroundRelief';
 import {naturalGroundPattern} from './NaturalGroundArt';
 import {GroundCoverBaker} from './GroundCoverBaker';
@@ -49,11 +49,16 @@ export class TerrainBaker {
   }
 
   draw(ctx: CanvasRenderingContext2D, world: WorldGenerator, chunkX: number, chunkY: number) {
+    const steps=this.drawSteps(ctx,world,chunkX,chunkY);
+    while(!steps.next().done){ /* Required visible coverage completes atomically. */ }
+  }
+  /** One owner at a time: the layer/mask canvases are shared scratch buffers. */
+  *drawSteps(ctx:CanvasRenderingContext2D,world:WorldGenerator,chunkX:number,chunkY:number):Generator<void,void>{
     // Pattern size need not divide CHUNK_SIZE: align paving phase in world
     // coordinates so its larger stones never reset at a streaming seam.
     const transform=new DOMMatrix().translate(-chunkX*CHUNK_SIZE,-chunkY*CHUNK_SIZE);
     for(const pattern of this.patterns)pattern.setTransform(transform);
-    const grid = sampleTerrainGrid(chunkX, chunkY, (x, y) => world.getTerrainIndex(world.getTerrainAt(x, y)));
+    const grid = yield* sampleTerrainGridSteps(chunkX, chunkY, (x, y) => world.getTerrainIndex(world.getTerrainAt(x, y)));
     // Regional art is masked per cell, not chosen from a chunk's center. This
     // also recolors paved settlement courts/roads and the dragon's safe deck.
     // Only Darkav's volcanic island needs this extra terrain classification
@@ -61,11 +66,14 @@ export class TerrainBaker {
     // Every other chunk retains its identical original sampled terrain.
     const maybeDarkav=chunkX>=94&&chunkX<=116&&chunkY>=0&&chunkY<=20;
     const painted=maybeDarkav?grid.slice():grid;
-    if(maybeDarkav)for(let row=0;row<TERRAIN_MASK_SIZE;row++)for(let col=0;col<TERRAIN_MASK_SIZE;col++){
+    if(maybeDarkav)for(let row=0;row<TERRAIN_MASK_SIZE;row++){
+    for(let col=0;col<TERRAIN_MASK_SIZE;col++){
       const x=chunkX*CHUNK_SIZE+(col-.5)*TILE_SIZE,y=chunkY*CHUNK_SIZE+(row-.5)*TILE_SIZE;
       const i=row*TERRAIN_MASK_SIZE+col;
       if(world.getRegionAt(x,y)==='darkav')
         painted[i]=darkavGroundFrame(grid[i],insideDefense('blackspire',x,y),world.isRoad(x,y));
+    }
+    if(row%2===1)yield;
     }
     const layerCtx = this.layer.getContext('2d')!, maskCtx = this.mask.getContext('2d')!;
     const pixels = maskCtx.createImageData(TERRAIN_MASK_SIZE, TERRAIN_MASK_SIZE);
@@ -87,9 +95,12 @@ export class TerrainBaker {
       layerCtx.drawImage(this.mask, -TILE_SIZE, -TILE_SIZE, TERRAIN_MASK_SIZE * TILE_SIZE, TERRAIN_MASK_SIZE * TILE_SIZE);
       layerCtx.globalCompositeOperation = 'source-over';
       ctx.drawImage(this.layer, 0, 0);
+      yield;
     }
     drawGroundRelief(ctx,this.mask,world,chunkX,chunkY,grid);
+    yield;
     this.cover.draw(ctx,world,chunkX,chunkY);
+    yield;
   }
 
   drawOcean(ctx:CanvasRenderingContext2D){this.patterns[7].setTransform(new DOMMatrix());ctx.fillStyle=this.patterns[7];ctx.fillRect(0,0,CHUNK_SIZE,CHUNK_SIZE);}

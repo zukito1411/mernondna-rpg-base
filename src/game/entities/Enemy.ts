@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {DepthSortedSprite,setDepthIfChanged} from '../systems/renderDepth';
 import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
 import { enemyLevelAt,scaledEnemy,runtimeEnemyLevel } from '../../data/enemyTiers';
@@ -20,14 +21,14 @@ import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningS
 import {WeaponStatusSystem} from '../systems/WeaponStatusSystem';
 import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles';
 import {enhancedWeapon,enhancedProcChance} from '../../data/weaponUpgrades';
-import {BOSS_COMBAT_PROFILES,type BossCombatProfile} from '../../data/bossCombatProfiles';
+import {worldBossCombatProfile,type BossCombatProfile} from '../../data/bossCombatProfiles';
 import {BossCombat} from '../systems/BossCombat';
 import {AttackTelegraph} from '../systems/AttackTelegraph';
 import type {Npc} from './Npc';
 
 const ALLY_STEERING_OFFSETS=[0,.45,-.45,.9,-.9,1.35,-1.35] as const;
 
-export class Enemy extends Phaser.Physics.Arcade.Sprite {
+export class Enemy extends DepthSortedSprite {
   readonly weaponStatus=new WeaponStatusSystem();
   private statusAttackRate=1;
   private attackWindupTimer:Phaser.Time.TimerEvent|null=null;
@@ -89,10 +90,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private flurrySuppressed=false;
   private lastDamagedAt=0;
   private lastEngagedAt=0;
+  private bossAlerted=false;
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
+  private readonly targetRing:Phaser.GameObjects.Graphics;
+  private indicatorSize=-1;
+  private indicatorSelected=false;
+  private ringWidth=-1;
+  private ringHeight=-1;
+  private healthFraction=-1;
+  private healthWidth=-1;
+  private healthColor=-1;
+  private healthStatusColor:number|null=null;
   private readonly dragonCombat:DragonCombat|undefined;
   private readonly bossCombat:BossCombat|undefined;
-  get isBossEncounter(){return Boolean(this.definition.boss||this.bossCombat);}
+  get isBossEncounter():boolean{return Boolean(this.definition.boss||this.bossCombat||this.dragonCombat);}
+  private get poiseProfile():BossCombatProfile|undefined{return this.bossCombat?.profile??this.dragonCombat?.profile;}
   get bossAttackName(){return this.bossCombat?.attackName??this.dragonCombat?.attackName??null;}
   get bossWindupFraction(){return this.bossCombat?.windupFraction??this.dragonCombat?.windupFraction??null;}
   private visualDirection:ActorDirection='right';
@@ -218,16 +230,17 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       color: definition.boss ? '#f3c69c' : '#edddcb', stroke: '#17120e', strokeThickness: 3,
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
     this.targetIndicator=scene.add.graphics().setName('enemy-target:'+instanceId);
-    if(definition.combatStyle==='dragon'&&!combatProfile)this.dragonCombat=new DragonCombat(this,scene);
+    this.targetRing=scene.add.graphics().setVisible(false).setName('enemy-target-ring:'+instanceId);
+    const profile=combatProfile??(this.boss?worldBossCombatProfile(this.boss.id,this.ascended):undefined);
+    if(definition.combatStyle==='dragon')this.dragonCombat=new DragonCombat(this,scene,profile);
     else {
-      const profile=combatProfile??(this.boss?BOSS_COMBAT_PROFILES[this.boss.id]:undefined);
       if(profile)this.bossCombat=new BossCombat(this,scene,profile);
     }
     this.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
       const state=useGameStore.getState();if(!state.panel&&!state.dialogue&&!state.cinematic)scene.targeting.select(this);
     });
     this.once('destroy', () => {
-      this.interruptAttack();this.targetIndicator.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
+      this.interruptAttack();this.targetIndicator.destroy();this.targetRing.destroy();this.healthBar.destroy(); this.nameLabel.destroy(); this.clearWolfLeap(); this.attackTelegraph?.destroy();
       (this.scene as WorldScene).forgetEnemySound(this.instanceId);
       this.dragonCombat?.destroy();
       this.bossCombat?.destroy();
@@ -252,6 +265,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const progression=useGameStore.getState(),ascended=!this.encounterStats&&Boolean(progression.storyFlags[WORLD_ASCENSION]);
     const nextLevel=this.encounterStats?this.level:runtimeEnemyLevel(this.regionalLevel,progression.level,ascended,this.fixedLevel);
     if(this.hp>0&&(nextLevel!==this.level||ascended!==this.ascended)){
+      if(ascended!==this.ascended&&this.boss){
+        const profile=worldBossCombatProfile(this.boss.id,ascended);
+        if(profile){this.bossCombat?.setProfile(profile);this.dragonCombat?.setProfile(profile);}
+      }
       const fraction=this.hp/this.definition.hp;
       const base=scaledEnemy(this.authoredDefinition,nextLevel,ascended);
       this.definition=this.wolfAlpha?{...base,name:this.definition.name,hp:Math.round(base.hp*1.35),
@@ -265,7 +282,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Paused scenes do not tick updateEnemy, so this is active-play time only.
     const playerDistance = Phaser.Math.Distance.Between(this.x,this.y,player.x,player.y);
     const territory=scene.canEnemyTargetPlayer(this);
-    const spotted=(scene.storyActor(this)||playerDistance<=this.definition.aggroRange)&&territory;
+    // Ascended bosses retain a committed fight across their longer tower move
+    // ranges. Initial detection stays local; leaving the leash still disengages.
+    const advancedPursuit=Boolean(this.boss&&this.ascended&&playerDistance<=900
+      &&(this.bossAlerted||this.playerContributed&&time-this.lastDamagedAt<2000));
+    const spotted=(scene.storyActor(this)||playerDistance<=this.definition.aggroRange||advancedPursuit)&&territory;
+    this.bossAlerted=spotted;
     const encounterMode=this.encounterBehavior&&this.hp>0 ? scene.encounterDecision(this,time,spotted,territory) : null;
     const pursuing = encounterMode ? encounterMode==='pursue' : spotted;
     if (pursuing) this.lastEngagedAt = time;
@@ -697,7 +719,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if(this.definition.combatStyle==='troll')this.anims.timeScale=(animation.frames.length-1)*1000/(animation.frameRate*windup)*this.attackSpeedMultiplier;
     this.attackTimingActive=true;this.visualUntil=this.scene.time.now+(windup+recovery)/this.attackSpeedMultiplier;
   }
-  finishBossWindup(recovery:number){
+  finishBossWindup(recovery:number,angle?:number){
+    if(angle!==undefined){
+      this.facing.set(Math.cos(angle),Math.sin(angle));
+      if(this.directionalCombat)this.visualDirection=actorTravelDirection(this.facing.x,this.facing.y,this.visualDirection);
+      this.playAction('attack');
+      const animation=enemyAnimation(this.definition.spriteFrame,'attack',this.directionalCombat?this.visualDirection:undefined);
+      this.anims.timeScale=animationDuration(animation)/Math.max(1,recovery)*this.attackSpeedMultiplier;
+    }
     if(this.definition.id==='grand-magus'){
       const row=['down','left','right','up'].indexOf(this.visualDirection);
       this.anims.stop();this.setFrame(this.magusSpell?45+row*2:21+row*6);return;
@@ -821,7 +850,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   /** Flurry holds only reachable targets, releasing them when the cast ends,
    * is cancelled, or they leave its area. Damage pulses still play hurt poses. */
   setFlurrySuppressed(suppressed:boolean){
-    if(this.bossCombat?.profile.resistFlurry)return;
+    if(suppressed&&this.poiseProfile?.resistFlurry)return;
     if(!this.active||this.hp<=0||this.flurrySuppressed===suppressed)return;
     if(suppressed&&!this.canBeTargeted)return;
     this.flurrySuppressed=suppressed;
@@ -838,12 +867,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
   private stagger(forced:boolean){
     const now=this.scene.time.now;
-    if((!forced||this.bossCombat?.profile.resistFlurry)&&now<this.staggerImmuneUntil)return false;
+    if((!forced||this.poiseProfile?.resistFlurry)&&now<this.staggerImmuneUntil)return false;
     const directional=this.directionalCombat;
     const duration=animationDuration(enemyAnimation(this.definition.spriteFrame,'hurt',directional?this.visualDirection:undefined));
     this.hitStunUntil=now+duration;
     // A full hurt pose is followed by a real opportunity to retaliate.
-    this.staggerImmuneUntil=this.hitStunUntil+(this.bossCombat?.profile.staggerRecoveryMs??(this.definition.combatStyle==='boatswain'?1800:this.boss||this.bossCombat?1800:1000));
+    this.staggerImmuneUntil=this.hitStunUntil+(this.poiseProfile?.staggerRecoveryMs??(this.definition.combatStyle==='boatswain'?1800:this.isBossEncounter?1800:1000));
     this.lockedUntil=this.hitStunUntil;
     this.nextAttackAt=Math.max(this.nextAttackAt,this.hitStunUntil+150);
     this.interruptAttack();
@@ -937,30 +966,45 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const modelSheet=ART_BY_KEY[model.texture.key as keyof typeof ART_BY_KEY];
     const top=bounds?model.y+(bounds.top-model.originY*modelSheet.frameHeight)*model.scaleY*modelSheet.density-16
       :this.y-visualHeight-16;
-    // Do not repeatedly re-tessellate invisible target indicators. Visible
-    // indicators still redraw each frame to follow their moving owners.
+    // Geometry lives in local coordinates. Animation/locomotion moves it without
+    // re-tessellating. The floor ring follows feet independently of pose height.
+    const depth=scene.playerRenderDepth(this.y);
     if(eligible){
-      this.targetIndicator.clear().setDepth(scene.playerRenderDepth(this.y)+90).setVisible(true);const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
-      this.targetIndicator.lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
-      this.targetIndicator.fillTriangle(this.x-size,top-36,this.x+size,top-36,this.x,top-26);
+      const size=selected?7:this.definition.boss?5:3,color=selected?0xffdf75:0xc18770;
+      setDepthIfChanged(this.targetIndicator,depth+90).setPosition(this.x,top).setVisible(true);
+      if(size!==this.indicatorSize||selected!==this.indicatorSelected){
+        this.indicatorSize=size;this.indicatorSelected=selected;
+        this.targetIndicator.clear().lineStyle(selected?2:1,0x26180e,.9).fillStyle(color,selected?1:.7);
+        this.targetIndicator.fillTriangle(-size,-36,size,-36,0,-26);
+      }
       if(selected){const ground=groundMarkerPosition(this);
-        this.targetIndicator.lineStyle(2,color,.9).strokeEllipse(ground.x,ground.y,
-          Math.max(this.definition.boss?56:34,(this.definition.bodyRadius??0)*2.2),Math.max(10,(this.definition.bodyRadius??0)*.45));}
-    }else if(this.targetIndicator.visible)this.targetIndicator.clear().setVisible(false);
+        const w=Math.max(this.definition.boss?56:34,(this.definition.bodyRadius??0)*2.2),h=Math.max(10,(this.definition.bodyRadius??0)*.45);
+        setDepthIfChanged(this.targetRing,depth+90).setPosition(ground.x,ground.y);
+        if(w!==this.ringWidth||h!==this.ringHeight){
+          this.ringWidth=w;this.ringHeight=h;
+          this.targetRing.clear().lineStyle(2,color,.9).strokeEllipse(0,0,w,h);
+        }
+      }
+    }else this.targetIndicator.setVisible(false);
+    this.targetRing.setVisible(selected);
     const showHealth=visible&&eligible;
-    if(showHealth)this.healthBar.clear().setDepth(scene.playerRenderDepth(this.y)+85).setVisible(true);
-    else if(this.healthBar.visible)this.healthBar.clear().setVisible(false);
+    this.healthBar.setVisible(showHealth);
+    if(showHealth)setDepthIfChanged(this.healthBar,depth+85).setPosition(this.x,top);
     // Phaser Text.setText can invalidate its backing canvas, even when the
     // displayed label is unchanged. Preserve the exact label and glyph style.
     const label=`${this.displayName}${this.weaponStatus.name?' · '+this.weaponStatus.name:''}`;
     if(this.nameLabel.text!==label)this.nameLabel.setText(label);
-    this.nameLabel.setPosition(this.x,top-4).setDepth(scene.playerRenderDepth(this.y)+85)
+    setDepthIfChanged(this.nameLabel,depth+85).setPosition(this.x,top-4)
       .setVisible(showHealth);
     if (showHealth) {
-      this.healthBar.fillStyle(0x16110c,.85).fillRoundedRect(this.x - width / 2 - 2, top - 1, width + 4, 6, 2);
-      this.healthBar.fillStyle(this.definition.boss ? 0xd89557 : 0xbb6550,1)
-        .fillRect(this.x - width / 2, top + 1, width * Math.max(0,this.hp / this.definition.hp), 3);
-      if(this.weaponStatus.active)this.healthBar.fillStyle(this.weaponStatus.color,1).fillCircle(this.x+width/2+6,top+2,3);
+      const fraction=Math.max(0,this.hp/this.definition.hp),color=this.definition.boss?0xd89557:0xbb6550;
+      const statusColor=this.weaponStatus.active?this.weaponStatus.color:null;
+      if(fraction!==this.healthFraction||width!==this.healthWidth||color!==this.healthColor||statusColor!==this.healthStatusColor){
+        this.healthFraction=fraction;this.healthWidth=width;this.healthColor=color;this.healthStatusColor=statusColor;
+        this.healthBar.clear().fillStyle(0x16110c,.85).fillRoundedRect(-width/2-2,-1,width+4,6,2);
+        this.healthBar.fillStyle(color,1).fillRect(-width/2,1,width*fraction,3);
+        if(statusColor!==null)this.healthBar.fillStyle(statusColor,1).fillCircle(width/2+6,2,3);
+      }
     }
   }
 }

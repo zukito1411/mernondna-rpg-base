@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {setDepthIfChanged} from './renderDepth';
 import {viewportChunks,streamViewKey} from './chunkNeighborhood';
 import {CHUNK_SIZE,WORLD_CHUNKS_WIDTH,WORLD_CHUNKS_HEIGHT} from '../../data/world';
 import {cartRoutes,seaRoute,routePosition,type TrafficRoute} from './travelRoutes';
@@ -120,36 +121,36 @@ export class WorldTrafficSystem {
     // The route follows the center of the whole rigid train, so neither end
     // receives the entire lateral offset on a diagonal or narrow crossing.
     x-=pose.horse.x/2;y-=pose.horse.y/2;
-    vehicle.sprite.setFrame(direction).setOrigin(pose.originX,pose.originY).setPosition(x,y).setDepth(y);
+    setDepthIfChanged(vehicle.sprite,y).setFrame(direction).setOrigin(pose.originX,pose.originY).setPosition(x,y);
     // Four perspective poses have authored harness offsets. Sampling a second
     // road point changes that joint on diagonals and disconnects the train.
     // Horse, wagon and wheels must share the same pose and registration.
     const horseTexture=side?'horse-east':direction===0?'horse-south':'horse-north';
-    horse.setTexture(horseTexture,moving?horseWalkFrame(distance):0).setFlipX(direction===1)
-      .setPosition(x+pose.horse.x,y+pose.horse.y).setDepth(direction===3?y-.02:y+.02);
+    setDepthIfChanged(horse,direction===3?y-.02:y+.02).setTexture(horseTexture,moving?horseWalkFrame(distance):0).setFlipX(direction===1)
+      .setPosition(x+pose.horse.x,y+pose.horse.y);
     vehicle.wheels!.forEach((wheel,i)=>{
       const axle=pose.wheels[i];
-      wheel.setFrame(wheelTurnFrame(distance,direction)).setScale(side?.5:.14,.5)
-        .setPosition(x+axle.x,y+axle.y).setDepth(y+.01);
+      setDepthIfChanged(wheel,y+.01).setFrame(wheelTurnFrame(distance,direction)).setScale(side?.5:.14,.5)
+        .setPosition(x+axle.x,y+axle.y);
     });
   }
   private presentBoat(vehicle:Vehicle,x:number,y:number,dx:number,dy:number,direction:number,moving:boolean){
     const bob=this.reducedMotion.matches?0:Math.sin(this.elapsed*.0025+vehicle.route.phase)*1.6,helm=boatHelm(direction);
     const scale=vehicle.scale??BOAT_SCALE,ratio=scale/BOAT_SCALE;
-    vehicle.sprite.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y);
+    setDepthIfChanged(vehicle.sprite,y).setScale(scale).setFrame(direction).setPosition(x,y+bob);
     const crew=vehicle.helmsman!,texture:ArtTextureKey=direction===0?'npc_adventurer_idle':'npc_adventurer_directional_idle';
     // A helmsman stands aboard; use complete directional idle poses, not the
     // replaced six-column walking atlas (nor a frozen mid-stride contact).
     const frame=direction===0?Math.floor(this.elapsed/400)%6:direction===1?0:direction===2?4:8;
-    crew.setTexture(texture,frame).setScale(actorScaleForHeight(texture,frame,80))
-      .setOrigin(.5,1-2/ART_BY_KEY[texture].frameHeight).setPosition(x+helm.x*ratio,y+bob+helm.y*ratio).setDepth(y+.02);
+    setDepthIfChanged(crew,y+.02).setTexture(texture,frame).setScale(actorScaleForHeight(texture,frame,80))
+      .setOrigin(.5,1-2/ART_BY_KEY[texture].frameHeight).setPosition(x+helm.x*ratio,y+bob+helm.y*ratio);
     const seat=boatPassenger(direction);
-    vehicle.passenger?.setScale(actorScaleForHeight('leigneron_idle',0,80)).setOrigin(.5,1-2/ART_BY_KEY.leigneron_idle.frameHeight)
-      .setPosition(x+seat.x*ratio,y+bob+seat.y*ratio).setDepth(y+.021);
+    if(vehicle.passenger)setDepthIfChanged(vehicle.passenger,y+.021).setScale(actorScaleForHeight('leigneron_idle',0,80)).setOrigin(.5,1-2/ART_BY_KEY.leigneron_idle.frameHeight)
+      .setPosition(x+seat.x*ratio,y+bob+seat.y*ratio);
     vehicle.deckShadows!.forEach((shadow,i)=>{
-      const actor=i===0?crew:vehicle.passenger!;shadow.setPosition(actor.x,actor.y).setDepth(y+.01+i*.001).setVisible(actor.visible);
+      const actor=i===0?crew:vehicle.passenger!;setDepthIfChanged(shadow,y+.01+i*.001).setPosition(actor.x,actor.y).setVisible(actor.visible);
     });
-    vehicle.rail!.setScale(scale).setFrame(direction).setPosition(x,y+bob).setDepth(y+.03);
+    setDepthIfChanged(vehicle.rail!,y+.03).setScale(scale).setFrame(direction).setPosition(x,y+bob);
     const length=Math.hypot(dx,dy),vx=dx/length,vy=dy/length;
     vehicle.wake!.forEach((wake,i)=>{
       const trail=130+i*60;

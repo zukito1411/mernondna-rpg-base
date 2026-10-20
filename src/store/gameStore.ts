@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {HOME_PRICE,FURNITURE_BY_ART,emptyHousing,parseHousing,housingFor,withHome,allHomeItems,type PlayerHousing,type HomeItem} from '../data/housing';
 import {PLAYER_HOME_BY_ID} from '../data/playerHomes';
 import type { ContentWorldState, NavigationState, QuestObjective, QuestRuntimeState, RegionId } from '../game/types';
+import {sameNavigation} from '../utils/sameNavigation';
 import { LEIGNERON } from '../data/player';
 import { NPC_BY_ID,EDMUND_ATWOOD_ID } from '../data/npcs';
 import {BOSS_BY_ID} from '../data/enemies';
@@ -29,13 +30,13 @@ import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 import {contractById,boardContracts,contractBoardCycle,expireClaimedContracts,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
 import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,SHADOW_MAGUS_ARMOR_IDS,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
 import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,dungeonEnemyId,newDungeonProgress,type DungeonLedger} from '../data/dungeons';
-import {TOWER_FLOORS,TOWER_QUEST_ID,MAGUS_TREASURE_FLOOR,towerCheckpoint,nextTowerWeeklyReset,gateTowerQuest} from '../data/towerOfMight';
+import {TOWER_FLOORS,TOWER_QUEST_ID,MAGUS_TREASURE_FLOOR,towerCheckpoint,nextTowerWeeklyReset,gateTowerQuest,towerPracticeAvailable,towerFloorProgress,type TowerPractice} from '../data/towerOfMight';
 import {BASE_LEVEL_CAP,MAX_PLAYER_LEVEL,playerLevelCap} from '../data/progression';
 import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASCENSION,ASCENSION_CONFIRM_DELAY_MS} from '../data/breakthrough';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
-type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | 'housing' | 'tower-exit' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | 'housing' | 'tower-exit' | 'tower-practice' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -78,6 +79,10 @@ export interface GameState {
   towerExitRequest:{floorId:string;confirmed:boolean}|null;
   requestTowerExit:(floorId:string)=>void;
   confirmTowerExit:()=>void;
+  towerPractice:TowerPractice|null;
+  towerPracticeRequest:{floorId:string;week:number}|null;
+  openTowerPractice:()=>void;
+  selectTowerPracticeFloor:(floorId:string,week:number)=>void;
   armorInventory:string[];
   equippedArmor:ArmorLoadout;
   armorBonuses:ArmorBonuses;
@@ -203,6 +208,7 @@ const baseState = () => ({
   worldAscensionReadyAt:0,
   dungeons:{} as DungeonLedger,activeDungeonId:null as string|null,
   towerExitRequest:null as GameState['towerExitRequest'],
+  towerPractice:null as TowerPractice|null,towerPracticeRequest:null as GameState['towerPracticeRequest'],
   nextTowerResetAt:nextTowerWeeklyReset(),
   armorInventory:[] as string[],equippedArmor:emptyArmorLoadout(),armorBonuses:{...NO_ARMOR_BONUSES},
   contracts:{} as ContractLedger,contractBoardTownId:null as string|null,
@@ -294,9 +300,9 @@ function settleTowerRun(state:GameState,expired=false,now=Date.now()):Partial<Ga
     if(expired||d.tower!.chamber>checkpoint)delete dungeons[d.id];
     else if(earned)dungeons[d.id]={...p,claimed:true};
   }
-  return {...experienceProgress(state,xp),gold:state.gold+gold,dungeons,towerExitRequest:null,
+  return {...experienceProgress(state,xp),gold:state.gold+gold,dungeons,towerExitRequest:null,towerPractice:null,towerPracticeRequest:null,
     nextTowerResetAt:expired?nextTowerWeeklyReset(now):state.nextTowerResetAt,
-    ...(magusReward?magusTreasure(state,MAGUS_TREASURE_FLOOR):{}),...(state.panel==='tower-exit'?{panel:null}:{})};
+    ...(magusReward?magusTreasure(state,MAGUS_TREASURE_FLOOR):{}),...(['tower-exit','tower-practice'].includes(state.panel??'')?{panel:null}:{})};
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -312,7 +318,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // propagate a pointer/key event into an irreversible confirmation.
     if(!state.worldAscensionReadyAt||Date.now()<state.worldAscensionReadyAt||!acceptUiAction())return {};
     return {worldAscensionReadyAt:0,storyFlags:{...state.storyFlags,[WORLD_ASCENSION]:true},
-      dialogue:{...dialogue,lines:['Then there is no turning back, Leigneron. Every foe across these lands now stands at level 120, with greater strength and endurance. Your own limits have opened: you may train each attribute to sixty. Spend your remaining points wisely.','Should you find a heart among a great foe’s spoils, keep it. Three matching hearts and its blade are worth a visit to a blacksmith. That craft has always been open to you; this choice changes neither the hearts nor your chance of finding them.'],lineIndex:0},
+      dialogue:{...dialogue,lines:['Then there is no turning back, Leigneron. Every foe across these lands now stands at level 120, with greater strength and endurance. Your own limits have opened: you may train each attribute to sixty. The great foes now wield the techniques of their tower echoes. Spend your remaining points wisely.','Should you find a heart among a great foe’s spoils, keep it. Three matching hearts and its blade are worth a visit to a blacksmith. That craft has always been open to you; this choice changes neither the hearts nor your chance of finding them.'],lineIndex:0},
       toast:'World Ascension is permanent: all enemies Lv.120, stronger HP and attacks. Attribute caps raised to 60.'};
   }),
   edmundBreakthrough:()=>set(state=>{
@@ -336,22 +342,45 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   requestTowerExit:floorId=>set(state=>{
     const d=DUNGEON_BY_ID[floorId];
-    if(!d?.tower||state.activeDungeonId!==floorId||!dungeonCleared(d,state.dungeons[floorId])
+    if(!d?.tower||state.activeDungeonId!==floorId||!dungeonCleared(d,towerFloorProgress(floorId,state.dungeons,state.towerPractice))
       ||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
     return {panel:'tower-exit',towerExitRequest:{floorId,confirmed:false}};
   }),
   confirmTowerExit:()=>set(state=>state.panel==='tower-exit'&&state.towerExitRequest&&acceptUiAction()
     ?{panel:null,towerExitRequest:{...state.towerExitRequest,confirmed:true}}:{}),
+  openTowerPractice:()=>set(state=>{
+    const d=state.activeDungeonId?DUNGEON_BY_ID[state.activeDungeonId]:undefined;
+    if(!d?.tower||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting
+      ||!dungeonCleared(d,towerFloorProgress(d.id,state.dungeons,state.towerPractice))
+      ||!towerPracticeAvailable(state.dungeons,state.nextTowerResetAt))return {};
+    return {panel:'tower-practice',towerPracticeRequest:null};
+  }),
+  selectTowerPracticeFloor:(floorId,week)=>set(state=>{
+    if(state.panel!=='tower-practice'||!acceptUiAction())return {};
+    if(week!==state.nextTowerResetAt||!towerPracticeAvailable(state.dungeons,state.nextTowerResetAt))
+      return {panel:null,towerPracticeRequest:null,toast:'The tower has renewed. Complete this week’s tower to unlock practice again.'};
+    const current=state.activeDungeonId?DUNGEON_BY_ID[state.activeDungeonId]:undefined;
+    if(!DUNGEON_BY_ID[floorId]?.tower||!current?.tower||!dungeonCleared(current,towerFloorProgress(current.id,state.dungeons,state.towerPractice))
+      ||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
+    return {panel:null,towerPractice:{floorId,week,progress:newDungeonProgress()},towerPracticeRequest:{floorId,week}};
+  }),
   discoverDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!state.dungeons[id]
     ?{dungeons:{...state.dungeons,[id]:newDungeonProgress()},toast:`Discovered: ${DUNGEON_BY_ID[id].name}`} :{}),
   refreshDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!DUNGEON_BY_ID[id].tower&&state.activeDungeonId!==id&&dungeonResetReady(state.dungeons[id])
     ?{dungeons:{...state.dungeons,[id]:newDungeonProgress(((state.dungeons[id].rotation??0)+1)%1000000)}}:state),
   recordDungeonDefeat:(id,slot)=>set(state=>{
+    if(state.towerPractice){
+      const practice=state.towerPractice,d=DUNGEON_BY_ID[id];
+      if(!d?.tower||practice.floorId!==id||state.activeDungeonId!==id||practice.week!==state.nextTowerResetAt||Date.now()>=practice.week
+        ||!Number.isInteger(slot)||slot<0||slot>=d.enemies.length||practice.progress.defeated&(1<<slot))return {};
+      return {towerPractice:{...practice,progress:{...practice.progress,defeated:practice.progress.defeated|(1<<slot)}}};
+    }
     const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
     if(!d||!p||state.activeDungeonId!==id||p.claimed||!Number.isInteger(slot)||slot<0||slot>=d.enemies.length||p.defeated&(1<<slot))return {};
     return {dungeons:{...state.dungeons,[id]:{...p,defeated:p.defeated|(1<<slot)}},journal:discoverCreature(state.journal,dungeonEnemyId(d,slot,p),undefined,true)};
   }),
   claimDungeonChest:id=>set(state=>{
+    if(state.towerPractice&&DUNGEON_BY_ID[id]?.tower)return {};
     const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
     if(!d||!p||p.claimed||state.activeDungeonId!==id||!dungeonCleared(d,p)||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
     const reward=earnedRewards(d.xp,d.gold,state.attributes,state.learnedSkills,state.armorBonuses);
@@ -477,9 +506,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const slots=state.skillSlots.map(value=>id&&value===id?null:value);slots[slot]=id;
     return {skillSlots:slots};
   }),
-  setVitals: (hp, stamina) => set({ hp, stamina }),
+  setVitals: (hp, stamina) => set(state=>state.hp===hp&&state.stamina===stamina?state:{hp,stamina}),
   damagePlayer: (amount) => set((state) => ({ hp: Math.max(0, state.hp - amount) })),
-  setWorldStatus: (worldX, worldY, regionId, townId) => set(state=>({ worldX, worldY, regionId, townId,journal:discoverJournalEntry(state.journal,'regions',regionId) })),
+  setWorldStatus: (worldX, worldY, regionId, townId) => set(state=>{
+    const journal=discoverJournalEntry(state.journal,'regions',regionId);
+    return state.worldX===worldX&&state.worldY===worldY&&state.regionId===regionId&&state.townId===townId&&state.journal===journal
+      ?state:{worldX,worldY,regionId,townId,journal};
+  }),
   setClock: (day, minuteOfDay) => set(state=>{
     // On each three-day boundary, forget only expired claimed offers.
     // Active or completed-but-uncollected contracts remain available.
@@ -487,7 +520,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return {day,minuteOfDay,contracts:expireClaimedContracts(state.contracts,day)};
   }),
   openPanel: (panel) => {if(!get().cinematic)set({ panel });},
-  closePanel: () => set({ panel: null,towerExitRequest:null,contractBoardTownId:null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
+  closePanel: () => set({ panel: null,towerExitRequest:null,towerPracticeRequest:null,contractBoardTownId:null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
   openContractBoard:townId=>set(state=>Object.hasOwn(TOWN_BY_ID,townId)&&!state.panel&&!state.dialogue&&!state.cinematic
     ?{panel:'contracts',contractBoardTownId:townId,aliceRemark:null}:{}),
   acceptContract:id=>set(state=>{
@@ -716,8 +749,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       toast: `Skill learned: ${skill.name}.` };
   }),
   setContentWorld: (worldContent) => set({ worldContent }),
-  setNavigation: (navigation) => set({ navigation }),
-  setActiveSkillStatus:(activeSkillStatus) => set({ activeSkillStatus }),
+  setNavigation: (navigation) => set(state=>sameNavigation(state.navigation,navigation)?state:{navigation}),
+  setActiveSkillStatus:(activeSkillStatus) => set(state=>{
+    const previous=state.activeSkillStatus;
+    return previous.casting===activeSkillStatus.casting&&previous.rallyRemaining===activeSkillStatus.rallyRemaining
+      &&Object.keys(ACTIVE_SKILL_BY_ID).every(id=>previous.cooldowns[id as keyof typeof ACTIVE_SKILL_BY_ID]===activeSkillStatus.cooldowns[id as keyof typeof ACTIVE_SKILL_BY_ID])
+      ?state:{activeSkillStatus};
+  }),
   setBossEncounter:(bossEncounter) => set({ bossEncounter }),
   hydrate: (partial) => set(state=>{
     if(partial.quests)partial={...partial,quests:gateTowerQuest(partial.quests)};

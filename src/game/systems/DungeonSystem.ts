@@ -7,10 +7,11 @@ import {saveGame} from '../../utils/save';
 import type {WorldScene} from '../scenes/WorldScene';
 import type {Enemy} from '../entities/Enemy';
 import type {NavigationMarker,Vec2} from '../types';
-import {TOWER_ART,TOWER_ENTRY_ID,TOWER_DOOR,TOWER_UNLOCKED,TOWER_CHAMBERS,TOWER_FLOORS,towerEntryFloor,towerCampaignComplete,towerKnown,TOWER_NORTH_DOOR,TOWER_PORTAL} from '../../data/towerOfMight';
+import {TOWER_ART,TOWER_ENTRY_ID,TOWER_DOOR,TOWER_UNLOCKED,TOWER_CHAMBERS,TOWER_FLOORS,towerEntryFloor,towerCampaignComplete,towerKnown,TOWER_NORTH_DOOR,TOWER_PORTAL,towerPracticeAvailable,towerFloorProgress} from '../../data/towerOfMight';
 import {artScale} from '../../data/art';
 import {grandMagusFarewell} from './GrandMagusArt';
 import {TOWER_SOUTH_ENTRY} from '../../data/towerRoom';
+import {ensureBossSkillArt} from './BossSkillArt';
 
 const EXTERIOR='cave-entrances-v1';
 const TOWER_TEXTURE='tower-of-might-v2';
@@ -27,6 +28,9 @@ export class DungeonSystem {
   private towerRetryAt=0;
   private disposed=false;
   private session:DungeonDefinition|null=null;
+  private selectingPractice=false;
+  private progress(d:DungeonDefinition){const s=useGameStore.getState();return towerFloorProgress(d.id,s.dungeons,s.towerPractice);}
+  private get practice(){return Boolean(this.session&&useGameStore.getState().towerPractice?.floorId===this.session.id);}
   private readonly actors=new Map<Enemy,number>();
   private chest:Phaser.GameObjects.Image|null=null;
   private caption:Phaser.GameObjects.Text|null=null;
@@ -54,7 +58,7 @@ export class DungeonSystem {
   constructor(private readonly scene:WorldScene){}
   get entries(){return [...this.sites.values()].map(s=>s.entry);}
   get active(){return this.session!==null;}
-  get fighting(){return Boolean(this.session&&!dungeonCleared(this.session,useGameStore.getState().dungeons[this.session.id]));}
+  get fighting(){return Boolean(this.session&&!dungeonCleared(this.session,this.progress(this.session)));}
   get enemies(){return [...this.actors.keys()];}
   owns(enemy:Enemy){return this.actors.has(enemy);}
   allows(point:Vec2){return this.active&&this.scene.inInterior&&this.scene.isWalkable(point.x,point.y);}
@@ -138,6 +142,7 @@ export class DungeonSystem {
   }
   begin(entryId:string){
     this.close(false);
+    ensureBossSkillArt(this.scene);
     const renewed=useGameStore.getState().refreshTowerWeek();
     if(renewed&&entryId.startsWith('cave:might-'))entryId=TOWER_ENTRY_ID;
     if(entryId===TOWER_ENTRY_ID)useGameStore.getState().resetTowerRun();
@@ -150,11 +155,14 @@ export class DungeonSystem {
       this.scene.notify(`Chamber ${d.tower.chamber} is sealed. Defeat ${TOWER_CHAMBERS[d.tower.chamber-1].name} in the world before challenging that echo.`);return;
     }
     useGameStore.getState().refreshDungeon(id);
-    this.session=d;useGameStore.getState().discoverDungeon(id);useGameStore.setState({activeDungeonId:id});
+    this.session=d;if(!this.practice)useGameStore.getState().discoverDungeon(id);useGameStore.setState({activeDungeonId:id});
+    if(entryId===TOWER_ENTRY_ID&&towerPracticeAvailable(state.dungeons,state.nextTowerResetAt)){
+      this.selectingPractice=true;useGameStore.getState().openTowerPractice();return;
+    }
     if(d.tower){
       const label=this.scene.children.getByName('interior-room-title:might-arena');
       if(label instanceof Phaser.GameObjects.Text){const title=this.scene.dungeonPoint({x:900,y:415});
-        label.setPosition(title.x,title.y).setText(d.name+(d.tower.floor===5?' · '+d.captain:''));}
+        label.setPosition(title.x,title.y).setText(d.name+(d.tower.floor===5?' · '+d.captain:'')+(this.practice?' · Practice':''));}
       const point=this.scene.dungeonPoint(TOWER_NORTH_DOOR);
       this.northDoor=this.scene.add.image(point.x,point.y,'interior-furniture','tower-door-closed')
         .setOrigin(.5,252/256).setDepth(this.scene.playerRenderDepth(point.y));
@@ -163,19 +171,19 @@ export class DungeonSystem {
       this.northDoor.setInteractive({useHandCursor:true}).on('pointerdown',()=>{
         const state=useGameStore.getState();
         if(state.panel||state.dialogue||state.cinematic)return;
-        if(!dungeonCleared(d,state.dungeons[d.id])){this.scene.notify('The northern door is sealed. Defeat every enemy on this floor.');return;}
+        if(!dungeonCleared(d,this.progress(d))){this.scene.notify('The northern door is sealed. Defeat every enemy on this floor.');return;}
         if(this.near(point))this.ascendTower();
       });
     }
     this.retryAt=this.scene.time.now+1400;
     this.towerArtWait=0;
     for(const enemyId of new Set([...d.enemyPool,d.enemies[d.enemies.length-1]]))this.scene.ensureStoryEnemy(enemyId);
-    if(dungeonCleared(d,useGameStore.getState().dungeons[id]))this.showChest();
-    else this.scene.notify(d.tower?`${d.name} · ${d.tower.floor===5?d.captain+' awaits.':d.enemies.length+' tower defenders. Clear them to ascend.'}`
+    if(dungeonCleared(d,this.progress(d)))this.showChest();
+    else this.scene.notify(d.tower?`${this.practice?'Practice | ':''}${d.name} | ${d.tower.floor===5?d.captain+' awaits.':d.enemies.length+' tower defenders.'}${this.practice?' No rewards.':' Clear the floor to ascend.'}`
       :`${d.name} · five growing waves of level ${d.enemyLevel} defenders, then ${d.captain}. Clear the cave to reveal its chest.`);
   }
   update(time:number,blocked:boolean){
-    const d=this.session;if(!d||blocked)return;
+    const d=this.session;if(!d)return;
     if(d.tower&&time>=this.nextWeekCheckAt){
       this.nextWeekCheckAt=time+1000;
       if(Date.now()>=useGameStore.getState().nextTowerResetAt){
@@ -185,14 +193,27 @@ export class DungeonSystem {
         this.scene.notify('Monday renewal: the tower has reset to 1-1. Your earned treasure and equipment are safe.');return;
       }
     }
+    if(blocked)return;
+    if(this.selectingPractice){
+      const state=useGameStore.getState(),request=state.towerPracticeRequest;
+      this.selectingPractice=false;
+      if(request&&request.week===state.nextTowerResetAt&&towerPracticeAvailable(state.dungeons,state.nextTowerResetAt)){
+        useGameStore.setState({towerPracticeRequest:null});
+        this.scene.targeting.clear();this.scene.player.resetInput();
+        const entry=this.scene.dungeonPoint(TOWER_SOUTH_ENTRY);
+        (this.scene.player.body as Phaser.Physics.Arcade.Body).reset(entry.x,entry.y);
+        this.begin('cave:'+request.floorId);this.scene.cameras.main.flash(250,0,0,0);
+      }else if(!state.towerPractice)this.scene.returnFromTower();
+      return;
+    }
     const request=useGameStore.getState().towerExitRequest;
     if(request?.confirmed){
       useGameStore.setState({towerExitRequest:null});
       if(d.tower&&request.floorId===d.id&&this.portal&&this.near(this.scene.dungeonPoint(TOWER_PORTAL))
-        &&dungeonCleared(d,useGameStore.getState().dungeons[d.id])){this.scene.returnFromTower();return;}
+        &&dungeonCleared(d,this.progress(d))){this.scene.returnFromTower();return;}
     }
-    const p=useGameStore.getState().dungeons[d.id];
-    if(dungeonCleared(d,p)){if(!this.chest&&!this.farewell?.active)this.showChest();return;}
+    const p=this.progress(d);
+    if(dungeonCleared(d,p)){if(!this.chest&&!this.portal&&!this.farewell?.active)this.showChest();return;}
     if(this.actors.size||time<this.retryAt)return;
     this.retryAt=time+500;
     const slots=d.enemies.map((_,slot)=>slot).filter(slot=>!(p.defeated&(1<<slot)));
@@ -233,13 +254,14 @@ export class DungeonSystem {
     const slot=this.actors.get(enemy),d=this.session;if(slot===undefined||!d)return false;
     this.actors.delete(enemy);useGameStore.getState().recordDungeonDefeat(d.id,slot);
     if(enemy.definition.id==='grand-magus')this.farewell=grandMagusFarewell(this.scene,enemy,()=>{
-      if(this.session===d){this.showChest();this.scene.notify('The Grand Magus is scattered to the shadows. His legendary treasure is yours.');}
+      if(this.session===d){this.showChest();this.scene.notify(this.practice?'Practice complete. Choose another floor at the northern arch, or return to Oakmere.':'The Grand Magus is scattered to the shadows. His legendary treasure is yours.');}
     });else enemy.createDeathVisual();
     this.scene.releaseStoryEnemy(enemy);this.retryAt=this.scene.time.now+1600;
-    if(dungeonCleared(d,useGameStore.getState().dungeons[d.id])){if(!this.farewell?.active)this.showChest();this.scene.notify(this.farewell?.active?
+    if(dungeonCleared(d,this.progress(d))){if(!this.farewell?.active)this.showChest();this.scene.notify(this.practice?
+      'Practice complete — no rewards. Choose another floor at the northern arch, or use the return portal.':this.farewell?.active?
       'The Grand Magus shatters into a flight of bats…':d.tower&&d.tower.floor<5?
       `${d.name} cleared! The northern arch opens. Interact there to ascend.`:`${d.name} cleared! A war chest has appeared in the inner chamber.`);}
-    this.scene.syncState();saveGame();return true;
+    if(!this.practice){this.scene.syncState();saveGame();}return true;
   }
   private showChest(){
     const d=this.session;if(!d||this.chest||d.tower&&this.portal)return;
@@ -252,6 +274,7 @@ export class DungeonSystem {
       this.portal.setInteractive({useHandCursor:true}).on('pointerdown',()=>{if(this.near(point))this.requestTowerReturn();});
       this.portalLabel=this.scene.add.text(point.x,point.y-85,'Return to Oakmere',{fontFamily:'Georgia, serif',fontSize:'12px',color:'#d9c4ff',stroke:'#171021',strokeThickness:3})
         .setOrigin(.5).setDepth(this.scene.playerRenderDepth(point.y)+2);
+      if(this.practice)return;
       if(d.tower.floor<5)return;
     }
     const p=this.scene.dungeonPoint(d.tower?{x:1160,y:550}:{x:600,y:350});this.chestPoint=p;
@@ -263,8 +286,12 @@ export class DungeonSystem {
   }
   get prompt(){
     if(!this.session)return null;
-    const progress=useGameStore.getState().dungeons[this.session.id];
+    const progress=this.progress(this.session);
     if(this.session.tower){
+      if(this.practice){
+        if(this.portal&&this.near(this.scene.dungeonPoint(TOWER_PORTAL)))return 'Finish practice — return to Oakmere';
+        return dungeonCleared(this.session,progress)&&this.near(this.scene.dungeonPoint(TOWER_NORTH_DOOR))?'Choose another practice floor':null;
+      }
       if(this.portal&&this.near(this.scene.dungeonPoint(TOWER_PORTAL)))return 'Return to Oakmere — confirm chamber reset';
       if(this.chestPoint&&this.near(this.chestPoint))return progress?.claimed?'War chest claimed':'Open the Tower of Might war chest';
       if(!dungeonCleared(this.session,progress)||!this.near(this.scene.dungeonPoint(TOWER_NORTH_DOOR)))return null;
@@ -314,7 +341,8 @@ export class DungeonSystem {
   private ascendTower(){
     const d=this.session,s=useGameStore.getState();
     if(!d?.tower||s.panel||s.dialogue||s.cinematic||s.hp<=0||s.activeSkillStatus.casting
-      ||!dungeonCleared(d,s.dungeons[d.id])||!this.near(this.scene.dungeonPoint(TOWER_NORTH_DOOR)))return;
+      ||!dungeonCleared(d,this.progress(d))||!this.near(this.scene.dungeonPoint(TOWER_NORTH_DOOR)))return;
+    if(this.practice){this.selectingPractice=true;s.openTowerPractice();this.scene.player.resetInput();return;}
     const next=TOWER_FLOORS[TOWER_FLOORS.findIndex(f=>f.id===d.id)+1];
     if(!next){this.scene.notify('The tower is conquered. Use the central portal to return to Oakmere.');return;}
     if(!useGameStore.getState().defeatedBosses.includes(next.tower!.bossId)){
@@ -327,6 +355,7 @@ export class DungeonSystem {
     this.begin('cave:'+next.id);this.scene.cameras.main.flash(350,0,0,0);this.scene.syncState();saveGame();
   }
   close(resetTower=true){
+    this.selectingPractice=false;
     this.farewell?.destroy();this.farewell=null;
     const tower=Boolean(this.session?.tower);
     for(const enemy of this.actors.keys())this.scene.releaseStoryEnemy(enemy);this.actors.clear();
@@ -334,6 +363,8 @@ export class DungeonSystem {
     this.northDoor?.destroy();this.portal?.destroy();this.portalLabel?.destroy();this.northDoor=null;this.portal=null;this.portalLabel=null;
     if(tower)this.scene.releaseTowerBossArt();
     if(tower&&resetTower)useGameStore.getState().resetTowerRun();
+    if(resetTower)useGameStore.setState({towerPractice:null,towerPracticeRequest:null,
+      ...(['tower-practice','tower-exit'].includes(useGameStore.getState().panel??'')?{panel:null}:{})});
     if(useGameStore.getState().activeDungeonId)useGameStore.setState({activeDungeonId:null});
   }
   destroy(){this.disposed=true;this.close();this.scene.load.off('filecomplete-image-'+EXTERIOR,this.onLoaded);this.scene.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR,this.onError);

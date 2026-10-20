@@ -1,9 +1,17 @@
 import type {AttackArea} from '../game/systems/attackWarning';
 
+/** Offsets use the committed aim, never the player's subsequent position. */
+export interface BossZone {
+  delay:number;forward?:number;side?:number;angleOffset?:number;
+  kind?:AttackArea['kind'];radius?:number;innerRadius?:number;lingerMs?:number;travelMs?:number;
+}
 export interface BossMove {
   id:string;name:string;kind:AttackArea['kind'];radius:number;range:number;windup:number;recovery:number;
   damage:number;target?:boolean;innerRadius?:number;halfAngle?:number;chargeMs?:number;presentation?:'cast'|'staff';
   spell?:'fire'|'ice'|'thunder'|'shadow';
+  dragonAction?:'stomp'|'breath'|'flight';
+  zones?:readonly BossZone[];
+  projectileMs?:number;
 }
 export interface BossCombatProfile {
   identity:string;preferredRange:number;strafe:number;color:number;cooldown:number;
@@ -38,7 +46,7 @@ const cinder=burst('cinder-seal','Cinder seal',88,1100,470);
 const ashRing=ring('ash-ring','Ashen corona',245,120,1200);
 const shadowSeal:BossMove={...burst('magus-seal','Shadow realm seal',150,1350,900),presentation:'cast',spell:'shadow'};
 const shadowCrown:BossMove={...ring('magus-crown','Sovereign eclipse',430,200,1550),presentation:'cast',spell:'shadow'};
-const shadowRay:BossMove={id:'magus-ray',name:'Glacial staff lance',kind:'line',radius:48,range:820,windup:1400,recovery:700,damage:1.25,presentation:'cast',spell:'ice'};
+const shadowRay:BossMove={id:'magus-ray',name:'Glacial staff lance',kind:'line',radius:48,range:820,windup:1400,recovery:700,damage:1.25,presentation:'cast',spell:'ice',projectileMs:700};
 const magusFire:BossMove={...shadowSeal,id:'magus-fire',name:'Realmfire orb',spell:'fire'};
 const magusThunder:BossMove={...shadowSeal,id:'magus-thunder',name:'Sovereign thunder',spell:'thunder',windup:1500};
 
@@ -70,44 +78,49 @@ export function bossPattern(profile:BossCombatProfile,sequence:number,hpFraction
 /** Tower echoes have new arena patterns, not faster copies of world attacks.
  * Every impact still uses the shared swept collision and full warning window. */
 const towerPatterns:readonly BossCombatProfile[]=[
- {identity:'Varr: cross-cuts, a pursuing lunge, and a counter-ring with a safe centre.',preferredRange:140,strafe:.55,color:0xffce76,cooldown:850,
-  patterns:[[cone('might-varr-cross','Rededge cross-cut',170,850,1.15,1.5),charge('might-varr-pursuit','Pursuing Rededge',390,1050,38)],
-   [ring('might-varr-counter','Duelist’s reprisal',265,125,1150)]],
-  enraged:[[burst('might-varr-mark','Marked for the blade',100,1100,650),charge('might-varr-last','Last road charge',420,1050,42)],
-   [cone('might-varr-left','First cross-cut',175,900,1.1,1.6),cone('might-varr-right','Returning cross-cut',195,1000,1.25,1.6)]]},
- {identity:'Warden: seals force a lane change before the hunting rush.',preferredRange:240,strafe:.5,color:0xc6b4ff,cooldown:1100,
-  patterns:[[burst('might-moon-seal','Hunter’s moon',125,1200,700),charge('might-moon-hunt','Pale pursuit',440,1100,45)],
-   [ring('might-moon-halo','Hollow moon',320,155,1350)]],
-  enraged:[[burst('might-moon-a','Twin moon I',115,1100,700),burst('might-moon-b','Twin moon II',130,1150,700),charge('might-moon-c','Moonbreaker',470,1200,50)]]},
- {identity:'Stonejaw: alternating inner and outer safe zones.',preferredRange:160,strafe:0,color:0xe0c89b,cooldown:1400,
-  patterns:[[slam('might-stone-heart','Mountain’s heart',205,1350,1.3),ring('might-stone-echo','Mountain’s echo',360,200,1450)],
-   [charge('might-stone-break','Pass-shattering advance',350,1400,65)]],
-  enraged:[[burst('might-stone-fall','Falling summit',155,1350,700),ring('might-stone-after','Deep aftershock',380,170,1500)]]},
- {identity:'Krag: a flanking sweep follows every warpath.',preferredRange:230,strafe:.2,color:0xffb878,cooldown:1000,
-  patterns:[[charge('might-tusk-road','Iron warpath',480,1250,60),cone('might-tusk-flank','Warpath backhand',215,1000,1.25,1.7)],
-   [burst('might-tusk-banner','Broken banner',135,1150,650)]],
-  enraged:[[charge('might-tusk-first','First warpath',420,1200,55),charge('might-tusk-second','Second warpath',420,1250,55),slam('might-tusk-end','Clanbreaker',220,1300,1.4)]]},
- {identity:'Rootfather: roots chase two positions before an expanding hollow.',preferredRange:280,strafe:0,color:0xb6e295,cooldown:1200,
-  patterns:[[burst('might-root-a','Seeking root I',130,1250,750),burst('might-root-b','Seeking root II',145,1300,750)],
-   [ring('might-root-crown','Crown of roots',370,180,1500)]],
-  enraged:[[burst('might-root-grasp','Grasp of ages',160,1300,750),ring('might-root-hollow','Heartwood hollow',390,170,1550),slam('might-root-heart','Heartwood crush',200,1250,1.3)]]},
- {identity:'Salt King: marks a broadside then drives a boarding lane.',preferredRange:185,strafe:.7,color:0xffd58a,cooldown:900,
-  patterns:[[burst('might-salt-shot','Phantom broadside',130,1200,720),charge('might-salt-board','King’s boarding line',440,1100,42)],
-   [cone('might-salt-turn','Captain’s turning cut',200,1000,1.25,1.75)]],
-  enraged:[[burst('might-salt-first','Port broadside',120,1100,720),burst('might-salt-second','Starboard broadside',140,1200,720),charge('might-salt-final','No quarter',490,1250,50)]]},
- {identity:'Wyrm: frost circles close behind a glacial charge.',preferredRange:260,strafe:.15,color:0x9de4ff,cooldown:1250,
-  patterns:[[charge('might-ice-road','Winter’s road',520,1350,65),ring('might-ice-crown','Shattered ice crown',360,170,1450)],
-   [burst('might-ice-fang','Upturned fang',155,1250,740)]],
-  enraged:[[burst('might-ice-a','Deep freeze I',140,1250,740),burst('might-ice-b','Deep freeze II',155,1300,740),charge('might-ice-end','Winter unbound',540,1400,70)]]},
- {identity:'Seer: three ash seals followed by a hollow corona.',preferredRange:340,strafe:.45,color:0xeab0ff,cooldown:1150,
-  patterns:[[burst('might-ash-a','First omen',125,1150,800),burst('might-ash-b','Second omen',145,1250,800)],
-   [ring('might-ash-veil','Empty veil',400,195,1550)]],
-  enraged:[[burst('might-ash-c','Third omen',150,1250,800),burst('might-ash-d','Last omen',170,1400,800),ring('might-ash-end','Crown without a king',420,175,1550)]]},
- {identity:'Varkhul: grounded ember storms, wing sweeps and a rending advance.',preferredRange:300,strafe:.1,color:0xff9555,cooldown:1300,
-  patterns:[[burst('might-ember-fall','Falling ember',175,1400,850),charge('might-ember-road','Ember rending',540,1500,78)],
-   [cone('might-ember-wing','Wing of ruin',300,1350,1.4,1.65),ring('might-ember-crown','Crown of the Returning Ember',440,210,1650)]],
-  enraged:[[burst('might-ember-a','First burning sky',150,1300,850),burst('might-ember-b','Second burning sky',175,1450,850),
-   charge('might-ember-last','The last ascent',570,1600,85),ring('might-ember-end','Heart of the tower',460,195,1700)]]},
+ {identity:'Varr: a committed crossing sword combination; dodge behind the first cut, then change sides.',preferredRange:140,strafe:.65,color:0xffce76,cooldown:850,
+  patterns:[[{...cone('might-varr-cross','Rededge crossing blades',210,900,1.05,.65),zones:[{delay:0,angleOffset:-.6},{delay:650,angleOffset:.6}]}],
+   [charge('might-varr-pursuit','Pursuing Rededge',390,1050,38)]],
+  enraged:[[{...cone('might-varr-three','Three roads to ruin',230,950,1.1,.65),zones:[{delay:0,angleOffset:-.7},{delay:600,angleOffset:.7},{delay:1350,angleOffset:Math.PI,radius:260}]}],
+   [charge('might-varr-last','Last road charge',440,1150,42),cone('might-varr-return','Returning cross-cut',210,900,1.2,1.25)]]},
+ {identity:'Warden: paired moon seals close from the flanks before a central moonfall.',preferredRange:270,strafe:.55,color:0xc6b4ff,cooldown:1100,
+  patterns:[[{...burst('might-moon-pincer','Closing crescent moons',95,1250,750),zones:[{delay:0,side:-165},{delay:0,side:165},{delay:850,radius:125}]}],
+   [charge('might-moon-hunt','Pale pursuit',460,1200,45)]],
+  enraged:[[{...burst('might-moon-cross','Fourfold moonfall',100,1300,750),zones:[{delay:0,side:-175},{delay:0,side:175},{delay:700,forward:-175},{delay:700,forward:175},{delay:1500,radius:140}]}],
+   [ring('might-moon-halo','Hollow moon',340,165,1400),charge('might-moon-break','Moonbreaker',480,1250,48)]]},
+ {identity:'Stonejaw: the mountain cracks outward in three separately warned shockwave bands.',preferredRange:150,strafe:0,color:0xe0c89b,cooldown:1450,
+  patterns:[[{...slam('might-stone-wave','Walking earthquake',140,1400,1.15),zones:[{delay:0},{delay:600,kind:'ring',innerRadius:150,radius:280},{delay:1250,kind:'ring',innerRadius:290,radius:430}]}],
+   [{...burst('might-stone-fall','Falling summits',105,1450,750),zones:[{delay:0},{delay:700,forward:220},{delay:1400,forward:440}]}]],
+  enraged:[[{...slam('might-stone-collapse','Mountain collapse',155,1450,1.2),zones:[{delay:0},{delay:550,kind:'ring',innerRadius:165,radius:300},{delay:1150,kind:'ring',innerRadius:310,radius:455},{delay:2050,radius:200}]}]]},
+ {identity:'Krag: long committed charges end in a delayed two-sided axe execution.',preferredRange:260,strafe:.12,color:0xffb878,cooldown:1000,
+  patterns:[[charge('might-tusk-road','Iron warpath',510,1300,58),{...cone('might-tusk-flanks','Warpath execution',235,1050,1.25,.85),zones:[{delay:0,angleOffset:Math.PI/2},{delay:700,angleOffset:-Math.PI/2}]}],
+   [{...cone('might-tusk-cleave','Clanbreaker cleave',310,1450,1.5,.48),recovery:1100}]],
+  enraged:[[charge('might-tusk-first','First warpath',450,1200,55),charge('might-tusk-second','Second warpath',450,1250,55),{...cone('might-tusk-end','Warchief execution',270,1100,1.3,1),zones:[{delay:0,angleOffset:Math.PI/2},{delay:650,angleOffset:-Math.PI/2},{delay:1500,kind:'circle',radius:220}]}]]},
+ {identity:'Rootfather: persistent thorn patches surround a clear escape lane, then close the centre.',preferredRange:300,strafe:0,color:0xb6e295,cooldown:1200,
+  patterns:[[{...burst('might-root-garden','Thorn prison',90,1350,780),zones:[{delay:0,side:-170,lingerMs:2400},{delay:0,side:170,lingerMs:2400},{delay:800,forward:170,lingerMs:2000},{delay:1550,lingerMs:1600}]}],
+   [ring('might-root-crown','Crown of roots',390,190,1550)]],
+  enraged:[[{...burst('might-root-maze','Heartwood labyrinth',100,1400,780),zones:[{delay:0,side:-180,lingerMs:2800},{delay:0,side:180,lingerMs:2800},{delay:700,forward:180,lingerMs:2400},{delay:1400,forward:-180,lingerMs:2200},{delay:2200,radius:125,lingerMs:1600}]}]]},
+ {identity:'Salt King: parallel cannon lanes fire in a staggered broadside, followed by boarding.',preferredRange:300,strafe:.65,color:0xffd58a,cooldown:1100,
+  patterns:[[{id:'might-salt-salvo',name:'Port battery broadside',kind:'line',radius:42,range:760,windup:1400,recovery:700,damage:1.05,zones:[{delay:0,side:-170,travelMs:650},{delay:600,travelMs:650},{delay:1200,side:170,travelMs:650}]}],
+   [charge('might-salt-board','Boarding the breach',460,1150,40),cone('might-salt-turn','Captain turning cut',200,1000,1.2,1.6)]],
+  enraged:[[{id:'might-salt-cross',name:'Crossing ghost batteries',kind:'line',radius:42,range:780,windup:1450,recovery:850,damage:1.15,zones:[{delay:0,side:-180,travelMs:600},{delay:500,side:180,travelMs:600},{delay:1150,angleOffset:-.5,travelMs:650},{delay:1750,angleOffset:.5,travelMs:650}]}]]},
+ {identity:'Wyrm: ice fangs advance in forked lanes and remain dangerous on the ground.',preferredRange:300,strafe:.15,color:0x9de4ff,cooldown:1250,
+  patterns:[[{...slam('might-ice-fork','Forked glacier',85,1400,1.05),range:780,zones:[{delay:0,forward:180,side:-100,lingerMs:1400},{delay:0,forward:180,side:100,lingerMs:1400},{delay:650,forward:370,side:-150,lingerMs:1400},{delay:650,forward:370,side:150,lingerMs:1400},{delay:1400,forward:560,radius:120,lingerMs:1200}]}],
+   [charge('might-ice-road','Winter road',520,1400,60)]],
+  enraged:[[{...ring('might-ice-thaw','Closing ice jaws',450,320,1500),zones:[{delay:0},{delay:750,radius:310,innerRadius:180},{delay:1550,kind:'circle',radius:165}]}],
+   [charge('might-ice-end','Winter unbound',550,1450,65)]]},
+ {identity:'Seer: predicts a trail through the arena, then echoes the original omen after a delay.',preferredRange:350,strafe:.45,color:0xeab0ff,cooldown:1150,
+  patterns:[[{...burst('might-ash-fate','Footsteps of fate',105,1400,800),zones:[{delay:0},{delay:650,forward:200},{delay:1300,forward:400},{delay:2250,radius:140}]}],
+   [{...ring('might-ash-return','Receding ash prophecy',430,290,1550),zones:[{delay:0},{delay:800,radius:280,innerRadius:150},{delay:1650,kind:'circle',radius:140}]}]],
+  enraged:[[{...burst('might-ash-final','The omen remembers',110,1450,820),zones:[{delay:0,side:-160},{delay:600,side:160},{delay:1250,forward:200},{delay:2000,radius:160},{delay:3000,side:-160,radius:135}]}]]},
+ {identity:'Varkhul: sustained dragonfire, circling flight and fully warned skyfall landings.',preferredRange:300,strafe:.1,color:0xff9555,cooldown:1300,
+  patterns:[[{...cone('might-ember-breath','Returning Ember breath',540,1300,1,.5),dragonAction:'breath',recovery:1100}],
+   [{...burst('might-ember-flight','Skyfall descent',240,4300,850),dragonAction:'flight',damage:1.25,recovery:1100}],
+   [{...slam('might-ember-stomp','Ember stomp',240,1200,1.15),dragonAction:'stomp',recovery:1100}]],
+  enraged:[[{...cone('might-ember-inferno','Sovereign dragonfire',540,1300,1.05,.5),dragonAction:'breath',recovery:1100}],
+   [{...burst('might-ember-ascent','The last ascent',240,4300,850),dragonAction:'flight',damage:1.3,recovery:1100}],
+   [{...cone('might-ember-afterburn','Returning flame',540,1400,1.05,.5),dragonAction:'breath',recovery:1100}],
+   [{...slam('might-ember-heart','Heart of the tower',240,1300,1.25),dragonAction:'stomp',recovery:1100}]]},
  {identity:'Grand Magus: distant violet seals, staff rays and a hollow eclipse; strikes nearby intruders with his staff.',
   preferredRange:330,strafe:.42,color:0xb675ff,cooldown:1050,
   closeRange:230,closeMove:{...cone('magus-staff','Sovereign staff strike',245,750,1.15,1.2),presentation:'staff'},
@@ -120,6 +133,18 @@ const towerPatterns:readonly BossCombatProfile[]=[
  * flurry/forced-stagger locks while still allowing one interrupt per window. */
 export const TOWER_BOSS_PROFILES:readonly BossCombatProfile[]=towerPatterns.map(profile=>({...profile,
  cooldown:Math.round(profile.cooldown*.7),enrageAt:.6,enrageCooldownMultiplier:.8,resistFlurry:true,staggerRecoveryMs:5000}));
+
+/** World Ascension reuses the exact tower mechanics, without its fixed stats,
+ * room coordinates, rewards or progression. Resolved only on spawn/flag change. */
+const ASCENDED_WORLD_BOSSES:Readonly<Record<string,BossCombatProfile>>={
+ 'captain-varr':TOWER_BOSS_PROFILES[0],'moonlit-warden':TOWER_BOSS_PROFILES[1],
+ 'stonejaw-troll':TOWER_BOSS_PROFILES[2],'iron-tusk':TOWER_BOSS_PROFILES[3],
+ rootfather:TOWER_BOSS_PROFILES[4],'salt-king':TOWER_BOSS_PROFILES[5],
+ 'frost-wyrm':TOWER_BOSS_PROFILES[6],'ashen-seer':TOWER_BOSS_PROFILES[7],
+ varkhul:TOWER_BOSS_PROFILES[8],
+};
+export const worldBossCombatProfile=(bossId:string,ascended:boolean):BossCombatProfile|undefined=>
+ (ascended?ASCENDED_WORLD_BOSSES[bossId]:undefined)??BOSS_COMBAT_PROFILES[bossId];
 
 /** Cave captains share the existing bounded, collision-aware combat controller,
  * not world-boss identity, summons, loot or progression. Every combo is warned. */

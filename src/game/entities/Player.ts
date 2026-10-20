@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {DepthSortedSprite,setDepthIfChanged} from '../systems/renderDepth';
 import {EquippedSwordVisual} from '../systems/EquippedSwordVisual';
 import {AwakenedHeroVisual} from '../systems/AwakenedHeroVisual';
 import { mobileInput, type MobileAction } from '../input';
@@ -17,7 +18,7 @@ import { RecoverySystem } from '../systems/RecoverySystem';
 import { approachVelocity, strideRate } from '../systems/locomotion';
 import {localPlayCheatsEnabled} from '../../utils/localPlayCheats';
 
-export class Player extends Phaser.Physics.Arcade.Sprite {
+export class Player extends DepthSortedSprite {
   readonly moveSpeed = 165;
   readonly skills:PlayerSkillSystem;
   readonly recovery=new RecoverySystem();
@@ -50,7 +51,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly syncSwordAfterPhysics=()=>{
     if(!this.active)return;
     this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
-    if(this.attackVisual?.active)this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
+    if(this.attackVisual?.active)setDepthIfChanged(this.attackVisual,this.depth).setPosition(this.x,this.y);
     this.updateSwordVisual();
   };
   private updateSwordVisual(){
@@ -207,7 +208,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.updateAnimation(body.velocity.x, body.velocity.y, runningAnimation, x, y);
     if (dashing && time >= this.nextDashTrailAt) this.createDashTrail(time);
     this.setDepth((this.scene as WorldScene).playerRenderDepth(this.y));
-    if (this.attackVisual?.active) this.attackVisual.setPosition(this.x,this.y).setDepth(this.depth);
+    if (this.attackVisual?.active) setDepthIfChanged(this.attackVisual,this.depth).setPosition(this.x,this.y);
 
     const equippedArts=slottedActiveSkills(state.skillSlots);
     for (const action of ['skill1','skill2','skill3','skill4'] as const) {

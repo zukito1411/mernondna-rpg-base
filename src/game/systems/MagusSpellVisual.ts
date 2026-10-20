@@ -28,9 +28,13 @@ export class MagusSpellVisual {
   private angle=0;
   private launched=false;
   constructor(private readonly scene:WorldScene){}
-  private add(move:BossMove,x:number,y:number,size:number){
+  private add(move:BossMove,x:number,y:number,size:number,anchored=false){
     const sprite=this.scene.add.sprite(x,y,GRAND_MAGUS_SPELL_TEXTURE,FRAMES[move.spell!])
       .setOrigin(.5).setDepth(this.scene.playerRenderDepth(y)+2).setName('magus-spell:'+move.spell);
+    if(anchored){
+      const data=sprite.frame.customData as {effectOrigin?:{x:number;y:number}};
+      if(data.effectOrigin)sprite.setOrigin(data.effectOrigin.x,data.effectOrigin.y);
+    }
     this.resize(sprite,size);return sprite;
   }
   private resize(sprite:Phaser.GameObjects.Sprite,size:number){
@@ -42,24 +46,41 @@ export class MagusSpellVisual {
     this.retireProjectile();this.launched=false;this.registerSource(enemy);
     this.destination=area.kind==='line'?{x:area.x+Math.cos(area.angle)*(area.range??0),y:area.y+Math.sin(area.angle)*(area.range??0)}
       :{x:area.x,y:area.y};
+    if(move.projectileMs)this.destination.y-=32;
     this.angle=Math.atan2(this.destination.y-this.source.y,this.destination.x-this.source.x);
-    this.projectile=this.add(move,this.source.x,this.source.y,42).setAlpha(0);
+    this.projectile=this.add(move,this.source.x,this.source.y,42,true).setAlpha(0);
   }
-  private registerSource(enemy:Enemy){
-    const data=enemy.frame.customData as {castOrigin:{x:number;y:number}};
-    this.source.x=enemy.x+(data.castOrigin.x-enemy.width*enemy.originX)*enemy.scaleX;
-    this.source.y=enemy.y+(data.castOrigin.y-enemy.height*enemy.originY)*enemy.scaleY;
+  alignProjectileLane(enemy:Enemy,area:AttackArea,target:{x:number;y:number}){
+    this.registerSource(enemy,true);
+    // The warned lane is the ground projection of the RELEASE palm, not the
+    // actor's feet. Flight and swept collision therefore follow the same path.
+    area.x=this.source.x;area.y=this.source.y+32;
+    area.angle=Math.atan2(target.y-area.y,target.x-area.x);
+  }
+  private registerSource(enemy:Enemy,release=false){
+    const number=Number(enemy.frame.name);
+    const frame=release&&number>=44&&number<=50&&number%2===0?enemy.texture.get(number+1):enemy.frame;
+    const data=frame.customData as {castOrigin?:{x:number;y:number}};
+    const hand=data.castOrigin;if(!hand)return;
+    // Frame dimensions remain stable when the atlas is isolated. Transform the
+    // registered palm with the actor's actual flip, scale and rotation.
+    const x=(hand.x-enemy.width*enemy.originX)*enemy.scaleX*(enemy.flipX?-1:1);
+    const y=(hand.y-enemy.height*enemy.originY)*enemy.scaleY*(enemy.flipY?-1:1);
+    const cos=Math.cos(enemy.rotation),sin=Math.sin(enemy.rotation);
+    this.source.x=enemy.x+x*cos-y*sin;this.source.y=enemy.y+x*sin+y*cos;
   }
   windup(enemy:Enemy,move:BossMove,progress:number){
     const sprite=this.projectile;if(!sprite)return;
+    if(!this.launched)this.registerSource(enemy);
     if(progress>=.7&&!this.launched){
       this.launched=true;this.registerSource(enemy);
       this.angle=Math.atan2(this.destination.y-this.source.y,this.destination.x-this.source.x);
     }
-    const travel=Math.max(0,Math.min(1,(progress-.7)/.3));
+    const travel=move.projectileMs||move.spell==='thunder'||move.kind==='ring'?0:Math.max(0,Math.min(1,(progress-.7)/.3));
     if(move.spell==='thunder'){
-      sprite.setPosition(this.destination.x,this.destination.y-160).setAlpha(smooth(progress/.15)*(.25+.5*progress));
-      this.resize(sprite,70+55*progress);
+      // Charge at the palm; the full bolt is grounded only at the actual strike.
+      sprite.setPosition(this.source.x,this.source.y).setAlpha(smooth(progress/.15)*.35);
+      this.resize(sprite,35+25*progress);
     }else{
       sprite.setPosition(this.source.x+(this.destination.x-this.source.x)*travel,
         this.source.y+(this.destination.y-this.source.y)*travel-Math.sin(travel*Math.PI)*60)
@@ -67,6 +88,15 @@ export class MagusSpellVisual {
       this.resize(sprite,42+48*progress);
     }
     sprite.setDepth(this.scene.playerRenderDepth(Math.max(this.source.y,this.destination.y))+2);
+  }
+  release(enemy:Enemy){this.registerSource(enemy);}
+  travel(progress:number,area:AttackArea){
+    const sprite=this.projectile;if(!sprite)return;
+    const endX=area.x+Math.cos(area.angle)*(area.range??0),endY=area.y+Math.sin(area.angle)*(area.range??0)-32;
+    const angle=Math.atan2(endY-this.source.y,endX-this.source.x);
+    sprite.setPosition(this.source.x+(endX-this.source.x)*progress,this.source.y+(endY-this.source.y)*progress)
+      .setRotation(angle).setAlpha(1).setDepth(this.scene.playerRenderDepth(area.y+Math.sin(area.angle)*(area.range??0)*progress)+2);
+    this.resize(sprite,90+10*smooth(progress/.15));
   }
   impact(move:BossMove,area:AttackArea){
     // Keep the arriving projectile while the impact blooms over it. Its
@@ -83,13 +113,13 @@ export class MagusSpellVisual {
           .setRotation(area.angle);}
     }else if(move.spell==='thunder'){
       // Branches descend onto the warned ground; no screen-wide white flash.
-      this.bloom(move,area.x,area.y-140,340,.05);
-      for(let i=0;i<4;i++){const a=i*Math.PI/2;
-        this.bloom(move,area.x+Math.cos(a)*area.radius*.65,area.y+Math.sin(a)*area.radius*.65-45,120,.08);}
-    }else this.bloom(move,area.x,area.y,area.radius*2,.16);
+      this.bloom(move,area.x,area.y,Math.min(340,area.radius*2),.05,true);
+    }else if(move.spell==='fire'){
+      this.bloom(move,area.x,area.y,area.radius*1.05,.16,true).setRotation(this.angle);
+    }else this.bloom(move,area.x,area.y,area.radius*2,.16).setRotation(move.spell==='ice'?area.angle:0);
   }
-  private bloom(move:BossMove,x:number,y:number,size:number,grow:number){
-    const sprite=this.add(move,x,y,size).setAlpha(0);
+  private bloom(move:BossMove,x:number,y:number,size:number,grow:number,anchored=false){
+    const sprite=this.add(move,x,y,size,anchored).setAlpha(0);
     this.retain({sprite,size,alpha:1,age:0,duration:FADE_MS[move.spell!],grow,
       rise:move.spell==='fire'?-20:move.spell==='shadow'?-12:0,y,intro:80});
     return sprite;
@@ -115,6 +145,15 @@ export class MagusSpellVisual {
       this.resize(glow.sprite,glow.size*(1+glow.grow*smooth(progress)));
       glow.sprite.setY(glow.y+glow.rise*smooth(progress));
       if(progress>=1){glow.sprite.destroy();this.afterglows.splice(i,1);}
+    }
+  }
+  fadeOut(){
+    this.retireProjectile();
+    for(const glow of this.afterglows){
+      if(glow.intro===0&&glow.duration<=180)continue;
+      // Retire from the current appearance, without jumping to a later fade frame.
+      glow.alpha=glow.sprite.alpha;glow.size=glow.sprite.scaleX*104;glow.y=glow.sprite.y;
+      glow.age=0;glow.duration=160;glow.intro=0;glow.rise=0;glow.grow=.06;
     }
   }
   clear(){this.projectile?.destroy();this.projectile=null;

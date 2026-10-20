@@ -689,7 +689,7 @@ export function loadGame(): boolean {
       rareLootQueue:[],nextRareLootId:0,
       levelUpNotice:null,nextLevelUpId:0,
       housing:s.housing??parseHousing(undefined)!,housingContext:null,housingEditing:false,
-      journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,towerExitRequest:null,nextTowerResetAt:s.nextTowerResetAt??nextTowerWeeklyReset(),
+      journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,towerExitRequest:null,towerPractice:null,towerPracticeRequest:null,nextTowerResetAt:s.nextTowerResetAt??nextTowerWeeklyReset(),
       armorInventory:s.armorInventory??[],equippedArmor:s.equippedArmor??{chest:null,boots:null,cape:null},armorBonuses,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,worldAscensionReadyAt:0,
       learnedSkills: s.learnedSkills, gold: s.gold,

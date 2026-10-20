@@ -1,0 +1,16 @@
+.tower-practice-panel { width:min(780px,96vw); max-height:min(90dvh,760px); display:flex; flex-direction:column; overflow:hidden; }
+.tower-practice-panel > header { flex-shrink:0; }
+.tower-practice-content { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 16px 18px; }
+.tower-practice-renewal { margin:0 0 14px; font-size:12px; line-height:1.5; }
+.tower-practice-chambers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.tower-practice-chambers h3 { font-size:14px; margin:0 0 8px; }
+.tower-practice-floors { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; }
+.tower-practice-floors button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:52px; padding:6px 2px; border:1px solid #a98752; border-radius:8px; background:#382c22; color:#fff0c7; cursor:pointer; }
+.tower-practice-floors button:focus-visible { outline:2px solid #ffe29d; outline-offset:2px; }
+.tower-practice-floors button:hover { background:#61482d; }
+.tower-practice-floors small { font-size:10px; }
+@media(max-width:600px) {
+ .tower-practice-panel { max-height:94dvh; }
+ .tower-practice-chambers { grid-template-columns:minmax(0,1fr); gap:14px; }
+ .tower-practice-content { padding:10px 12px 14px; }
+}

@@ -10,9 +10,9 @@ export function breathPresentation(age:number){
   return {frame:Math.floor(Math.max(0,age)/DRAGON_BREATH.frameMs)%DRAGON_BREATH.frames,
     growth,alpha:growth*fade,damaging:age>=DRAGON_BREATH.ignitionMs&&age<DRAGON_BREATH.burningMs};
 }
-export function insideBreathCone(dx:number,dy:number,aimX:number,aimY:number){
+export function insideBreathCone(dx:number,dy:number,aimX:number,aimY:number,range:number=DRAGON_BREATH.range){
   const forward=dx*aimX+dy*aimY,side=Math.abs(dx*aimY-dy*aimX);
-  return forward>=0&&forward<=DRAGON_BREATH.range*Math.cos(DRAGON_BREATH.halfAngle)
+  return forward>=0&&forward<=range*Math.cos(DRAGON_BREATH.halfAngle)
     &&side<=forward*Math.tan(DRAGON_BREATH.halfAngle);
 }
 // Original 192x152 dragon cells register the feet at (100,146). The sustained

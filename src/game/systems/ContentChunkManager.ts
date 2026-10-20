@@ -79,6 +79,7 @@ export class ContentChunkManager<Actor> {
   private readonly locations = new Map<string, string>();
   private readonly active = new Map<string, Actor>();
   private readonly returns=new Set<string>();
+  private nextReturnAt=Infinity;
   private readonly oversized=new Map<string,number>();
   private readonly creatureGroups = new Map<string, Set<string>>();
   private wanted = new Set<string>();
@@ -116,7 +117,9 @@ export class ContentChunkManager<Actor> {
       // repaired authored boss arenas rather than old saved tree-bound positions.
       this.states.set(id,{...state,...(fixedNpc&&!escortedNpc&&!npc?.storyReturn||(d.kind!=='npc'&&d.kind!=='creature')
         ||d.kind==='creature'&&Boolean(d.bossId)?d.world:{})});
-      if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);
+      if(state.defeated&&state.respawnAt!==undefined){
+        this.returns.add(id);this.nextReturnAt=Math.min(this.nextReturnAt,state.respawnAt);
+      }
     }
     for (const definition of definitions) this.register(definition);
     for (const definition of Object.values(persisted.spawns)) {
@@ -143,15 +146,20 @@ export class ContentChunkManager<Actor> {
     const now=Date.now();
     // Only scheduled returns are inspected, even while their chunks are far
     // away. The saved UTC deadline includes time spent offline/in menus.
+    if(now>=this.nextReturnAt){
+    this.nextReturnAt=Infinity;
     for(const id of this.returns){
       const state=this.states.get(id),definition=this.definitions.get(id);
       if(!state||!definition||state.respawnAt===undefined){this.returns.delete(id);continue;}
-      if(state.respawnAt>now)continue;
-      if(this.host.canRespawn&&!this.host.canRespawn(definition))continue;
+      if(state.respawnAt>now){this.nextReturnAt=Math.min(this.nextReturnAt,state.respawnAt);continue;}
+      // A due return blocked by an active encounter must be reconsidered next
+      // update, exactly as before; only future deadlines skip their scan.
+      if(this.host.canRespawn&&!this.host.canRespawn(definition)){this.nextReturnAt=Math.min(this.nextReturnAt,state.respawnAt);continue;}
       const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined,
         ...(definition.kind==='creature'&&definition.bossId&&!state.summonWave?.members.length?{summonWave:undefined}:{})};
       this.states.set(id,restored);this.index(id,contentChunkKey(restored.x,restored.y));
       this.returns.delete(id);changed=true;
+    }
     }
     if (changed) { this.centerKey = center; this.wanted = viewport??chunkNeighborhood(x, y); }
     // Only near actors are inspected. Bucket migration lets moving creatures cross chunks.
@@ -386,7 +394,9 @@ export class ContentChunkManager<Actor> {
         for(const member of wave.members)this.summonOwners.delete(member);
       }
     }
-    if(state.defeated&&state.respawnAt!==undefined)this.returns.add(id);else this.returns.delete(id);
+    if(state.defeated&&state.respawnAt!==undefined){
+      this.returns.add(id);this.nextReturnAt=Math.min(this.nextReturnAt,state.respawnAt);
+    }else this.returns.delete(id);
     this.index(id, contentChunkKey(state.x, state.y));
     // A logical relocation disposes the old actor before it can overwrite the new position.
     if (state.defeated || patch.x !== undefined || patch.y !== undefined) this.deactivate(id, false);

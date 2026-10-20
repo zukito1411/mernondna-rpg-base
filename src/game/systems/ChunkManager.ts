@@ -53,6 +53,8 @@ export class ChunkManager {
   // LEIGHNERON_STAGGER_CHUNKS_V1: don't bake three huge neighbor chunks in one frame.
   private readonly pendingChunks = new Map<string,{x:number;y:number}>();
   private lastChunkBakedAt=-Infinity;
+  private preparing:{key:string;steps:Generator<void,void>}|null=null;
+  private preparedFrame=-1;
 
   constructor(scene: Phaser.Scene, world: WorldGenerator,
     private readonly treeSway:TreeSwaySystem,private readonly lighting:DayNightSystem,private readonly ground:WorldSpriteSystem) {
@@ -74,13 +76,17 @@ export class ChunkManager {
     // avoid constructing two sets of chunk keys on every animation frame.
     const viewKey=centerX+':'+centerY+':'
       +Math.floor((worldX-halfW)/CHUNK_SIZE)+':'+Math.floor((worldX+halfW)/CHUNK_SIZE)+':'
-      +Math.floor((worldY-halfH)/CHUNK_SIZE)+':'+Math.floor((worldY+halfH)/CHUNK_SIZE);
+      +Math.floor((worldY-halfH)/CHUNK_SIZE)+':'+Math.floor((worldY+halfH)/CHUNK_SIZE)+':'
+      +Math.floor((worldX-halfW-384)/CHUNK_SIZE)+':'+Math.floor((worldX+halfW+384)/CHUNK_SIZE)+':'
+      +Math.floor((worldY-halfH-384)/CHUNK_SIZE)+':'+Math.floor((worldY+halfH+384)/CHUNK_SIZE);
     if(viewKey===this.lastTravelViewKey){this.loadPendingChunk();return;}
     this.lastTravelViewKey=viewKey;
     const visible=viewportChunks({left:worldX-halfW,right:worldX+halfW,top:worldY-halfH,bottom:worldY+halfH});
     const wanted=chunkNeighborhood(worldX,worldY);
-    for(const key of visible)wanted.add(key);
-    const centerKey = `${centerX}:${centerY}:`+streamViewKey(visible);
+    // A bounded 512px viewport margin prepares zoomed-out travel before a
+    // chunk becomes safety-critical. Normal 3x3 walking residency is retained.
+    for(const key of viewportChunks({left:worldX-halfW,right:worldX+halfW,top:worldY-halfH,bottom:worldY+halfH},384))wanted.add(key);
+    const centerKey = `${centerX}:${centerY}:`+streamViewKey(wanted)+':'+streamViewKey(visible);
     if (centerKey === this.lastCenter) { this.loadPendingChunk(); return; }
     this.lastCenter = centerKey;
 
@@ -92,6 +98,7 @@ export class ChunkManager {
       this.active.delete(key);
     }
     for (const key of [...this.pendingChunks.keys()]) if(!wanted.has(key))this.pendingChunks.delete(key);
+    if(this.preparing&&!wanted.has(this.preparing.key))this.cancelPreparation();
     // Initial entry requires complete coverage. Subsequent movement staggers
     // offscreen neighbors, but never drops visible chunks after a zoom/resize.
     if(this.active.size===0){
@@ -108,6 +115,7 @@ export class ChunkManager {
       for(const key of wanted)if(!this.active.has(key)&&!this.pendingChunks.has(key)){
         const [x,y]=key.split(':').map(Number);this.pendingChunks.set(key,{x,y});
       }
+      this.prioritizePending(worldX,worldY);
       this.loadPendingChunk();
     }
     this.updateOpenSeaStatus();
@@ -125,6 +133,7 @@ export class ChunkManager {
       this.retireTerrain(key,chunk);this.active.delete(key);
     }
     for(const key of this.pendingChunks.keys())if(!wanted.has(key))this.pendingChunks.delete(key);
+    if(this.preparing&&!wanted.has(this.preparing.key))this.cancelPreparation();
     const ordered=[...wanted].sort((a,b)=>Number(visible.has(b))-Number(visible.has(a)));
     const previousPending=new Map(this.pendingChunks);
     this.pendingChunks.clear();
@@ -143,19 +152,36 @@ export class ChunkManager {
     return [...viewportChunks(view)].every(key=>this.active.has(key));
   }
 
-  /** Each expensive canvas bake stays on the main thread, but never multiple
-   * fresh 1536px terrain textures in a single frame during normal travel. */
+  /** Sample rows and compose layers over frames; publish terrain, scenery and
+   * collision together. Required visible loads can finish the same exact job. */
   private loadPendingChunk(staged=false){
     if(!this.pendingChunks.size)return;
     const now=this.scene.time.now;
-    if(!staged&&now-this.lastChunkBakedAt<95)return;
-    const next=this.pendingChunks.entries().next().value as [string,{x:number;y:number}]|undefined;
-    if(!next)return;
-    const [key,point]=next;
-    this.pendingChunks.delete(key);
-    if(!this.active.has(key))this.load(point.x,point.y);
-    this.lastChunkBakedAt=now;
+    if(this.preparedFrame===this.scene.game.loop.frame)return;
+    if(!this.preparing){
+      if(!staged&&now-this.lastChunkBakedAt<95)return;
+      const next=this.pendingChunks.entries().next().value as [string,{x:number;y:number}]|undefined;
+      if(!next)return;
+      const [key,point]=next;
+      if(this.active.has(key)){this.pendingChunks.delete(key);return;}
+      this.preparing={key,steps:this.loadSteps(point.x,point.y)};
+    }
+    this.preparedFrame=this.scene.game.loop.frame;
+    const job=this.preparing;
+    if(job.steps.next().done){
+      this.pendingChunks.delete(job.key);this.preparing=null;this.lastChunkBakedAt=now;
+    }
     this.updateOpenSeaStatus();
+  }
+  private prioritizePending(x:number,y:number){
+    const distance=(point:{x:number;y:number})=>
+      Math.max(0,Math.abs((point.x+.5)*CHUNK_SIZE-x)-CHUNK_SIZE/2)**2
+      +Math.max(0,Math.abs((point.y+.5)*CHUNK_SIZE-y)-CHUNK_SIZE/2)**2;
+    const ordered=[...this.pendingChunks].sort((a,b)=>distance(a[1])-distance(b[1]));
+    this.pendingChunks.clear();for(const [key,point] of ordered)this.pendingChunks.set(key,point);
+  }
+  private cancelPreparation(){
+    const job=this.preparing;this.preparing=null;job?.steps.return();
   }
 
   private updateOpenSeaStatus(){
@@ -171,6 +197,7 @@ export class ChunkManager {
   }
 
   destroy() {
+    this.cancelPreparation();
     for (const chunk of this.active.values()) {
       chunk.image.destroy();
       for (const image of chunk.scenery) image.destroy();
@@ -189,6 +216,15 @@ export class ChunkManager {
   getActiveKeys() { return [...this.active.keys()]; }
 
   private load(chunkX: number, chunkY: number) {
+    const key=`${chunkX}:${chunkY}`;
+    const current=this.preparing;
+    // Shared TerrainBaker scratch buffers must never be interleaved.
+    if(current?.key!==key)this.cancelPreparation();
+    const steps=current?.key===key?current.steps:this.loadSteps(chunkX,chunkY);
+    try{while(!steps.next().done){ /* Complete required view without holes. */ }}
+    finally{this.preparing=null;this.pendingChunks.delete(key);}
+  }
+  private *loadSteps(chunkX:number,chunkY:number):Generator<void,void>{
     // Fully open sea shares a single texture. Voyages no longer allocate and
     // repaint nine identical 1536-square ocean canvases at every chunk change.
     const ocean=Array.from({length:25},(_,i)=>({x:(chunkX+i%5/4)*CHUNK_SIZE,y:(chunkY+Math.floor(i/5)/4)*CHUNK_SIZE}))
@@ -205,11 +241,13 @@ export class ChunkManager {
       ? this.scene.textures.get(textureKey) as Phaser.Textures.CanvasTexture
       : this.scene.textures.createCanvas(textureKey, CHUNK_SIZE, CHUNK_SIZE);
     if (!canvasTexture) return;
+    let committed=false;
+    const scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite> = [];
+    try{
     if(!cached){
       const ctx = canvasTexture.getContext();
-      this.baker.draw(ctx, this.world, chunkX, chunkY);
+      yield* this.baker.drawSteps(ctx, this.world, chunkX, chunkY);
     }
-    const scenery: Array<Phaser.GameObjects.Image|Phaser.GameObjects.Sprite> = [];
     // The same exact authored reservations and deterministic seed yield the
     // same trees/details each visit. Cache *descriptors*, never GPU artwork.
     let plan=this.sceneryPlans.get(cacheKey);
@@ -226,12 +264,18 @@ export class ChunkManager {
       const nearbyLandmarks=planLandmarkScenery(chunkX,chunkY,this.world,true);
       const landmarkDetails=nearbyLandmarks.filter(d=>Math.floor(d.x/CHUNK_SIZE)===chunkX&&Math.floor(d.y/CHUNK_SIZE)===chunkY);
       const landmarks=nearbyLandmarks.map(d=>({...d,bounds:spriteBounds(d.texture,d.frame,d.scale,d.x,d.y)}));
+      yield;
       const trees=planWildernessTrees(chunkX,chunkY,this.world,[...reservations,...landmarks]);
+      yield;
       const treeReservations=trees.map(t=>({...t,bounds:spriteBounds(t.texture,t.frame,t.scale,t.x,t.y)}));
       const details=[...landmarkDetails,...planWildernessDetails(chunkX,chunkY,this.world,[...reservations,...landmarks,...treeReservations])];
       plan={trees,details};this.sceneryPlans.set(cacheKey,plan);
       while(this.sceneryPlans.size>this.sceneryPlanLimit)this.sceneryPlans.delete(this.sceneryPlans.keys().next().value!);
     }
+    // Upload separately from actor/collider creation, then expose both at once.
+    if(!cached)canvasTexture.refresh();
+    canvasTexture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    yield;
     // Full-detail sprites and collisions are still created from the exact
     // original plan; only the expensive placement *calculation* is reused.
     const trees=plan.trees;
@@ -249,10 +293,14 @@ export class ChunkManager {
       this.ground.register(sprite,detail.texture,detail.frame,detail.scale,detail.solid,detail.footprint);
       this.lighting.register(sprite,detail.texture,detail.frame,detail.scale);
     }
-    if(!cached)canvasTexture.refresh();
-    canvasTexture.setFilter(Phaser.Textures.FilterMode.LINEAR);
-
     const image = this.scene.add.image(chunkX * CHUNK_SIZE, chunkY * CHUNK_SIZE, textureKey).setOrigin(0, 0).setDepth(-1000);
     this.active.set(`${chunkX}:${chunkY}`, { image, textureKey, scenery });
+    committed=true;
+    }finally{
+      if(!committed){
+        for(const image of scenery)image.destroy();
+        this.scene.textures.remove(textureKey);
+      }
+    }
   }
 }

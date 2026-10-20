@@ -50,7 +50,10 @@ export class WorldGenerator {
   }
 
   getBiomeAt(x:number,y:number){
-    const region=this.getRegionAt(x,y),cx=x/CHUNK_SIZE,cy=y/CHUNK_SIZE;
+    return this.biomeInRegion(x,y,this.getRegionAt(x,y));
+  }
+  private biomeInRegion(x:number,y:number,region:RegionId){
+    const cx=x/CHUNK_SIZE,cy=y/CHUNK_SIZE;
     if(region==='dead-sea'||harborBay(x,y))return 'coast';
     const island=region==='portquill'?[27,70,13,11]:region==='frostlands'?[99,70,11,14]:region==='darkav'?[105,10,9,8]:[55,37,49,34];
     const coast=Math.abs(1-Math.hypot((cx-island[0])/island[2],(cy-island[1])/island[3]))*Math.min(island[2],island[3])*CHUNK_SIZE;
@@ -128,7 +131,7 @@ export class WorldGenerator {
     const region = REGIONS.find((entry) => entry.id === regionId);
     if (!region) return 'grass';
 
-    const biome=this.getBiomeAt(worldX,worldY),n=noise2D(worldX*.0002,worldY*.0002);
+    const biome=this.biomeInRegion(worldX,worldY,regionId),n=noise2D(worldX*.0002,worldY*.0002);
     if(biome==='coast')return regionId==='frostlands'?'snow':regionId==='darkav'?'stone':'sand';
     if(biome==='wetland')return n>.35?'grass':'marsh';
     if(biome==='snowfield')return n<-.45?'stone':'snow';

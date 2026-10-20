@@ -1,25 +1,18 @@
 import { memo, useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { WorldGenerator } from '../game/systems/WorldGenerator';
 import { mapPoint, questBearing } from '../game/systems/questNavigation';
-import type { TerrainKind } from '../game/types';
-import { WORLD_HEIGHT, WORLD_WIDTH } from '../data/world';
+import {MiniMapTerrain,MINI_TERRAIN_EXTENT} from './miniMapTerrain';
 import { nightStrength } from '../data/environmentLights';
 import {MAP_SERVICE_STYLE,type MapService} from '../data/mapServices';
 import {mapServiceIcon} from './mapServiceDrawing';
 
 const SIZE = 192, RANGE = 1100;
-const world = new WorldGenerator();
-const COLORS: Record<TerrainKind,string> = {
-  grass: '#617849', forest: '#324e37', dirt: '#ab8b60', stone: '#96908a', snow: '#d1ddd9',
-  ash: '#66544e', sand: '#c3ac78', water: '#294d63', farmland: '#918449',
-  marsh:'#657363',lava:'#b85835',ice:'#9fc8df',
-};
 
 export const MiniMap = memo(function MiniMap() {
   const ref = useRef<HTMLCanvasElement>(null);
   // Four exact-resolution cached mini terrain tiles improve backtracking.
-  const terrainCache=useRef(new Map<string,{x:number;y:number;canvas:HTMLCanvasElement}>());
+  const terrainCache=useRef<MiniMapTerrain|null>(null);
+  useEffect(()=>()=>{terrainCache.current?.destroy();terrainCache.current=null;},[]);
   const x = useGameStore(s => s.worldX), y = useGameStore(s => s.worldY);
   const navigation = useGameStore(s => s.navigation);
   const day = useGameStore(s => s.day);
@@ -31,28 +24,10 @@ export const MiniMap = memo(function MiniMap() {
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
-    const player = navigation.playerPosition??{ x, y }, originX = Math.floor(x / 256) * 256, originY = Math.floor(y / 256) * 256;
-    const key = `${originX}:${originY}`;
-    const extent = RANGE * 8 / 3;
-    if (!navigation.interiorName&&!terrainCache.current.has(key)) {
-      const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
-      const background = canvas.getContext('2d');
-      if (!background) return; // A memory-stressed Android WebView may deny a 2D context.
-      const left = originX - extent / 2, top = originY - extent / 2;
-      for (let row = 0; row < 48; row++) for (let column = 0; column < 48; column++) {
-        const px = left + (column + .5) * extent / 48, py = top + (row + .5) * extent / 48;
-        const terrain = px < 0 || py < 0 || px >= WORLD_WIDTH || py >= WORLD_HEIGHT ? 'water' : world.getTerrainAt(px,py);
-        background.fillStyle = COLORS[terrain];
-        background.fillRect(column * 256 / 48,row * 256 / 48,Math.ceil(256 / 48),Math.ceil(256 / 48));
-      }
-      terrainCache.current.set(key,{x:left,y:top,canvas});
-      while(terrainCache.current.size>4){
-        const oldest=terrainCache.current.keys().next().value;
-        if(oldest===undefined)break;
-        terrainCache.current.delete(oldest);
-      }
-    }
-    const cache = terrainCache.current.get(key);
+    const player = navigation.playerPosition??{ x, y },extent=MINI_TERRAIN_EXTENT;
+    terrainCache.current??=new MiniMapTerrain();
+    if(navigation.interiorName)terrainCache.current.pause();
+    const cache=navigation.interiorName?undefined:terrainCache.current.current(x,y);
     const scale = SIZE / (2 * RANGE);
     ctx.clearRect(0,0,SIZE,SIZE); ctx.save(); ctx.beginPath(); ctx.arc(SIZE / 2,SIZE / 2,SIZE / 2 - 2,0,Math.PI * 2); ctx.clip();
     ctx.imageSmoothingEnabled = false;

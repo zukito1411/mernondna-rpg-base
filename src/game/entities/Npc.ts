@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {DepthSortedSprite,setDepthIfChanged} from '../systems/renderDepth';
 import type { NpcDefinition, Vec2 } from '../types';
 import { ART_BY_KEY, actorScaleForHeight, artScale, type ArtTextureKey } from '../../data/art';
 import { NPC_IDLE_ART,npcDirectionalIdleTexture,npcIdleSilhouetteHeight } from '../../data/npcIdleArt';
@@ -25,7 +26,7 @@ import {npcCombatArt,npcCombatKey,NPC_COMBAT_DIRECTIONS} from '../../data/npcCom
 const NPC_WALK_SPEED = 44;
 type WalkDirection = ActorDirection;
 
-export class Npc extends Phaser.Physics.Arcade.Sprite {
+export class Npc extends DepthSortedSprite {
   readonly definition: NpcDefinition;
   readonly nameLabel: Phaser.GameObjects.Text;
   readonly home: Vec2;
@@ -65,6 +66,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   private roadBlocker:Vec2|null=null;
   private avoidSide=1;
   private storyGoal:Vec2|null=null;
+  private storyRouteCheckAt=0;
   private companionControl=false;
   private companionGoal:{point:Vec2;speed:number}|null=null;
   private roadRoute:{points:Vec2[];next:number;direction:number;loop:boolean;wait:number;speed:number;rejoin:boolean;joining:Vec2|null}|null=null;
@@ -198,7 +200,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
     &&(this.anims.currentFrame?.index??0)>=(this.combatProfile?.impact??4));}
   get storyAttackFinished(){return Boolean(this.storyAttack&&(!this.anims.isPlaying||this.anims.currentAnim?.key!==this.storyAttack));}
   endStoryAttack(){this.storyAttack=null;this.storyRest();}
-  beginStoryMovement(goal:Vec2){if(this.canStoryWalk)this.storyGoal={...goal};}
+  beginStoryMovement(goal:Vec2){
+    if(!this.canStoryWalk)return;
+    if(this.storyGoal?.x!==goal.x||this.storyGoal.y!==goal.y)this.storyRouteCheckAt=0;
+    this.storyGoal={...goal};
+  }
   endStoryMovement(){this.storyGoal=null;this.storyRest();}
   get storyMoving(){return this.storyGoal!==null||this.storyGuard;}
   get adventureCompanion(){return this.companionControl;}
@@ -310,7 +316,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       const dx=this.storyGoal.x-this.x,dy=this.storyGoal.y-this.y,distance=Math.hypot(dx,dy);
       if(distance<8){this.endStoryMovement();return;}
       const ahead={x:this.x+dx/distance*Math.min(24,distance),y:this.y+dy/distance*Math.min(24,distance)};
-      if(!scene.canNpcVisit(this,this.storyGoal)||scene.npcPathBlocker(this,ahead,this)){
+      // Retain a full route check on a new goal and every 120 ms. Between those
+      // checks validate the immediate segment and pedestrians every frame.
+      const routeDue=time>=this.storyRouteCheckAt;
+      if(routeDue)this.storyRouteCheckAt=time+120;
+      if(!scene.canNpcVisit(this,routeDue?this.storyGoal:ahead)||scene.npcPathBlocker(this,ahead,this)){
         this.endStoryMovement();return;
       }
       this.facing.set(dx,dy).normalize();
@@ -354,7 +364,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       }
       // Common deterministic phase keeps the file together across streaming.
       // Never snap through a wall if a future layout edit invalidates its route.
-      if(scene.canNpcVisit(this,goal) && Math.hypot(this.x-goal.x,this.y-goal.y)<160) {
+      if(Math.hypot(this.x-goal.x,this.y-goal.y)<160 && scene.canNpcVisit(this,goal)) {
         this.formationRejoining=false;this.route=[];this.target=null;
         const dx=goal.x-this.x,dy=goal.y-this.y;
         if(Math.hypot(dx,dy)>.2)this.facing.set(dx,dy).normalize();
@@ -508,11 +518,11 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       this.nameHighlighted=questTarget;
       this.nameLabel.setColor(questTarget?'#ffe193':'#f6edd7');
     }
-    this.nameLabel.setPosition(this.x,this.y+this.labelY).setDepth(this.y+80)
+    setDepthIfChanged(this.nameLabel,this.y+80).setPosition(this.x,this.y+this.labelY)
       .setVisible(!this.companionControl);
     const title=this.storyAlert??this.definition.title;
     if(this.titleLabel.text!==title)this.titleLabel.setText(title);
-    this.titleLabel.setPosition(this.x,this.y+this.labelY+2).setDepth(this.y+80)
+    setDepthIfChanged(this.titleLabel,this.y+80).setPosition(this.x,this.y+this.labelY+2)
       .setVisible(!this.companionControl&&(Boolean(this.storyAlert)||distance<260));
     if(this.sideQuestMarker){
       const story=useGameStore.getState();
@@ -525,7 +535,7 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
         return status.status==='active'&&next?.targetId===this.definition.id
           &&['talk','deliver','choice','puzzle'].includes(next.type);
       });
-      this.sideQuestMarker.setPosition(this.x,this.y+this.labelY-17).setDepth(this.y+82)
+      setDepthIfChanged(this.sideQuestMarker,this.y+82).setPosition(this.x,this.y+this.labelY-17)
         .setVisible(!this.companionControl&&available&&!cinematic&&distance<650);
     }
   }

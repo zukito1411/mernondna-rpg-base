@@ -11,16 +11,27 @@ export function npcCombatSourceKey(spec:NpcCombatSpec,index:number){return `npc-
 /** Complete isolated poses, never stitched body parts. One body calibration per
  * source; boots remain registered independently of weapon reach. */
 export function prepareNpcCombatSheet(scene:Phaser.Scene,spec:NpcCombatSpec):SpriteAnimation[]{
+  const steps=prepareNpcCombatSheetSteps(scene,spec);
+  let result=steps.next();while(!result.done)result=steps.next();
+  return result.value;
+}
+/** Runtime residency advances one source/pose step per frame. Eager boot users
+ * drain the same generator, retaining exactly the same fitting and frame data. */
+export function* prepareNpcCombatSheetSteps(scene:Phaser.Scene,spec:NpcCombatSpec):Generator<void,SpriteAnimation[]>{
   const sheet=ART_BY_KEY[spec.texture],d=sheet.density,fw=sheet.frameWidth*d,fh=sheet.frameHeight*d,gutter=4;
   const ground=sheet.frameHeight-(sheet.groundPadding??20),columns=sheet.atlasColumns!;
   // Regional walk+attack frames pack into 6x6, keeping both texture dimensions
   // below 2048px rather than producing an Android-hostile 2624px strip.
   const rows=Math.ceil(sheet.columns/columns);
   const texture=scene.textures.createCanvas(spec.texture,(fw+2*gutter)*columns,(fh+2*gutter)*rows)!;
+  let complete=false;
+  try{
   const ctx=texture.getContext();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   const idle=NPC_IDLE_ART.find(entry=>entry.walk===spec.walk)!;
   const modelHeight=spec.modelHeight??npcIdleBodyHeight(idle);
-  const inputs=spec.sources.map((file,index)=>{
+  const inputs=[];
+  yield;
+  for(const [index,file] of spec.sources.entries()){
     const image=scene.textures.get(npcCombatSourceKey(spec,index)).getSourceImage() as HTMLImageElement;
     const native=document.createElement('canvas');native.width=image.width;native.height=image.height;
     const read=native.getContext('2d')!;read.drawImage(image,0,0);
@@ -36,10 +47,11 @@ export function prepareNpcCombatSheet(scene:Phaser.Scene,spec:NpcCombatSpec):Spr
     const reference=subjects[0].region;
     const bodyHeight=file.bodyHeight??(spec.id==='elven-guard'?275*image.height/1280:roots[0][1]-reference[1]);
     native.width=native.height=1;
-    return {file,subjects,roots,fit:modelHeight/Math.max(1,bodyHeight)};
-  });
+    inputs.push({file,subjects,roots,fit:modelHeight/Math.max(1,bodyHeight)});
+    yield;
+  }
   const animations:SpriteAnimation[]=[];
-  const draw=(state:'attack'|'walk',directionIndex:number)=>{
+  function* draw(state:'attack'|'walk',directionIndex:number):Generator<void,void>{
     const direction=NPC_COMBAT_DIRECTIONS[directionIndex],vertical=state==='attack'&&spec.vertical&&(direction==='down'||direction==='up');
     const input=inputs[vertical?1:state==='walk'?(spec.walkSource??0):0],row=vertical?(direction==='up'?1:0):(state==='walk'?spec.walkRows!:spec.attackRows)[directionIndex];
     const mirrored=Boolean(spec.mirrorLeft&&direction==='left');
@@ -68,13 +80,19 @@ export function prepareNpcCombatSheet(scene:Phaser.Scene,spec:NpcCombatSpec):Spr
       texture.add(frame,0,cx,cy,fw,fh)!.customData={fullSprite:true,isolatedSubject:true,sourcePath:input.file.path,
         sourceRegion:subject.region,sourceFit:fit,sourceRoot:{x:rootX,y:rootY},sourceMirrored:mirrored,
         visibleBounds:{left:mirrored?sheet.frameWidth-x-width*fit:x,top:y,width:width*fit,height:height*fit}};
+      yield;
     }
     animations.push({key:npcCombatKey(spec,state,direction),texture:spec.texture,
       frames:Array.from({length:spec.frames},(_,i)=>start+i),frameRate:state==='walk'?7:spec.frames===6?9:6,repeat:state==='walk'?-1:0});
   };
-  NPC_COMBAT_DIRECTIONS.forEach((_,i)=>{draw('attack',i);if(spec.walkRows)draw('walk',i);});
+  for(let i=0;i<NPC_COMBAT_DIRECTIONS.length;i++){yield* draw('attack',i);if(spec.walkRows)yield* draw('walk',i);}
   texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  complete=true;
   return animations;
+  }finally{
+    // Cancelling an obsolete residency job never leaves a half-built atlas.
+    if(!complete&&scene.textures.exists(spec.texture))scene.textures.remove(spec.texture);
+  }
 }
 export function prepareNpcCombatArt(scene:Phaser.Scene):SpriteAnimation[]{
   return NPC_COMBAT_ART.filter(a=>a.eager).flatMap(spec=>{

@@ -57,7 +57,13 @@ export function prepareGrandMagusArt(scene:Phaser.Scene,spec:M14ArtSpec){
   poses.spells.forEach((pose,i)=>{
     const [,,w,h]=pose.region,scale=104/Math.max(w,h),x=i%2*128,y=Math.floor(i/2)*128;
     spells.getContext().drawImage(spriteSubjectCanvas(pose),x+(128-w*scale)/2,y+(128-h*scale)/2,w*scale,h*scale);
-    spells.add(i,0,x,y,128,128);
+    // Authored fire/ice face right; lightning's contact is at its bottom,
+    // whereas shadow is radial. Preserve these anchors through GPU isolation.
+    const anchors=[[.82,.5],[.96,.5],[.5,.92],[.5,.5]] as const;
+    const anchor=anchors[i];
+    spells.add(i,0,x,y,128,128)!.customData={effectOrigin:{
+      x:((128-w*scale)/2+w*scale*anchor[0])/128,
+      y:((128-h*scale)/2+h*scale*anchor[1])/128}};
   });
   spells.refresh();spells.setFilter(Phaser.Textures.FilterMode.NEAREST);isolateAtlasFrames(spells);
   scratch.width=0;scratch.height=0;texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);isolateAtlasFrames(texture);

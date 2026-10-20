@@ -5,6 +5,9 @@ import {ATTACK_WARNING_FRAMES,ATTACK_WARNING_TEXTURE,windupProgress,type AttackA
 export class AttackTelegraph {
   readonly graphics:Phaser.GameObjects.Graphics;
   private readonly rune:Phaser.GameObjects.Image|undefined;
+  private geometry:AttackArea|null=null;
+  private lastProgress=-1;
+  private lastColor=0;
   progress=0;
   constructor(scene:Phaser.Scene,name:string,preserveRune=true){
     this.graphics=scene.add.graphics().setName(name).setVisible(false);
@@ -14,9 +17,18 @@ export class AttackTelegraph {
   draw(area:AttackArea,progress:number,depth:number,color=0xf3aa57){
     const g=this.graphics,p=windupProgress(progress,1),r=area.radius;
     this.progress=p;
-    g.clear().setVisible(true).setPosition(area.x,area.y).setRotation(area.angle).setDepth(depth);
+    g.setVisible(true).setPosition(area.x,area.y).setRotation(area.angle).setDepth(depth);
     const tint=p>=.85?0xff6659:color;
     this.rune?.setPosition(area.x,area.y).setDisplaySize(r*2,r*2).setDepth(depth-.1).setAlpha(.12).setVisible(area.kind==='circle');
+    const old=this.geometry;
+    // Filled lingering zones retain their command buffer. World position,
+    // depth and fade can change independently without rebuilding the polygon.
+    if(old&&this.lastProgress===p&&this.lastColor===color&&old.kind===area.kind&&old.radius===r
+      &&old.range===area.range&&old.innerRadius===area.innerRadius&&old.halfAngle===area.halfAngle&&old.flatEnd===area.flatEnd)return this;
+    this.geometry??={...area};
+    this.geometry.kind=area.kind;this.geometry.radius=r;this.geometry.range=area.range;
+    this.geometry.innerRadius=area.innerRadius;this.geometry.halfAngle=area.halfAngle;this.geometry.flatEnd=area.flatEnd;
+    this.lastProgress=p;this.lastColor=color;g.clear();
     g.fillStyle(tint,.07);g.lineStyle(2,p>=.95?0xffead0:tint,.85);
     if(area.kind==='line'){
       const length=area.range??r;
@@ -52,6 +64,6 @@ export class AttackTelegraph {
     }
     return this;
   }
-  clear(){this.graphics.clear().setVisible(false);this.rune?.setVisible(false);this.progress=0;}
+  clear(){if(this.graphics.visible)this.graphics.clear().setVisible(false);this.rune?.setVisible(false);this.progress=0;this.lastProgress=-1;}
   destroy(){this.graphics.destroy();this.rune?.destroy();}
 }

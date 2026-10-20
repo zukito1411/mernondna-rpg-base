@@ -1,5 +1,5 @@
 import {TOWN_BY_ID} from './towns';
-import type {DungeonDefinition,DungeonLedger} from './dungeons';
+import type {DungeonDefinition,DungeonLedger,DungeonProgress} from './dungeons';
 import type {QuestDefinition,QuestRuntimeState,EnemyDefinition} from '../game/types';
 
 export const TOWER_ENTRY_ID='cave:tower-of-might';
@@ -73,6 +73,12 @@ export function towerCheckpoint(ledger:DungeonLedger){
  return completed;
 }
 export const towerEntryFloor=(ledger:DungeonLedger)=>TOWER_FLOORS[towerCheckpoint(ledger)*5]??TOWER_FLOORS[TOWER_FLOORS.length-1];
+/** Temporary single-floor practice; never serialized into the weekly ledger. */
+export interface TowerPractice {floorId:string;week:number;progress:DungeonProgress;}
+export const towerPracticeAvailable=(ledger:DungeonLedger,nextReset:number,now=Date.now())=>
+ now<nextReset&&towerCheckpoint(ledger)===TOWER_CHAMBERS.length;
+export const towerFloorProgress=(id:string,ledger:DungeonLedger,practice:TowerPractice|null)=>
+ practice?.floorId===id?practice.progress:ledger[id];
 export const towerKnown=(quests:Record<string,QuestRuntimeState>,flags:Record<string,boolean>)=>
  towerCampaignComplete(quests)&&Boolean(flags[TOWER_UNLOCKED]||(quests[TOWER_QUEST_ID]?.objectiveProgress['hear-bell']??0)>=1);
 export const TOWER_QUEST:QuestDefinition={id:TOWER_QUEST_ID,name:'The Tower That Came at Dawn',kind:'side',giverNpcId:'orin-bell',
