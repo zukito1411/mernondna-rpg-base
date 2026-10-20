@@ -8,7 +8,7 @@ const MOTES=[
 /** Shared menu/loading artwork. CSS-only motion; no game-loop work or timers. */
 export function TitleArtwork(){
   return <div className="title-artwork" aria-hidden="true">
-    <img className="title-art-scene" src="/assets/reference/Tales%20of%20Leighneron_%20Sunset%20Valley.png"
+    <img className="title-art-scene" src={`${import.meta.env.BASE_URL}assets/reference/Tales%20of%20Leighneron_%20Sunset%20Valley.png`}
       alt="" decoding="async" fetchPriority="high" draggable={false}/>
     <div className="title-art-shade"/>
     <div className="title-art-motes">
@@ -18,7 +18,7 @@ export function TitleArtwork(){
     </div>
     <div className="title-art-logo">
       <div className="title-art-reveal">
-        <img src="/assets/reference/Title.png" width={1672} height={941} alt="" decoding="async" draggable={false}/>
+        <img src={`${import.meta.env.BASE_URL}assets/reference/Title.png`} width={1672} height={941} alt="" decoding="async" draggable={false}/>
         <span className="title-art-sheen"/>
       </div>
     </div>
