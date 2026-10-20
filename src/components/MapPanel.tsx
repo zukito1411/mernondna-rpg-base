@@ -35,7 +35,6 @@ export function MapPanel() {
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const [regionalCenter, setRegionalCenter] = useState<Point>({ x, y });
-  const [regionalDragging, setRegionalDragging] = useState(false);
   const [viewport, setViewport] = useState<Point>({ x: 0, y: 0 });
   const [atlasAspect, setAtlasAspect] = useState(4 / 3);
   const selectedPin = useRef<HTMLButtonElement | null>(null);
@@ -50,7 +49,6 @@ export function MapPanel() {
     setZoom(MIN_ZOOM);
     setPan({ x: 0, y: 0 });
     setRegionalCenter({ x: useGameStore.getState().worldX, y: useGameStore.getState().worldY });
-    setRegionalDragging(false);
     dragging.current = null;
     if (regionalPanFrame.current) window.cancelAnimationFrame(regionalPanFrame.current);
     regionalPanFrame.current = 0;
@@ -139,7 +137,6 @@ export function MapPanel() {
       pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
       x: visualPanX, y: visualPanY, lastX: event.clientX, lastY: event.clientY,
     };
-    if (regional) setRegionalDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const movePan = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -164,7 +161,6 @@ export function MapPanel() {
       regionalPendingDelta.current.y += event.clientY - drag.lastY;
       if (regionalPanFrame.current) window.cancelAnimationFrame(regionalPanFrame.current);
       flushRegionalPan();
-      setRegionalDragging(false);
     }
     dragging.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -200,7 +196,7 @@ export function MapPanel() {
               width: `${drawnWidth}px`, height: `${drawnHeight}px`,
               transform: `translate(calc(-50% + ${visualPanX}px), calc(-50% + ${visualPanY}px))`,
             }}>
-              {regional ? <RegionalMap center={regionalCenter} coarse={regionalDragging}
+              {regional ? <RegionalMap center={regionalCenter} zoom={zoom}
                 select={(id, button) => { selectedPin.current = button; setSelectedId(id); }} /> :
                 <div className="world-map-wrap">
                   <div className="atlas-survey">
