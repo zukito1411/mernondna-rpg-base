@@ -1,7 +1,9 @@
 import { QUESTS } from '../../data/quests';
 import type { QuestObjective, QuestRuntimeState } from '../types';
+import {TOWER_QUEST_ID,towerCampaignComplete} from '../../data/towerOfMight';
 
 export function nextObjective(id:string,quests:Record<string,QuestRuntimeState>) {
+  if(id===TOWER_QUEST_ID&&!towerCampaignComplete(quests))return undefined;
   const quest=QUESTS.find(q=>q.id===id),runtime=quests[id];
   return runtime?.status==='active'?quest?.objectives.find(o=>(runtime.objectiveProgress[o.id]??0)<o.amount):undefined;
 }

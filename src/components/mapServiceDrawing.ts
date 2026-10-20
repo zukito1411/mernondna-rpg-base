@@ -9,7 +9,11 @@ export function mapServiceIcon(service:MapService){
   ctx.fillStyle='#211b13';ctx.strokeStyle=MAP_SERVICE_STYLE[service].color;ctx.lineWidth=1;
   ctx.beginPath();ctx.arc(9,9,8,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.lineWidth=1.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
-  if(service==='home'){
+  if(service==='tower'){
+    ctx.moveTo(5,14);ctx.lineTo(5,5);ctx.lineTo(7,5);ctx.lineTo(7,3);ctx.lineTo(11,3);
+    ctx.lineTo(11,5);ctx.lineTo(13,5);ctx.lineTo(13,14);ctx.closePath();
+    ctx.moveTo(8,14);ctx.lineTo(8,11);ctx.lineTo(10,11);ctx.lineTo(10,14);
+  }else if(service==='home'){
     ctx.font='bold 16px Georgia';ctx.textAlign='center';ctx.fillStyle=MAP_SERVICE_STYLE.home.color;ctx.fillText('⌂',9,14);
   }else if(service==='inn'){
     ctx.moveTo(4,6);ctx.lineTo(4,13);ctx.moveTo(4,10);ctx.lineTo(14,10);ctx.lineTo(14,13);

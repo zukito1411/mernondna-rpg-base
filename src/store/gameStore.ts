@@ -27,14 +27,15 @@ import type {StoryPanelRef} from '../data/storyPanelArt';
 import {emptyJournal,restoreJournal,discoverCreature,discoverJournalEntry,type JournalState} from '../data/journal';
 import {ALICE_NPC_ID,ALICE_COMPANION_FLAG} from '../data/aliceCompanion';
 import {contractById,boardContracts,contractBoardCycle,expireClaimedContracts,MAX_ACTIVE_CONTRACTS,outstandingContracts,advanceContracts,type ContractLedger} from '../data/contracts';
-import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
+import {ARMOR_BY_ID,ARMOR_SLOTS,BOSS_ARMOR,SHADOW_MAGUS_ARMOR_IDS,emptyArmorLoadout,armorBonusesFor,NO_ARMOR_BONUSES,type ArmorBonuses,type ArmorLoadout,type ArmorSlot} from '../data/armor';
 import {DUNGEON_BY_ID,DUNGEON_RESET_MS,dungeonCleared,dungeonResetReady,dungeonEnemyId,newDungeonProgress,type DungeonLedger} from '../data/dungeons';
+import {TOWER_FLOORS,TOWER_QUEST_ID,MAGUS_TREASURE_FLOOR,towerCheckpoint,nextTowerWeeklyReset,gateTowerQuest} from '../data/towerOfMight';
 import {BASE_LEVEL_CAP,MAX_PLAYER_LEVEL,playerLevelCap} from '../data/progression';
 import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASCENSION,ASCENSION_CONFIRM_DELAY_MS} from '../data/breakthrough';
 
 const LOCAL_TEST_GOLD=1_000_000_000;
 
-type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | 'housing' | null;
+type Panel = 'map' | 'regional-map' | 'inventory' | 'character' | 'pause' | 'travel' | 'journal' | 'codex' | 'harbor' | 'contracts' | 'housing' | 'tower-exit' | null;
 
 export interface DialogueState {
   npcId: string;
@@ -71,6 +72,12 @@ export interface GameState {
   refreshDungeon:(id:string)=>void;
   recordDungeonDefeat:(id:string,slot:number)=>void;
   claimDungeonChest:(id:string)=>void;
+  resetTowerRun:()=>void;
+  nextTowerResetAt:number;
+  refreshTowerWeek:()=>boolean;
+  towerExitRequest:{floorId:string;confirmed:boolean}|null;
+  requestTowerExit:(floorId:string)=>void;
+  confirmTowerExit:()=>void;
   armorInventory:string[];
   equippedArmor:ArmorLoadout;
   armorBonuses:ArmorBonuses;
@@ -195,6 +202,8 @@ const baseState = () => ({
   housing:emptyHousing(),housingContext:null as string|null,housingEditing:false,
   worldAscensionReadyAt:0,
   dungeons:{} as DungeonLedger,activeDungeonId:null as string|null,
+  towerExitRequest:null as GameState['towerExitRequest'],
+  nextTowerResetAt:nextTowerWeeklyReset(),
   armorInventory:[] as string[],equippedArmor:emptyArmorLoadout(),armorBonuses:{...NO_ARMOR_BONUSES},
   contracts:{} as ContractLedger,contractBoardTownId:null as string|null,
   aliceRemark:null as GameState['aliceRemark'],
@@ -244,6 +253,14 @@ const baseState = () => ({
   cinematic:null as GameState['cinematic'],pendingCinematic:'roadborn-opening' as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
 });
 
+/** Exclusive final chest and recovery banking use one idempotent award path. */
+function magusTreasure(state:GameState,id:string):Partial<GameState>{
+  if(id!==MAGUS_TREASURE_FLOOR)return {};
+  const missing=SHADOW_MAGUS_ARMOR_IDS.filter(item=>!state.armorInventory.includes(item));
+  if(!missing.length)return {};
+  return {armorInventory:[...state.armorInventory,...missing],nextRareLootId:state.nextRareLootId+1,
+    rareLootQueue:[...state.rareLootQueue,{id:state.nextRareLootId,kind:'armor-set',weaponId:SHADOW_MAGUS_ARMOR_IDS[0],gold:0,newArmorPieces:missing.length}]};
+}
 function experienceProgress(state: GameState, xp: number) {
   const cap=playerLevelCap(state.storyFlags);
   const totalXp = Math.min(xpTotalForLevel(cap),state.xp + xp);
@@ -260,6 +277,26 @@ function experienceProgress(state: GameState, xp: number) {
       learning:(state.levelUpNotice?.learning??0)+learningPointsGained},nextLevelUpId:state.nextLevelUpId+1}:{}),
     ...(levelsGained ? { toast: `Level ${level}! +${levelsGained * STAT_POINTS_PER_LEVEL} attribute points${learningPointsGained ? ` and +${learningPointsGained} learning point${learningPointsGained === 1 ? '' : 's'}` : ''}.${state.level<60&&level>=60?' Barrage unlocked! Equip it in Status > Usable skills.':''}` } : {}),
   };
+}
+
+/** Settle earned boss chests before clearing run/week masks. Gear, quests and
+ * all non-tower dungeons are untouched; an expired week pays at most once. */
+function settleTowerRun(state:GameState,expired=false,now=Date.now()):Partial<GameState>{
+  const checkpoint=towerCheckpoint(state.dungeons),dungeons={...state.dungeons};
+  let xp=0,gold=0,magusReward=false;
+  for(const d of TOWER_FLOORS){
+    const p=dungeons[d.id];if(!p)continue;
+    const earned=d.tower!.floor===5&&dungeonCleared(d,p)&&!p.claimed;
+    if(earned){
+      const reward=earnedRewards(d.xp,d.gold,state.attributes,state.learnedSkills,state.armorBonuses);
+      xp+=reward.xp;gold+=reward.gold;if(d.id===MAGUS_TREASURE_FLOOR)magusReward=true;
+    }
+    if(expired||d.tower!.chamber>checkpoint)delete dungeons[d.id];
+    else if(earned)dungeons[d.id]={...p,claimed:true};
+  }
+  return {...experienceProgress(state,xp),gold:state.gold+gold,dungeons,towerExitRequest:null,
+    nextTowerResetAt:expired?nextTowerWeeklyReset(now):state.nextTowerResetAt,
+    ...(magusReward?magusTreasure(state,MAGUS_TREASURE_FLOOR):{}),...(state.panel==='tower-exit'?{panel:null}:{})};
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -290,9 +327,24 @@ export const useGameStore = create<GameState>((set, get) => ({
       dialogue:{...dialogue,lines:['You faced the Returning Ember and came back stronger. Your breakthrough is complete: you may now grow to level 75. At level 60, Barrage will be yours.'],lineIndex:0},
       toast:'Breakthrough complete! Level cap raised to 75. Barrage unlocks at level 60.'};
   }),
+  resetTowerRun:()=>set(state=>settleTowerRun(state,Date.now()>=state.nextTowerResetAt)),
+  refreshTowerWeek:()=>{
+    const state=get(),now=Date.now();
+    // The scene must release its active actors before replacing their ledger.
+    if(now<state.nextTowerResetAt||state.activeDungeonId&&DUNGEON_BY_ID[state.activeDungeonId]?.tower)return false;
+    set(settleTowerRun(state,true,now));return true;
+  },
+  requestTowerExit:floorId=>set(state=>{
+    const d=DUNGEON_BY_ID[floorId];
+    if(!d?.tower||state.activeDungeonId!==floorId||!dungeonCleared(d,state.dungeons[floorId])
+      ||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
+    return {panel:'tower-exit',towerExitRequest:{floorId,confirmed:false}};
+  }),
+  confirmTowerExit:()=>set(state=>state.panel==='tower-exit'&&state.towerExitRequest&&acceptUiAction()
+    ?{panel:null,towerExitRequest:{...state.towerExitRequest,confirmed:true}}:{}),
   discoverDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!state.dungeons[id]
     ?{dungeons:{...state.dungeons,[id]:newDungeonProgress()},toast:`Discovered: ${DUNGEON_BY_ID[id].name}`} :{}),
-  refreshDungeon:id=>set(state=>state.activeDungeonId!==id&&dungeonResetReady(state.dungeons[id])
+  refreshDungeon:id=>set(state=>Object.hasOwn(DUNGEON_BY_ID,id)&&!DUNGEON_BY_ID[id].tower&&state.activeDungeonId!==id&&dungeonResetReady(state.dungeons[id])
     ?{dungeons:{...state.dungeons,[id]:newDungeonProgress(((state.dungeons[id].rotation??0)+1)%1000000)}}:state),
   recordDungeonDefeat:(id,slot)=>set(state=>{
     const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
@@ -302,11 +354,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   claimDungeonChest:id=>set(state=>{
     const d=DUNGEON_BY_ID[id],p=state.dungeons[id];
     if(!d||!p||p.claimed||state.activeDungeonId!==id||!dungeonCleared(d,p)||state.panel||state.dialogue||state.cinematic||state.hp<=0||state.activeSkillStatus.casting)return {};
-    const reward=earnedRewards(d.xp,d.gold,state.attributes,state.learnedSkills);
+    const reward=earnedRewards(d.xp,d.gold,state.attributes,state.learnedSkills,state.armorBonuses);
     const contracts={...state.contracts};
     for(const [key,progress] of Object.entries(contracts))if(contractById(key)?.dungeonId===id&&!progress.claimed)contracts[key]={...progress,progress:1};
-    return {...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,dungeons:{...state.dungeons,[id]:{...p,claimed:true,respawnAt:Date.now()+DUNGEON_RESET_MS}},contracts,
-      toast:`${d.name} cleared! Chest: +${reward.gold}G and +${reward.xp} XP. Cave reset: 20 minutes. Leave and return to challenge it again. Any accepted cave contract is ready at its notice board.`};
+    return {...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,dungeons:{...state.dungeons,[id]:{...p,claimed:true,...(!d.tower?{respawnAt:Date.now()+DUNGEON_RESET_MS}:{})}},contracts,...magusTreasure(state,id),
+      toast:d.tower?(d.tower.floor===5?`${d.name}: +${reward.gold}G and +${reward.xp} XP. This chamber's reward has been claimed. Interact again to ascend.`:'Floor cleared. The next arena awaits.')
+        :`${d.name} cleared! Chest: +${reward.gold}G and +${reward.xp} XP. Cave reset: 20 minutes. Leave and return to challenge it again. Any accepted cave contract is ready at its notice board.`};
   }),
   askAliceToAdventure:following=>{
     const state=get(),dialogue=state.dialogue;
@@ -434,7 +487,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return {day,minuteOfDay,contracts:expireClaimedContracts(state.contracts,day)};
   }),
   openPanel: (panel) => {if(!get().cinematic)set({ panel });},
-  closePanel: () => set({ panel: null,contractBoardTownId:null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
+  closePanel: () => set({ panel: null,towerExitRequest:null,contractBoardTownId:null,travelOriginTownId:null,travelRequest:null,travelRequestSource:null }),
   openContractBoard:townId=>set(state=>Object.hasOwn(TOWN_BY_ID,townId)&&!state.panel&&!state.dialogue&&!state.cinematic
     ?{panel:'contracts',contractBoardTownId:townId,aliceRemark:null}:{}),
   acceptContract:id=>set(state=>{
@@ -458,7 +511,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   claimContract:id=>set(state=>{
     const c=contractById(id),p=state.contracts[id];
     if(!c||!p||p.claimed||p.progress!==c.amount||state.panel!=='contracts'||state.contractBoardTownId!==c.townId||state.cinematic)return {};
-    const reward=earnedRewards(c.xp,c.gold,state.attributes,state.learnedSkills);
+    const reward=earnedRewards(c.xp,c.gold,state.attributes,state.learnedSkills,state.armorBonuses);
     return {contracts:{...state.contracts,[id]:{...p,claimed:true}},...experienceProgress(state,reward.xp),gold:state.gold+reward.gold,
       toast:`Contract fulfilled: +${reward.gold}G and +${reward.xp} XP.`};
   }),
@@ -498,7 +551,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     for(const id of npc.questIds) {
       const q=QUEST_BY_ID[id];
       if(q && quests[id]?.status==='locked' && (!q.prerequisiteQuestId || quests[q.prerequisiteQuestId]?.status==='completed') && !['first-road','eight-regions'].includes(id)) {
-        quests={...quests,[id]:{status:'active',objectiveProgress:{}}};if(!existingConversation&&(!trackedQuestId||quests[trackedQuestId]?.status!=='active'))trackedQuestId=id;
+        quests={...quests,[id]:{status:'active',objectiveProgress:id===TOWER_QUEST_ID?quests[id].objectiveProgress:{}}};if(!existingConversation&&(!trackedQuestId||quests[trackedQuestId]?.status!=='active'))trackedQuestId=id;
       }
     }
     const context=conversationObjective(npcId,quests,trackedQuestId);
@@ -553,7 +606,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const result = advanceQuests(state.quests, state.defeatedBosses, { type, targetId, amount,questId },state.storyFlags,state.worldContent);
     const scenes=sceneQueue(state.pendingCinematic,state.cinematicQueue,completedStoryScenes(state.quests,result.quests,state.storyFlags),state.storyFlags);
     const shrines=['elarion','starhold','redmesa','deepford','tidewatch','skallheim','blackspire'].filter(id=>(result.quests['eight-regions']?.objectiveProgress['report:'+id]??0)>=1);
-    const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);
+    const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills,state.armorBonuses);
     const progression = experienceProgress(state, rewards.xp);
     const completed=Object.keys(result.quests).some(id=>state.quests[id]?.status!=='completed'&&result.quests[id].status==='completed');
     const rewardToast = rewards.xp || rewards.gold ? `${completed?'Quest complete':'Story milestone'} — +${rewards.xp} XP, +${rewards.gold} gold` : null;
@@ -565,7 +618,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   addRewards: (xp, gold) => set((state) => {
     if(!Number.isFinite(xp)||!Number.isFinite(gold)||xp<0||gold<0)return {};
-    const rewards=earnedRewards(xp,gold,state.attributes,state.learnedSkills);
+    const rewards=earnedRewards(xp,gold,state.attributes,state.learnedSkills,state.armorBonuses);
     return { ...experienceProgress(state, rewards.xp), gold: state.gold + rewards.gold };
   }),
   markBossDefeated: (bossId) => set((state) => state.defeatedBosses.includes(bossId) ? {} : { defeatedBosses: [...state.defeatedBosses, bossId] }),
@@ -582,17 +635,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const defeatedBosses = bossId&&!known ? [...state.defeatedBosses, bossId] : state.defeatedBosses;
     const result = advanceQuests(state.quests, defeatedBosses, { type: 'kill', targetId: enemyId, amount: 1,contentId },state.storyFlags,worldContent??state.worldContent);
-    const rewards=earnedRewards(xp+result.xp,gold+result.gold,state.attributes,state.learnedSkills);
+    const rewards=earnedRewards(xp+result.xp,gold+result.gold,state.attributes,state.learnedSkills,state.armorBonuses);
     const progression = experienceProgress(state, rewards.xp);
     const trophy=bossId?BOSS_WEAPONS[bossId]:undefined;
-    const dropped=trophy&&Math.random()<bossWeaponDropChance(state.attributes)?trophy:undefined;
+    const dropped=trophy&&Math.random()<bossWeaponDropChance(state.attributes,state.armorBonuses)?trophy:undefined;
     const duplicate=dropped&&state.inventory.includes(dropped.id);
     const displayedCopies=dropped?allHomeItems(state.housing).filter(i=>!i.stored&&i.weaponId===dropped.id).length:0;
     const excess=Boolean(duplicate&&dropped&&(state.bossMaterials[dropped.id]??0)+displayedCopies>=MAX_BOSS_MATERIALS);
-    const salvage=excess&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills).gold:0;
+    const salvage=excess&&dropped?earnedRewards(0,dropped.salvage,state.attributes,state.learnedSkills,state.armorBonuses).gold:0;
     const armorPool=bossId&&lootEligible?BOSS_ARMOR[bossId]:undefined;
-    const fullArmorSet=Boolean(armorPool?.length&&Math.random()<bossArmorSetDropChance(state.attributes));
-    const armorRoll=armorPool&&Math.random()<bossWeaponDropChance(state.attributes);
+    const fullArmorSet=Boolean(armorPool?.length&&Math.random()<bossArmorSetDropChance(state.attributes,state.armorBonuses));
+    const armorRoll=armorPool&&Math.random()<bossWeaponDropChance(state.attributes,state.armorBonuses);
     const missingArmor=armorRoll?armorPool.filter(a=>!state.armorInventory.includes(a.id)):[];
     const armorChoices=missingArmor.length?missingArmor:armorPool;
     const armorDrop=armorRoll&&armorChoices?armorChoices[Math.floor(Math.random()*armorChoices.length)]:undefined;
@@ -601,7 +654,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const armorDrops=fullArmorSet?armorPool!:(armorDrop?[armorDrop]:[]);
     const newArmor=armorDrops.filter(a=>!state.armorInventory.includes(a.id));
     const armorSalvage=armorDrops.reduce((total,a)=>total+(state.armorInventory.includes(a.id)
-      ?earnedRewards(0,a.salvage,state.attributes,state.learnedSkills).gold:0),0);
+      ?earnedRewards(0,a.salvage,state.attributes,state.learnedSkills,state.armorBonuses).gold:0),0);
     const notices:RareLootNotice[]=[];
     const heart=bossId&&lootEligible?AWAKENING_BY_BOSS[bossId]:undefined;
     const heartCount=heart?(state.bossHearts[heart.bossId]??0):0;
@@ -613,7 +666,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Ordinary enemies can occasionally drop a carried draught. No extra
     // potion rolls for temporary boss summons, wildlife or story-only fights.
     const supplyRoll=!bossId&&lootEligible&&canDropPotion(enemyId)
-      &&Math.random()<supplyDropChance(state.attributes);
+      &&Math.random()<supplyDropChance(state.attributes,state.armorBonuses);
     const primaryPotion:PotionId=supplyRoll&&Math.random()>=.65?'stamina-potion':'healing-potion';
     const otherPotion:PotionId=primaryPotion==='healing-potion'?'stamina-potion':'healing-potion';
     const potion=supplyRoll?(state.consumables[primaryPotion]<99?primaryPotion:
@@ -667,6 +720,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setActiveSkillStatus:(activeSkillStatus) => set({ activeSkillStatus }),
   setBossEncounter:(bossEncounter) => set({ bossEncounter }),
   hydrate: (partial) => set(state=>{
+    if(partial.quests)partial={...partial,quests:gateTowerQuest(partial.quests)};
     const cap=playerLevelCap(partial.storyFlags??state.storyFlags);
     const level=Math.min(cap,partial.level??state.level);
     const xp=Math.min(xpTotalForLevel(cap),partial.xp??state.xp);

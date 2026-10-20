@@ -10,6 +10,7 @@ import { WORLD_WIDTH, WORLD_HEIGHT } from '../data/world';
 import { worldToAtlas } from '../game/systems/worldMapProjection';
 import {housingFor} from '../data/housing';
 import {PLAYER_HOMES} from '../data/playerHomes';
+import {TOWER_DOOR,towerCampaignComplete} from '../data/towerOfMight';
 
 const REGIONAL_ASPECT = 900 / 540;
 const MIN_ZOOM = 1;
@@ -21,6 +22,7 @@ type DragState = { pointerId: number; startX: number; startY: number; x: number;
 
 export function MapPanel() {
   const panel = useGameStore(s => s.panel);
+  const towerVisible=useGameStore(s=>towerCampaignComplete(s.quests));
   const housing=useGameStore(s=>s.housing),homes=PLAYER_HOMES.filter(h=>housingFor(housing,h.id).owned);
   const close = useGameStore(s => s.closePanel);
   const townId = useGameStore(s => s.townId);
@@ -196,6 +198,7 @@ export function MapPanel() {
                       </button>
                     ))}
                     {homes.map(home=><span key={home.id} className="owned-home-pin" role="img" aria-label={home.homeName} style={{left:worldToAtlas(home.door).x+'%',top:worldToAtlas(home.door).y+'%'}}>⌂</span>)}
+                    {towerVisible&&<span className="owned-home-pin" role="img" aria-label="Tower of Might, north of Oakmere" title="Tower of Might" style={{left:worldToAtlas(TOWER_DOOR).x+'%',top:worldToAtlas(TOWER_DOOR).y+'%',color:'#92d4ff'}}>♜</span>}
                     <span className="atlas-player" style={{ left: `${playerPin.x}%`, top: `${playerPin.y}%` }} title="Leigneron's current position">▲</span>
                   </div>
                 </div>}
@@ -204,7 +207,8 @@ export function MapPanel() {
           <aside className="map-sidebar" aria-label="Map destinations">
             <div className="map-sidebar-heading"><strong>Destinations</strong><span>{unlockedShrines.length} shrines attuned</span></div>
             {homes.map(home=><p key={home.id} className="owned-home-label">⌂ {home.homeName} · {home.name}</p>)}
-            <div className="map-destination-grid">
+              {towerVisible&&<p className="owned-home-label">♜ Tower of Might · north of Oakmere, Trandum</p>}
+              <div className="map-destination-grid">
               {TOWNS.map(town => <button type="button" key={town.id} className={town.id === townId ? 'is-current' : ''}
                 onClick={event => { selectedPin.current = event.currentTarget; setSelectedId(town.id); }}>
                 <span><strong>{town.name}</strong><small>{town.regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[town.regionId]?.name}</small></span>

@@ -58,7 +58,9 @@ export const MiniMap = memo(function MiniMap() {
     ctx.imageSmoothingEnabled = false;
     if(navigation.interiorName){
       ctx.fillStyle='#14120f';ctx.fillRect(0,0,SIZE,SIZE);ctx.fillStyle='#978460';
-      for(const floor of navigation.interiorFloors??[])ctx.fillRect((floor.x-player.x+RANGE)*scale,(floor.y-player.y+RANGE)*scale,floor.width*scale,floor.height*scale);
+      if(navigation.interiorCircle){const c=navigation.interiorCircle;ctx.fillStyle='#554963';
+        ctx.beginPath();ctx.arc((c.x-player.x+RANGE)*scale,(c.y-player.y+RANGE)*scale,c.radius*scale,0,Math.PI*2);ctx.fill();
+      }else for(const floor of navigation.interiorFloors??[])ctx.fillRect((floor.x-player.x+RANGE)*scale,(floor.y-player.y+RANGE)*scale,floor.width*scale,floor.height*scale);
     }else if(cache)ctx.drawImage(cache.canvas,(cache.x - x + RANGE) * scale,(cache.y - y + RANGE) * scale,extent * scale,extent * scale);
     ctx.strokeStyle = '#f5e6bb33'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(SIZE/2,SIZE/2,SIZE * .25,0,Math.PI * 2); ctx.stroke();

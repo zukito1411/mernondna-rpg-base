@@ -94,7 +94,7 @@ export const SKILLS:SkillDefinition[]=[
 ];
 export function progressionStats(attributes:PlayerAttributes,skills:SkillId[],armor:ArmorBonuses=NO_ARMOR_BONUSES){
  const has=(id:SkillId)=>skills.includes(id);
- const points=(id:AttributeId)=>Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes[id]??0));
+ const points=(id:AttributeId)=>Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes[id]??0))+(armor.allStats??0);
  const str=points('strength'),vit=points('vitality'),agi=points('agility'),eva=points('evasion'),luk=points('luck');
  return {
   // STR grants a little toughness, while VIT is the primary survival stat.
@@ -107,34 +107,34 @@ export function progressionStats(attributes:PlayerAttributes,skills:SkillId[],ar
   evasionChance:Math.min(.6,eva*.01+armor.evasionChance),
   luckChance:Math.min(.6,luk*.00625+armor.critChance),
   rewardMultiplier:1+luk*.01,
-  rareDropChance:bossWeaponDropChance(attributes), // 25% -> 55% at LUK 60
-  supplyDropChance:supplyDropChance(attributes), // 6% -> 21% for supply carriers
+  rareDropChance:bossWeaponDropChance(attributes,armor),
+  supplyDropChance:supplyDropChance(attributes,armor),
   skillDamageMultiplier:1+(has('battle-focus') ? .05:0),
   incomingDamageMultiplier:(1-vit*.005)*(has('iron-guard') ? .95:1)*(1-Math.min(.35,armor.damageReduction)),
  };
 }
 
 /** AGI rewards short, frequent dashes; EVA rewards reliable damage-free dodge timing. */
-export function dodgeProfile(attributes:PlayerAttributes) {
- const agi=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.agility??0));
- const eva=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.evasion??0));
+export function dodgeProfile(attributes:PlayerAttributes,armor:ArmorBonuses=NO_ARMOR_BONUSES) {
+ const agi=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.agility??0))+(armor.allStats??0);
+ const eva=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.evasion??0))+(armor.allStats??0);
  return {durationMs:210+Math.round(eva*1.5),invulnerableMs:260+eva*2,
    cooldownMs:850-agi*4,staminaCost:16-Math.floor(agi/8),speedMultiplier:2.65+agi*.0125};
 }
 
 /** The only rare weapon loot table is the boss trophy table. Use the same
  * capped attribute math as the stat screen, including World Ascension. */
-export function bossWeaponDropChance(attributes:PlayerAttributes):number {
- const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0));
+export function bossWeaponDropChance(attributes:PlayerAttributes,armor:ArmorBonuses=NO_ARMOR_BONUSES):number {
+ const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0))+(armor.allStats??0);
  return .25+luk*.005;
 }
 /** Complete armor sets scale with Luck at the same ratio as individual loot. */
-export function bossArmorSetDropChance(attributes:PlayerAttributes):number {
- const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0));
+export function bossArmorSetDropChance(attributes:PlayerAttributes,armor:ArmorBonuses=NO_ARMOR_BONUSES):number {
+ const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0))+(armor.allStats??0);
  return .1+luk*.002;
 }
-export function supplyDropChance(attributes:PlayerAttributes):number {
- const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0));
+export function supplyDropChance(attributes:PlayerAttributes,armor:ArmorBonuses=NO_ARMOR_BONUSES):number {
+ const luk=Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,attributes.luck??0))+(armor.allStats??0);
  return .06+luk*.0025;
 }
 
@@ -142,7 +142,7 @@ export function supplyDropChance(attributes:PlayerAttributes):number {
 export function luckDamage(amount:number,attributes:PlayerAttributes,skills:SkillId[],armor:ArmorBonuses=NO_ARMOR_BONUSES){
  return Math.max(1,Math.round(amount*(Math.random()<progressionStats(attributes,skills,armor).luckChance?1.5:1)));
 }
-export function earnedRewards(xp:number,gold:number,attributes:PlayerAttributes,skills:SkillId[]){
- const multiplier=progressionStats(attributes,skills).rewardMultiplier;
+export function earnedRewards(xp:number,gold:number,attributes:PlayerAttributes,skills:SkillId[],armor:ArmorBonuses=NO_ARMOR_BONUSES){
+ const multiplier=progressionStats(attributes,skills,armor).rewardMultiplier;
  return {xp:Math.max(0,Math.round(xp*multiplier)),gold:Math.max(0,Math.round(gold*multiplier))};
 }

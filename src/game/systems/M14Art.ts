@@ -5,8 +5,11 @@ import type {M14ArtSpec} from '../../data/m14Art';
 import {actorSpriteSubjects,type ActorSpriteSubject} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
 import {fitAtlasPoses} from './atlasPoseFit';
+import {prepareGrandMagusArt} from './GrandMagusArt';
 
 export function m14Sources(spec:M14ArtSpec){
+  if(spec.species===19)return ['down','side','up','dissolve','bat','spells'].map(kind=>({kind,key:`m14-source:${spec.id}:${kind}`,
+    path:`assets/enemies/${spec.folder}/${kind}-v1.png`,columns:kind==='bat'?4:kind==='spells'?2:3,rows:kind==='bat'?1:2}));
   const files=[{kind:'walk',path:`assets/enemies/${spec.folder}/${spec.boss?'walk-v2':'walk'}.png`,columns:spec.boss?4:5,rows:3},
     {kind:'actions',path:`assets/enemies/${spec.folder}/${spec.species===14?'actions-transparent-v2':'actions'}.png`,columns:6,rows:3}];
   if(spec.species===12)files.push({kind:'passing',path:`assets/enemies/${spec.folder}/passing.png`,columns:1,rows:1},
@@ -17,6 +20,7 @@ export function m14Sources(spec:M14ArtSpec){
 
 /** Source isolation and registration only; never joins body parts. */
 export function prepareM14Art(scene:Phaser.Scene,spec:M14ArtSpec){
+  if(spec.species===19){prepareGrandMagusArt(scene,spec);return;}
   const subjects:Record<string,ActorSpriteSubject[]>={};
   const sources=new Map<ActorSpriteSubject,{sourcePath:string;sourceImageSize:readonly [number,number]}>();
   const canvas=document.createElement('canvas'),read=canvas.getContext('2d',{willReadFrequently:true})!;

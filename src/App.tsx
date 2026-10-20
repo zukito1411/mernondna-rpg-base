@@ -19,6 +19,7 @@ import { useGameStore } from './store/gameStore';
 import {installUiInputGuard,noteUiTransition} from './utils/uiInputGuard';
 import {dismissStartupSplash} from './utils/startupSplash';
 import {HousingPanel} from './components/HousingPanel';
+import {TowerExitPanel} from './components/TowerExitPanel';
 import {TitleArtwork} from './components/TitleArtwork';
 import { allowExplicitNewGame, getSaveRecoveryNotice, hasSavedGame, hasStoredSave, loadGame, saveGame, watchProgressSaves } from './utils/save';
 import {RareLootPopup} from './components/RareLootPopup';
@@ -208,6 +209,7 @@ export default function App() {
         <LevelUpNotice />
         <ContractBoard />
         <HousingPanel />
+        <TowerExitPanel />
       </> : startupRecovering?<div className="game-loading" role="status" aria-live="polite">
         <TitleArtwork/><div className="game-loading-content"><p>Preparing your journey…</p></div>
       </div>:<HomeMenu canContinue={canContinue} message={menuMessage} onContinue={continueGame} onNewGame={startNewGame} />}

@@ -16,7 +16,7 @@ function fixture(id='captain-varr'){
     isStaggered:false,instanceId:'boss:'+id,playBossWindup:vi.fn(),finishBossWindup:vi.fn(),playBossImpact:vi.fn(),cancelBossWindup:vi.fn(),playMonsterVocal:vi.fn(),playMonsterAttackFoley:vi.fn()};
   const body={setVelocity:vi.fn(),reset:(x:number,y:number)=>{enemy.x=x;enemy.y=y;}};
   const circle={setStrokeStyle:()=>circle,setDepth:()=>circle,destroy:vi.fn()};
-  const scene={player,combatAllowed:true,damagePlayer:vi.fn(),playEffect:vi.fn(),
+  const scene={player,combatAllowed:true,damagePlayer:vi.fn(),playEffect:vi.fn(),playerRenderDepth:vi.fn((y:number)=>y),
     hasClearPath:vi.fn(()=>true),canEnemyOccupy:vi.fn((_x:number,_y:number)=>true),
     enemyNavigationPoint:()=>player,add:{circle:()=>circle},tweens:{add:vi.fn()}};
   const actor=Object.assign(enemy,{body});
@@ -26,6 +26,11 @@ function fixture(id='captain-varr'){
 }
 
 describe('distinct boss attack sequences',()=>{
+  it('places interior boss warnings above the interior floor layer',()=>{
+    const f=fixture();f.scene.playerRenderDepth.mockImplementation(y=>10_000_000+y);
+    const draw=vi.spyOn(f.combat['warning'],'draw');f.advance(900);
+    expect(draw).toHaveBeenLastCalledWith(expect.anything(),0,9_999_998,expect.any(Number));
+  });
   it('deals no damage until the full warning completes, and hits once',()=>{
     const f=fixture();f.advance(900);expect(f.combat.attackName).toBe('Roadwarden cut');
     f.advance(499);expect(f.scene.damagePlayer).not.toHaveBeenCalled();

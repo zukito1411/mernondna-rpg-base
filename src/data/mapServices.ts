@@ -8,6 +8,7 @@ export type MapService=NonNullable<NavigationMarker['service']>;
 export const MAP_INNS=new Map(INTERIOR_ENTRIES.filter(e=>e.profile==='inn').map(e=>[e.id,e]));
 export const MAP_BLACKSMITHS=new Set(NPCS.filter(n=>isBlacksmith(n.id)).map(n=>n.id));
 export const MAP_SERVICE_STYLE:Record<MapService,{name:string;short:string;color:string;symbol:string}>={
+  tower:{name:'Tower of Might',short:'Tower',color:'#92d4ff',symbol:'♜'},
   home:{name:'Your home',short:'Home',color:'#aee0b2',symbol:'⌂'},
   cave:{name:'Cave / dungeon',short:'Cave',color:'#dfba83',symbol:'∩'},
   inn:{name:'Inn',short:'Inn',color:'#a9d9e5',symbol:'Z'},

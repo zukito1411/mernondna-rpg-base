@@ -3,7 +3,7 @@ import {housingFor,HOME_FLOORS,HOME_ENTRANCE,FURNITURE_BY_ART,furnitureFootprint
 import {isPlayerHome,PLAYER_HOME_BY_ID} from '../../data/playerHomes';
 import housingArt from '../../data/housingArt.json';
 import {SWORD_TEXTURE} from './EquippedSwordVisual';
-import {INTERIOR_ENTRIES,INTERIOR_RESIDENTS_BY_ENTRY,roomPlan,type InteriorEntry,type RoomPlan,type RoomRect} from '../../data/interiors';
+import {INTERIOR_ENTRIES,INTERIOR_RESIDENTS_BY_ENTRY,roomPlan,roomFloorContains,type InteriorEntry,type RoomPlan,type RoomRect} from '../../data/interiors';
 import {NPC_BY_ID} from '../../data/npcs';
 import {useGameStore} from '../../store/gameStore';
 import type {Vec2,NavigationMarker} from '../types';
@@ -17,9 +17,13 @@ import {resolveQuestTarget,questBearing,activeObjective} from './questNavigation
 import {INN_REST_COST,innRestAvailable} from '../../data/innRest';
 import {MAP_BLACKSMITHS} from '../../data/mapServices';
 import {CAVE_ART_PATH,CAVE_ART_FRAMES,CAVE_FLOOR} from '../../data/caveArt';
+import {TOWER_ENTRY_ID,towerKnown,towerCampaignComplete,towerEntryFloor,TOWER_CHAMBERS,TOWER_DOOR_ART,TOWER_NORTH_DOOR} from '../../data/towerOfMight';
+import {TOWER_ROOM_ART,TOWER_ROOM_SIZE,TOWER_ROOM_ART_EXTENT,TOWER_SOUTH_DOOR} from '../../data/towerRoom';
 
 const DEPTH=10_000_000;
 const SOURCE='interior-source',ATLAS='interior-furniture';
+const TOWER_CHEST_SOURCE='tower-chest-source';
+const TOWER_DOOR_SOURCE='tower-door-source';
 const FLOORS=['interior-floor','interior-floor-secondary'] as const;
 const HOME_ATLASES=[0,1,2].map(i=>'home-furniture:'+i);
 
@@ -48,8 +52,9 @@ export class InteriorSession {
   private wallSolids:RoomRect[]=[];
   private floorMask:Phaser.Display.Masks.GeometryMask|null=null;
   private mapFloors:RoomRect[]=[];
+  private mapCircle:{x:number;y:number;radius:number}|undefined;
   private backdrop:Phaser.GameObjects.Rectangle|null=null;
-  private cinematicContext:{entry:InteriorEntry|null;outside:Vec2|null;position:Vec2;depth:number;
+  private cinematicContext:{entry:InteriorEntry|null;outside:Vec2|null;position:Vec2;depth:number;dungeonId:string|null;
     filters:Array<{object:Phaser.GameObjects.GameObject;filter:number}>}|null=null;
   private settleLoad:((ready:boolean)=>void)|null=null;
   private loadingPromise:Promise<boolean>|null=null;
@@ -72,7 +77,7 @@ export class InteriorSession {
 
   beginCinematic(){
     if(this.cinematicContext)return;
-    this.cinematicContext={entry:this.entry,outside:this.outside?{...this.outside}:null,
+    this.cinematicContext={entry:this.entry,outside:this.outside?{...this.outside}:null,dungeonId:useGameStore.getState().activeDungeonId,
       position:{x:this.scene.player.x,y:this.scene.player.y},depth:this.scene.player.depth,
       filters:this.scene.children.list.filter(o=>o===this.scene.player||o.name==='equipped-sword'||o.name==='equipped-sword-hand')
         .map(object=>({object,filter:object.cameraFilter}))};
@@ -100,7 +105,8 @@ export class InteriorSession {
     this.cinematicContext=null;
     for(const saved of context.filters)if(saved.object.scene)saved.object.cameraFilter=saved.filter;
     this.outside=context.outside;this.scene.player.setDepth(context.depth);
-    if(ready&&context.entry?.profile==='cave'&&useGameStore.getState().activeDungeonId!==context.entry.id.slice(5))this.scene.beginDungeon(context.entry.id);
+    if(ready&&context.entry?.profile==='cave'&&useGameStore.getState().activeDungeonId!==(context.dungeonId??context.entry.id.slice(5)))
+      this.scene.beginDungeon(context.dungeonId?'cave:'+context.dungeonId:context.entry.id);
     if(!ready){
       this.closeRoom();this.outside=null;
       this.scene.restoreOutsidePosition(context.outside??context.position);
@@ -142,6 +148,20 @@ export class InteriorSession {
   }
   enter(entry:InteriorEntry){
     if(this.active||this.disposed)return;
+    if(entry.id===TOWER_ENTRY_ID){
+      useGameStore.getState().refreshTowerWeek();
+      const state=useGameStore.getState();
+      if(!towerCampaignComplete(state.quests)){
+        this.scene.notify('Finish The Roads We Keep before investigating the Tower of Might.');return;
+      }
+      if(!towerKnown(state.quests,state.storyFlags)){
+        this.scene.notify('Ask Etheldreda Bell at Oakmere shrine about the tower before entering.');return;
+      }
+      const floor=towerEntryFloor(state.dungeons),trial=floor.tower!;
+      if(!state.defeatedBosses.includes(trial.bossId)){
+        this.scene.notify(`Chamber ${trial.chamber} remains sealed. Defeat ${TOWER_CHAMBERS[trial.chamber-1].name} in the world before returning.`);return;
+      }
+    }
     for(const enemy of this.scene.enemySteeringActors())if(enemy.active&&enemy.hp>0
       &&Math.hypot(enemy.x-this.scene.player.x,enemy.y-this.scene.player.y)<500){
       this.scene.notify('Leave combat before entering a building.');return;
@@ -169,12 +189,14 @@ export class InteriorSession {
       this.scene.notify(message);settle(false);
     };
     const complete=()=>{
-      if(!this.scene.textures.exists(SOURCE)||isPlayerHome(entry.id)&&HOME_ATLASES.some(key=>!this.scene.textures.exists(key)))return;
+      if(!this.scene.textures.exists(SOURCE)||entry.id===TOWER_ENTRY_ID&&(!this.scene.textures.exists(TOWER_CHEST_SOURCE)||!this.scene.textures.exists(TOWER_DOOR_SOURCE))
+        ||isPlayerHome(entry.id)&&HOME_ATLASES.some(key=>!this.scene.textures.exists(key)))return;
       this.detachLoader();
       if(this.disposed){settle(false);return;}
       try{
         if(!this.scene.textures.exists(SOURCE))throw new Error('Interior kit unavailable');
-        if(entry.profile==='cave')this.prepareCaveArt();else this.prepareArt();
+        if(entry.id===TOWER_ENTRY_ID)this.prepareTowerArt();
+        else if(entry.profile==='cave')this.prepareCaveArt();else this.prepareArt();
         if(isPlayerHome(entry.id))for(const [id,frame] of Object.entries(housingArt.frames)){
           const texture=this.scene.textures.get(HOME_ATLASES[frame.atlas]);
           if(!texture.has(id))texture.add(id,0,frame.x,frame.y,frame.width,frame.height);
@@ -183,7 +205,7 @@ export class InteriorSession {
       }catch(error){fail(`Could not enter: ${error instanceof Error?error.message:String(error)}`);}
     };
     const error=(file:Phaser.Loader.File)=>{
-      if(file.key!==SOURCE&&!HOME_ATLASES.includes(String(file.key)))return;
+      if(file.key!==SOURCE&&file.key!==TOWER_CHEST_SOURCE&&file.key!==TOWER_DOOR_SOURCE&&!HOME_ATLASES.includes(String(file.key)))return;
       fail('Interior art could not load.');
     };
     this.callbacks={complete,error};
@@ -192,10 +214,12 @@ export class InteriorSession {
     this.scene.load.on('filecomplete',complete);
     this.scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR,error);
     try{
+      if(entry.id===TOWER_ENTRY_ID)this.scene.load.image({key:TOWER_CHEST_SOURCE,url:CAVE_ART_PATH,xhrSettings:{responseType:'blob',timeout:15000}});
+      if(entry.id===TOWER_ENTRY_ID)this.scene.load.image({key:TOWER_DOOR_SOURCE,url:TOWER_DOOR_ART,xhrSettings:{responseType:'blob',timeout:15000}});
       if(isPlayerHome(entry.id))for(const [i,key] of HOME_ATLASES.entries())if(!this.scene.textures.exists(key))
         this.scene.load.image({key,url:`assets/interiors/housing-furniture-${i}-v1.png`,xhrSettings:{responseType:'blob',timeout:15000}});
       this.scene.load.image({
-        key:SOURCE,url:entry.profile==='cave'?CAVE_ART_PATH:`assets/interiors/${entry.kit}/kit.png`,
+        key:SOURCE,url:entry.id===TOWER_ENTRY_ID?TOWER_ROOM_ART:entry.profile==='cave'?CAVE_ART_PATH:`assets/interiors/${entry.kit}/kit.png`,
         xhrSettings:{responseType:'blob',timeout:15000},
       });
       if(!this.scene.load.isLoading())this.scene.load.start();
@@ -209,7 +233,8 @@ export class InteriorSession {
     const image=this.scene.textures.get(SOURCE).getSourceImage() as HTMLImageElement;
     const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
     const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);
-    const atlas=this.scene.textures.createCanvas(ATLAS,256*8,256*3)!;
+    const frameCount=Object.keys(INTERIOR_ART).length;
+    const atlas=this.scene.textures.createCanvas(ATLAS,256*8,256*Math.ceil(frameCount/8))!;
     for(const [index,[art,[left,top,w,h]]] of Object.entries(INTERIOR_ART).entries()){
       const subject=actorSpriteGridSubjects(ctx.getImageData(left,top,w,h).data,w,h,1,1,{rejectEdgeFragments:true})[0];
       const pose=spriteSubjectCanvas(subject),fit=248/Math.max(pose.width,pose.height);
@@ -226,6 +251,30 @@ export class InteriorSession {
     }
     this.scene.textures.remove(SOURCE);
   }
+  private prepareTowerArt(){
+    // Keep the complete chamber painting as SOURCE until the room closes.
+    // Only four live prop states are needed; no royal furniture or floor kit.
+    const atlas=this.scene.textures.createCanvas(ATLAS,4*256,256)!;
+    const source=this.scene.textures.get(TOWER_CHEST_SOURCE).getSourceImage() as HTMLImageElement;
+    for(const [index,name] of (['chest','openChest'] as const).entries()){
+      const [sx,sy,sw,sh]=CAVE_ART_FRAMES[name],fit=248/Math.max(sw,sh),width=sw*fit,height=sh*fit,x=index*256;
+      atlas.getContext().drawImage(source,sx,sy,sw,sh,x+(256-width)/2,252-height,width,height);
+      atlas.add(name,0,x,0,256,256)!.customData={visibleWidth:width,visibleHeight:height};
+    }
+    const doors=this.scene.textures.get(TOWER_DOOR_SOURCE).getSourceImage() as HTMLImageElement;
+    const board=document.createElement('canvas');board.width=doors.width;board.height=doors.height;
+    const ctx=board.getContext('2d',{willReadFrequently:true})!;ctx.drawImage(doors,0,0);
+    const poses=actorSpriteGridSubjects(ctx.getImageData(0,0,board.width,board.height).data,board.width,board.height,2,1,
+      {keepDetachedDetails:true}).map(spriteSubjectCanvas);
+    const fit=248/Math.max(...poses.map(p=>Math.max(p.width,p.height)));
+    for(const [index,pose] of poses.entries()){
+      const x=(index+2)*256,width=pose.width*fit,height=pose.height*fit;
+      atlas.getContext().drawImage(pose,x+(256-width)/2,252-height,width,height);
+      atlas.add(index?'tower-door-open':'tower-door-closed',0,x,0,256,256)!.customData={visibleWidth:width,visibleHeight:height};
+    }
+    board.width=board.height=1;atlas.refresh();
+    this.scene.textures.remove(TOWER_CHEST_SOURCE);this.scene.textures.remove(TOWER_DOOR_SOURCE);
+  }
   private prepareCaveArt(){
     const image=this.scene.textures.get(SOURCE).getSourceImage() as HTMLImageElement;
     const atlas=this.scene.textures.addImage(ATLAS,image)!;
@@ -240,10 +289,10 @@ export class InteriorSession {
     const dimensions=this.scene.textures.getFrame(ATLAS,art).customData as {visibleWidth:number;visibleHeight:number};
     return width*dimensions.visibleHeight/dimensions.visibleWidth;
   }
-  private drawArt(art:InteriorArtKey,x:number,y:number,width:number,depth:number){
+  private drawArt(art:InteriorArtKey|'tower-door-closed',x:number,y:number,width:number,depth:number){
     const image=this.own(this.scene.add.image(this.origin.x+x,this.origin.y+y,ATLAS,art));
     const dimensions=image.frame.customData as {visibleWidth:number;visibleHeight:number};
-    return image.setOrigin(.5,this.entry?.profile==='cave'?1:252/256).setScale(width/dimensions.visibleWidth).setDepth(depth);
+    return image.setOrigin(.5,this.entry?.profile==='cave'&&this.entry.id!==TOWER_ENTRY_ID?1:252/256).setScale(width/dimensions.visibleWidth).setDepth(depth);
   }
   private renderWalls(){
     const plan=this.plan!,edges=new Map<string,{side:'north'|'west'|'east';axis:number;spans:Array<[number,number]>}>();
@@ -293,6 +342,7 @@ export class InteriorSession {
       roomPlan(entry.hall,entry.name,entry.profile,entry.kit);this.entry=entry;this.plan=plan;this.loading=false;
     this.origin={x:anchor.x-plan.entrance.x,y:anchor.y-plan.entrance.y};
     this.mapFloors=plan.floors.map(r=>({x:this.origin.x+r.x,y:this.origin.y+r.y,width:r.width,height:r.height}));
+    this.mapCircle=plan.roundFloor?{x:this.origin.x+plan.roundFloor.x,y:this.origin.y+plan.roundFloor.y,radius:plan.roundFloor.radius}:undefined;
     const camera=scene.cameras.main;
     for(const object of scene.children.list){
       if(object.name==='cinematic-transition-cover')continue;
@@ -312,7 +362,9 @@ export class InteriorSession {
     camera.setBounds(this.origin.x+left,this.origin.y+top,right-left,bottom-top);
     this.backdrop=this.own(scene.add.rectangle(0,0,1,1,0x000000)
       .setOrigin(0).setScrollFactor(0).setDepth(DEPTH-1000));this.fitBackdrop();
-    for(const floor of plan.floors)this.own(scene.add.tileSprite(this.origin.x+floor.x,this.origin.y+floor.y,
+    if(plan.roundFloor)this.own(scene.add.image(this.origin.x+TOWER_ROOM_SIZE/2,this.origin.y+TOWER_ROOM_SIZE/2,SOURCE)
+      .setDisplaySize(TOWER_ROOM_ART_EXTENT,TOWER_ROOM_ART_EXTENT).setDepth(DEPTH-900).setName('tower-round-chamber'));
+    else for(const floor of plan.floors)this.own(scene.add.tileSprite(this.origin.x+floor.x,this.origin.y+floor.y,
       floor.width,floor.height,FLOORS[interiorFloorIndex(entry.kit,floor.kind)]).setOrigin(0).setDepth(DEPTH-900));
     for(const object of plan.objects){
       const image=this.drawArt(object.art,object.x,object.y,object.width,
@@ -330,18 +382,21 @@ export class InteriorSession {
         });
       }
     }
-    this.renderWalls();
+    if(plan.roundFloor)this.wallSolids=[];else this.renderWalls();
     if(isPlayerHome(entry.id)&&housingFor(useGameStore.getState().housing,entry.id).owned){
       useGameStore.setState({housingContext:entry.id,housingEditing:false});this.refreshHomeFurniture();
     }
     // The open arch is a doorway, never the wardrobe/counter source. Its
     // transparent opening and the vestibule footprint share the same centre.
-    this.drawArt('doorway',plan.entrance.x,plan.entrance.y+55,190,DEPTH+plan.entrance.y+55);
-    for(const dx of [-95,43])this.wallSolids.push({x:plan.entrance.x+dx,y:plan.entrance.y-50,width:52,height:105});
+    const south=entry.id===TOWER_ENTRY_ID?TOWER_SOUTH_DOOR:{x:plan.entrance.x,y:plan.entrance.y+55};
+    this.drawArt(entry.id===TOWER_ENTRY_ID?'tower-door-closed':'doorway',south.x,south.y,entry.id===TOWER_ENTRY_ID?110:190,DEPTH+south.y);
+    if(entry.id===TOWER_ENTRY_ID)this.wallSolids.push({x:TOWER_NORTH_DOOR.x-55,y:130,width:110,height:TOWER_NORTH_DOOR.y-170});
+    if(entry.id===TOWER_ENTRY_ID)this.wallSolids.push({x:south.x-65,y:south.y-120,width:130,height:150});
+    else for(const dx of [-95,43])this.wallSolids.push({x:plan.entrance.x+dx,y:plan.entrance.y-50,width:52,height:105});
     for(const r of plan.rooms){
       this.own(scene.add.text(this.origin.x+r.x+r.width/2,this.origin.y+r.y+100,r.label,
         {fontFamily:'Georgia, serif',fontSize:'11px',color:'#bba67d',stroke:'#19140f',strokeThickness:2})
-        .setResolution(2).setOrigin(.5).setDepth(DEPTH+3000).setAlpha(.7));
+        .setResolution(2).setOrigin(.5).setDepth(DEPTH+3000).setAlpha(.7).setName('interior-room-title:'+r.id));
     }
     if(entry.profile!=='cave'&&scene.textures.exists('warm-light')){
       const maskShape=this.own(scene.make.graphics({x:0,y:0}));maskShape.setVisible(false);
@@ -410,8 +465,7 @@ export class InteriorSession {
     const local={x:x-this.origin.x,y:y-this.origin.y};
     // Full 24x24 foot footprint, including corners at floor/corridor joins.
     for(const dx of [-radius,0,radius])for(const dy of [-radius*2,-radius,0])
-      if(!this.plan.floors.some(r=>local.x+dx>=r.x&&local.x+dx<=r.x+r.width
-        &&local.y+dy>=r.y&&local.y+dy<=r.y+r.height))return false;
+      if(!roomFloorContains(this.plan,local.x+dx,local.y+dy))return false;
     const feet={x:local.x-radius,y:local.y-radius*2,width:radius*2,height:radius*2};
     const overlaps=(r:RoomRect)=>feet.x<r.x+r.width&&feet.x+feet.width>r.x
       &&feet.y<r.y+r.height&&feet.y+feet.height>r.y;
@@ -532,7 +586,8 @@ export class InteriorSession {
     }
     const nearBed=!near&&!this.scene.storyCombatActive&&this.nearInnBed;
     const nearHomeBed=!near&&!this.scene.storyCombatActive&&this.nearHomeBed;
-    const exit=this.plan.entrance,nearExit=Math.hypot(x-this.origin.x-exit.x,y-this.origin.y-exit.y)<80;
+    const exit=this.entry.id===TOWER_ENTRY_ID?TOWER_SOUTH_DOOR:this.plan.entrance,
+      nearExit=Math.hypot(x-this.origin.x-exit.x,y-this.origin.y-exit.y)<(this.entry.id===TOWER_ENTRY_ID?130:80);
     const store=useGameStore.getState();
     let target=resolveQuestTarget(store.quests,store.worldContent,player,id=>{
       const npc=id.startsWith('npc:')?this.getActor(id.slice(4)):undefined;return npc;
@@ -550,12 +605,12 @@ export class InteriorSession {
       this.guide.lineStyle(2,0xffd976,.8).strokeEllipse(target.x,target.y+2,28,10);
     }
     store.setNavigation({heading:Math.atan2(player.lastDirection.x,-player.lastDirection.y),target,
-      playerPosition:{x,y},interiorName:this.entry.name,interiorFloors:this.mapFloors,
+      playerPosition:{x,y},interiorName:this.entry.name,interiorFloors:this.mapFloors,interiorCircle:this.mapCircle,
       markers:[...this.getResidents().map(n=>({id:'npc:'+n.definition.id,kind:'npc' as const,label:n.definition.name,x:n.x,y:n.y,
         ...(MAP_BLACKSMITHS.has(n.definition.id)?{service:'blacksmith' as const}:{})})),
         ...this.innBedMarkers,...this.scene.dungeonMarkers,
         ...this.scene.getCombatEnemies().filter(e=>e.active&&e.hp>0).map(e=>({id:e.instanceId,kind:'enemy' as const,label:e.definition.name,x:e.x,y:e.y}))],
-      interaction:this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':this.scene.storyInteraction??
+      interaction:this.entry.id===TOWER_ENTRY_ID&&nearExit?'Entry door sealed — clear the floor and use the central portal':this.scene.storyCombatActive?(nearExit?'Leave building':this.scene.storyInteraction):near?`Talk to ${near.definition.name}`:nearExit?'Leave building':this.scene.storyInteraction??
         (nearHomeBed?(innRestAvailable(this.scene.getWorldHour()*60)?'Sleep in your bed until 06:00':'Home bed — available from 18:00'):nearBed?(innRestAvailable(this.scene.getWorldHour()*60)?`Sleep until 06:00 — ${INN_REST_COST}G`:'Guest bed — available from 18:00'):
         this.scene.companionActor&&Math.hypot(this.scene.companionActor.x-x,this.scene.companionActor.y-y)<180?'Talk to Alice Fen':null)});
     this.syncMs+=Math.min(delta,80);
@@ -566,6 +621,7 @@ export class InteriorSession {
       this.scene.restAtHome();return;
     }
     if(this.scene.storyInteraction&&this.scene.interactWithStory())return;
+    if(this.entry?.id===TOWER_ENTRY_ID){this.scene.notify('The entry door seals behind you. Clear the floor to open the north door and central return portal.');return;}
     if(this.scene.storyCombatActive){
       if(this.plan&&Math.hypot(this.scene.player.x-this.origin.x-this.plan.entrance.x,this.scene.player.y-this.origin.y-this.plan.entrance.y)<80){this.exit();return;}
       if(this.scene.interactWithStory())return;
@@ -588,13 +644,13 @@ export class InteriorSession {
   }
   private closeRoom(){
     if(!this.entry&&!this.objects.length){this.releaseArt();return;}
-    if(this.entry?.profile==='cave')this.scene.closeDungeon();
+    if(this.entry?.profile==='cave')this.scene.closeDungeon(!this.cinematicContext);
     this.entry=null;this.plan=null;this.backdrop=null;this.homeObjects=[];this.homeItems=null;
     useGameStore.setState({housingContext:null,housingEditing:false,...(useGameStore.getState().panel==='housing'?{panel:null}:{})});
     this.innBeds.length=0;
     this.innBedMarkers.length=0;
     this.nearInnBed=false;this.nearHomeBed=false;this.nextBedHintAt=0;
-    this.mapFloors=[];
+    this.mapFloors=[];this.mapCircle=undefined;
     for(const object of this.objects){this.scene.tweens.killTweensOf(object);object.destroy();}this.objects=[];this.residents=[];this.guide=null;
     this.floorMask?.destroy();this.floorMask=null;this.wallSolids=[];
     for(const saved of this.hidden){if(saved.object.scene)saved.object.cameraFilter=saved.filter;}this.hidden=[];
@@ -619,7 +675,7 @@ export class InteriorSession {
     this.backdrop?.setPosition(camera.width/2*(1-1/z)-2,camera.height/2*(1-1/z)-2)
       .setDisplaySize(camera.width/z+4,camera.height/z+4);
   }
-  private releaseArt(){for(const key of [SOURCE,ATLAS,...FLOORS,...HOME_ATLASES])if(this.scene.textures.exists(key))this.scene.textures.remove(key);}
+  private releaseArt(){for(const key of [SOURCE,TOWER_CHEST_SOURCE,TOWER_DOOR_SOURCE,ATLAS,...FLOORS,...HOME_ATLASES])if(this.scene.textures.exists(key))this.scene.textures.remove(key);}
   private refreshHomeFurniture(){
     if(!this.plan)return;
     const retired=new Set(this.homeObjects);for(const object of retired)object.destroy();

@@ -10,6 +10,7 @@ import type {TerrainKind} from '../game/types';
 import {MAP_SERVICE_STYLE} from '../data/mapServices';
 import {housingFor} from '../data/housing';
 import {PLAYER_HOMES} from '../data/playerHomes';
+import {TOWER_DOOR,TOWER_ENTRY_ID,towerCampaignComplete} from '../data/towerOfMight';
 
 const world = new WorldGenerator();
 const WIDTH = 900, HEIGHT = 540;
@@ -24,6 +25,7 @@ export function RegionalMap({select,center,coarse=false}:{
   const ref=useRef<HTMLCanvasElement>(null);
   const x=useGameStore(s=>s.worldX),y=useGameStore(s=>s.worldY);
   const navigation=useGameStore(s=>s.navigation);
+  const towerVisible=useGameStore(s=>towerCampaignComplete(s.quests));
   const housing=useGameStore(s=>s.housing),homes=PLAYER_HOMES.filter(h=>housingFor(housing,h.id).owned);
   const origin=center;
   const project=(px:number,py:number)=>({
@@ -105,7 +107,7 @@ export function RegionalMap({select,center,coarse=false}:{
     {TOWNS.map(town=>{const p=project(town.world.x,town.world.y);return p.x>2&&p.x<98&&p.y>3&&p.y<97?
       <button key={town.id} type="button" className="regional-settlement" style={{left:p.x+'%',top:p.y+'%'}} aria-label={`Select ${town.name} for teleport`} title={town.name} onClick={e=>select(town.id,e.currentTarget)}><i aria-hidden="true" /></button>:null;})}
     {navigation.markers.filter(m=>!m.service&&(m.kind==='boss'||m.kind==='landmark')).map(m=>{const p=project(m.x,m.y);return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={m.id} title={m.label} className="regional-poi" style={{left:p.x+'%',top:p.y+'%'}}>◇</span>:null;})}
-    {navigation.markers.map(m=>{
+    {[...navigation.markers.filter(m=>m.id!==TOWER_ENTRY_ID),...(towerVisible?[{id:TOWER_ENTRY_ID,kind:'landmark' as const,service:'tower' as const,label:'Tower of Might · north of Oakmere',...TOWER_DOOR}]:[])].map(m=>{
       if(!m.service||m.service==='home')return null;
       const p=project(m.x,m.y),style=MAP_SERVICE_STYLE[m.service];
       return p.x>0&&p.x<100&&p.y>0&&p.y<100?<span key={'service:'+m.id} tabIndex={0}

@@ -2,7 +2,8 @@ import type { QuestDefinition } from '../game/types';
 import { HIGHMERE_QUESTS } from './highmereQuests';
 import { CIBAR_QUEST } from './cibarQuests';
 import {CROWN_SUMMONS,regionalMainObjectives} from './mainStory';
-import { NPC_NAME_ALIASES } from './npcs';
+import { NPC_NAME_ALIASES,NPC_BY_ID } from './npcs';
+import {TOWER_QUEST} from './towerOfMight';
 import { rewriteNpcMentions } from './npcPresentation';
 import {DRAGON_QUEST} from './dragonLair';
 import {QUEST_SCENE_BINDINGS} from './questScenes';
@@ -58,6 +59,18 @@ for (let i = 0; i < QUESTS.length; i += 1) {
 applyCampaign(QUESTS);
 applyStoryRevision(QUESTS);
 applyAdventure(QUESTS);
+QUESTS.push(TOWER_QUEST);
+// Every side-quest giver participates in the same dialogue and overhead cue
+// system, including quests added after the original NPC catalogue was built.
+for(const quest of QUESTS){
+  // Unclassified legacy quests already display as side adventures in the
+  // journal. Give the marker/dialogue systems that same explicit meaning.
+  quest.kind??='side';
+  if(quest.kind==='side'){
+    const giver=NPC_BY_ID[quest.giverNpcId];
+    if(giver&&!giver.questIds.includes(quest.id))giver.questIds.push(quest.id);
+  }
+}
 for(let i=0;i<QUESTS.length;i++)QUESTS[i]=rewriteNpcMentions(QUESTS[i],NPC_NAME_ALIASES);
 // Apply stable legacy scene bindings to their replacement story stages too.
 for(const quest of QUESTS)for(const objective of quest.objectives)

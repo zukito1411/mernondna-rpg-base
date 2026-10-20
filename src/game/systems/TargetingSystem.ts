@@ -55,7 +55,7 @@ export class TargetingSystem {
   clear(){this.manual=null;this.engaged=null;this.selected=null;this.publishBoss();}
   private publishBoss(selectionChecked=false){
     const enemy=this.selected;
-    const boss=enemy?.definition.boss&&(enemy===this.manual||enemy===this.engaged)
+    const boss=enemy&&(enemy.definition.boss||enemy.isBossEncounter)&&(enemy===this.manual||enemy===this.engaged)
       &&(selectionChecked||this.eligible(enemy))?enemy:null;
     const next=boss?{id:boss.instanceId,name:BOSS_BY_ID[boss.instanceId.replace(/^boss:/,'')]?.name??boss.definition.name,
       hp:Math.max(0,boss.hp),maxHp:boss.definition.hp,attackName:boss.bossAttackName,

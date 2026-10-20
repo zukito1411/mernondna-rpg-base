@@ -133,6 +133,10 @@ for(const enemy of ENEMIES)if(enemy.boss){
   enemy.attackRange=Math.round(enemy.attackRange*1.12);
   if(enemy.attackRadius!==undefined)enemy.attackRadius=Math.round(enemy.attackRadius*1.12);
 }
+// Tower-only identity: deliberately absent from overworld spawns and BOSSES.
+ENEMIES.push({id:'grand-magus',name:'Grand Magus of the Shadow Realm',spriteFrame:19,spriteTexture:'enemy_grand_magus',
+ appearanceMultiplier:2.8,bodyRadius:54,hp:2000,damage:28,moveSpeed:68,aggroRange:2000,attackRange:245,
+ attackCooldownMs:1800,attackWindupMs:1200,attackRecoveryMs:800,xp:0,goldMin:0,goldMax:0,boss:false,regionWeights:{}});
 export const ENEMY_BY_ID = Object.fromEntries(ENEMIES.map((enemy) => [enemy.id, enemy])) as Record<string, EnemyDefinition>;
 export function enemyAppearanceMultiplier(definition: EnemyDefinition) {
   return definition.appearanceMultiplier??(definition.boss ? 1.45 : definition.id === 'road-bandit' ? 1.16 : 1);

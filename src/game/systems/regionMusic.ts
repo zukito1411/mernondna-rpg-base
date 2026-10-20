@@ -1,4 +1,5 @@
 import type { RegionId } from '../types';
+export const TOWER_MUSIC='/assets/audio/tower-of-might.mp3';
 
 export const REGION_MUSIC: Record<RegionId, string> = {
   trandum: '/assets/audio/the-britons.mp3',

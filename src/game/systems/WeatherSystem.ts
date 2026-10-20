@@ -42,7 +42,9 @@ export class WeatherSystem {
   private audioBus:GainNode|null=null;private audioFilter:BiquadFilterNode|null=null;
   private music: HTMLAudioElement | null = null;private nextMusic:HTMLAudioElement|null=null;
   private readonly nature=new NatureAmbience();
-  private musicLevel=0;private musicRegion:RegionId|null=null;
+  private musicLevel=0;private musicSource:string|null=null;private musicOverride:string|null=null;
+  private readonly musicStarting=new Set<HTMLAudioElement>();
+  private musicMuted=false;
   private currentRegion:RegionId='trandum';private musicFadeElapsed=0;private audioUnlocked=false;
   private weatherRegion:RegionId|null=null;private weatherBiome:string|null=null;private weatherDay=-1;private weatherPeriod=-1;private weatherBefore600:boolean|null=null;
   private weatherSample:{x:number;y:number;region:RegionId;biome:string}|null=null;
@@ -92,10 +94,11 @@ export class WeatherSystem {
     this.startMusic();
   };
   private startMusic(){
-    if(!this.audioUnlocked||document.hidden||this.musicLevel<=.001)return;
-    if(this.musicRegion===this.currentRegion){if(this.music)this.playMusic(this.music);if(this.nextMusic)this.playMusic(this.nextMusic);return;}
-    const src=REGION_MUSIC[this.currentRegion],resolved=new URL(src,document.baseURI).href;
-    this.musicRegion=this.currentRegion;
+    if(this.destroyed||!this.audioUnlocked||document.hidden||this.musicMuted||this.musicLevel<=.001)return;
+    const src=this.musicOverride??REGION_MUSIC[this.currentRegion];
+    if(this.musicSource===src){if(this.music)this.playMusic(this.music);if(this.nextMusic)this.playMusic(this.nextMusic);return;}
+    const resolved=new URL(src,document.baseURI).href;
+    this.musicSource=src;
     if(this.music?.src===resolved&&!this.nextMusic){this.playMusic(this.music);return;}
     if(this.nextMusic?.src===resolved){this.playMusic(this.nextMusic);return;}
     if(this.nextMusic){
@@ -118,20 +121,28 @@ export class WeatherSystem {
     return player;
   }
   private playMusic(player:HTMLAudioElement){
-    if(!player.paused)return;
-    void player.play().catch(error=>console.warn('[audio] Background music is waiting for a player gesture.',error));
+    if(!player.paused||player.error||this.musicStarting.has(player))return;
+    this.musicStarting.add(player);
+    void player.play().then(()=>{
+      if(this.destroyed||document.hidden||this.musicMuted||player!==this.music&&player!==this.nextMusic)player.pause();
+    }).catch(error=>{if(!this.destroyed&&player.src)console.warn('[audio] Background music is waiting for a player gesture.',error);})
+      .finally(()=>this.musicStarting.delete(player));
   }
   private disposeMusic(player:HTMLAudioElement){
     player.pause();player.removeAttribute('src');player.load();
   }
   private updateMusic(delta:number,minute:number,muted:boolean){
+    this.musicMuted=muted;
     if(!this.audioUnlocked)return;
     if(muted||document.hidden){this.music?.pause();this.nextMusic?.pause();return;}
-    const target=natureMix(minute,this.currentRegion,'').music;
+    const target=this.musicOverride ? .22 : natureMix(minute,this.currentRegion,'').music;
     this.musicLevel+=Math.max(-delta*.00014,Math.min(delta*.00014,target-this.musicLevel));
     if(this.musicLevel<=.001){if(this.music){this.music.volume=0;this.music.pause();}if(this.nextMusic){this.nextMusic.volume=0;this.nextMusic.pause();}return;}
     this.startMusic();
     if(!this.nextMusic){if(this.music)this.music.volume=this.musicLevel;return;}
+    // Keep the previous recording audible until its replacement is playing.
+    // Optional audio never gates room readiness or New Game/Continue.
+    if(this.nextMusic.readyState<2||this.nextMusic.paused)return;
     this.musicFadeElapsed+=Math.max(0,delta);
     const progress=Math.min(1,this.musicFadeElapsed/1800);
     this.nextMusic.volume=this.musicLevel*progress;
@@ -140,6 +151,17 @@ export class WeatherSystem {
       if(this.music)this.disposeMusic(this.music);
       this.music=this.nextMusic;this.nextMusic=null;this.music.volume=this.musicLevel;
     }
+  }
+  setMusicOverride(source:string|null){
+    if(this.musicOverride===source)return;
+    this.musicOverride=source;
+    if(source){this.nature.pause();this.updateAmbience(this.currentRegion,'',0,true);}
+  }
+  updateInteriorAudio(delta:number,paused:boolean){
+    if(this.destroyed)return;
+    const state=useGameStore.getState();
+    if(this.musicOverride)this.updateAmbience(this.currentRegion,'',0,true);
+    this.updateMusic(Math.max(0,Math.min(100,delta)),state.minuteOfDay,paused||!state.weatherAudio);
   }
   update(delta:number,x:number,y:number,paused=false){
     const state=useGameStore.getState(),effects=getGraphicEffects();
@@ -168,9 +190,9 @@ export class WeatherSystem {
     this.ambientMist+=Math.max(-step,Math.min(step,mistTarget-this.ambientMist));
     const weatherLabel=region==='darkav'?labels.ash:labels[this.kind];
     if(state.weatherLabel!==weatherLabel)state.hydrate({weatherLabel});
-    this.updateAmbience(region,biome,night,paused||!state.weatherAudio);
+    this.updateAmbience(region,biome,night,paused||!state.weatherAudio||Boolean(this.musicOverride));
     const muted=paused||!state.weatherAudio;
-    this.nature.update(delta,state.minuteOfDay,region,biome,muted);
+    this.nature.update(delta,state.minuteOfDay,region,biome,muted||Boolean(this.musicOverride));
     this.updateMusic(Math.max(0,Math.min(100,delta)),state.minuteOfDay,muted);
     const animatedPrecip=effects.weatherParticles&&['rain','storm','snow'].includes(this.kind);
     if(this.drawMs<(this.lightweight?(animatedPrecip?170:290):50))return;this.drawMs=0;

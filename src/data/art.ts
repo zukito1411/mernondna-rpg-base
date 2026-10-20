@@ -334,8 +334,8 @@ const boatswainSheet:ArtSheet={key:BOATSWAIN_TEXTURE,path:BOATSWAIN_ART.walk.pat
   frameWidth:128,frameHeight:128,groundPadding:16,density:2,blackBackground:false,names:Array.from({length:76},(_,i)=>'pirate-boatswain:'+i)};
 const goblinSheet:ArtSheet={key:GOBLIN_TEXTURE,path:GOBLIN_ART.walk.path,columns:44,atlasColumns:8,
   frameWidth:128,frameHeight:112,groundPadding:14,density:2,blackBackground:false,names:Array.from({length:44},(_,i)=>'hedge-goblin:'+i)};
-const m14Sheets:ArtSheet[]=M14_ART.map(spec=>({key:spec.texture,path:`assets/enemies/${spec.folder}/${spec.boss?'walk-v2':'walk'}.png`,columns:44,atlasColumns:8,
-  frameWidth:spec.frameWidth,frameHeight:spec.frameHeight,groundPadding:14,density:2,blackBackground:false,names:Array.from({length:44},(_,i)=>spec.id+':'+i)}));
+const m14Sheets:ArtSheet[]=M14_ART.map(spec=>({key:spec.texture,path:`assets/enemies/${spec.folder}/${spec.species===19?'down-v1':spec.boss?'walk-v2':'walk'}.png`,columns:spec.species===19?62:44,atlasColumns:8,
+  frameWidth:spec.frameWidth,frameHeight:spec.frameHeight,groundPadding:14,density:spec.species===19?1:2,blackBackground:false,names:Array.from({length:spec.species===19?62:44},(_,i)=>spec.id+':'+i)}));
 const goblinStoneSheet:ArtSheet={key:'enemy_goblin_stone',path:'assets/enemies/goblin_stone_slinger/stone.png',columns:1,atlasColumns:1,
   frameWidth:32,frameHeight:32,density:2,blackBackground:false,names:['goblin-stone']};
 const flagshipSheet:ArtSheet={key:'pirate_flagship',path:'assets/vehicles/pirate_flagship/ship-boardable.png',columns:1,atlasColumns:1,

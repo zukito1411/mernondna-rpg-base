@@ -518,8 +518,12 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
       const story=useGameStore.getState();
       const available=this.definition.questIds.some(id=>{
         const quest=QUEST_BY_ID[id],status=story.quests[id];
-        return quest?.kind==='side'&&status?.status==='locked'
+        if(quest?.kind!=='side'||!status||quest.prerequisiteQuestId&&story.quests[quest.prerequisiteQuestId]?.status!=='completed')return false;
+        if(status.status==='locked')return quest.giverNpcId===this.definition.id
           &&(!quest.prerequisiteQuestId||story.quests[quest.prerequisiteQuestId]?.status==='completed');
+        const next=quest.objectives.find(o=>(status.objectiveProgress[o.id]??0)<o.amount);
+        return status.status==='active'&&next?.targetId===this.definition.id
+          &&['talk','deliver','choice','puzzle'].includes(next.type);
       });
       this.sideQuestMarker.setPosition(this.x,this.y+this.labelY-17).setDepth(this.y+82)
         .setVisible(!this.companionControl&&available&&!cinematic&&distance<650);

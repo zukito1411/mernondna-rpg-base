@@ -14,6 +14,7 @@ import {lakeAt,lakeShoreDistance} from '../../data/landscapeFeatures';
 import {dragonLairTerrain,onDragonTrail} from '../../data/dragonLair';
 import {ASHEN_DOCK_ROAD,onPortDeck} from '../../data/ports';
 import {onFlagshipBoarding,flagshipWalkable} from '../../data/pirateFlagship';
+import {inTowerClearing,onTowerApproach} from '../../data/towerOfMight';
 
 const noise2D = createNoise2D(seededRandom(WORLD_SEED));
 const mainlandRegions=REGIONS.filter(region=>!['darkav','frostlands','portquill'].includes(region.id));
@@ -98,6 +99,9 @@ export class WorldGenerator {
     if(onFlagshipBoarding(worldX,worldY))return 'dirt';
     const regionId = this.getRegionAt(worldX, worldY);
     if (regionId === 'dead-sea') return 'water';
+    // Authored foundation, shared with scenery reservations.
+    if(inTowerClearing(worldX,worldY))return 'stone';
+    if(onTowerApproach(worldX,worldY))return 'dirt';
     // Registered decks take priority over water/settlement reservations. The
     // lookup is spatially bucketed; no scan of every bridge for each ground cell.
     if(onHighmereBridge(worldX,worldY))return 'stone';

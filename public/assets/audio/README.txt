@@ -106,6 +106,19 @@ The CC BY-SA recordings are included unmodified. Their respective license
 terms require attribution; see each source page and license for details.
 Trandum continues to use "The Britons" by Kevin MacLeod, credited above.
 
+Tower of Might: "Oppressive Gloom" by Kevin MacLeod (incompetech.com),
+included unmodified as tower-of-might.mp3; ISRC USUAN1100885.
+Licensed under Creative Commons: By Attribution 3.0 License
+https://creativecommons.org/licenses/by/3.0/
+Track: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100885
+Source recording: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Oppressive%20Gloom.mp3
+License reference: https://commons.wikimedia.org/wiki/File:Oppressive_Gloom_(ISRC_USUAN1100885).mp3
+Dark orchestral score (strings, bass clarinet, percussion), 3:19 at 58 BPM.
+The tower streams this
+local recording on entry, looping at day and night, through the shared music
+crossfade player. It is not downloaded from the internet during gameplay and
+is not added to the critical startup asset pack.
+
 Darkav tremor: ambience/volcanic.mp3 is the project-provided 12-second recording.
 It plays once per volcanic tremor, with camera movement following its playback
 position and measured volume envelope. It is streamed only after entering Darkav.

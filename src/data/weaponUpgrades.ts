@@ -23,6 +23,6 @@ export function enhancedWeapon(id:string,ledger:WeaponUpgradeLedger,awakened:rea
    damage:Math.round((final?.baseAttack??base.damage)*(1+rank*.08)),
    cooldownMs:Math.round(base.cooldownMs*(1-rank*.02))};
 }
-export function enhancedProcChance(id:string,baseChance:number,ledger:WeaponUpgradeLedger,luck:number,awakened:readonly string[]=[]):number {
- return Math.min(.35,baseChance+weaponUpgradeRank(id,ledger)*.01+Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,luck))*.001+(awakenedProfile(id,awakened) ? .05 : 0));
+export function enhancedProcChance(id:string,baseChance:number,ledger:WeaponUpgradeLedger,luck:number,awakened:readonly string[]=[],equipmentLuck=0):number {
+  return Math.min(.35,baseChance+weaponUpgradeRank(id,ledger)*.01+(Math.max(0,Math.min(ASCENDED_ATTRIBUTE_CAP,luck))+Math.max(0,equipmentLuck))*.001+(awakenedProfile(id,awakened) ? .05 : 0));
 }

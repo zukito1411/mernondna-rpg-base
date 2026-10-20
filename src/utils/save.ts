@@ -27,12 +27,13 @@ import {parseJournal,restoreJournal,type JournalState} from '../data/journal';
 import {parseContracts} from '../data/contracts';
 import {parseArmor,armorBonusesFor} from '../data/armor';
 import {parseDungeons} from '../data/dungeons';
+import {nextTowerWeeklyReset,gateTowerQuest} from '../data/towerOfMight';
 import {BASE_LEVEL_CAP,playerLevelCap,attributeCap} from '../data/progression';
 import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASCENSION,ASCENDED_MONSTER_LEVEL} from '../data/breakthrough';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
-export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'|'bossHearts'|'awakenedWeapons'>>;
+export type SavedState = Pick<GameState, 'hp' | 'stamina' | 'level' | 'xp' | 'attributes' | 'statPoints' | 'skillPoints' | 'learnedSkills' | 'gold' | 'weaponId' | 'inventory' | 'worldX' | 'worldY' | 'regionId' | 'townId' | 'day' | 'minuteOfDay' | 'quests' | 'defeatedBosses' | 'worldContent' | 'unlockedTownShrines' | 'storyFlags' | 'storyChoices' | 'trackedQuestId'> & Partial<Pick<GameState,'consumables'|'learnedCombatArts'|'skillSlots'|'weaponUpgrades'|'bossMaterials'|'bossHearts'|'awakenedWeapons'|'nextTowerResetAt'>>;
 export interface SaveData { version: 7; savedAt: string; state: SavedState & {housing?:GameState['housing'];cinematicQueue?:string[];journal?:JournalState;contracts?:GameState['contracts'];armorInventory?:string[];equippedArmor?:GameState['equippedArmor'];dungeons?:GameState['dungeons']} }
 
 let syncSnapshot: (() => void) | undefined;
@@ -522,13 +523,15 @@ export function parseSave(raw: string): SaveData | null {
     storyFlags[COMBAT_CLEARANCE_REVISION_FLAG]=true;
     // Existing progressed players don't get a new-game prologue on resume.
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
-    const result = advanceQuests(quests, state.defeatedBosses,undefined,storyFlags,worldContent);
+    const result = advanceQuests(gateTowerQuest(quests), state.defeatedBosses,undefined,storyFlags,worldContent);
     const rewards=earnedRewards(result.xp,result.gold,state.attributes,state.learnedSkills);
     const xp = Math.min(xpTotalForLevel(cap),state.xp + rewards.xp);
     const levelsGained = Math.max(0, levelForExperience(xp) - levelForExperience(state.xp));
     const learningPointsGained=Math.max(0,skillBudget(levelForExperience(xp))-skillBudget(levelForExperience(state.xp)));
     return { version: 7, savedAt: typeof data.savedAt === 'string' ? data.savedAt : '', state: {
       ...state,journal:restoreJournal(journal,state),contracts,...armor,dungeons,housing,
+      nextTowerResetAt:typeof s.nextTowerResetAt==='number'&&Number.isSafeInteger(s.nextTowerResetAt)&&s.nextTowerResetAt>=0&&s.nextTowerResetAt<8640000000000000
+        ?s.nextTowerResetAt:nextTowerWeeklyReset(),
        weaponUpgrades:weaponUpgrades as Record<string,number>,bossMaterials:bossMaterials as Record<string,number>,bossHearts:bossHearts as Record<string,number>,awakenedWeapons,
        consumables:consumables as Record<PotionId,number>,learnedCombatArts:learnedCombatArts as ActiveSkillId[],skillSlots:skillSlots as (ActiveSkillId|null)[], worldContent, quests: result.quests, xp, gold: state.gold + rewards.gold,
       storyFlags:questConsequences(result.quests,storyFlags as Record<string,boolean>),storyChoices:storyChoices as Record<string,string>,
@@ -566,7 +569,7 @@ function serializeCurrentSaveSnapshot():string {
     const s = useGameStore.getState();
     const data: SaveData = { version: 7, savedAt: new Date().toISOString(), state: {
       housing:s.housing,hp: s.hp, stamina: s.stamina, level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints,
-      journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,dungeons:s.dungeons,
+      journal:restoreJournal(s.journal,s),contracts:s.contracts,armorInventory:s.armorInventory,equippedArmor:s.equippedArmor,dungeons:s.dungeons,nextTowerResetAt:s.nextTowerResetAt,
       skillPoints: s.skillPoints, learnedSkills: s.learnedSkills, gold: s.gold, weaponId: s.weaponId,
       inventory: s.inventory, weaponUpgrades:s.weaponUpgrades??{},bossMaterials:s.bossMaterials??{},bossHearts:s.bossHearts??{},awakenedWeapons:s.awakenedWeapons??[], worldX: s.worldX, worldY: s.worldY, regionId: s.regionId, townId: s.townId,
       consumables:s.consumables,learnedCombatArts:s.learnedCombatArts,skillSlots:s.skillSlots,
@@ -686,7 +689,7 @@ export function loadGame(): boolean {
       rareLootQueue:[],nextRareLootId:0,
       levelUpNotice:null,nextLevelUpId:0,
       housing:s.housing??parseHousing(undefined)!,housingContext:null,housingEditing:false,
-      journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,
+      journal:s.journal!,contracts:s.contracts??{},contractBoardTownId:null,aliceRemark:null,dungeons:s.dungeons??{},activeDungeonId:null,towerExitRequest:null,nextTowerResetAt:s.nextTowerResetAt??nextTowerWeeklyReset(),
       armorInventory:s.armorInventory??[],equippedArmor:s.equippedArmor??{chest:null,boots:null,cape:null},armorBonuses,
       level: s.level, xp: s.xp, attributes: s.attributes, statPoints: s.statPoints, skillPoints: s.skillPoints,worldAscensionReadyAt:0,
       learnedSkills: s.learnedSkills, gold: s.gold,
@@ -696,6 +699,7 @@ export function loadGame(): boolean {
       worldContent: s.worldContent,unlockedTownShrines:s.unlockedTownShrines,
       storyFlags:s.storyFlags,storyChoices:s.storyChoices,trackedQuestId:s.trackedQuestId,
       pendingCinematic:s.cinematicQueue?.[0]??null,cinematicQueue:s.cinematicQueue?.slice(1)??[] });
+    useGameStore.getState().refreshTowerWeek();
     return true;
   } catch(error) {
     // Storage access and hydration failures must not look like a dead Continue

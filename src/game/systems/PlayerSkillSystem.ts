@@ -69,10 +69,10 @@ export class PlayerSkillSystem {
     const barrageTargets=id==='barrage'?this.collectBarrageTargets(skill.targetingRange!):undefined;
     if(barrageTargets&&!barrageTargets.length){this.scene.notify('No reachable enemies in Barrage range.');return false;}
     if (!this.player.spendStamina(skill.staminaCost)) {
-      this.scene.notify(`${skill.name} needs ${skill.staminaCost} stamina.`);
+      this.scene.notify(`${skill.name} needs ${Math.ceil(this.player.staminaCost(skill.staminaCost))} stamina.`);
       return false;
     }
-    const stats=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
+    const stats=progressionStats(state.attributes,state.learnedSkills,state.armorBonuses);
     this.cooldowns[id] = Math.round(skill.cooldownMs*stats.cooldownMultiplier);
     if (id !== 'crown-rally' || this.player.hp >= this.player.maxHp) {
       if(!skill.poseTimes)this.scene.playSkillSound(skill.animationId??id, 'cast');

@@ -1,6 +1,7 @@
 import { QUEST_BY_ID } from '../../data/quests';
 import { WORLD_CONTENT } from '../../data/content';
 import type { ContentWorldState, QuestObjective, QuestRuntimeState } from '../types';
+import {gateTowerQuest} from '../../data/towerOfMight';
 
 const campIds=new Map<string,string[]>();
 function clearedCampCount(objective:QuestObjective,world?:ContentWorldState){
@@ -19,10 +20,11 @@ export function advanceQuests(
   storyFlags:Record<string,boolean>={},
   world?:ContentWorldState,
 ) {
-  let changed = false;
+  const gated=gateTowerQuest(current);
+  let changed = gated!==current;
   let xp = 0;
   let gold = 0;
-  const quests = { ...current };
+  const quests = { ...gated };
   const usedEvents=new Set<string>();
   for(let pass=0;pass<=Object.keys(quests).length;pass++){
   let passChanged=false;

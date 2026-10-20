@@ -92,6 +92,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly targetIndicator:Phaser.GameObjects.Graphics;
   private readonly dragonCombat:DragonCombat|undefined;
   private readonly bossCombat:BossCombat|undefined;
+  get isBossEncounter(){return Boolean(this.definition.boss||this.bossCombat);}
   get bossAttackName(){return this.bossCombat?.attackName??this.dragonCombat?.attackName??null;}
   get bossWindupFraction(){return this.bossCombat?.windupFraction??this.dragonCombat?.windupFraction??null;}
   private visualDirection:ActorDirection='right';
@@ -145,7 +146,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   get isStaggered(){return this.flurrySuppressed||this.scene.time.now<this.hitStunUntil;}
   get facingLeft(){return this.visualDirection==='left';}
   get isRangedAttacker(){return this.definition.combatStyle==='spear-thrower'||this.definition.combatStyle==='stone-thrower';}
-  private get directionalCombat(){return this.isRangedAttacker||this.definition.combatStyle==='boatswain'||['hedge-goblin','blighted-thornling','grove-spider','redmesa-chieftain','rootfather','frost-wyrm','ashen-seer'].includes(this.definition.id);}
+  private get directionalCombat(){return this.isRangedAttacker||this.definition.combatStyle==='boatswain'||['hedge-goblin','blighted-thornling','grove-spider','redmesa-chieftain','rootfather','frost-wyrm','ashen-seer','grand-magus'].includes(this.definition.id);}
+  private get displayName(){return `${this.encounterStats?'':`Lv.${this.level} `}${this.boss?.name??this.definition.name}`;}
   playMonsterVocal(cue:'attack'|'growl'|'hurt'|'death'){
     // No borrowed mammal/ghost voice for a chitin creature. Its attack still
     // uses the existing restrained swish/impact effects.
@@ -158,7 +160,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: WorldScene, definition: EnemyDefinition, x: number, y: number, instanceId: string,
     eventSpawn = false, wolfPackId: string | null = null, wolfAlpha = false,
-    encounterId: string | null = null, encounterBehavior?: EncounterBehavior,fixedLevel?:number,combatProfile?:BossCombatProfile) {
+    encounterId: string | null = null, encounterBehavior?: EncounterBehavior,fixedLevel?:number,combatProfile?:BossCombatProfile,
+    private readonly encounterStats?:Pick<EnemyDefinition,'hp'|'damage'|'defense'>) {
     const idle=scene.anims.get(enemyLocomotionKey(definition.spriteFrame,'idle','right'));
     const initial=idle.frames[0];
     super(scene, x, y, initial.textureKey, initial.textureFrame);
@@ -175,9 +178,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.fixedLevel=fixedLevel;
     this.regionalLevel=fixedLevel??enemyLevelAt(definition,levelHome.x,levelHome.y,zone,this.wolfAlpha);
     const progression=useGameStore.getState();
-    this.ascended=Boolean(progression.storyFlags[WORLD_ASCENSION]);
-    this.level=runtimeEnemyLevel(this.regionalLevel,progression.level,this.ascended,this.fixedLevel);
-    const base=scaledEnemy(definition,this.level,this.ascended);
+    this.ascended=!encounterStats&&Boolean(progression.storyFlags[WORLD_ASCENSION]);
+    this.level=encounterStats?1:runtimeEnemyLevel(this.regionalLevel,progression.level,this.ascended,this.fixedLevel);
+    const base=encounterStats?{...definition,...encounterStats}:scaledEnemy(definition,this.level,this.ascended);
     this.wolfPackId=isWolfFamily(definition.id) ? wolfPackId : null;
     this.encounterKey=definition.boss ? null : this.wolfPackId ? `wolf:${this.wolfPackId}`
       : encounterId ? `encounter:${encounterId}` : null;
@@ -210,12 +213,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.anims.play(idle.key);
     if(definition.spriteTint!==undefined)this.setTint(definition.spriteTint);
     this.healthBar = scene.add.graphics().setName(`enemy-health:${instanceId}`);
-    this.nameLabel = scene.add.text(x, y - 40, `Lv.${this.level} ${this.boss?.name ?? this.definition.name}`, {
+    this.nameLabel = scene.add.text(x, y - 40, this.displayName, {
       fontFamily: 'Georgia, serif', fontSize: definition.boss ? '12px' : '9px',
       color: definition.boss ? '#f3c69c' : '#edddcb', stroke: '#17120e', strokeThickness: 3,
     }).setResolution(2).setOrigin(.5,1).setName(`enemy-name:${instanceId}`);
     this.targetIndicator=scene.add.graphics().setName('enemy-target:'+instanceId);
-    if(definition.combatStyle==='dragon')this.dragonCombat=new DragonCombat(this,scene);
+    if(definition.combatStyle==='dragon'&&!combatProfile)this.dragonCombat=new DragonCombat(this,scene);
     else {
       const profile=combatProfile??(this.boss?BOSS_COMBAT_PROFILES[this.boss.id]:undefined);
       if(profile)this.bossCombat=new BossCombat(this,scene,profile);
@@ -246,8 +249,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const scene = this.scene as WorldScene;
     const player = scene.player;
     if (!player?.active) return;
-    const progression=useGameStore.getState(),ascended=Boolean(progression.storyFlags[WORLD_ASCENSION]);
-    const nextLevel=runtimeEnemyLevel(this.regionalLevel,progression.level,ascended,this.fixedLevel);
+    const progression=useGameStore.getState(),ascended=!this.encounterStats&&Boolean(progression.storyFlags[WORLD_ASCENSION]);
+    const nextLevel=this.encounterStats?this.level:runtimeEnemyLevel(this.regionalLevel,progression.level,ascended,this.fixedLevel);
     if(this.hp>0&&(nextLevel!==this.level||ascended!==this.ascended)){
       const fraction=this.hp/this.definition.hp;
       const base=scaledEnemy(this.authoredDefinition,nextLevel,ascended);
@@ -256,7 +259,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.hp=Math.max(1,Math.round(fraction*this.definition.hp));
       this.level=nextLevel;
       this.ascended=ascended;
-      this.nameLabel.setText(`Lv.${this.level} ${this.boss?.name??this.definition.name}`);
+      this.nameLabel.setText(this.displayName);
     }
     // Recover only after leaving combat, never during a chase or attack.
     // Paused scenes do not tick updateEnemy, so this is active-play time only.
@@ -677,10 +680,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     scene.tryBossSummonWave(this);
   }
 
-  playBossWindup(windup:number,recovery:number,angle:number){
+  private magusSpell=false;
+  playBossWindup(windup:number,recovery:number,angle:number,spell=false){
     this.facing.set(Math.cos(angle),Math.sin(angle));
     if(this.directionalCombat)this.visualDirection=actorTravelDirection(this.facing.x,this.facing.y,this.visualDirection);
     this.playAction('attack');
+    if(this.definition.id==='grand-magus'){
+      this.magusSpell=spell;const row=['down','left','right','up'].indexOf(this.visualDirection);
+      this.anims.stop();this.setFlipX(false).setFrame(spell?44+row*2:20+row*6);
+      this.attackTimingActive=true;this.visualUntil=this.scene.time.now+(windup+recovery)/this.attackSpeedMultiplier;return;
+    }
     const animation=enemyAnimation(this.definition.spriteFrame,'attack',this.directionalCombat?this.visualDirection:undefined);
     const clip=pirateAttackPhase(this.definition.spriteFrame,'windup');
     if(clip){this.anims.play(clip.key);this.anims.timeScale=piratePhaseDuration(clip)/windup*this.attackSpeedMultiplier;}
@@ -689,6 +698,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.attackTimingActive=true;this.visualUntil=this.scene.time.now+(windup+recovery)/this.attackSpeedMultiplier;
   }
   finishBossWindup(recovery:number){
+    if(this.definition.id==='grand-magus'){
+      const row=['down','left','right','up'].indexOf(this.visualDirection);
+      this.anims.stop();this.setFrame(this.magusSpell?45+row*2:21+row*6);return;
+    }
     const clip=pirateAttackPhase(this.definition.spriteFrame,'recovery');
     if(clip){this.anims.play(clip.key);this.anims.timeScale=piratePhaseDuration(clip)/recovery*this.attackSpeedMultiplier;}
   }
@@ -762,13 +775,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   private playWolfLeap(animation: ReturnType<typeof enemyAnimation>) {
     this.clearWolfLeap();
-    const scene = this.scene;
+    const scene = this.scene as WorldScene;
     const arc = { height: 0 };
     this.leapShadow = scene.add.ellipse(this.x, this.y - 3, 34, 13, 0x090b0b, 0.34)
-      .setDepth(this.y - 1).setName(`wolf-leap-shadow:${this.instanceId}`);
+      .setDepth(scene.playerRenderDepth(this.y)-1).setName(`wolf-leap-shadow:${this.instanceId}`);
     this.leapVisual = scene.add.sprite(this.x, this.y, this.texture.key, this.frame.name)
       .setOrigin(this.originX, this.originY).setScale(this.scaleX, this.scaleY)
-      .setFlipX(this.flipX).setDepth(this.y + 1).setName(`wolf-leap:${this.instanceId}`);
+      .setFlipX(this.flipX).setDepth(scene.playerRenderDepth(this.y)+1).setName(`wolf-leap:${this.instanceId}`);
     if(this.definition.spriteTint!==undefined)this.leapVisual.setTint(this.definition.spriteTint);
     this.setAlpha(0);
     this.leapVisual.play(animation.key);
@@ -777,7 +790,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       targets: arc, height: 26, duration: 190, ease: 'Sine.easeOut', yoyo: true,
       onUpdate: () => {
         if (!this.leapVisual?.active) return;
-        this.leapVisual.setPosition(this.x, this.y - arc.height).setDepth(this.y + arc.height);
+        this.leapVisual.setPosition(this.x, this.y - arc.height).setDepth(scene.playerRenderDepth(this.y)+arc.height);
         this.leapShadow?.setPosition(this.x, this.y - 3).setScale(1 + arc.height / 50, 1 - arc.height / 70);
       },
       onComplete: () => this.clearWolfLeap(),
@@ -808,6 +821,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   /** Flurry holds only reachable targets, releasing them when the cast ends,
    * is cancelled, or they leave its area. Damage pulses still play hurt poses. */
   setFlurrySuppressed(suppressed:boolean){
+    if(this.bossCombat?.profile.resistFlurry)return;
     if(!this.active||this.hp<=0||this.flurrySuppressed===suppressed)return;
     if(suppressed&&!this.canBeTargeted)return;
     this.flurrySuppressed=suppressed;
@@ -824,12 +838,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
   private stagger(forced:boolean){
     const now=this.scene.time.now;
-    if(!forced&&now<this.staggerImmuneUntil)return false;
+    if((!forced||this.bossCombat?.profile.resistFlurry)&&now<this.staggerImmuneUntil)return false;
     const directional=this.directionalCombat;
     const duration=animationDuration(enemyAnimation(this.definition.spriteFrame,'hurt',directional?this.visualDirection:undefined));
     this.hitStunUntil=now+duration;
     // A full hurt pose is followed by a real opportunity to retaliate.
-    this.staggerImmuneUntil=this.hitStunUntil+(this.definition.combatStyle==='boatswain'?1800:this.boss||this.bossCombat?1800:1000);
+    this.staggerImmuneUntil=this.hitStunUntil+(this.bossCombat?.profile.staggerRecoveryMs??(this.definition.combatStyle==='boatswain'?1800:this.boss||this.bossCombat?1800:1000));
     this.lockedUntil=this.hitStunUntil;
     this.nextAttackAt=Math.max(this.nextAttackAt,this.hitStunUntil+150);
     this.interruptAttack();
@@ -845,13 +859,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const support=options.nonLethal||options.source==='story-ally'||options.source==='ambient-ally'||options.source==='companion';
     if(!support||options.source==='companion')this.playerContributed=true;
     if(!support)state.discoverCreature(this.definition.id,this.boss?.id);
-    const armorPenetration=support?0:Math.min(.4,(state.attributes.strength??0)*.01);
+    const armorPenetration=support?0:Math.min(.4,((state.attributes.strength??0)+(state.armorBonuses.allStats??0))*.01);
     const effectiveDefense=(this.definition.defense??0)*(1-armorPenetration);
     const damage=Math.max(1,Math.round((support?amount:luckDamage(amount,state.attributes,state.learnedSkills,state.armorBonuses)*this.weaponStatus.directDamageMultiplier)*(1-effectiveDefense)));
     const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
     if(applied<=0)return 0;
+    const actualLoss=Math.min(applied,this.hp);
     this.hp -= applied;
     const scene=this.scene as WorldScene;
+    if(!support)scene.player.absorbLifeFromHit(actualLoss);
     const impact=options.impact??'light';
     if(!support)scene.confirmedPlayerImpact(impact);
     if(!support)scene.targeting.engage(this);
@@ -867,10 +883,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       // Damage over time is based on the attacker's effective weapon ATK,
       // not raw blade damage, enemy HP, or a multi-hit art's single tick.
       const weapon=enhancedWeapon(options.weaponId!,state.weaponUpgrades,state.awakenedWeapons);
-      const stats=progressionStats(state.attributes,state.learnedSkills);
+      const stats=progressionStats(state.attributes,state.learnedSkills,state.armorBonuses);
       const attackPower=weapon.damage*stats.damageMultiplier*playerDamageGrowth(state.level)*WEAPON_STATUS_ATK_SCALE;
-      const improvedProc={...awakenedProc(options.weaponId!,proc,state.awakenedWeapons),chance:enhancedProcChance(options.weaponId!,proc.chance,state.weaponUpgrades,state.attributes.luck,state.awakenedWeapons)};
-      if(this.weaponStatus.tryApply(improvedProc,attackPower,this.definition.id,Boolean(this.definition.boss),Math.random,options.procHitWeight??1))
+      const improvedProc={...awakenedProc(options.weaponId!,proc,state.awakenedWeapons),chance:enhancedProcChance(options.weaponId!,proc.chance,state.weaponUpgrades,state.attributes.luck,state.awakenedWeapons,state.armorBonuses.allStats??0)};
+      if(this.weaponStatus.tryApply(improvedProc,attackPower,this.definition.id,this.isBossEncounter,Math.random,options.procHitWeight??1))
         this.syncStatusAttackSpeed(this.scene.time.now);
     }
     scene.playEffect('hit', this.x, this.y);
@@ -936,7 +952,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     else if(this.healthBar.visible)this.healthBar.clear().setVisible(false);
     // Phaser Text.setText can invalidate its backing canvas, even when the
     // displayed label is unchanged. Preserve the exact label and glyph style.
-    const label=`Lv.${this.level} ${this.boss?.name??this.definition.name}${this.weaponStatus.name?' · '+this.weaponStatus.name:''}`;
+    const label=`${this.displayName}${this.weaponStatus.name?' · '+this.weaponStatus.name:''}`;
     if(this.nameLabel.text!==label)this.nameLabel.setText(label);
     this.nameLabel.setPosition(this.x,top-4).setDepth(scene.playerRenderDepth(this.y)+85)
       .setVisible(showHealth);

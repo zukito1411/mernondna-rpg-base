@@ -1,6 +1,7 @@
 import {artFrameSize,type ArtTextureKey} from '../../data/art';
 import type {WorldGenerator} from './WorldGenerator';
 import {spriteBounds} from '../../data/settlementGeometry';
+import {inTowerClearing,onTowerApproach} from '../../data/towerOfMight';
 
 const greenGround=new Set(['grass','forest','marsh','dirt','farmland']);
 
@@ -30,6 +31,7 @@ function fitsGround(texture:ArtTextureKey,frame:number,world:WorldGenerator,x:nu
  * The upper silhouette may overhang another material; its planted base may not.
  * Sampling at <=32 world units also catches narrow shore/road strips. */
 export function propFitsHabitat(texture:ArtTextureKey,frame:number,world:WorldGenerator,x:number,y:number,scale=1){
+  if(inTowerClearing(x,y,100)||onTowerApproach(x,y))return false;
   const bounds=spriteBounds(texture,frame,scale,x,y),height=artFrameSize(texture,frame).height*scale;
   const left=x+(bounds.left-x)*.92,right=x+(bounds.right-x)*.92;
   const top=bounds.bottom-Math.min(56,height*.18);

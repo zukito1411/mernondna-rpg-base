@@ -1,6 +1,7 @@
 import {TOWN_BY_ID} from './towns';
 import type {RegionId,Vec2} from '../game/types';
 import {seededRandom} from '../utils/seededRandom';
+import {TOWER_FLOORS} from './towerOfMight';
 
 export const DUNGEON_ENEMY_LEVEL=120;
 // 26 slots fit the existing positive 32-bit save mask. Do not exceed 30.
@@ -8,7 +9,7 @@ export const DUNGEON_WAVE_SIZES=[3,4,5,6,7,1] as const;
 export const DUNGEON_LEADER_SCALE=1.2;
 const DEFENDER_COUNT=DUNGEON_WAVE_SIZES.reduce<number>((sum,count)=>sum+count,0)-1;
 
-export interface DungeonDefinition {id:string;name:string;townId:string;regionId:RegionId;door:Vec2;directions:string;description:string;enemyLevel:number;enemies:readonly string[];enemyPool:readonly string[];captain:string;gold:number;xp:number;tint:number}
+export interface DungeonDefinition {id:string;name:string;townId:string;regionId:RegionId;door:Vec2;directions:string;description:string;enemyLevel?:number;enemies:readonly string[];enemyPool:readonly string[];captain:string;gold:number;xp:number;tint:number;tower?:{chamber:number;floor:number;bossId:string}}
 const cave=(id:string,name:string,townId:string,dx:number,dy:number,directions:string,description:string,enemies:readonly string[],captain:string,gold:number,xp:number,tint=0xffffff):DungeonDefinition=>{
  const enemyPool=[...new Set(enemies.slice(0,-1))];
  // The bandit hideout also harbours hired goblin scavengers; every cave needs
@@ -24,7 +25,8 @@ export const DUNGEONS:readonly DungeonDefinition[]=[
  cave('broken-pass','Broken Pass Cavern','starhold',2050,-2050,'northeast of Starhold','Trolls have dragged shattered wagons into a deep mountain store-cavern.',['cave-troll','road-bandit','road-bandit','cave-troll','road-bandit','road-bandit','cave-troll'],'Passbreaker',2800,2400,0xd9dce0),
  cave('redfang-hold','Redfang Underhold','redmesa',-2450,1650,'southwest of Redmesa','An orc raiding company keeps its war chest in a fortified underground hollow.',['rindass-orc-raider','rindass-orc-spearman','rindass-orc-raider','rindass-orc-spearman','rindass-orc-raider','rindass-orc-raider','redmesa-chieftain'],'Redfang Warleader',3600,3000,0xe9d6bb),
 ];
-export const DUNGEON_BY_ID=Object.fromEntries(DUNGEONS.map(d=>[d.id,d])) as Record<string,DungeonDefinition>;
+export const ALL_DUNGEONS=[...DUNGEONS,...TOWER_FLOORS];
+export const DUNGEON_BY_ID=Object.fromEntries(ALL_DUNGEONS.map(d=>[d.id,d])) as Record<string,DungeonDefinition>;
 export const DUNGEON_RESET_MS=20*60*1000;
 export interface DungeonProgress {discovered:boolean;defeated:number;claimed:boolean;respawnAt?:number;version?:2;rotation?:number}
 export type DungeonLedger=Record<string,DungeonProgress>;
@@ -49,14 +51,14 @@ export const dungeonCleared=(d:DungeonDefinition,p?:DungeonProgress)=>Boolean(p&
 export const dungeonResetReady=(p?:DungeonProgress,now=Date.now())=>Boolean(p?.claimed&&(p.respawnAt??0)<=now);
 export function parseDungeons(value:unknown):DungeonLedger|null{
  if(value===undefined)return {};
- if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length>DUNGEONS.length)return null;
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length>ALL_DUNGEONS.length)return null;
  const result:DungeonLedger={};
  for(const [id,raw] of Object.entries(value)){
   const d=Object.hasOwn(DUNGEON_BY_ID,id)?DUNGEON_BY_ID[id]:undefined;
   if(!d||!raw||typeof raw!=='object'||Array.isArray(raw))return null;
   const p=raw as Partial<DungeonProgress>;
   const legacy=p.version===undefined;
-  if(!legacy&&p.version!==2||p.rotation!==undefined&&(!Number.isSafeInteger(p.rotation)||p.rotation<0||p.rotation>=1000000))return null;
+  if(d.tower&&legacy||!legacy&&p.version!==2||p.rotation!==undefined&&(!Number.isSafeInteger(p.rotation)||p.rotation<0||p.rotation>=1000000))return null;
   if(typeof p.discovered!=='boolean'||!p.discovered||typeof p.claimed!=='boolean'||!Number.isInteger(p.defeated)
    ||p.defeated!<0||p.defeated!>(legacy?127:dungeonMask(d))||p.claimed&&p.defeated!==(legacy?127:dungeonMask(d)))return null;
   if(p.respawnAt!==undefined&&(!p.claimed||!Number.isSafeInteger(p.respawnAt)||p.respawnAt<0))return null;

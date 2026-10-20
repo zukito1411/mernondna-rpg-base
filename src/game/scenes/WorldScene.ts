@@ -13,6 +13,9 @@ import {getGraphicEffects} from '../systems/graphicsEffects';
 import {InteriorSession} from '../systems/InteriorSession';
 import {DungeonSystem} from '../systems/DungeonSystem';
 import {DUNGEON_LEADER_SCALE,type DungeonDefinition} from '../../data/dungeons';
+import {TOWER_BOSS_PROFILES} from '../../data/bossCombatProfiles';
+import {TOWER_ENTRY_ID,towerCombatStats} from '../../data/towerOfMight';
+import {TOWER_MUSIC} from '../systems/regionMusic';
 import {CAVE_LEADER_PROFILES} from '../../data/bossCombatProfiles';
 import {StoryEncounterSystem} from '../systems/StoryEncounterSystem';
 import {findCampaignPatrolPlacement} from '../systems/campaignPatrolPlacement';
@@ -153,23 +156,46 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   get dungeonMarkers(){return this.dungeons?.markers??[];}
   isDungeonEnemy(enemy:Enemy){return Boolean(this.dungeons?.owns(enemy));}
   beginDungeon(id:string){this.dungeons.begin(id);}
-  closeDungeon(){this.dungeons?.close();}
+  closeDungeon(resetTower=true){this.dungeons?.close(resetTower);}
+  returnFromTower(){
+    if(this.activeInteriorId!==TOWER_ENTRY_ID)return;
+    this.interiors.exit();this.player.resetInput();this.targeting.clear();
+    const destination=TOWN_SHRINE_BY_ID.oakmere.arrival;
+    this.chunkManager.update(destination.x,destination.y,true);this.contentManager.update(destination.x,destination.y);
+    const landing=[destination,...respawnArrivalCandidates(TOWN_BY_ID.oakmere)].find(p=>this.worldGenerator.isWalkable(p.x,p.y)&&!this.isBlockedByBuilding(p.x,p.y)
+      &&!this.npcs.some(n=>n.active&&Math.hypot(n.x-p.x,n.y-p.y)<36));
+    if(landing){
+      this.restoreOutsidePosition(landing);this.player.lastDirection.set(0,1);
+      this.cameras.main.centerOn(landing.x,landing.y);this.playEffect('teleport',landing.x,landing.y);
+      this.notify('Returned to Oakmere. Your last boss checkpoint is safe.');
+    }else{
+      this.chunkManager.update(this.player.x,this.player.y,true);this.contentManager.update(this.player.x,this.player.y);
+      this.notify('Oakmere’s arrival is obstructed. You have been returned safely outside the tower.');
+    }
+    this.cameras.main.flash(500,0,0,0);this.refreshWorldLighting();this.syncState();this.updateNavigation();saveGame();
+  }
   dungeonPoint(point:Vec2){return this.interiors.localPoint(point);}
   dungeonEntranceSuitable(point:Vec2,region:RegionId){return this.worldGenerator.getRegionAt(point.x,point.y)===region&&!this.worldGenerator.isRoad(point.x,point.y,110);}
-  registerDungeonEntrance(image:Phaser.GameObjects.Image){
+  registerDungeonEntrance(image:Phaser.GameObjects.Image,tower=false){
     this.physics.add.existing(image,true);this.buildings.add(image);
-    const body=image.body as Phaser.Physics.Arcade.StaticBody;body.setSize(150,60);
-    body.position.set(image.x-75,image.y-image.displayHeight+35);body.center.set(body.x+75,body.y+30);
+    const body=image.body as Phaser.Physics.Arcade.StaticBody;
+    if(tower){body.setSize(240,110);body.position.set(image.x-120,image.y-170);body.center.set(body.x+120,body.y+55);}
+    else{body.setSize(150,60);body.position.set(image.x-75,image.y-image.displayHeight+35);body.center.set(body.x+75,body.y+30);}
   }
   createDungeonEnemy(d:DungeonDefinition,slot:number,p:Vec2,enemyId=d.enemies[slot]){
-    const base=ENEMY_BY_ID[enemyId],elite=slot===d.enemies.length-1;
+    const base=ENEMY_BY_ID[enemyId],elite=d.tower?d.tower.floor===5:slot===d.enemies.length-1;
+    const towerStep=d.tower?d.tower.chamber-1:0;
     const tuned={...base,boss:false,name:elite?d.captain:`Hardened ${base.name}`,
       appearanceMultiplier:enemyAppearanceMultiplier({...base,boss:false})*(elite?DUNGEON_LEADER_SCALE:1),
       bodyRadius:(base.bodyRadius??11)*(elite?DUNGEON_LEADER_SCALE:1),
-      hp:Math.round(base.hp*(elite?4.2:1.65)),damage:Math.round(base.damage*(elite?1.9:1.25)),
-      aggroRange:900,attackCooldownMs:Math.round(base.attackCooldownMs*(elite?.85:.95)),summonComposition:undefined,summonEnemyId:undefined,
+      hp:Math.round(base.hp*(elite?4.2:1.65)),
+      damage:Math.round(base.damage*(elite?1.9:1.25)),
+      moveSpeed:base.moveSpeed*(d.tower?(elite?1.15:1.06):1),
+      aggroRange:d.tower?2000:900,attackCooldownMs:Math.round(base.attackCooldownMs*(elite?.85:.95)),summonComposition:undefined,summonEnemyId:undefined,
       xp:0,goldMin:0,goldMax:0};
-    const enemy=new Enemy(this,tuned,p.x,p.y,`dungeon-event:${d.id}:${slot}`,true,null,false,null,undefined,d.enemyLevel,elite?CAVE_LEADER_PROFILES[d.id]:undefined);
+    const enemy=new Enemy(this,tuned,p.x,p.y,`dungeon-event:${d.id}:${slot}`,true,null,false,null,undefined,d.enemyLevel,
+      elite?(d.tower?TOWER_BOSS_PROFILES[towerStep]:CAVE_LEADER_PROFILES[d.id]):undefined,
+      d.tower?towerCombatStats(d.tower.chamber,d.tower.floor,base):undefined);
     this.creatureBodies.add(enemy);this.enemies.add(enemy);this.combatEnemyListDirty=true;this.addInteriorContact(enemy);return enemy;
   }
   get combatAllowed(){return !this.inInterior||this.storyCombatActive;}
@@ -287,6 +313,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   releaseRoadNpc(npc:Npc){this.npcBodies.remove(npc);this.destroyContentActor(npc);}
   ensureStoryEnemy(id:string){return this.m14Art.ensure(id);}
+  releaseTowerBossArt(){this.m14Art?.forget('grand-magus');}
   storyEncounterAnchor(e:StoryEncounter):Vec2|undefined{
     if(e.interiorNpcId){
       const room=NPC_INTERIOR_BY_ID[e.interiorNpcId];
@@ -355,6 +382,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   updateInteriorStoryCombat(time:number,delta:number,blocked:boolean){
     if(this.dungeons.active)this.dungeons.update(time,blocked);else this.storyEncounters.update(time,delta,blocked);
+    if(!this.inInterior)return; // A confirmed tower portal restored the overworld.
     blocked=blocked||this.cinematicDirector.active;
     if(!blocked)this.targeting.update();
     for(const enemy of [...this.enemies]){
@@ -395,7 +423,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
   applySkillDamage(enemy:Enemy,skill:ActiveSkillDefinition,multiplier:number,direction:Phaser.Math.Vector2,weaponId=this.getEquippedWeapon().id) {
     if(!enemy.active||enemy.hp<=0)return;
-    const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
+    const progression=progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills,useGameStore.getState().armorBonuses);
     const level=useGameStore.getState().level;
     const growth=playerDamageGrowth(level);
     const inventory=useGameStore.getState(),weapon=enhancedWeapon(weaponId,inventory.weaponUpgrades,inventory.awakenedWeapons);
@@ -811,6 +839,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       return; // No combat or movement runs during the transition frame.
     }
     const feedbackState=useGameStore.getState();
+    this.weather.setMusicOverride(this.activeInteriorId===TOWER_ENTRY_ID?TOWER_MUSIC:null);
     const feedbackBlocked=!this.focused||Boolean(feedbackState.panel||feedbackState.dialogue||feedbackState.cinematic||feedbackState.pendingCinematic||this.passage?.active||this.cinematicDirector?.active);
     this.levelUpFeedback?.update(delta,feedbackBlocked);
     this.roadLife?.update(delta,feedbackBlocked||this.inInterior||this.storyCombatActive);
@@ -819,6 +848,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     if(this.cinematicDirector.active){this.updateCinematicPresentation(time,delta);return;}
     const travelStore=useGameStore.getState();
     if(this.interiors?.active){
+      this.weather.updateInteriorAudio(delta,!this.focused||Boolean(travelStore.panel||travelStore.dialogue));
       this.enemySounds.pause(!this.focused||Boolean(travelStore.panel||travelStore.dialogue)||!this.storyCombatActive);
       if(travelStore.travelRequest||travelStore.passageRequest){
         travelStore.hydrate({travelRequest:null,passageRequest:null});this.notify('Leave the building before travelling.');
@@ -969,7 +999,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
     }
     const facing = direction.clone().normalize();
-    const progression = progressionStats(useGameStore.getState().attributes, useGameStore.getState().learnedSkills);
+    const progression = progressionStats(useGameStore.getState().attributes, useGameStore.getState().learnedSkills,useGameStore.getState().armorBonuses);
     let hits=0;
     for (const enemy of this.enemies) {
       if (!enemy.active||enemy.hp<=0||!enemy.canBeTargeted) continue;
@@ -989,7 +1019,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   performSkillHit(player:Player,direction:Phaser.Math.Vector2,skill:ActiveSkillDefinition,multiplier:number,weaponId=this.getEquippedWeapon().id) {
     player.recovery.interrupt();
     this.recordTraining(skill.id);
-    const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills);
+    const progression = progressionStats(useGameStore.getState().attributes,useGameStore.getState().learnedSkills,useGameStore.getState().armorBonuses);
     const inventory=useGameStore.getState(),weapon=enhancedWeapon(weaponId,inventory.weaponUpgrades,inventory.awakenedWeapons);
     const damage = Math.max(1,Math.round(weapon.damage * progression.damageMultiplier * progression.skillDamageMultiplier*playerDamageGrowth(useGameStore.getState().level) * multiplier));
     for (const enemy of this.skillTargets(player,direction,skill)){
@@ -1485,7 +1515,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const factor=encounterRewardFactor(enemy.level,state.level,summoned);
     const rewardXp=Math.max(1,Math.round(definition.xp*factor)),rewardGold=Math.round(gold*factor);
     state.recordEnemyDefeat(definition.id,rewardXp,rewardGold,bossId,this.contentManager.snapshot(),enemy.instanceId,!summoned,this.worldGenerator.getRegionAt(enemy.x,enemy.y));
-    const gained=this.add.text(enemy.x,enemy.y-48,`+${Math.round(rewardXp*progressionStats(state.attributes,state.learnedSkills).rewardMultiplier)} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
+    const gained=this.add.text(enemy.x,enemy.y-48,`+${Math.round(rewardXp*progressionStats(state.attributes,state.learnedSkills,state.armorBonuses).rewardMultiplier)} XP`,{fontFamily:'Georgia,serif',fontSize:'15px',fontStyle:'bold',color:'#f8dc8c',stroke:'#23160b',strokeThickness:4}).setResolution(2).setDepth(enemy.y+900).setOrigin(.5);
     this.tweens.add({targets:gained,y:enemy.y-112,alpha:0,duration:1450,ease:'Sine.easeOut',onComplete:()=>gained.destroy()});
 
     if (enemy.instanceId.startsWith('boss:')) {

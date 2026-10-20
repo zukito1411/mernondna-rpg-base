@@ -7,6 +7,7 @@ import {NPC_BY_ID,NPC_NAME_ALIASES} from './npcs';
 import {rewriteNpcMentions} from './npcPresentation';
 import {CASTLE_GUARD_POSTS} from './castleResidents';
 import type {InteriorArtKey} from './interiorArt';
+import {TOWER_ROOM_SIZE,TOWER_ROUND_FLOOR,TOWER_SOUTH_ENTRY} from './towerRoom';
 
 export type InteriorProfile='home'|'villa'|'inn'|'castle'|'archive'|'store'|'workshop'|'barracks'|'kitchen'|'market'|'civic'|'chapel'|'cave';
 export function interiorProfile(name:string,hall=false):InteriorProfile {
@@ -80,12 +81,23 @@ export interface RoomFloor extends RoomRect {material:0|1;kind?:RoomKind}
 export interface RoomObject {art:InteriorArtKey;x:number;y:number;width:number;solid?:RoomRect}
 export interface RoomPlan {
   floors:RoomFloor[];rooms:InteriorRoom[];objects:RoomObject[];entrance:Vec2;residents:Vec2[];
+  roundFloor?:Vec2&{radius:number};
   throneResident?:Vec2;guardPosts?:{west:Vec2;east:Vec2};
+}
+export function roomFloorContains(plan:RoomPlan,x:number,y:number){
+  if(plan.roundFloor){const circle=plan.roundFloor;return (x-circle.x)**2+(y-circle.y)**2<=circle.radius**2;}
+  return plan.floors.some(r=>x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height);
 }
 const floorObject=(art:InteriorArtKey)=>art==='rug';
 /** Deliberately separated rooms and broad overlapping hallways. Floors form a
  * connected union; gaps between rooms stay black and are never traversable. */
 export function roomPlan(hall:boolean,name='',selectedProfile=interiorProfile(name,hall),kit=''):RoomPlan {
+  if(selectedProfile==='cave'&&name==='Tower of Might')return {
+    // Bounding rectangle is for camera extents only; movement uses roundFloor.
+    floors:[{x:0,y:0,width:TOWER_ROOM_SIZE,height:TOWER_ROOM_SIZE,material:0}],
+    rooms:[{id:'might-arena',label:'Tower of Might',kind:'throne',x:190,y:190,width:1420,height:1420,material:0}],
+    roundFloor:TOWER_ROUND_FLOOR,objects:[],entrance:TOWER_SOUTH_ENTRY,residents:[],
+  };
   if(selectedProfile==='cave')return {
     floors:[{x:120,y:120,width:960,height:900,material:0},{x:360,y:1000,width:480,height:400,material:0},
       {x:0,y:400,width:200,height:360,material:0},{x:1000,y:350,width:200,height:350,material:0}],

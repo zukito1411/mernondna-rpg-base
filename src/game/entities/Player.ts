@@ -150,7 +150,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const mobileDash = mobileInput.consume('dash');
     const dashPressed = this.consumeAction('dash') || mobileDash;
-    const dodge=dodgeProfile(state.attributes);
+    const dodge=dodgeProfile(state.attributes,state.armorBonuses);
     if (dashPressed && !movementLocked && time >= this.nextDashAt && this.spendStamina(dodge.staminaCost)) {
       this.resetBasicAttackCombo();
       this.clearAttackVisual();
@@ -178,7 +178,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     let sprinting = sprintHeld && !this.sprintExhausted && !movementLocked &&
       !dashing && movement.lengthSq() > .01 && this.stamina > 0;
     if (sprinting&&!this.unlimitedVitals) {
-      this.stamina = Math.max(0, this.stamina - delta * 0.022);
+      this.stamina = Math.max(0, this.stamina - this.staminaCost(delta * 0.022));
       if (this.stamina === 0) {
         this.sprintExhausted = true;
         sprinting = false;
@@ -262,9 +262,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   spendStamina(amount:number):boolean {
+    amount=this.staminaCost(amount);
     if(this.unlimitedVitals){this.stamina=this.maxStamina;return true;}
     if(this.stamina<amount)return false;
     this.stamina=Math.max(0,this.stamina-amount);return true;
+  }
+  staminaCost(amount:number){return Math.max(0,amount)*(1-Math.min(.45,useGameStore.getState().armorBonuses.staminaReduction??0));}
+  absorbLifeFromHit(actualDamage:number){
+    if(!this.active||this.hp<=0||actualDamage<=0)return;
+    this.syncInventoryVitals();
+    const fraction=useGameStore.getState().armorBonuses.lifesteal??0;
+    if(fraction>0)this.hp=Math.min(this.maxHp,this.hp+actualDamage*Math.min(.25,fraction));
   }
 
   private resetBasicAttackCombo(){
@@ -301,7 +309,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.resetBasicAttackCombo();
     if(this.attackVisual)this.clearAttackVisual();
     this.recovery.interrupt();
-    this.invulnerableUntil=now+320+Math.min(ASCENDED_ATTRIBUTE_CAP,state.attributes.vitality)*2;
+    this.invulnerableUntil=now+320+(Math.min(ASCENDED_ATTRIBUTE_CAP,state.attributes.vitality)+(state.armorBonuses.allStats??0))*2;
     this.hp = this.unlimitedVitals?this.maxHp:Math.max(0, this.hp - Math.ceil(amount * this.skills.incomingDamageMultiplier * stats.incomingDamageMultiplier));
     this.setTintFill(0xffd0d0);
     scene.playEffect('hit', this.x, this.y);

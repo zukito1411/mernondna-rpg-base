@@ -102,7 +102,7 @@ export interface EnemyDefinition {
   id: string;
   name: string;
   spriteFrame: number;
-  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king'|'enemy_cutlass_pirate'|'enemy_orc_raider'|'enemy_orc_spearman'|'enemy_pirate_boatswain'|'enemy_hedge_goblin'|'enemy_goblin_slinger'|'enemy_thornling'|'enemy_grove_spider'|'enemy_krag_chieftain'|'enemy_frost_wyrm'|'enemy_rootfather'|'enemy_ashen_seer';
+  spriteTexture?: 'enemies'|'enemy_troll'|'enemy_dragon'|'enemy_salt_king'|'enemy_cutlass_pirate'|'enemy_orc_raider'|'enemy_orc_spearman'|'enemy_pirate_boatswain'|'enemy_hedge_goblin'|'enemy_goblin_slinger'|'enemy_thornling'|'enemy_grove_spider'|'enemy_krag_chieftain'|'enemy_frost_wyrm'|'enemy_rootfather'|'enemy_ashen_seer'|'enemy_grand_magus';
   spriteTint?:number;
   appearanceMultiplier?:number;
   bodyRadius?:number;
@@ -269,13 +269,14 @@ export interface QuestTarget extends Vec2 {
 }
 export interface NavigationMarker extends Vec2 {
   id: string; label: string; kind: 'npc' | 'enemy' | 'boss' | 'building' | 'town' | 'landmark';
-  service?:'inn'|'blacksmith'|'contracts'|'harbor'|'shrine'|'cave'|'home';
+  service?:'inn'|'blacksmith'|'contracts'|'harbor'|'shrine'|'cave'|'home'|'tower';
 }
 export interface NavigationState {
   heading: number; target: QuestTarget | null; markers: NavigationMarker[]; interaction: string | null;
   playerPosition?:Vec2;
   interiorName?:string;
   interiorFloors?:Array<Vec2&{width:number;height:number}>;
+  interiorCircle?:Vec2&{radius:number};
 }
 
 // LEIGHNERON_WOLF_PACKS_ROAD_BANDITS_V1
