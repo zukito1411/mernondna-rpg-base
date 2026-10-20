@@ -134,10 +134,11 @@ the saved exterior position; tower artwork is not part of the startup pack.
 These are code-level safeguards, not measured Android performance or a
 guarantee against all loading failures. Cold-start/Continue, spell direction,
 pause/death/exit cleanup and device frame pacing still require runtime testing.
-His model is deliberately a little smaller than the initial enlarged version
-(about 14% smaller), with a proportionate foot collision radius. Idle, glide,
-casting, striking and shattering all keep the same uniform actor scale. His
-close staff strike still warns a 245-unit reach. HP, damage, rewards and spell
+His model uses an appearance multiplier of 1.8 (25% smaller than the
+previous 2.4 version), with a proportional base foot collision radius of 35.
+Idle, glide, casting, striking and shattering use the same uniform actor scale.
+The close staff strike still warns a 245-unit reach; spells, HP and rewards
+are unchanged. HP, damage, rewards and spell
 radii have not been doubled. Escaping bat sprites use tight GPU frame cuts.
 
 ## Persistence, loading and limits
