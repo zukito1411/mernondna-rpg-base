@@ -1,4 +1,4 @@
-import {useEffect,useRef} from 'react';
+import {useLayoutEffect,useRef} from 'react';
 import {useGameStore} from '../store/gameStore';
 import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {ROAD_ROUTES} from '../data/roadRoutes';
@@ -23,6 +23,7 @@ export function RegionalMap({select,center,coarse=false}:{
   coarse?:boolean;
 }) {
   const ref=useRef<HTMLCanvasElement>(null);
+  const raster=useRef<{image:HTMLCanvasElement;x:number;y:number;width:number;height:number}|null>(null);
   const x=useGameStore(s=>s.worldX),y=useGameStore(s=>s.worldY);
   const navigation=useGameStore(s=>s.navigation);
   const towerVisible=useGameStore(s=>towerCampaignComplete(s.quests));
@@ -32,7 +33,7 @@ export function RegionalMap({select,center,coarse=false}:{
     x:(px-origin.x+REGIONAL_SPAN_X/2)/REGIONAL_SPAN_X*100,
     y:(py-origin.y+REGIONAL_SPAN_Y/2)/REGIONAL_SPAN_Y*100,
   });
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     // REGIONAL_CANVAS_DETAIL_V2: render detailed terrain in short slices.
     // Do not calculate 100,000+ terrain samples in a single blocking React effect.
     const canvas=ref.current;
@@ -41,8 +42,26 @@ export function RegionalMap({select,center,coarse=false}:{
     const density=Math.min(2,Math.max(1,window.devicePixelRatio||1));
     const physicalWidth=Math.round(WIDTH*density);
     const physicalHeight=Math.round(HEIGHT*density);
-    // During dragging prioritize responsiveness. After pointer release, draw
-    // four times as many terrain samples as the old 225x135 survey.
+    const display=canvas.getContext('2d',{alpha:false});
+    if(!display)return;
+    // Markers use the new centre immediately. Shift the last fully rendered
+    // terrain to that same centre before paint, instead of leaving the old
+    // bitmap still while a costly world-noise redraw runs in the background.
+    if(canvas.width!==physicalWidth||canvas.height!==physicalHeight){
+      canvas.width=physicalWidth;canvas.height=physicalHeight;
+    }
+    const previous=raster.current;
+    const reusable=Boolean(previous&&previous.width===physicalWidth&&previous.height===physicalHeight);
+    const dx=previous?(previous.x-origin.x)/REGIONAL_SPAN_X*physicalWidth:0;
+    const dy=previous?(previous.y-origin.y)/REGIONAL_SPAN_Y*physicalHeight:0;
+    display.fillStyle=colors.grass;
+    display.fillRect(0,0,physicalWidth,physicalHeight);
+    if(reusable&&previous)display.drawImage(previous.image,Math.round(dx),Math.round(dy));
+    // Small drags only move an existing bitmap. Rebuild a light preview if the
+    // survey has moved far enough to reveal a substantial new map edge.
+    if(coarse&&reusable&&Math.abs(dx)<physicalWidth*.12&&Math.abs(dy)<physicalHeight*.12)return;
+    // Keep the detailed stationary render after release (450x270), without
+    // running its expensive terrain sampling on every pointer movement.
     const columns=coarse?135:450,rows=coarse?81:270;
     const cellWidth=WIDTH/columns,cellHeight=HEIGHT/rows;
     const buffer=document.createElement('canvas');
@@ -60,15 +79,10 @@ export function RegionalMap({select,center,coarse=false}:{
       ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
       points.forEach((p,i)=>{const q=point(p.x,p.y);if(i)ctx.lineTo(q.x,q.y);else ctx.moveTo(q.x,q.y);});ctx.stroke();
     };
-    const publish=()=>{
+    const publish=(complete:boolean)=>{
       if(stopped)return;
-      if(canvas.width!==physicalWidth||canvas.height!==physicalHeight){
-        canvas.width=physicalWidth;canvas.height=physicalHeight;
-      }
-      const displayed=canvas.getContext('2d');
-      if(!displayed)return;
-      displayed.clearRect(0,0,physicalWidth,physicalHeight);
-      displayed.drawImage(buffer,0,0);
+      display.drawImage(buffer,0,0);
+      if(complete)raster.current={image:buffer,x:origin.x,y:origin.y,width:physicalWidth,height:physicalHeight};
     };
     const drawSlice=()=>{
       if(stopped)return;
@@ -85,7 +99,12 @@ export function RegionalMap({select,center,coarse=false}:{
         }
         row++;
       }
-      if(row<rows){animationFrame=window.requestAnimationFrame(drawSlice);return;}
+      if(row<rows){
+        // Initial load has no terrain to reproject: show incremental slices.
+        if(!reusable)publish(false);
+        animationFrame=window.requestAnimationFrame(drawSlice);
+        return;
+      }
       for(const route of ROAD_ROUTES)line(route.points,'#dfbd81',3);
       for(const layout of SETTLEMENT_LAYOUTS){
         const town=TOWNS.find(t=>t.id===layout.townId);
@@ -94,7 +113,7 @@ export function RegionalMap({select,center,coarse=false}:{
       }
       for(const wall of ROYAL_WALL_LINES)line([wall.a,wall.b],'#302b26',2);
       for(const defense of SETTLEMENT_DEFENSES)for(const wall of defense.lines)line([wall.a,wall.b],'#302b26',2);
-      publish();
+      publish(true);
     };
     animationFrame=window.requestAnimationFrame(drawSlice);
     return ()=>{stopped=true;window.cancelAnimationFrame(animationFrame);};

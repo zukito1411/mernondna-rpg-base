@@ -18,7 +18,7 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
 
 type Point = { x: number; y: number };
-type DragState = { pointerId: number; startX: number; startY: number; x: number; y: number; lastX: number; lastY: number; lastUpdate: number };
+type DragState = { pointerId: number; startX: number; startY: number; x: number; y: number; lastX: number; lastY: number };
 
 export function MapPanel() {
   const panel = useGameStore(s => s.panel);
@@ -41,6 +41,8 @@ export function MapPanel() {
   const selectedPin = useRef<HTMLButtonElement | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<DragState | null>(null);
+  const regionalPanFrame = useRef(0);
+  const regionalPendingDelta = useRef<Point>({ x: 0, y: 0 });
   const localTravel = localSettlementTravelEnabled();
 
   useEffect(() => {
@@ -50,7 +52,14 @@ export function MapPanel() {
     setRegionalCenter({ x: useGameStore.getState().worldX, y: useGameStore.getState().worldY });
     setRegionalDragging(false);
     dragging.current = null;
+    if (regionalPanFrame.current) window.cancelAnimationFrame(regionalPanFrame.current);
+    regionalPanFrame.current = 0;
+    regionalPendingDelta.current = { x: 0, y: 0 };
   }, [panel]);
+
+  useEffect(() => () => {
+    if (regionalPanFrame.current) window.cancelAnimationFrame(regionalPanFrame.current);
+  }, []);
 
   useEffect(() => {
     if (panel !== 'map' && panel !== 'regional-map') return;
@@ -108,13 +117,27 @@ export function MapPanel() {
     }));
   };
 
+  // Coalesce movement into one world-center update per display frame, rather
+  // than allowing terrain work or a 120ms throttle to hold back the drag.
+  const flushRegionalPan = () => {
+    regionalPanFrame.current = 0;
+    const delta = regionalPendingDelta.current;
+    regionalPendingDelta.current = { x: 0, y: 0 };
+    if (delta.x || delta.y) moveRegionalCenter(delta.x, delta.y);
+  };
+  const queueRegionalPan = (dx: number, dy: number) => {
+    regionalPendingDelta.current.x += dx;
+    regionalPendingDelta.current.y += dy;
+    if (!regionalPanFrame.current)
+      regionalPanFrame.current = window.requestAnimationFrame(flushRegionalPan);
+  };
+
   const startPan = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((!regional && zoom <= MIN_ZOOM) || event.button !== 0) return;
     if ((event.target as HTMLElement).closest('button')) return;
     dragging.current = {
       pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
       x: visualPanX, y: visualPanY, lastX: event.clientX, lastY: event.clientY,
-      lastUpdate: event.timeStamp,
     };
     if (regional) setRegionalDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -123,13 +146,9 @@ export function MapPanel() {
     const drag = dragging.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (regional) {
-      // Rebuild the terrain canvas no more than ~8 times per second while dragging.
-      // The final remainder is always applied in endPan for precise positioning.
-      if (event.timeStamp - drag.lastUpdate < 120) return;
-      moveRegionalCenter(event.clientX - drag.lastX, event.clientY - drag.lastY);
+      queueRegionalPan(event.clientX - drag.lastX, event.clientY - drag.lastY);
       drag.lastX = event.clientX;
       drag.lastY = event.clientY;
-      drag.lastUpdate = event.timeStamp;
     } else {
       setPan({
         x: clamp(drag.x + event.clientX - drag.startX, maxPanX),
@@ -141,7 +160,10 @@ export function MapPanel() {
     const drag = dragging.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (regional) {
-      moveRegionalCenter(event.clientX - drag.lastX, event.clientY - drag.lastY);
+      regionalPendingDelta.current.x += event.clientX - drag.lastX;
+      regionalPendingDelta.current.y += event.clientY - drag.lastY;
+      if (regionalPanFrame.current) window.cancelAnimationFrame(regionalPanFrame.current);
+      flushRegionalPan();
       setRegionalDragging(false);
     }
     dragging.current = null;
@@ -206,9 +228,7 @@ export function MapPanel() {
           </div>
           <aside className="map-sidebar" aria-label="Map destinations">
             <div className="map-sidebar-heading"><strong>Destinations</strong><span>{unlockedShrines.length} shrines attuned</span></div>
-            {homes.map(home=><p key={home.id} className="owned-home-label">⌂ {home.homeName} · {home.name}</p>)}
-              {towerVisible&&<p className="owned-home-label">♜ Tower of Might · north of Oakmere, Trandum</p>}
-              <div className="map-destination-grid">
+            <div className="map-destination-grid">
               {TOWNS.map(town => <button type="button" key={town.id} className={town.id === townId ? 'is-current' : ''}
                 onClick={event => { selectedPin.current = event.currentTarget; setSelectedId(town.id); }}>
                 <span><strong>{town.name}</strong><small>{town.regionId === 'dead-sea' ? 'Dead Sea' : REGION_BY_ID[town.regionId]?.name}</small></span>
