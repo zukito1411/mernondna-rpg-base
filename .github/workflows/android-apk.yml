@@ -225,9 +225,9 @@ jobs:
           FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD
 
           It intentionally keeps the existing legacy debug-signing certificate so previous
-GitHub sideload installations can receive in-place updates. Although the APK
-uses Android's non-debuggable release build variant, it does NOT use a dedicated
-production upload key and is not ready for Google Play submission.
+          GitHub sideload installations can receive in-place updates. Although the APK
+          uses Android's non-debuggable release build variant, it does NOT use a dedicated
+          production upload key and is not ready for Google Play submission.
 
           The package identifier remains com.mernondna.rpg.
 
@@ -238,8 +238,8 @@ production upload key and is not ready for Google Play submission.
           ## Verification
 
           The packaged non-debuggable manifest, original package ID, signing certificate,
-and APK integrity are verified in CI. The accompanying SHA-256 checksum file
-can be used to verify the downloaded APK.
+          and APK integrity are verified in CI. The accompanying SHA-256 checksum file
+          can be used to verify the downloaded APK.
           NOTES
 
       - name: Publish APK on GitHub Releases
