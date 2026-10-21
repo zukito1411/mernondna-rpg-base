@@ -12,8 +12,9 @@ import {localPlayCheatsEnabled,goldLabel} from '../utils/localPlayCheats';
 import './housing.css';
 import {PLAYER_HOME_BY_ID} from '../data/playerHomes';
 import {TOWN_BY_ID} from '../data/towns';
+import {losslessImagePath} from '../utils/losslessImagePath';
 
-const url=(path:string)=>import.meta.env.BASE_URL+'assets/interiors/'+path;
+const url=(path:string)=>import.meta.env.BASE_URL+losslessImagePath('assets/interiors/'+path);
 function FurnitureIcon({kit,kind}:{kit:string;kind:string}){
  const frame=art.frames[(kit+':'+kind) as keyof typeof art.frames];
  const style:CSSProperties={backgroundImage:`url("${url(`housing-furniture-${frame.atlas}-v1.png`)}")`,

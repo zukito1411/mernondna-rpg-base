@@ -1,5 +1,6 @@
 import {useId} from 'react';
 import {STORY_PANEL_ART,type StoryPanelRef} from '../data/storyPanelArt';
+import {losslessImagePath} from '../utils/losslessImagePath';
 
 /** The approved bitmap is shared by every panel. SVG viewports crop it without
  * writing three redundant PNGs or stretching the characters to fit the screen. */
@@ -16,7 +17,7 @@ export function StoryPanels({artwork,ready}:{artwork:StoryPanelRef;ready:boolean
             <svg viewBox={`${x} ${y} ${width} ${height}`} preserveAspectRatio="xMidYMid meet" role="img"
               aria-label={panel.description} focusable="false">
               <defs><clipPath id={clip}><rect x={x} y={y} width={width} height={height}/></clipPath></defs>
-              <image href={page.path} x={0} y={0} width={page.width} height={page.height} clipPath={`url(#${clip})`}/>
+              <image href={import.meta.env.BASE_URL+losslessImagePath(page.path)} x={0} y={0} width={page.width} height={page.height} clipPath={`url(#${clip})`}/>
             </svg>
           </div>
           <span className="cinematic-panel-number" aria-hidden="true">{index+1}</span>

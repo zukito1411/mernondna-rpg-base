@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {losslessImagePath} from '../../utils/losslessImagePath';
 import {BOSS_SKILL_ART,BOSS_SKILL_CELL,BOSS_SKILL_ROWS,BOSS_SKILL_TEXTURE,
  BOSS_MOTION_ART,BOSS_MOTION_TEXTURE,BOSS_MOTION_COLUMNS,BOSS_MOTION_ROWS} from '../../data/bossSkillEffects';
 
@@ -36,7 +37,7 @@ async function load(scene:Phaser.Scene,state:Residency){
    let url:string|null=null;let cancelDecode:(()=>void)|null=null;
    const image=new Image();
    try{
-    const response=await fetch(import.meta.env.BASE_URL+sheet.path,{signal:abort.signal});
+    const response=await fetch(import.meta.env.BASE_URL+losslessImagePath(sheet.path),{signal:abort.signal});
     if(!response.ok)throw new Error('Boss effect sheet could not load: '+sheet.path);
     const blob=await response.blob();if(state.disposed||abort.signal.aborted)return;
     url=URL.createObjectURL(blob);image.src=url;

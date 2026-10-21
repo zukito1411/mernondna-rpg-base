@@ -1,0 +1,3719 @@
+{
+  "version": 1,
+  "png": {
+    "assets/characters/leigneron/attack.png": {
+      "beforeBytes": 2207849,
+      "pngBytes": 2143106,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "572a604222e8415c037d8306af4fb8e8ee299bcdd408a591fda4b4035fb4404a"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/attack-atlas-v1.png": {
+      "beforeBytes": 1982707,
+      "pngBytes": 1682655,
+      "width": 1028,
+      "height": 1554,
+      "rgbaSha256": "367652807c842556ffdc3985d96ab560fcd335f7dddec289586d45a7302506af"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 910876,
+      "pngBytes": 725464,
+      "width": 1674,
+      "height": 642,
+      "rgbaSha256": "2a899f662ef51a9eabdb6113b1f852b4438a9b4c05ece29530b0c34d999bdf68"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 946902,
+      "pngBytes": 749540,
+      "width": 1686,
+      "height": 642,
+      "rgbaSha256": "a637cb4e7ff575a5e3718a898aef1bb2696902725c36d7a7798aa689e3fba4d9"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/crown-rally-atlas-v1.png": {
+      "beforeBytes": 859169,
+      "pngBytes": 670618,
+      "width": 981,
+      "height": 808,
+      "rgbaSha256": "a3b3ca55d1664e5e7d65f82c1936b5f534610ea336478548e7db3abe2d616877"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/ember-snare-atlas-v1.png": {
+      "beforeBytes": 425403,
+      "pngBytes": 373795,
+      "width": 699,
+      "height": 532,
+      "rgbaSha256": "2a05991aad3660c7f58f9fb386abdee9807d83cf2d9d0d91d5f39a8e5b3e59de"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/heart-v1.png": {
+      "beforeBytes": 25340,
+      "pngBytes": 23645,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "046470d9a255e7fd6982f7b47fe3402bc74c926782935fa654b7c2a14c45dcff"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/idle-front-atlas-v1.png": {
+      "beforeBytes": 435760,
+      "pngBytes": 376752,
+      "width": 681,
+      "height": 504,
+      "rgbaSha256": "dbbe44086074e40ef7b8de94951ec8d0cd573e37ce536a22cf429eb00761ada3"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/idle-side-atlas-v1.png": {
+      "beforeBytes": 384061,
+      "pngBytes": 327723,
+      "width": 672,
+      "height": 490,
+      "rgbaSha256": "7b7a6ea0dbe225777975d4a6905eca7e3caaecfe63db65ec42cf58b457c3af2f"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/iron-rush-atlas-v1.png": {
+      "beforeBytes": 476283,
+      "pngBytes": 403936,
+      "width": 858,
+      "height": 504,
+      "rgbaSha256": "c6119376e47871472dc98285bb89ef9e33c445d2687d51addebf3de3b1609de9"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 540252,
+      "pngBytes": 468385,
+      "width": 855,
+      "height": 514,
+      "rgbaSha256": "6aea08b327ce38e601179e44d2327634a99995805045355adeb98d53e13aae56"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 414640,
+      "pngBytes": 358589,
+      "width": 705,
+      "height": 554,
+      "rgbaSha256": "51e430bbbce65e359fc9a8769c2ed3bb8254f5588f2f7bed5ea38cf4705a4dd8"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/run-side-atlas-v1.png": {
+      "beforeBytes": 428786,
+      "pngBytes": 363687,
+      "width": 870,
+      "height": 508,
+      "rgbaSha256": "25e2cb1ee27c93ae47ea888bb43988d3595ee5ee51eb5a8a86a6c9ad2cd52598"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 895716,
+      "pngBytes": 701704,
+      "width": 1215,
+      "height": 854,
+      "rgbaSha256": "bd1a2f31634897fc5295449e565d012747de9714e2542e993f80a4d4bfc8ec40"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/walk-down-atlas-v1.png": {
+      "beforeBytes": 388554,
+      "pngBytes": 339299,
+      "width": 645,
+      "height": 502,
+      "rgbaSha256": "b30a1e2931ec57e3c6a0106288dc0da7cecbef0a67de121d5f7edf4edc8a9684"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/walk-side-atlas-v1.png": {
+      "beforeBytes": 387274,
+      "pngBytes": 335034,
+      "width": 753,
+      "height": 510,
+      "rgbaSha256": "19b5fa1480be39b4a79e23c24d7b245be0827c8521dcbc2762e5a2b715c47817"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/walk-up-atlas-v1.png": {
+      "beforeBytes": 474654,
+      "pngBytes": 376564,
+      "width": 723,
+      "height": 506,
+      "rgbaSha256": "a5909b251b5e526a39f456036854e41134cf9bf8f6327e09678974c105af8fe4"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/weapon-v1.png": {
+      "beforeBytes": 42369,
+      "pngBytes": 38503,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "6b758266bb00d6b99b9c7e061df6aef3c284f8bc2b791c3956ca46349aaf32fd"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/attack-atlas-v1.png": {
+      "beforeBytes": 2376874,
+      "pngBytes": 2057856,
+      "width": 1048,
+      "height": 1602,
+      "rgbaSha256": "b5f64293950e34205329e113225657b52dae0adffa04f2d7c4818417bcb65afc"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 864694,
+      "pngBytes": 701625,
+      "width": 1416,
+      "height": 624,
+      "rgbaSha256": "ff082afc03c0b6544a49e41aaa304db3523af5f349229b769a0e8177f6ab2e5f"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 895239,
+      "pngBytes": 729665,
+      "width": 1677,
+      "height": 620,
+      "rgbaSha256": "074ba814417ad8c27cc824c214d1fd04675049dd151b7a40ae9079680814a77c"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/crown-rally-atlas-v1.png": {
+      "beforeBytes": 915526,
+      "pngBytes": 724118,
+      "width": 1017,
+      "height": 802,
+      "rgbaSha256": "1f4784af384482b17bac8bee73e2dc8335829ecfd33692b8778b2070d0d4638a"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/ember-snare-atlas-v1.png": {
+      "beforeBytes": 500836,
+      "pngBytes": 448896,
+      "width": 690,
+      "height": 532,
+      "rgbaSha256": "57b954bfe9d9ac044c775f930d02871c4dfbda9a5510e7be7c9e5ffcfffaf878"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/heart-v1.png": {
+      "beforeBytes": 20620,
+      "pngBytes": 19601,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "4fc114b748c317e99c354efd5858551bc449c19adbf8e45614a87ce204ce733d"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/idle-front-atlas-v1.png": {
+      "beforeBytes": 481729,
+      "pngBytes": 421055,
+      "width": 684,
+      "height": 504,
+      "rgbaSha256": "19b5c1e29f9e399822f4b38af12ae743edcc255112986b57571b2f07258a0871"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/idle-side-atlas-v1.png": {
+      "beforeBytes": 407429,
+      "pngBytes": 359246,
+      "width": 633,
+      "height": 490,
+      "rgbaSha256": "a3f71cb344af249e07216896560d9b12da4b111c24dc754b68c9deb67328aafc"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-atlas-v1.png": {
+      "beforeBytes": 517333,
+      "pngBytes": 445646,
+      "width": 828,
+      "height": 510,
+      "rgbaSha256": "41bbff4ecf1dca7de22b5a84d675baf0bbb94a9f38d3c5f46c01a45e0b8e4359"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 521039,
+      "pngBytes": 458638,
+      "width": 726,
+      "height": 516,
+      "rgbaSha256": "8cd48aae04b540cc6b9412548be53bc2064e4573d852b95285a5f1d69a14e670"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 471573,
+      "pngBytes": 416837,
+      "width": 729,
+      "height": 534,
+      "rgbaSha256": "4722addc62f7a0fcb59b50f8031786cd3769957bbd6feba761f38249383b34e8"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/run-side-atlas-v1.png": {
+      "beforeBytes": 461134,
+      "pngBytes": 394679,
+      "width": 831,
+      "height": 494,
+      "rgbaSha256": "d154ef16017873a9ed8ad0255b7cc4384017b05c6295e7898011ae9262254ed0"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 966239,
+      "pngBytes": 755343,
+      "width": 1161,
+      "height": 880,
+      "rgbaSha256": "321d87f0c48a77f0ea16d7c6c5986eb679475f9d2269ebc11a00a48814faa602"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/walk-down-atlas-v1.png": {
+      "beforeBytes": 442592,
+      "pngBytes": 387035,
+      "width": 651,
+      "height": 502,
+      "rgbaSha256": "fdb54d19966b3cfb4fa56612ca8e16d8c0a591acb6df6213230dbd9013a20b4a"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/walk-side-atlas-v1.png": {
+      "beforeBytes": 427177,
+      "pngBytes": 378794,
+      "width": 738,
+      "height": 510,
+      "rgbaSha256": "ff0b7e4db0c6f4da44b130b3158b0eae0f0d3b9f9efcbd05c0b96ddbe3eef5d7"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/walk-up-atlas-v1.png": {
+      "beforeBytes": 490023,
+      "pngBytes": 412640,
+      "width": 723,
+      "height": 512,
+      "rgbaSha256": "825bcf005317c5e386980aeba9c6042005b92e0429d3e4dd818dec2605db243c"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/weapon-v1.png": {
+      "beforeBytes": 42065,
+      "pngBytes": 38603,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "b63f9734653612f6d0481c9e14d56a72163dc0ec7ac150ddce0b5b25c5412a9e"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/attack-atlas-v1.png": {
+      "beforeBytes": 2182191,
+      "pngBytes": 1893534,
+      "width": 1036,
+      "height": 1578,
+      "rgbaSha256": "329dfb442eb078571ba9ea606f7e2a1878777e7e264fe53fa6a745e371c83b3a"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 824743,
+      "pngBytes": 668502,
+      "width": 1530,
+      "height": 636,
+      "rgbaSha256": "6a1f64742625bfdd9c1ced62849e191672eaddeebe26fb0712a101e3826a8f0e"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 915905,
+      "pngBytes": 724340,
+      "width": 2001,
+      "height": 590,
+      "rgbaSha256": "69db5388dfd7d79da8329b6070fcc76fe4927ea290623248cfa6a679c0213fd3"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/crown-rally-atlas-v1.png": {
+      "beforeBytes": 926477,
+      "pngBytes": 716444,
+      "width": 1089,
+      "height": 806,
+      "rgbaSha256": "da7ff7c8d87601e3773098f38d56fe4b13340dc104b8ed6c7da5bb987d1b8a1d"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/ember-snare-atlas-v1.png": {
+      "beforeBytes": 469244,
+      "pngBytes": 420851,
+      "width": 669,
+      "height": 534,
+      "rgbaSha256": "6d52963000e6d2995ab89a7b07386d8edb23c99dd43addeb508fd6b1760de95d"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/heart-v1.png": {
+      "beforeBytes": 25496,
+      "pngBytes": 23968,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "2082848951acf1e52c4d9ed6db33122213c31deaf3d6e7ba869c7c4ffba1e289"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/idle-front-atlas-v1.png": {
+      "beforeBytes": 459128,
+      "pngBytes": 403688,
+      "width": 672,
+      "height": 504,
+      "rgbaSha256": "a327b07fbc7196d4f2be62cb93fd73fffcd618183050723b2943b24face675ef"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/idle-side-atlas-v1.png": {
+      "beforeBytes": 384455,
+      "pngBytes": 336150,
+      "width": 633,
+      "height": 490,
+      "rgbaSha256": "62063b89eea82408dc38c5687a660475a7232d475d268211713f9d89f7e7881f"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/iron-rush-atlas-v1.png": {
+      "beforeBytes": 493330,
+      "pngBytes": 428373,
+      "width": 813,
+      "height": 510,
+      "rgbaSha256": "9fe4af4afbd2b260b31bf241eaa388451893724cb3bb06c41815e832db923d6a"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 503006,
+      "pngBytes": 442289,
+      "width": 714,
+      "height": 512,
+      "rgbaSha256": "d12816cd7acc9fb2746ac7e24c02c21b6b949953c28e5b95317e09ba56e4911e"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 466548,
+      "pngBytes": 407889,
+      "width": 723,
+      "height": 544,
+      "rgbaSha256": "53cfc99dbde60c34129e58bb12f3c2704f86244f7fa4cc84cd3f6e9da6334346"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/run-side-atlas-v1.png": {
+      "beforeBytes": 470437,
+      "pngBytes": 401930,
+      "width": 870,
+      "height": 520,
+      "rgbaSha256": "93dea2c945835cb8b0da81f2d48fa7234ee99f49ae9d00f16cf6c9f0c83441ca"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 947702,
+      "pngBytes": 750346,
+      "width": 1284,
+      "height": 868,
+      "rgbaSha256": "1a2529eef3a1085d12ce830188d536bfa109fe94a6863916d8f1bcf8a2f53766"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/walk-down-atlas-v1.png": {
+      "beforeBytes": 444477,
+      "pngBytes": 394247,
+      "width": 672,
+      "height": 504,
+      "rgbaSha256": "75bac8fc83bc632255abd0f1c2c927a0d223662d0961b9ae73971378f345b8d3"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/walk-side-atlas-v1.png": {
+      "beforeBytes": 415643,
+      "pngBytes": 365397,
+      "width": 741,
+      "height": 510,
+      "rgbaSha256": "040ce85ec4ac990d4f88ccb05c2248e295a7148d0bd835f3f93a72e8bf4e9e3a"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/walk-up-atlas-v1.png": {
+      "beforeBytes": 441798,
+      "pngBytes": 361585,
+      "width": 591,
+      "height": 510,
+      "rgbaSha256": "f23efe5ec4597476701ecd57fda6b326b04608921500c164034db916471f3208"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/weapon-v1.png": {
+      "beforeBytes": 47519,
+      "pngBytes": 43543,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "b331eaf17bbf2334118c3ccf6ecfac63628a4b659c9ec215a46eb654d12a543d"
+    },
+    "assets/characters/leigneron/awakened/rootfather/attack-atlas-v1.png": {
+      "beforeBytes": 2049924,
+      "pngBytes": 1772824,
+      "width": 1012,
+      "height": 1554,
+      "rgbaSha256": "d84bbbfaeb67c5e9b9774c409b21c21c1b32fda31fd7e2166362eb742e21d6ea"
+    },
+    "assets/characters/leigneron/awakened/rootfather/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 896306,
+      "pngBytes": 704253,
+      "width": 1449,
+      "height": 644,
+      "rgbaSha256": "e339f53f4eb19ae670a855302cb4a23e30b27ff776ad9d39f9c5a3cb439f6607"
+    },
+    "assets/characters/leigneron/awakened/rootfather/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 848960,
+      "pngBytes": 673900,
+      "width": 1596,
+      "height": 598,
+      "rgbaSha256": "3618546794c62d1806d01f5f1d71284ffbc63bc9da460fec4a326be4abce4556"
+    },
+    "assets/characters/leigneron/awakened/rootfather/crown-rally-atlas-v1.png": {
+      "beforeBytes": 891057,
+      "pngBytes": 687458,
+      "width": 987,
+      "height": 804,
+      "rgbaSha256": "6430e7b1524e9bba4f1546bea2f582b98d92c6c57feac0c72697233cb03a21c6"
+    },
+    "assets/characters/leigneron/awakened/rootfather/ember-snare-atlas-v1.png": {
+      "beforeBytes": 464803,
+      "pngBytes": 414044,
+      "width": 669,
+      "height": 526,
+      "rgbaSha256": "61957a5490ef693e70ee266e9461233b6ca3a31cb28f0437cf84fc9d259537e3"
+    },
+    "assets/characters/leigneron/awakened/rootfather/heart-v1.png": {
+      "beforeBytes": 27275,
+      "pngBytes": 25955,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "d1c6d56d8c1149dc0244ead22294010126894fb91c8c5d3dbddcca73019f1dac"
+    },
+    "assets/characters/leigneron/awakened/rootfather/idle-front-atlas-v1.png": {
+      "beforeBytes": 457231,
+      "pngBytes": 396702,
+      "width": 681,
+      "height": 504,
+      "rgbaSha256": "5544ef2049b4b5eb413e333cc3f691a21e61234010f803a9a850969e49c55c7f"
+    },
+    "assets/characters/leigneron/awakened/rootfather/idle-side-atlas-v1.png": {
+      "beforeBytes": 390366,
+      "pngBytes": 342600,
+      "width": 627,
+      "height": 490,
+      "rgbaSha256": "cb9eb71537a5763ced689ad074ddfc9c5fce24b20b6484bed735abc9a1a2fa5d"
+    },
+    "assets/characters/leigneron/awakened/rootfather/iron-rush-atlas-v1.png": {
+      "beforeBytes": 499896,
+      "pngBytes": 434451,
+      "width": 819,
+      "height": 516,
+      "rgbaSha256": "3bd298ac6f47e112044e63540ca3e880ed964e659849e6fc628f423f172b437c"
+    },
+    "assets/characters/leigneron/awakened/rootfather/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 497777,
+      "pngBytes": 437714,
+      "width": 726,
+      "height": 514,
+      "rgbaSha256": "30d82b2a1e29a3149202bb873aed9810c2fd9cdf541ba5bb85238d17725a56c7"
+    },
+    "assets/characters/leigneron/awakened/rootfather/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 442845,
+      "pngBytes": 390283,
+      "width": 705,
+      "height": 550,
+      "rgbaSha256": "e5497b0a66e39b209ce42de1be37a0208f97cc790808fc5954a25cff2f85fb03"
+    },
+    "assets/characters/leigneron/awakened/rootfather/run-side-atlas-v1.png": {
+      "beforeBytes": 459370,
+      "pngBytes": 397384,
+      "width": 867,
+      "height": 500,
+      "rgbaSha256": "be2d8f1271ae4717b44339d29ba3da9cfeb66e9517e107481933858bc185a7ec"
+    },
+    "assets/characters/leigneron/awakened/rootfather/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 935386,
+      "pngBytes": 738040,
+      "width": 1221,
+      "height": 874,
+      "rgbaSha256": "a2939f39007ff6e82a0d26db52ee8be4656028ec7b97000abe82cea6a1695611"
+    },
+    "assets/characters/leigneron/awakened/rootfather/walk-down-atlas-v1.png": {
+      "beforeBytes": 428332,
+      "pngBytes": 377288,
+      "width": 663,
+      "height": 508,
+      "rgbaSha256": "0653e81aab2234519e71e7850565d749362a1b99e2e40f404823391f8c928cf6"
+    },
+    "assets/characters/leigneron/awakened/rootfather/walk-side-atlas-v1.png": {
+      "beforeBytes": 411497,
+      "pngBytes": 362082,
+      "width": 738,
+      "height": 512,
+      "rgbaSha256": "15215dfee750ec16b23699bdb51d07984c8d7d170f5ceb8373ac87c29b61016a"
+    },
+    "assets/characters/leigneron/awakened/rootfather/walk-up-atlas-v1.png": {
+      "beforeBytes": 413189,
+      "pngBytes": 333469,
+      "width": 654,
+      "height": 510,
+      "rgbaSha256": "e3ee61a312061c26080eea28467f37c7fbb2cc356f1f999734c9ed2550e2af83"
+    },
+    "assets/characters/leigneron/awakened/rootfather/weapon-v1.png": {
+      "beforeBytes": 42546,
+      "pngBytes": 39019,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "ffa42f1772051e0cc1fd5011ed110102857375ed349d1c2fa5f9cc27e0684789"
+    },
+    "assets/characters/leigneron/awakened/salt-king/attack-atlas-v1.png": {
+      "beforeBytes": 2030677,
+      "pngBytes": 1736694,
+      "width": 988,
+      "height": 1554,
+      "rgbaSha256": "9b65cc6f8461a2722048ae35fa80726921b7cae99faaf861f3c9f3e7bbe9c876"
+    },
+    "assets/characters/leigneron/awakened/salt-king/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 815173,
+      "pngBytes": 657541,
+      "width": 1485,
+      "height": 640,
+      "rgbaSha256": "4f3af8f490f76ea67491ebe4db25366c2a8e343f051445e1e62e8d47416017dc"
+    },
+    "assets/characters/leigneron/awakened/salt-king/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 850062,
+      "pngBytes": 677012,
+      "width": 1743,
+      "height": 588,
+      "rgbaSha256": "6ef7f2ae7b149e3a20ea83118734146425bc19605e277941a780654bc9e45357"
+    },
+    "assets/characters/leigneron/awakened/salt-king/crown-rally-atlas-v1.png": {
+      "beforeBytes": 863694,
+      "pngBytes": 680195,
+      "width": 993,
+      "height": 784,
+      "rgbaSha256": "8b7adf4c8a12a750755b88b011600a72dbac42e7bfaa98032dfab00c31a73f6a"
+    },
+    "assets/characters/leigneron/awakened/salt-king/ember-snare-atlas-v1.png": {
+      "beforeBytes": 453526,
+      "pngBytes": 399704,
+      "width": 660,
+      "height": 528,
+      "rgbaSha256": "e79555756d345f6cfcad1c8a89992ac60f9cd239eb9f52c1ec117b0a270e3207"
+    },
+    "assets/characters/leigneron/awakened/salt-king/heart-v1.png": {
+      "beforeBytes": 26174,
+      "pngBytes": 24566,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "26387c2c39c960d30d5e087f18475ed8f648ecb0dcc7ee0643f936dfa2bbc21a"
+    },
+    "assets/characters/leigneron/awakened/salt-king/idle-front-atlas-v1.png": {
+      "beforeBytes": 452694,
+      "pngBytes": 386553,
+      "width": 672,
+      "height": 504,
+      "rgbaSha256": "1dc37b702362fe4b91d1a0dcc2ed6622a7b91ac425b1d65c17f1b756cde4ecaa"
+    },
+    "assets/characters/leigneron/awakened/salt-king/idle-side-atlas-v1.png": {
+      "beforeBytes": 394224,
+      "pngBytes": 336282,
+      "width": 681,
+      "height": 490,
+      "rgbaSha256": "1557af38febf203e08a220285dfc58010a922294c01d233b36e485b069ffbc90"
+    },
+    "assets/characters/leigneron/awakened/salt-king/iron-rush-atlas-v1.png": {
+      "beforeBytes": 472454,
+      "pngBytes": 406322,
+      "width": 834,
+      "height": 504,
+      "rgbaSha256": "fc93dcc55b7e957e4837e3c4c00b64f2b9bb0f1638fd2c8164307f3d4b3e8607"
+    },
+    "assets/characters/leigneron/awakened/salt-king/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 491283,
+      "pngBytes": 424886,
+      "width": 717,
+      "height": 512,
+      "rgbaSha256": "baca011bd76549b183286b4d0d56562dc9d3ea6632bf9f5df8923d93eb651e1d"
+    },
+    "assets/characters/leigneron/awakened/salt-king/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 411188,
+      "pngBytes": 351691,
+      "width": 705,
+      "height": 536,
+      "rgbaSha256": "5d7026e03d1d0cf284f7df5ae454d9ab32a7f16ff9cdf408f252519b2d72c42b"
+    },
+    "assets/characters/leigneron/awakened/salt-king/run-side-atlas-v1.png": {
+      "beforeBytes": 443424,
+      "pngBytes": 384529,
+      "width": 915,
+      "height": 514,
+      "rgbaSha256": "1c7d5f53949b01a864ac275f10202c4c6c230030a173b093723d027da02d5511"
+    },
+    "assets/characters/leigneron/awakened/salt-king/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 830867,
+      "pngBytes": 674245,
+      "width": 1134,
+      "height": 840,
+      "rgbaSha256": "df37268bda6c8d0292d2bf1aa4ee7eaef9194bebe723673f7be0e31d36ff68d0"
+    },
+    "assets/characters/leigneron/awakened/salt-king/walk-down-atlas-v1.png": {
+      "beforeBytes": 399822,
+      "pngBytes": 347793,
+      "width": 630,
+      "height": 502,
+      "rgbaSha256": "f35feae8d09993538e3362a109c05db31e48595dabfd30bb8ac31d777c77667a"
+    },
+    "assets/characters/leigneron/awakened/salt-king/walk-side-atlas-v1.png": {
+      "beforeBytes": 403285,
+      "pngBytes": 347692,
+      "width": 750,
+      "height": 510,
+      "rgbaSha256": "443a765b425423563d845d29898058abc419fa3429a7d204f85c38cf2e7e38d7"
+    },
+    "assets/characters/leigneron/awakened/salt-king/walk-up-atlas-v1.png": {
+      "beforeBytes": 372047,
+      "pngBytes": 313879,
+      "width": 567,
+      "height": 508,
+      "rgbaSha256": "bd9d9c3dc5b873d96042e3a3480643aa142302bdebe7dd9dc5199d3eda54d202"
+    },
+    "assets/characters/leigneron/awakened/salt-king/weapon-v1.png": {
+      "beforeBytes": 41066,
+      "pngBytes": 37514,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "9bc7f6643f3c7a5c787ab01a00fd74745913353485202e7fd221c215236153fe"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/attack-atlas-v1.png": {
+      "beforeBytes": 2082790,
+      "pngBytes": 1775987,
+      "width": 1040,
+      "height": 1578,
+      "rgbaSha256": "f37c09f6e2b3d2085ffe6927988fd95509db0c70138cfed0440601ae70be8130"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 858116,
+      "pngBytes": 681571,
+      "width": 1605,
+      "height": 610,
+      "rgbaSha256": "194b8ea2e65046d32178ee7907d52bf67ec632d8774f4668444d556b46d3d306"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 869986,
+      "pngBytes": 678618,
+      "width": 1701,
+      "height": 600,
+      "rgbaSha256": "9974826424f323ae0fbf8a447d3828b626ce0fe82c743d3beb8c0eac5899b8b5"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/crown-rally-atlas-v1.png": {
+      "beforeBytes": 918433,
+      "pngBytes": 714626,
+      "width": 1017,
+      "height": 810,
+      "rgbaSha256": "946ca019bac071c8d8b34149f03933229b641fb0861d9a1de6903131425087e9"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/ember-snare-atlas-v1.png": {
+      "beforeBytes": 440278,
+      "pngBytes": 386891,
+      "width": 660,
+      "height": 530,
+      "rgbaSha256": "75a350745fb6c01a43d47c0ced0d0a4300030bbda6acdd7793311b832c64f8b5"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/heart-v1.png": {
+      "beforeBytes": 24445,
+      "pngBytes": 23047,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "58385a206f699be005a1931f6270ae51c4b8ccb52e14baa6d135666aebd7e949"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/idle-front-atlas-v1.png": {
+      "beforeBytes": 466333,
+      "pngBytes": 402814,
+      "width": 696,
+      "height": 508,
+      "rgbaSha256": "83bc66c944df2ab997d71264c8fb59e3c80187aeb1f3215c5f5fb96cdfb55a79"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/idle-side-atlas-v1.png": {
+      "beforeBytes": 382707,
+      "pngBytes": 328589,
+      "width": 627,
+      "height": 490,
+      "rgbaSha256": "b81c220ff0f06baee39c1f1725a3f962bb76752c5e914a26633309eab64ad91f"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/iron-rush-atlas-v1.png": {
+      "beforeBytes": 492700,
+      "pngBytes": 422501,
+      "width": 831,
+      "height": 508,
+      "rgbaSha256": "5381c1d29f31c2d5f36209cac5c7ffab2ee91e2295f1cbaa9a5534baee21d3cd"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 497223,
+      "pngBytes": 430000,
+      "width": 726,
+      "height": 516,
+      "rgbaSha256": "7d6b6ff19c492fd5b59d2d368e48049fd1d44cbf40d84177327a27713ce708e3"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 431886,
+      "pngBytes": 372908,
+      "width": 708,
+      "height": 540,
+      "rgbaSha256": "50a97f1dccd22ba0ebe8963a3944f5f5c6ec70e087abf23669a40eb721590580"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/run-side-atlas-v1.png": {
+      "beforeBytes": 477846,
+      "pngBytes": 392244,
+      "width": 885,
+      "height": 516,
+      "rgbaSha256": "9de8b01e40fc9431eb79c8a10f81fbdb766ee70ad5c6e889000b59872006f0a8"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 921598,
+      "pngBytes": 698055,
+      "width": 1224,
+      "height": 852,
+      "rgbaSha256": "736d054490525b5450fd3d983c18fe2df6478ed35d66797b5b91cceb9e462f30"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/walk-down-atlas-v1.png": {
+      "beforeBytes": 430336,
+      "pngBytes": 370077,
+      "width": 666,
+      "height": 504,
+      "rgbaSha256": "addafa41d14265b5ab57e21d2543b1118009b13ea24ad310d58c1c21e0a382b4"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/walk-side-atlas-v1.png": {
+      "beforeBytes": 409666,
+      "pngBytes": 356662,
+      "width": 744,
+      "height": 514,
+      "rgbaSha256": "cbf857058a4ea151892c646e2cc6c9e176c27cc86032de66ca1019a8484bf826"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/walk-up-atlas-v1.png": {
+      "beforeBytes": 446557,
+      "pngBytes": 352306,
+      "width": 693,
+      "height": 506,
+      "rgbaSha256": "8d5f38abf201df2cc8ec6497b0e9fa5abc7e4bdf0505f5b087b6025789f4012e"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/weapon-v1.png": {
+      "beforeBytes": 46170,
+      "pngBytes": 42552,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "3092cb37d94f2f61fe9da5db6a6efa7f35cc3898d72be9c49ca94ac50db8d41c"
+    },
+    "assets/characters/leigneron/awakened/varkhul/attack-atlas-v1.png": {
+      "beforeBytes": 2150002,
+      "pngBytes": 1888833,
+      "width": 1028,
+      "height": 1590,
+      "rgbaSha256": "8f335416bf31d3b9b3c778e1bc6bffb564e43fd0a1b25cfc22bd9900a9a010ed"
+    },
+    "assets/characters/leigneron/awakened/varkhul/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 862016,
+      "pngBytes": 710657,
+      "width": 1578,
+      "height": 622,
+      "rgbaSha256": "c0ed88022fec436f4082ff331141e554dd6f96070e9bf89358044aac9d54d32c"
+    },
+    "assets/characters/leigneron/awakened/varkhul/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 786725,
+      "pngBytes": 654362,
+      "width": 1800,
+      "height": 600,
+      "rgbaSha256": "16a0b03e57bff42dd2729aaaaa7bf82ae7e6ea4f6f83bb19f9ff12e985717eea"
+    },
+    "assets/characters/leigneron/awakened/varkhul/crown-rally-atlas-v1.png": {
+      "beforeBytes": 873953,
+      "pngBytes": 699330,
+      "width": 993,
+      "height": 808,
+      "rgbaSha256": "3f79f95029fdda4634ea8d2ebe249abdd14befe39c1c5f55e1de20a27034ab5f"
+    },
+    "assets/characters/leigneron/awakened/varkhul/ember-snare-atlas-v1.png": {
+      "beforeBytes": 439955,
+      "pngBytes": 395828,
+      "width": 675,
+      "height": 536,
+      "rgbaSha256": "31767f7306dc14f31ca9902d73f2abd27f8023c548d429dc80fc6c6fdb5afa52"
+    },
+    "assets/characters/leigneron/awakened/varkhul/heart-v1.png": {
+      "beforeBytes": 24450,
+      "pngBytes": 23069,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "41659dcd0273faf9a4497a5ec05ceb4d801a9f183ad5db9a26ab3717e949a7f1"
+    },
+    "assets/characters/leigneron/awakened/varkhul/idle-front-atlas-v1.png": {
+      "beforeBytes": 455646,
+      "pngBytes": 405103,
+      "width": 666,
+      "height": 504,
+      "rgbaSha256": "e784b3c9041e4350ba500ed99c58d6b8dbcade48afa177b0d740e02c3b846649"
+    },
+    "assets/characters/leigneron/awakened/varkhul/idle-side-atlas-v1.png": {
+      "beforeBytes": 363488,
+      "pngBytes": 319978,
+      "width": 618,
+      "height": 490,
+      "rgbaSha256": "a164297769c69a712c0ec75bd0bc029015c505577428e0309b8eeba9493ec3c2"
+    },
+    "assets/characters/leigneron/awakened/varkhul/iron-rush-atlas-v1.png": {
+      "beforeBytes": 494270,
+      "pngBytes": 436400,
+      "width": 801,
+      "height": 512,
+      "rgbaSha256": "2be933d4f0095297be66f80e683ad425c86c918b7c8f61ef12eab8620be28ae2"
+    },
+    "assets/characters/leigneron/awakened/varkhul/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 522819,
+      "pngBytes": 463639,
+      "width": 849,
+      "height": 512,
+      "rgbaSha256": "93054969816a4bf874ece13cc98d950dc2bf576be11c2db0e45da3b3c108fc01"
+    },
+    "assets/characters/leigneron/awakened/varkhul/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 429718,
+      "pngBytes": 376602,
+      "width": 696,
+      "height": 538,
+      "rgbaSha256": "ce895cd01fda33254557a3e0f0b7d30285ac3b53222343e6a27ab146b4dbef20"
+    },
+    "assets/characters/leigneron/awakened/varkhul/run-side-atlas-v1.png": {
+      "beforeBytes": 470875,
+      "pngBytes": 401763,
+      "width": 876,
+      "height": 524,
+      "rgbaSha256": "88d821f77dccfc660a337632f98523131b4fbb950c6e4e5ca4f62a06c3adf7fb"
+    },
+    "assets/characters/leigneron/awakened/varkhul/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 776854,
+      "pngBytes": 635284,
+      "width": 1455,
+      "height": 692,
+      "rgbaSha256": "65e5b73ef693e633f8ee1ef6ac4ae58210649c3284771c6e6629346297e11e00"
+    },
+    "assets/characters/leigneron/awakened/varkhul/walk-down-atlas-v1.png": {
+      "beforeBytes": 438606,
+      "pngBytes": 389621,
+      "width": 690,
+      "height": 506,
+      "rgbaSha256": "f6eaa35f6674f0166009016c24cb699d9dbcb9ca66e2800bb9eaf39fc20bbdac"
+    },
+    "assets/characters/leigneron/awakened/varkhul/walk-side-atlas-v1.png": {
+      "beforeBytes": 394171,
+      "pngBytes": 349223,
+      "width": 741,
+      "height": 510,
+      "rgbaSha256": "f516b4aca410fd681840668e5d798d871c7c59fe96bab495e9024ff99abfc1e7"
+    },
+    "assets/characters/leigneron/awakened/varkhul/walk-up-atlas-v1.png": {
+      "beforeBytes": 384389,
+      "pngBytes": 320763,
+      "width": 552,
+      "height": 510,
+      "rgbaSha256": "d1f3739a4630ed87824e31a47ca25e48a713dd84d0e6efd5da5a55f9bd92d308"
+    },
+    "assets/characters/leigneron/awakened/varkhul/weapon-v1.png": {
+      "beforeBytes": 42142,
+      "pngBytes": 38549,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "9e0df3eda54d1fc163697a8bc7d142fc49284f7921c07a39b4936afac7018571"
+    },
+    "assets/characters/leigneron/awakened/varr/attack-atlas-v1.png": {
+      "beforeBytes": 1995172,
+      "pngBytes": 1683517,
+      "width": 992,
+      "height": 1560,
+      "rgbaSha256": "d9ffd70059309bdd2fb0abc2a17cd641c672a91e14a7beaa03bc00f3926567a4"
+    },
+    "assets/characters/leigneron/awakened/varr/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 835926,
+      "pngBytes": 670784,
+      "width": 1836,
+      "height": 602,
+      "rgbaSha256": "4b3b170b84bf44c2a784fbad54fab47359a3d5fe2adad789479e27b9ce4bde2d"
+    },
+    "assets/characters/leigneron/awakened/varr/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 845685,
+      "pngBytes": 667534,
+      "width": 1494,
+      "height": 602,
+      "rgbaSha256": "a409c483602c78c456dc728c2529b0f34aa4d37fb90923b162752455415b9923"
+    },
+    "assets/characters/leigneron/awakened/varr/crown-rally-atlas-v1.png": {
+      "beforeBytes": 862718,
+      "pngBytes": 658761,
+      "width": 1002,
+      "height": 814,
+      "rgbaSha256": "4a7d177dff0143129699b1a7a41886b91e989124954f1cc45dcf3292e0606f2d"
+    },
+    "assets/characters/leigneron/awakened/varr/ember-snare-atlas-v1.png": {
+      "beforeBytes": 432514,
+      "pngBytes": 375669,
+      "width": 663,
+      "height": 528,
+      "rgbaSha256": "154dabb511f6d75e6c4deda9efed5e95aea830bf6f64a8a1d8e5010e38d1b88b"
+    },
+    "assets/characters/leigneron/awakened/varr/heart-v1.png": {
+      "beforeBytes": 25104,
+      "pngBytes": 23452,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "3d4589ce39eea49d9b50c26138e397cc5ddb9fd5625fbe2b94580198a381a5cf"
+    },
+    "assets/characters/leigneron/awakened/varr/idle-front-atlas-v1.png": {
+      "beforeBytes": 426310,
+      "pngBytes": 359091,
+      "width": 678,
+      "height": 504,
+      "rgbaSha256": "e262d5779aa6f4a1c438e0154ef6094b3c19f7b2e6a50f5b870af11b613fb681"
+    },
+    "assets/characters/leigneron/awakened/varr/idle-side-atlas-v1.png": {
+      "beforeBytes": 359137,
+      "pngBytes": 297301,
+      "width": 654,
+      "height": 490,
+      "rgbaSha256": "9026c34a3a287c52ffe4751142eebffe4c6e26b2ce30b3056bea5aaa1654d71d"
+    },
+    "assets/characters/leigneron/awakened/varr/iron-rush-atlas-v1.png": {
+      "beforeBytes": 454823,
+      "pngBytes": 381998,
+      "width": 813,
+      "height": 510,
+      "rgbaSha256": "861ade220b4f0af75c175afe26903cf7690475e034ae5a86fc99773130a8decf"
+    },
+    "assets/characters/leigneron/awakened/varr/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 467150,
+      "pngBytes": 400487,
+      "width": 729,
+      "height": 512,
+      "rgbaSha256": "c51e3e6617e2233335de233ab6fc16d3fd8bba3d86c164441e84522059d607bb"
+    },
+    "assets/characters/leigneron/awakened/varr/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 402240,
+      "pngBytes": 340542,
+      "width": 696,
+      "height": 540,
+      "rgbaSha256": "6cede7bc9e8a6ea98bd06be782a6c94d8c647c049ecb5fb6e250dbae4c86a434"
+    },
+    "assets/characters/leigneron/awakened/varr/run-side-atlas-v1.png": {
+      "beforeBytes": 428140,
+      "pngBytes": 373300,
+      "width": 852,
+      "height": 506,
+      "rgbaSha256": "16cfbed4069e917e1db1d49ebaf8638d8c51260778c041bc82d8de93e564ca14"
+    },
+    "assets/characters/leigneron/awakened/varr/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 910834,
+      "pngBytes": 690966,
+      "width": 1209,
+      "height": 866,
+      "rgbaSha256": "99e9450ee29fec0982625cd1a7af91c5ba145596ca393e3228f5afc962607732"
+    },
+    "assets/characters/leigneron/awakened/varr/walk-down-atlas-v1.png": {
+      "beforeBytes": 410593,
+      "pngBytes": 348612,
+      "width": 657,
+      "height": 508,
+      "rgbaSha256": "648ac40165117eddbbbbc21bf83bd88ea7d9cf87ba4909d412237edd396e8ea9"
+    },
+    "assets/characters/leigneron/awakened/varr/walk-side-atlas-v1.png": {
+      "beforeBytes": 381956,
+      "pngBytes": 324321,
+      "width": 750,
+      "height": 512,
+      "rgbaSha256": "a18fbc4b8f124daec56c4d4c0c838c1c5fe8b9a1a2abe4c02e38d3a9e596463f"
+    },
+    "assets/characters/leigneron/awakened/varr/walk-up-atlas-v1.png": {
+      "beforeBytes": 431530,
+      "pngBytes": 338202,
+      "width": 693,
+      "height": 508,
+      "rgbaSha256": "3140cd95f2489688b97dc19ec46b339c73cb91e95532f19cafd365ae31869e15"
+    },
+    "assets/characters/leigneron/awakened/varr/weapon-v1.png": {
+      "beforeBytes": 40009,
+      "pngBytes": 36305,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "3b93234d50896aa579eb4d8a19b6ceb083e9d4a4e135ec2789606815b125ab65"
+    },
+    "assets/characters/leigneron/awakened/warden/attack-atlas-v1.png": {
+      "beforeBytes": 2183682,
+      "pngBytes": 1805423,
+      "width": 1104,
+      "height": 1584,
+      "rgbaSha256": "098ad80ce7bcc72eb61913e9995442afbf785ae39b8befb4eeaaea99f752b126"
+    },
+    "assets/characters/leigneron/awakened/warden/azure-cleave-atlas-v1.png": {
+      "beforeBytes": 818808,
+      "pngBytes": 661399,
+      "width": 1449,
+      "height": 596,
+      "rgbaSha256": "470458c8e3d55d435c7d3832a293138df1211a9bc23bb37f94bf83002c3cf5fe"
+    },
+    "assets/characters/leigneron/awakened/warden/crescent-flurry-atlas-v1.png": {
+      "beforeBytes": 906155,
+      "pngBytes": 710986,
+      "width": 1614,
+      "height": 606,
+      "rgbaSha256": "2efb5ddfa765c433cc85a81233d8567ff262494aefb8104111bfca08d469720e"
+    },
+    "assets/characters/leigneron/awakened/warden/crown-rally-atlas-v1.png": {
+      "beforeBytes": 898434,
+      "pngBytes": 675594,
+      "width": 1008,
+      "height": 790,
+      "rgbaSha256": "6730353dbfd18f97b9e9ae9c9db26e14b46a1216bbc9a8d0b0bb735634e4d9a3"
+    },
+    "assets/characters/leigneron/awakened/warden/ember-snare-atlas-v1.png": {
+      "beforeBytes": 452738,
+      "pngBytes": 391559,
+      "width": 687,
+      "height": 530,
+      "rgbaSha256": "7110408e30e7c10df88480b031e37c316578ba4d33d3f8f5b1a11779e57efde2"
+    },
+    "assets/characters/leigneron/awakened/warden/heart-v1.png": {
+      "beforeBytes": 29899,
+      "pngBytes": 28590,
+      "width": 128,
+      "height": 128,
+      "rgbaSha256": "6a445cbfff5cfc9434083fdae4000caeb35580decfa81cc5119ebb86a36892d1"
+    },
+    "assets/characters/leigneron/awakened/warden/idle-front-atlas-v1.png": {
+      "beforeBytes": 435267,
+      "pngBytes": 372181,
+      "width": 666,
+      "height": 504,
+      "rgbaSha256": "03f8e9942433728e01d393de5bf8ba5f79cdd91255f80b72b3aa4562e7b9b723"
+    },
+    "assets/characters/leigneron/awakened/warden/idle-side-atlas-v1.png": {
+      "beforeBytes": 399087,
+      "pngBytes": 338643,
+      "width": 675,
+      "height": 490,
+      "rgbaSha256": "76c3a340ae5c3dae5d91aba06ca6dabdc31c8dc89652f501961a5dd2c428577c"
+    },
+    "assets/characters/leigneron/awakened/warden/iron-rush-atlas-v1.png": {
+      "beforeBytes": 506531,
+      "pngBytes": 421803,
+      "width": 873,
+      "height": 508,
+      "rgbaSha256": "3b9f0f8e759515fc587293e5a853ad6ca6723da18b74b20207a1cb0c1ff4cdb1"
+    },
+    "assets/characters/leigneron/awakened/warden/iron-rush-down-atlas-v1.png": {
+      "beforeBytes": 474817,
+      "pngBytes": 402405,
+      "width": 705,
+      "height": 512,
+      "rgbaSha256": "146a0bf21aea19d1e0d3b187566853f7bbecdbf42a0554bb1c43566f472c12ba"
+    },
+    "assets/characters/leigneron/awakened/warden/iron-rush-up-atlas-v1.png": {
+      "beforeBytes": 422920,
+      "pngBytes": 358629,
+      "width": 711,
+      "height": 546,
+      "rgbaSha256": "25b0b03d4a83d73636f39787a0c827fb659ee0148a96451ceefabc481bd9c19e"
+    },
+    "assets/characters/leigneron/awakened/warden/run-side-atlas-v1.png": {
+      "beforeBytes": 463752,
+      "pngBytes": 393396,
+      "width": 909,
+      "height": 506,
+      "rgbaSha256": "9c64ff9f6b7b11beec97ea5064426b1260041dee67a5d8e8c83395f24233c9c6"
+    },
+    "assets/characters/leigneron/awakened/warden/skyfall-slam-atlas-v1.png": {
+      "beforeBytes": 882874,
+      "pngBytes": 661544,
+      "width": 1143,
+      "height": 832,
+      "rgbaSha256": "cf665db4f9450333f9c681d29d6e23400cd53be7bb8c3f2c350de7e7abc89ee8"
+    },
+    "assets/characters/leigneron/awakened/warden/walk-down-atlas-v1.png": {
+      "beforeBytes": 404657,
+      "pngBytes": 346019,
+      "width": 651,
+      "height": 504,
+      "rgbaSha256": "691623f4ed1a95181130bf71fde8762e12b269105613e919525bf4a68a9c969f"
+    },
+    "assets/characters/leigneron/awakened/warden/walk-side-atlas-v1.png": {
+      "beforeBytes": 422110,
+      "pngBytes": 360531,
+      "width": 774,
+      "height": 514,
+      "rgbaSha256": "4ebf7847e203397bf7b7740381b96fbc0cc3e85005a14df59648f2d8c4b85c7d"
+    },
+    "assets/characters/leigneron/awakened/warden/walk-up-atlas-v1.png": {
+      "beforeBytes": 410610,
+      "pngBytes": 319428,
+      "width": 612,
+      "height": 508,
+      "rgbaSha256": "9fd9bedf7ca9ec916e20ffb873bb6501cdca32f67b81e16473ba8148113c668a"
+    },
+    "assets/characters/leigneron/awakened/warden/weapon-v1.png": {
+      "beforeBytes": 42991,
+      "pngBytes": 39583,
+      "width": 256,
+      "height": 320,
+      "rgbaSha256": "91370c50e77ad19c2a3b4cf01febf3e099e55b6a592158ecede5d5e61a91d6c6"
+    },
+    "assets/characters/leigneron/effects/fortification_effect.png": {
+      "beforeBytes": 1901613,
+      "pngBytes": 1858325,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "84160f20434eb79ebcf7a486240213b04fbb8c3d7ac53bc403d6595bba8dde4d"
+    },
+    "assets/characters/leigneron/effects/heal_effect.png": {
+      "beforeBytes": 1717140,
+      "pngBytes": 1647055,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f256956b28150cbbe257ba3d17ae0614377da664704a08677e7f0027271c4235"
+    },
+    "assets/characters/leigneron/effects/hit_effect.png": {
+      "beforeBytes": 1673871,
+      "pngBytes": 1587039,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "582223fc5ab08b408181598307f726f4b818487a36d1cf70f6f4aa70a4371d57"
+    },
+    "assets/characters/leigneron/effects/slash_effect.png": {
+      "beforeBytes": 1716619,
+      "pngBytes": 1628384,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "317950d74445a73e6a8d65ce436f57e9d3ddf4e855ce2fd1ae04bba18a141724"
+    },
+    "assets/characters/leigneron/effects/teleport_effect.png": {
+      "beforeBytes": 1668788,
+      "pngBytes": 1593163,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "e20d99260ca1c34a4c8025189d3c34c4d9ff6370d2dc7fa304c03444142aca9c"
+    },
+    "assets/characters/leigneron/modular/attack-body-v1.png": {
+      "beforeBytes": 2206639,
+      "pngBytes": 2140629,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "b8d7a9a1e3f1f8ada0d9b441ece00e93ea06322658338b46c39e1a1e34af74d9"
+    },
+    "assets/characters/leigneron/modular/run-side-body-v2.png": {
+      "beforeBytes": 1050304,
+      "pngBytes": 760576,
+      "width": 2304,
+      "height": 724,
+      "rgbaSha256": "e75ec6736647b08b3e80b15e1128725527462e5f68dff28e0b8bf278b22161e3"
+    },
+    "assets/characters/leigneron/modular/run-side-body-v3.png": {
+      "beforeBytes": 1174188,
+      "pngBytes": 847054,
+      "width": 2304,
+      "height": 724,
+      "rgbaSha256": "29087a3754cd6707ad5fd9b11f25638e60a856794b9b78642fe72ff9a18d808a"
+    },
+    "assets/effects/boss-motion-v1.png": {
+      "beforeBytes": 1769362,
+      "pngBytes": 1472547,
+      "width": 2048,
+      "height": 1280,
+      "rgbaSha256": "c49a9ff3f4a4a04f83ec1b2a364882b4c7d94ceb672ddfce2e838d3ea13bde4e"
+    },
+    "assets/effects/boss-skills-v2.png": {
+      "beforeBytes": 1851731,
+      "pngBytes": 1475491,
+      "width": 768,
+      "height": 1536,
+      "rgbaSha256": "df4a412e746f6e7e5872b3f88b7d03ec6d9bfb62f457d13e944fa4fb7c94f4ff"
+    },
+    "assets/effects/combat-arts-v1.png": {
+      "beforeBytes": 2823464,
+      "pngBytes": 2588036,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "4c8b484c09d05349804a49c77ca1c1152d0ff23862ae69d1c807ff88f0fdc45d"
+    },
+    "assets/effects/distinct-combat-arts-v2.png": {
+      "beforeBytes": 2393102,
+      "pngBytes": 2115150,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "863f3c600d9f83c7dfaa4a3424a43cac8ab47e4421365329610cee99f82c925b"
+    },
+    "assets/effects/dragon-breath.png": {
+      "beforeBytes": 2236426,
+      "pngBytes": 2184889,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f4100d5190c03e1b7dade71deed2c502af200b5673507f068cd3274f43b23349"
+    },
+    "assets/enemies/ashen_seer/actions.png": {
+      "beforeBytes": 2768762,
+      "pngBytes": 2684132,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "af793175b61123fdd4c4f6c7b246b632d5ee4b9adc3fc8bd1e5dec11c69bdbe2"
+    },
+    "assets/enemies/ashen_seer/walk-v2.png": {
+      "beforeBytes": 2709513,
+      "pngBytes": 2600789,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "865b62492b2832e11adce45df0fb4c83ea75020b2f73e9f41050ecd5e0bde7ba"
+    },
+    "assets/enemies/blighted_thornling/actions.png": {
+      "beforeBytes": 2630694,
+      "pngBytes": 2514795,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "051c8071470104b43a1f5fbdc90809187ddcd64c70771a4da98707768c2beb13"
+    },
+    "assets/enemies/blighted_thornling/walk.png": {
+      "beforeBytes": 2476313,
+      "pngBytes": 2355689,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f5d00072f2d7f05b758e763159e433795639f93f52c7df7b35922ccdfca3d48d"
+    },
+    "assets/enemies/boarfiend/attack.png": {
+      "beforeBytes": 193589,
+      "pngBytes": 192552,
+      "width": 960,
+      "height": 152,
+      "rgbaSha256": "9bff175cff08ab0483479c3ff4450fbcd0373c7402038bc78b2cebc1ab6812be"
+    },
+    "assets/enemies/boarfiend/death.png": {
+      "beforeBytes": 221307,
+      "pngBytes": 219655,
+      "width": 1152,
+      "height": 152,
+      "rgbaSha256": "365cff129820ae289279d65a5949a8822de982b8ee3a004a1d7285bcb5794945"
+    },
+    "assets/enemies/boarfiend/hurt.png": {
+      "beforeBytes": 236876,
+      "pngBytes": 235977,
+      "width": 1152,
+      "height": 152,
+      "rgbaSha256": "8634a6cff66e271c1c72c0570a10424948f29596cfa645f3200a1746a26fc65a"
+    },
+    "assets/enemies/boarfiend/idle.png": {
+      "beforeBytes": 263893,
+      "pngBytes": 262235,
+      "width": 1152,
+      "height": 152,
+      "rgbaSha256": "5d90ef9b2b3860bbde4dd27af5e5c230aff2855667245e39e5b0448309bfeed9"
+    },
+    "assets/enemies/boarfiend/walk.png": {
+      "beforeBytes": 260375,
+      "pngBytes": 258546,
+      "width": 1152,
+      "height": 152,
+      "rgbaSha256": "96acd40683d0349e883f5b2c1d8cd5ed5ed536f6f96dd835521ab25092c2e0bb"
+    },
+    "assets/enemies/cutlass_pirate/poses.png": {
+      "beforeBytes": 1972926,
+      "pngBytes": 1865993,
+      "width": 1312,
+      "height": 1199,
+      "rgbaSha256": "24b36cdc7d0e0419f74fa752f32a94d8515cf4c8d9d6a03473774b9478277b5a"
+    },
+    "assets/enemies/cutlass_pirate/walk-sides-v2.png": {
+      "beforeBytes": 1212442,
+      "pngBytes": 1209867,
+      "width": 1312,
+      "height": 1199,
+      "rgbaSha256": "d0720ac2829b5bdcd2dd839b2b29dab6765bd4d72ad2eda17712c26fa015f34b"
+    },
+    "assets/enemies/directional/ash-dragon.png": {
+      "beforeBytes": 2371232,
+      "pngBytes": 2286228,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "8f679e0836951401cd1c33249ddcf032334f21ca90399d80f0c6f5a782b3c0f3"
+    },
+    "assets/enemies/directional/boarfiend.png": {
+      "beforeBytes": 1698197,
+      "pngBytes": 1650316,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "98ecd0642c31d04db1b3bcf0b54cbfb96be7f36f4f648fa4ee7476147894076f"
+    },
+    "assets/enemies/directional/cave-troll.png": {
+      "beforeBytes": 1245893,
+      "pngBytes": 1237438,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "bd9cc871176d442185fd493783aacd5d71a8e258e4991474dadaa490bb7604ff"
+    },
+    "assets/enemies/directional/gray-wolf.png": {
+      "beforeBytes": 1534405,
+      "pngBytes": 1472947,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "66313e90fa9f2a05c4451008e6d5294ba4216906e281298bcd411f3a85e0dfe7"
+    },
+    "assets/enemies/directional/marsh-wraith.png": {
+      "beforeBytes": 2122851,
+      "pngBytes": 2039519,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "2a6964735ef73317374431462fa5eb1aa1441b2e0d63b05e4f003507c3c69c4f"
+    },
+    "assets/enemies/dragon/death.png": {
+      "beforeBytes": 185046,
+      "pngBytes": 185028,
+      "width": 1152,
+      "height": 152,
+      "rgbaSha256": "bd26bc3199e774ebe75d9854e7cac14d6f9f11bd99df5eab51ce2dbe222a1885"
+    },
+    "assets/enemies/dragon/flying.png": {
+      "beforeBytes": 1039893,
+      "pngBytes": 1036676,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "e3d560dab74a1c74c966a6a65b3ec1ee8997bb1c7932c459f0695ed12d8ec96f"
+    },
+    "assets/enemies/dragon/idle.png": {
+      "beforeBytes": 255048,
+      "pngBytes": 254831,
+      "width": 1152,
+      "height": 152,
+      "rgbaSha256": "b3c12eaf64817ff61e5aedb8f4eeaf0db267c68375b45d5d10fbc41c9495d752"
+    },
+    "assets/enemies/frost_wyrm/actions.png": {
+      "beforeBytes": 2876779,
+      "pngBytes": 2748302,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "280c0d93178f9530fa609bcbe49b76a73d6a830217423f3fc8ef1347a590c85f"
+    },
+    "assets/enemies/frost_wyrm/walk-v2.png": {
+      "beforeBytes": 2691907,
+      "pngBytes": 2582926,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "31b6e06b692a4ed3d426b34badb1c202f52929d7b4d995f922a4f2296f21f90a"
+    },
+    "assets/enemies/goblin_stone_slinger/actions.png": {
+      "beforeBytes": 2519711,
+      "pngBytes": 2435923,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "032a51a4e0b21c6789e28bc172678bca6052f53f1d5cfe9d70a1c1ad9f494c15"
+    },
+    "assets/enemies/goblin_stone_slinger/gait-poses.png": {
+      "beforeBytes": 2648190,
+      "pngBytes": 2549698,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "a1bacb875d9491ff43a0c205f001e57c9999dc6a612995faee621e269b5f6739"
+    },
+    "assets/enemies/goblin_stone_slinger/passing.png": {
+      "beforeBytes": 1874960,
+      "pngBytes": 1786587,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "ff593f08d69104efd2880fd05c54f8463477e34f05e5c36dadc17e9218095f13"
+    },
+    "assets/enemies/goblin_stone_slinger/stone.png": {
+      "beforeBytes": 311993,
+      "pngBytes": 299652,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "b4a771a805924a04630708a752399aa193c908bf0422e2671440eda23cda6e0e"
+    },
+    "assets/enemies/goblin_stone_slinger/walk.png": {
+      "beforeBytes": 2539270,
+      "pngBytes": 2439145,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f39f4e0f932fc4f6fc87ac841bb9ab74994220448ad825fab7e0dc6b96363c96"
+    },
+    "assets/enemies/grand_magus/atlas-hd-v2.png": {
+      "beforeBytes": 2456311,
+      "pngBytes": 2281461,
+      "width": 2048,
+      "height": 904,
+      "rgbaSha256": "1fb24aabd04b0020f5a68d1b06375ff81274492a0f49fc227934b61ce373ac29"
+    },
+    "assets/enemies/gray_wolf/attack.png": {
+      "beforeBytes": 685551,
+      "pngBytes": 653852,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "3830b026c4be47b8faef86ca314f6f07ee20be59b7427e9f9b992bcc39c29ca9"
+    },
+    "assets/enemies/gray_wolf/death.png": {
+      "beforeBytes": 142520,
+      "pngBytes": 139477,
+      "width": 1056,
+      "height": 144,
+      "rgbaSha256": "c11d91cd703b1f81229ea03d56a7608aad4171cd3102a2881c367d5221a6e56e"
+    },
+    "assets/enemies/gray_wolf/hurt.png": {
+      "beforeBytes": 179629,
+      "pngBytes": 175805,
+      "width": 1056,
+      "height": 144,
+      "rgbaSha256": "9554ec555da8559faf2f891a0770e89b973870d71ff46f32ae907a94c46bb25d"
+    },
+    "assets/enemies/gray_wolf/idle.png": {
+      "beforeBytes": 170819,
+      "pngBytes": 166845,
+      "width": 1056,
+      "height": 144,
+      "rgbaSha256": "50aa6926570640b948a8990f5f92c84fd28879769c8c54303a4ea6fb5b003244"
+    },
+    "assets/enemies/gray_wolf/walk.png": {
+      "beforeBytes": 712148,
+      "pngBytes": 676728,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "ef3a942661f4545027bf40526da1f4d21adce3f295687a5b7f5c49151996ec44"
+    },
+    "assets/enemies/grove_spider/actions-transparent-v2.png": {
+      "beforeBytes": 2626006,
+      "pngBytes": 2576464,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "4fbb93c4261b62bbe80e1467d3fdf3e1b7063e2b28229cef14f35c4162b0b710"
+    },
+    "assets/enemies/grove_spider/actions.png": {
+      "beforeBytes": 2790082,
+      "pngBytes": 2743838,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "6f75f8456f8e5573cfc7edefa95419c611df1040df696df9c88929d637496eb6"
+    },
+    "assets/enemies/grove_spider/walk.png": {
+      "beforeBytes": 2618648,
+      "pngBytes": 2539087,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "5aa7466ae56a044c8b7d23080156ff9b7d7c86015c924a122c379c7d7d78141c"
+    },
+    "assets/enemies/hedge_goblin/actions.png": {
+      "beforeBytes": 2484330,
+      "pngBytes": 2394916,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "c598315ada99ba0ec26dc47f9413704aa78081f32ef0d75415585e0c6ade2b13"
+    },
+    "assets/enemies/hedge_goblin/complete-poses.png": {
+      "beforeBytes": 1642639,
+      "pngBytes": 1550994,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "32581fe6b4e720ded6fbe07a19829edf49f66d6741a5c98ece1d325283cc0ebb"
+    },
+    "assets/enemies/hedge_goblin/walk.png": {
+      "beforeBytes": 2485770,
+      "pngBytes": 2375688,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "97cc4f766727a91470ba7f64bd6955497ad0b7d939af33673d4a5572ee44d78f"
+    },
+    "assets/enemies/krag_chieftain/actions.png": {
+      "beforeBytes": 2551371,
+      "pngBytes": 2479360,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "7d904ee438d9270af7a7b65c4debd3450ec3d35e66b11848af3a07353f0560a0"
+    },
+    "assets/enemies/krag_chieftain/walk-side-opposite.png": {
+      "beforeBytes": 2251653,
+      "pngBytes": 2159159,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "3f6c9cd49ca2f89dfc2ba03851c187db6e57c87b6fb0e08642341e14e08b81bf"
+    },
+    "assets/enemies/krag_chieftain/walk-side-v2.png": {
+      "beforeBytes": 1803924,
+      "pngBytes": 1716534,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "544d3d3d4de43222bd98aec1d6d53a85dd349964a5ea293ec70ff76d93b7aeb9"
+    },
+    "assets/enemies/krag_chieftain/walk-v2.png": {
+      "beforeBytes": 2465404,
+      "pngBytes": 2372859,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "8acd2eb60caaaa03cf68c90a4403c57caaa36ca7f6db9b76739e0b07faef9003"
+    },
+    "assets/enemies/pirate_boatswain/attack.png": {
+      "beforeBytes": 2550661,
+      "pngBytes": 2478279,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "edecf5441201063964d9068307ae249b02960fdd57f2796650e0ad373e767757"
+    },
+    "assets/enemies/pirate_boatswain/states.png": {
+      "beforeBytes": 2490722,
+      "pngBytes": 2423695,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "4489e0e2fdac2b18335c297108ea9116cb792e0ce7df36e931e79fbc156431c0"
+    },
+    "assets/enemies/pirate_boatswain/walk-side-v2.png": {
+      "beforeBytes": 2071394,
+      "pngBytes": 1964453,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "95c5b7fe8045b1a51124e064b25e3f6bfdaa5dca83f80a5548393b2675a6b307"
+    },
+    "assets/enemies/pirate_boatswain/walk-vertical-v2.png": {
+      "beforeBytes": 2196316,
+      "pngBytes": 2106599,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "558fd293cc117f9d4d3e39d38bddddb55fcaacdc5a3d45627970d5ca2f2b20d6"
+    },
+    "assets/enemies/pirate_boatswain/walk.png": {
+      "beforeBytes": 2092884,
+      "pngBytes": 2042164,
+      "width": 1659,
+      "height": 948,
+      "rgbaSha256": "b605f7579710ddba0ca7ef95318a7ea40a842af5bd96b365cb4d088c65915211"
+    },
+    "assets/enemies/refined/ash-dragon-attack.png": {
+      "beforeBytes": 2245026,
+      "pngBytes": 2196052,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "9b5eb6e2e85cac4114ba0adba0f4953ef050a8923fb26d84e060c6d0b24b4763"
+    },
+    "assets/enemies/refined/ash-dragon-death.png": {
+      "beforeBytes": 1987474,
+      "pngBytes": 1908435,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "491b4b3465fa454e1b30dca571ee770ca0576b6b542423d795ecbaf15eb4b269"
+    },
+    "assets/enemies/refined/ash-dragon-fly.png": {
+      "beforeBytes": 1401281,
+      "pngBytes": 1399606,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "a54a42669bacf170507874b50949d88c894c72f3fe1e86afedfa33c67249a9b1"
+    },
+    "assets/enemies/refined/ash-dragon-hurt.png": {
+      "beforeBytes": 2043058,
+      "pngBytes": 1967388,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "bf67910232a9ee4c1d71357a46849ef92d2e0092126a5be781bede3e69fa7f54"
+    },
+    "assets/enemies/refined/cave-troll-attack.png": {
+      "beforeBytes": 1859033,
+      "pngBytes": 1785211,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "61e2e5997318a0183d7bfb2dbdebecc7cd5a7dcdb379ecdccd94fadf5b681038"
+    },
+    "assets/enemies/refined/cave-troll-death.png": {
+      "beforeBytes": 1951673,
+      "pngBytes": 1867785,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "1303eebe8ba4a7dc00407ae992ec9d4b47ca9e07ddb202ee6672f9bf4eef8ebd"
+    },
+    "assets/enemies/refined/cave-troll-hurt.png": {
+      "beforeBytes": 1899666,
+      "pngBytes": 1826068,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "8e680666e932b3411f4455d241693fbeaeab76078b8bc8fecedbfc5ae5281375"
+    },
+    "assets/enemies/refined/road-bandit-attack.png": {
+      "beforeBytes": 2010930,
+      "pngBytes": 1928084,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "44349a941bacd97f3da61becd071887abf5fb48c8a943f9e746fcd86413d1fae"
+    },
+    "assets/enemies/refined/road-bandit-death.png": {
+      "beforeBytes": 1664363,
+      "pngBytes": 1583065,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "ca20ecf060e16ff0e209c2ecdc7266d65814a0f07fe3b24f7b09b6879e145236"
+    },
+    "assets/enemies/refined/road-bandit-hurt.png": {
+      "beforeBytes": 1952918,
+      "pngBytes": 1880082,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "fafea9d003c74a8e245e53aa4c587670a5a6035ae54bca9dae37c3bf82e4bde2"
+    },
+    "assets/enemies/rindass_orc_range/death.png": {
+      "beforeBytes": 1819751,
+      "pngBytes": 1806632,
+      "width": 1659,
+      "height": 948,
+      "rgbaSha256": "1707f9c85552f5e6e065d8e96f451500eefecfe6c83cbd9a90a4b32e221d6f52"
+    },
+    "assets/enemies/rindass_orc_range/spear.png": {
+      "beforeBytes": 343027,
+      "pngBytes": 323785,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "4d239ed921a809b76f7b0bf8c51c73a96fb16677cfae1d8faedd27c45e633876"
+    },
+    "assets/enemies/rindass_orc_range/walk.png": {
+      "beforeBytes": 1922245,
+      "pngBytes": 1906986,
+      "width": 1659,
+      "height": 948,
+      "rgbaSha256": "f497efe667d4479e45c0a46617d17c90b954b6582717a9b98951849c9224f89d"
+    },
+    "assets/enemies/road_bandit/attack.png": {
+      "beforeBytes": 132451,
+      "pngBytes": 132360,
+      "width": 864,
+      "height": 176,
+      "rgbaSha256": "24e95f6f73fe906beb4facf78f5087d09e07bedda20cb8b3aaedc536926180dc"
+    },
+    "assets/enemies/rootfather/actions.png": {
+      "beforeBytes": 2833243,
+      "pngBytes": 2732492,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "317233b20f7806b34a9133749ac1881d5e9af6ddd9ef42cfc9b5c02762bde75e"
+    },
+    "assets/enemies/rootfather/walk-v2.png": {
+      "beforeBytes": 2818517,
+      "pngBytes": 2721129,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "e8babb5577e7ede5375c2f96854fb12f95756fb7dcd64876df0c0bcafe031164"
+    },
+    "assets/enemies/salt_king/attack.png": {
+      "beforeBytes": 2134722,
+      "pngBytes": 2062095,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "80418a01ff11f1e8d74043fabe62451d0bf91860b255806ac07b2f6324ea5d7a"
+    },
+    "assets/enemies/salt_king/death.png": {
+      "beforeBytes": 1860052,
+      "pngBytes": 1772272,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "facfe5236bb94064691ffb81478f539ea0001903104267d175cc5ed0919688a3"
+    },
+    "assets/enemies/salt_king/hurt.png": {
+      "beforeBytes": 2258198,
+      "pngBytes": 2197775,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "4e6c543e8da4d2c0b7b0809d09eaa328539d805f98f2c0239a13348f0ddd28b4"
+    },
+    "assets/enemies/salt_king/walk-sides-v2.png": {
+      "beforeBytes": 1550426,
+      "pngBytes": 1542035,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "c17b75b3b4adfde4157766f6f6771f48ef0eb5c9a0cf783a89f8594c4ebc2b79"
+    },
+    "assets/enemies/salt_king/walk.png": {
+      "beforeBytes": 1805800,
+      "pngBytes": 1770520,
+      "width": 1402,
+      "height": 1122,
+      "rgbaSha256": "f7c24557ddd1f33bf09f704a6a85fe3043293eb16eb6e9cf1a4ff5bc739d86b9"
+    },
+    "assets/enemies/troll/club_impact.png": {
+      "beforeBytes": 2049,
+      "pngBytes": 1995,
+      "width": 768,
+      "height": 128,
+      "rgbaSha256": "7a79b19c51b7b86c8050ca9fb726b69d55a12655f86fbcbec479ad90ca92f030"
+    },
+    "assets/interiors/cave_stone/kit-v1.png": {
+      "beforeBytes": 2149548,
+      "pngBytes": 2057440,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "b64c15235677decd34171c035d2794e5795d44d034dfae75e2c9410a92f7a400"
+    },
+    "assets/interiors/darkav_obsidian/kit.png": {
+      "beforeBytes": 2541583,
+      "pngBytes": 2479686,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "b37c99ba1cc5adf2de088f793d11e1d56593a4b5091c77c46413848a93408887"
+    },
+    "assets/interiors/druganwoods_dwarven/kit.png": {
+      "beforeBytes": 2692187,
+      "pngBytes": 2628093,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "a568c2600de4c8b24e62be7013d9788804a1ba6d15a326f9c2628c90f2375344"
+    },
+    "assets/interiors/frostlands_longhouse/kit.png": {
+      "beforeBytes": 2780683,
+      "pngBytes": 2712709,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "1ece760b2b592b9ac7de6b67ac1d3b2e0e591a72c86723d3461cf5360708ec52"
+    },
+    "assets/interiors/highmere_noble/kit.png": {
+      "beforeBytes": 2695277,
+      "pngBytes": 2665158,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "4ac16925af999a963ef4eb9889bcc2782e015aca1929042ba71ec99bf5f0d865"
+    },
+    "assets/interiors/housing-floor-v1.png": {
+      "beforeBytes": 80960,
+      "pngBytes": 59902,
+      "width": 176,
+      "height": 176,
+      "rgbaSha256": "d0073b6910249ba87e2d96f645ac2882c3666e00f50507971c07dbb86c21ef51"
+    },
+    "assets/interiors/housing-furniture-0-v1.png": {
+      "beforeBytes": 4077452,
+      "pngBytes": 2979747,
+      "width": 1920,
+      "height": 1152,
+      "rgbaSha256": "c48b661d2ba1218f05a40a36699a34799e6fe45cff9b84165c8c7643180e358a"
+    },
+    "assets/interiors/housing-furniture-1-v1.png": {
+      "beforeBytes": 4005543,
+      "pngBytes": 2936228,
+      "width": 1920,
+      "height": 1152,
+      "rgbaSha256": "5faa934d2ec8a5043b7743bb9c3a10cc1eab02d655942f8e498ae932abd1502c"
+    },
+    "assets/interiors/housing-furniture-2-v1.png": {
+      "beforeBytes": 3959493,
+      "pngBytes": 2958882,
+      "width": 1920,
+      "height": 1152,
+      "rgbaSha256": "205975fab17332ebf70db8ea290601b61b4e6019a55dd89c646c719fc6bf323a"
+    },
+    "assets/interiors/nardorous_alpine/kit.png": {
+      "beforeBytes": 2633092,
+      "pngBytes": 2576579,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "d5dec52312cd2914d1470d158d6b48743599fba1f5656246c49b0faf9a585c21"
+    },
+    "assets/interiors/narenthil_elven/kit.png": {
+      "beforeBytes": 2800974,
+      "pngBytes": 2759439,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "881860c29dd0ac677456a7430c30b4bb6022b42655cabb61dcf589d6b598e564"
+    },
+    "assets/interiors/portquill_maritime/kit.png": {
+      "beforeBytes": 2768943,
+      "pngBytes": 2708369,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f077a2c2aab39434eed151f0ba2c8246dca2732f1e98b8fa5c51424af48844b9"
+    },
+    "assets/interiors/rindass_orcan/kit.png": {
+      "beforeBytes": 2688759,
+      "pngBytes": 2640741,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "55d250d76726f8eaadce42f6953b51bd03f0470dcd301e74e083ce137f499676"
+    },
+    "assets/interiors/tower_of_might/arena-v1.png": {
+      "beforeBytes": 2711638,
+      "pngBytes": 2560364,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "3ed28e6ce474510b4a635f6d103c42cb9bc5f0a676a0f1bfebf1af4a94797136"
+    },
+    "assets/interiors/trandum_rustic/kit.png": {
+      "beforeBytes": 2463728,
+      "pngBytes": 2404919,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "49e830ef0c67470e0028e594a4cffd98292c0253d70773ab87292fd8faeef9f2"
+    },
+    "assets/items/armor-v1.png": {
+      "beforeBytes": 2768021,
+      "pngBytes": 2701250,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "a9681fdff5860100e31875fea5b52163d5277bf018f22febe60877da7361490e"
+    },
+    "assets/items/equipment-v1.png": {
+      "beforeBytes": 1132545,
+      "pngBytes": 1113352,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "57b6b0bf885194bcf543ee15f04b6ccc6196bf058fc56a76fe593ce0473c7cfa"
+    },
+    "assets/items/shadow-magus-armor-v1.png": {
+      "beforeBytes": 2190847,
+      "pngBytes": 2163621,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "141849accc89b24cf852569f6bf5bdad2c4146e1a3100613126c7acca050ec11"
+    },
+    "assets/npcs/adventurer_male/adventurer_male.png": {
+      "beforeBytes": 2095383,
+      "pngBytes": 2025916,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "06c0e6a65e19164edfc4d364f2a9735956382a6cee18c419d64c8c45b51f684c"
+    },
+    "assets/npcs/attendant_woman/attendant_woman.png": {
+      "beforeBytes": 2134380,
+      "pngBytes": 2068506,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "ff5a042f0445ba428aa43d82eebc76fc3aea78f5f8a9493ec26001d403da9273"
+    },
+    "assets/npcs/blacksmith/blacksmith.png": {
+      "beforeBytes": 2376092,
+      "pngBytes": 2333301,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f5acf455cf906c638113d98a5a7d38c139879dfa9e2c328b5057d0264e227702"
+    },
+    "assets/npcs/elven_guard/elven_guard.png": {
+      "beforeBytes": 2644894,
+      "pngBytes": 2586848,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "a14c4772d2ae481e53ec6fe226239d474f22153167e69a2f62daad5385a6b6e6"
+    },
+    "assets/npcs/elven_npc/elarion_king.png": {
+      "beforeBytes": 2438543,
+      "pngBytes": 2388256,
+      "width": 2048,
+      "height": 768,
+      "rgbaSha256": "349b5f383b558844b9b0906deeb2710b0b86451c4a0e6313545fc0bb636ba8fc"
+    },
+    "assets/npcs/elven_npc/elven_man.png": {
+      "beforeBytes": 1560348,
+      "pngBytes": 1551394,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "c3ef10a59addd57e96c45bc8a2bf53a59f5941ac87ffa04cc2b2b66ecdbf8d2c"
+    },
+    "assets/npcs/general/general.png": {
+      "beforeBytes": 2323177,
+      "pngBytes": 2267462,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "c83a71b4273d43e4be10d1bc16767d8e8f3dd69e42893dbf437835f2427a7835"
+    },
+    "assets/npcs/general/story-attack.png": {
+      "beforeBytes": 2556035,
+      "pngBytes": 2487871,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "0cce714fcaca390a50b814b68a0b3290f15451f1eed7fac8fb69b082228778d3"
+    },
+    "assets/npcs/huntress/huntress.png": {
+      "beforeBytes": 2421267,
+      "pngBytes": 2386360,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "e9090a5acdfb4c8adee22d68e7493e1c12be5088885885440120f54a30b965f2"
+    },
+    "assets/npcs/regional_citizens/craft-idle.png": {
+      "beforeBytes": 2804623,
+      "pngBytes": 2710963,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "4ee2bc7413f7522ba27262f61db693612817c8dba18f55e1badeb1080a8963ab"
+    },
+    "assets/npcs/regional_citizens/darkav-v2.png": {
+      "beforeBytes": 1961320,
+      "pngBytes": 1893947,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "842be74c90aad9d2236d7ef331a732c473bd2b349110338c2f6783432e450589"
+    },
+    "assets/npcs/regional_citizens/druganwoods-v2.png": {
+      "beforeBytes": 2162437,
+      "pngBytes": 2112278,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "d6c04b59bc9d03d3e8f2b42ef6465b2825cdc669b0b6c528a4f53e4396895f30"
+    },
+    "assets/npcs/regional_citizens/frostlands-v2.png": {
+      "beforeBytes": 2192273,
+      "pngBytes": 2132450,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "1b5b8f5cf8e8ef4eab0bab2981368cfc30e7fb90829b9231a19865d895640d30"
+    },
+    "assets/npcs/regional_citizens/highland-idle.png": {
+      "beforeBytes": 2468847,
+      "pngBytes": 2380994,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "d31c467a07dd4813f48cf7d262d01d68acdcb907d1c9fbcef0efda81c28ec7dd"
+    },
+    "assets/npcs/regional_citizens/idle-animated.png": {
+      "beforeBytes": 3417030,
+      "pngBytes": 3254052,
+      "width": 1086,
+      "height": 1448,
+      "rgbaSha256": "0fa59f8095234e44b24b6ac3d0c98094c916c4e437534cfc3026ba645a121e11"
+    },
+    "assets/npcs/regional_citizens/nardorous-v2.png": {
+      "beforeBytes": 2205415,
+      "pngBytes": 2141657,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "ea6fca7427ac3d5dbdadee9d7d807ba1e313e986fc94e9f7b55e2d36c1361d86"
+    },
+    "assets/npcs/regional_citizens/portquill-v2.png": {
+      "beforeBytes": 2107578,
+      "pngBytes": 2054118,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "d4222d3128b73f36231830331372ff99222fa24e4335ec14104dc77acdaffa3e"
+    },
+    "assets/npcs/regional_citizens/rindass-v2.png": {
+      "beforeBytes": 2203385,
+      "pngBytes": 2155318,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "b56091141cf3bb5f99679ca6fab2804dc781e00c16ef5465b241e21dd2157abc"
+    },
+    "assets/npcs/regional_citizens/travel-idle.png": {
+      "beforeBytes": 2956680,
+      "pngBytes": 2868652,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "c9ae3e74a368e16fc5dc47e4a8cdc800265b46a5ceb899d92774a98025760d74"
+    },
+    "assets/npcs/story_combat/arrow.png": {
+      "beforeBytes": 350205,
+      "pngBytes": 334601,
+      "width": 2172,
+      "height": 724,
+      "rgbaSha256": "670bfc2f23794ca8445dbfb36931c7f2317e7dd8d0f8169243311d631efce2d4"
+    },
+    "assets/npcs/story_combat/darkav.png": {
+      "beforeBytes": 2435530,
+      "pngBytes": 2347050,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "770cf7da6ab0c68face3cd4cf3c9d48f8ac8a35c17b33206734fa78c0c8d537c"
+    },
+    "assets/npcs/story_combat/druganwoods.png": {
+      "beforeBytes": 2691187,
+      "pngBytes": 2609264,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "21e0a3822aa03235d5d89fbe9dba4a674f4e84a40c3cf571fd19493c310cb0d0"
+    },
+    "assets/npcs/story_combat/elven-guard.png": {
+      "beforeBytes": 1324140,
+      "pngBytes": 1306877,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "9c5714fd765d7998bf71b1bc04cdc22c5fc4cb96295e9667f0769f736de50030"
+    },
+    "assets/npcs/story_combat/frostlands.png": {
+      "beforeBytes": 2620171,
+      "pngBytes": 2525145,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "f8b5f7b52914995b171c76e1fb61ba0c3b9c70934aa51846802872cb24c88a11"
+    },
+    "assets/npcs/story_combat/nardorous.png": {
+      "beforeBytes": 2815445,
+      "pngBytes": 2725753,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "49fc2f83ed54017a48be3d646064c5397a52aef37b155cc180baa202e41cd62a"
+    },
+    "assets/npcs/story_combat/rindass.png": {
+      "beforeBytes": 2709419,
+      "pngBytes": 2633434,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "e6e81b87f3dcab231fd5e536b7549322156513bf442d6982f7fcb409301b8909"
+    },
+    "assets/npcs/trandum_guard/march.png": {
+      "beforeBytes": 2315829,
+      "pngBytes": 2256663,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "d1fb08cf2fd37ac496f1ef56ce0edda8ccc492a2b8320d0dafdc499e937bd851"
+    },
+    "assets/npcs/trandum_guard/story-attack.png": {
+      "beforeBytes": 2259232,
+      "pngBytes": 2193340,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "b403bf2f86a767b0501366315617ad3f7fda9a9e3fa713f071a36f42bf001f35"
+    },
+    "assets/npcs/villager_woman/villager_woman.png": {
+      "beforeBytes": 2581036,
+      "pngBytes": 2530356,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "a2c82bba1d3d5e606d06929675a56fd2fa6283c7a6fed1e5626e265d9f163d3b"
+    },
+    "assets/npcs/walking/darkav-officer.png": {
+      "beforeBytes": 1725799,
+      "pngBytes": 1720333,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "9a28d31a09e11659148a0938b0f0d98a5cd483d320e9ef05d795e6f719d764e2"
+    },
+    "assets/npcs/walking/druganwoods-officer.png": {
+      "beforeBytes": 1912761,
+      "pngBytes": 1868608,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "3c4897ce2d71804d393dac73e2eab3ee57b691640ca9a8ac23e9c0eeb3e16d9b"
+    },
+    "assets/npcs/walking/frostlands-officer.png": {
+      "beforeBytes": 1812160,
+      "pngBytes": 1754777,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "b14ec73049aa22ac52c2f2b9bf1e879f0f38de98039cd432237f387f2225c000"
+    },
+    "assets/npcs/walking/nardorous-officer.png": {
+      "beforeBytes": 2008599,
+      "pngBytes": 1941809,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "d28662918ae74f6141c3fd0f1839dc2a53dac875d57ad970aa2a2dbcf8c2065b"
+    },
+    "assets/npcs/walking/rindass-officer.png": {
+      "beforeBytes": 1804352,
+      "pngBytes": 1804277,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "d307cd6133e49b0dd46a11a688818c39c4b401af2d52547a74f3f81a5de927a6"
+    },
+    "assets/reference/Tales of Leighneron_ Sunset Valley.png": {
+      "beforeBytes": 425071,
+      "pngBytes": 376744,
+      "width": 1672,
+      "height": 941,
+      "rgbaSha256": "eb131aece1b16519e5bb1ff3ba2f6e06561668c1ba7b198b14fdf03a19a66a9b"
+    },
+    "assets/reference/game-load.png": {
+      "beforeBytes": 536954,
+      "pngBytes": 438712,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "61a32bc802f1b3109958c121dcc25de48e0c536be155c2806401b69271fbcdd5"
+    },
+    "assets/sprites/bridges.png": {
+      "beforeBytes": 2367380,
+      "pngBytes": 2287999,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "a251fcb4d1d6616fc1c0dafe2ad6175d03ed6163698c90a4c6c3a626b0bdd593"
+    },
+    "assets/sprites/capital_buildings.png": {
+      "beforeBytes": 2374963,
+      "pngBytes": 2307427,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "a8448a7b180cb8292e6b183001f198921ed92705e8e6027e820f0858206950fe"
+    },
+    "assets/sprites/darkav_volcano.png": {
+      "beforeBytes": 2601160,
+      "pngBytes": 2540648,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "78f2729804a086dc239e7c91600af1bf95febdc237f7169478bc119dea2fb04e"
+    },
+    "assets/sprites/desert_1.png": {
+      "beforeBytes": 2007998,
+      "pngBytes": 1945183,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "ce9935d1b930eec1e7a99ebea5973f1840dd0f1fa0f37b3f7b6c8a2f6fc8d585"
+    },
+    "assets/sprites/elarion-tree.png": {
+      "beforeBytes": 2416407,
+      "pngBytes": 2409676,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "8b419081eba8f6be9b6ce6ac8cda43b1e144a2c692d516ee02464efb0834b1de"
+    },
+    "assets/sprites/elven-villa.png": {
+      "beforeBytes": 2814178,
+      "pngBytes": 2686340,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "952df4adb0570ae0fe67f5b6d6025f49c39c5ecadefc4395e0e10420af1fd4bb"
+    },
+    "assets/sprites/fauna_1.png": {
+      "beforeBytes": 1544277,
+      "pngBytes": 1539395,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "413360c2bef4fd32ee747337e7d7f7faf6491dda265192c07b2a010643717edb"
+    },
+    "assets/sprites/flora.png": {
+      "beforeBytes": 2834792,
+      "pngBytes": 2699757,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "4bc17bd15664b38088a47a6f1c8b9e7207898b33604409c7d97dc2c52dba06d4"
+    },
+    "assets/sprites/flower-fence.png": {
+      "beforeBytes": 2728995,
+      "pngBytes": 2697822,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "dca0fa97a2fe4def9a7d32d49e77b6cce480ba783be57c51c6efba5e528c6493"
+    },
+    "assets/sprites/lava_snow.png": {
+      "beforeBytes": 2248603,
+      "pngBytes": 2215071,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "3833f221439f15409be366f833434a12654742c379fec2469abbeef89ed845a1"
+    },
+    "assets/sprites/native-world-props/habitats.png": {
+      "beforeBytes": 2009193,
+      "pngBytes": 1955982,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "11a8e61522942ae66ddfff1aee183cf2c7ab676a6f9c36bc54739872d7a576c7"
+    },
+    "assets/sprites/native-world-props/quest-landmarks.png": {
+      "beforeBytes": 2542553,
+      "pngBytes": 2481307,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "c9989c3c73ee3603b81da634fb4b035798a2b20bfa4009bcf11749f736e392a6"
+    },
+    "assets/sprites/walls.png": {
+      "beforeBytes": 2264813,
+      "pngBytes": 2188436,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "676f1ec81ad8dc151ca004abfe57d73ec84b8cd62bb8e4c18f052edb3978e02a"
+    },
+    "assets/ui/actions/attack_warning.png": {
+      "beforeBytes": 1589274,
+      "pngBytes": 1584753,
+      "width": 1448,
+      "height": 1086,
+      "rgbaSha256": "41faa06e74e9ebb2ef330bdab467442f3fb59920ffd851eb34f7f54a7a9a7040"
+    },
+    "assets/ui/parchment-scroll-modal.png": {
+      "beforeBytes": 1197321,
+      "pngBytes": 933531,
+      "width": 1000,
+      "height": 800,
+      "rgbaSha256": "5be9ac8309f8e76bbbc6b92197bb4c8efcdf21214f01ecdb5f66da92ecc60b12"
+    },
+    "assets/vehicles/cart-parts.png": {
+      "beforeBytes": 1936187,
+      "pngBytes": 1844547,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "67acb97101da51b94bd8873cc70718b9d3f8a085c4ab0841cdbbeef96e71f8c3"
+    },
+    "assets/vehicles/coastal-boat.png": {
+      "beforeBytes": 1407741,
+      "pngBytes": 1386143,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "e1590bd04980dc5988d236248f3ff2d6fbdd9e9e483c1c23526971c11aa62605"
+    },
+    "assets/vehicles/coastal-pier.png": {
+      "beforeBytes": 2212575,
+      "pngBytes": 2154549,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "c0160c25d5ab3bd562df71149ae7e1f20a0afdbc24caa998ac3533e3b54bc383"
+    },
+    "assets/vehicles/horse-east-walk.png": {
+      "beforeBytes": 1596494,
+      "pngBytes": 1518479,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "b8ff011ab7b5323d9ff2337e4dd4e8739542fd81549b4870f2640092d630ea90"
+    },
+    "assets/vehicles/horse-north-walk.png": {
+      "beforeBytes": 823725,
+      "pngBytes": 801944,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "5e1a4c78e49fc4fb9aa322399624cd03c08f82a8b61c825fe4cbdf425a92b6b0"
+    },
+    "assets/vehicles/horse-south-walk.png": {
+      "beforeBytes": 980460,
+      "pngBytes": 960370,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "ebca21d1b2d5ee557c6456d52a38ddffa1cd4ef6fa745f9aa592bc80e63b923b"
+    },
+    "assets/vehicles/merchant-cart.png": {
+      "beforeBytes": 1485659,
+      "pngBytes": 1435043,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "cbd9e63474a93eb522c354895a6ef1405df2d4663d581315f163e9b7db7c73a4"
+    },
+    "assets/vehicles/pirate_flagship/ship-boardable.png": {
+      "beforeBytes": 2197492,
+      "pngBytes": 2139950,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "09b18186621c8b45ca91af1859d800b5b3fc91aa252776de9125609a3e2d904c"
+    },
+    "assets/vehicles/pirate_flagship/ship.png": {
+      "beforeBytes": 2159851,
+      "pngBytes": 2092400,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "42fe625a10caf7504b094465d9e455ae5e40f9e70d8653304796cf129913a34b"
+    },
+    "assets/vehicles/water-foam.png": {
+      "beforeBytes": 2233899,
+      "pngBytes": 2139578,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "f92ec2f1322186afd84954c2d2d655505f03ee281a6c55b477f38659bdd3b00b"
+    },
+    "assets/wildlife/coastal-gull/poses.png": {
+      "beforeBytes": 2342016,
+      "pngBytes": 2213343,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "d44f3ede7b33f48926e625dbea4c8876d73c1e8547cdfa5a819c005a413a91f0"
+    },
+    "assets/wildlife/coastal-gull/prototype.png": {
+      "beforeBytes": 1013095,
+      "pngBytes": 968855,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "d788f06d51767dcbb202f932e5a78a2731f4c92c8db8fa89540ef29b3a743722"
+    },
+    "assets/wildlife/rabbit/poses.png": {
+      "beforeBytes": 2294983,
+      "pngBytes": 2175414,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "526baee8ed3fb628cb84bab62951ff72a4d29068c2e183e5dd2ed25201f4edb7"
+    },
+    "assets/wildlife/squirrel/poses.png": {
+      "beforeBytes": 2555273,
+      "pngBytes": 2453398,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "ec8e845929feab49f7f102413b888d7e9569d4802a51c50992074e7eab6c5b8d"
+    },
+    "assets/wildlife/woodland-bird/poses.png": {
+      "beforeBytes": 2347217,
+      "pngBytes": 2227628,
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "e7e835e18ba9f360c9b7b51ea07672abf8cad3e27948c30850d1da964850411b"
+    },
+    "assets/wildlife/woodland-bird/prototype.png": {
+      "beforeBytes": 633659,
+      "pngBytes": 624570,
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "2cb78980c7c55019d3acd8fb4cd52fbfce3d06218f45a1a8add2f20fcdb1b697"
+    },
+    "assets/world/tower-doors-v1.png": {
+      "beforeBytes": 1881740,
+      "pngBytes": 1776703,
+      "width": 1269,
+      "height": 1240,
+      "rgbaSha256": "c56721ab0a150175978eefc108db95f8a16768e253b38efe6d336c78b9c6b1e9"
+    },
+    "assets/world/tower-of-might-v1.png": {
+      "beforeBytes": 2413012,
+      "pngBytes": 2369438,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "48e857d084ab9f048f0bf373fe9fd9e5c2a1c0897c05a52921ae82d29627489e"
+    },
+    "assets/world/tower-of-might-v2.png": {
+      "beforeBytes": 2487458,
+      "pngBytes": 2432440,
+      "width": 1024,
+      "height": 1536,
+      "rgbaSha256": "6d78a99409f6dad29e68f3d9aa98781f0e06025af18dc85980698e4d30ed4374"
+    },
+    "icons/barrage.png": {
+      "beforeBytes": 155264,
+      "pngBytes": 148395,
+      "width": 256,
+      "height": 256,
+      "rgbaSha256": "eab833425470ce506742887aae5e0c4b260419e81e4ab953358ef8fbc164d443"
+    },
+    "icons/tales-of-leighneron-192.png": {
+      "beforeBytes": 113240,
+      "pngBytes": 95472,
+      "width": 192,
+      "height": 192,
+      "rgbaSha256": "dfde22ceab758ef84deb76fcfda30c5b811babc3715f37c8ebba9484591e2560"
+    },
+    "icons/tales-of-leighneron-32.png": {
+      "beforeBytes": 3668,
+      "pngBytes": 3354,
+      "width": 32,
+      "height": 32,
+      "rgbaSha256": "f0dee6888d4ab281161c380053cac86cdd117ccf706014fb634ca5a4ada82a2a"
+    },
+    "icons/tales-of-leighneron-512.png": {
+      "beforeBytes": 748935,
+      "pngBytes": 544690,
+      "width": 512,
+      "height": 512,
+      "rgbaSha256": "da525d7c380ebb9993cb30cb027e485885921138cd6049afd684a8e4c3f0d486"
+    }
+  },
+  "webp": {
+    "assets/characters/leigneron/awakened/ashen-seer/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1682655,
+      "webpBytes": 1282026,
+      "width": 1028,
+      "height": 1554,
+      "rgbaSha256": "367652807c842556ffdc3985d96ab560fcd335f7dddec289586d45a7302506af",
+      "sourceSha256": "2795ed32c22bf16af45bf4095e96da851b09a5908bf9ca824ed63f5242de0197",
+      "webpSha256": "f5020bab70bfce34a97001c7b8da09a8255ff8d80ce3cb1dc6c676239293b622"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 725464,
+      "webpBytes": 540832,
+      "width": 1674,
+      "height": 642,
+      "rgbaSha256": "2a899f662ef51a9eabdb6113b1f852b4438a9b4c05ece29530b0c34d999bdf68",
+      "sourceSha256": "12eea07d17ae3da16f2f923828b98ead476ada8dcefd2e1b7bd231454b3968ea",
+      "webpSha256": "1d53775e0b2f232a99114e07e246bbda7cd59f9c3283e6bdab033b49160c9a46"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 749540,
+      "webpBytes": 557914,
+      "width": 1686,
+      "height": 642,
+      "rgbaSha256": "a637cb4e7ff575a5e3718a898aef1bb2696902725c36d7a7798aa689e3fba4d9",
+      "sourceSha256": "097eb96619bfb5a7b14a638358c1ff33bc1f80de229acbd06b8e4c10f1ae6ac9",
+      "webpSha256": "ff383ddac975e41db2ec511992bcb02377e6331c8eedbcd46b7b0bbb6778ca1f"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 670618,
+      "webpBytes": 522612,
+      "width": 981,
+      "height": 808,
+      "rgbaSha256": "a3b3ca55d1664e5e7d65f82c1936b5f534610ea336478548e7db3abe2d616877",
+      "sourceSha256": "33332d90edfd02a9e644910c6b4c9bf7992dceb31b6e35954426462e4799c02a",
+      "webpSha256": "6c0fcb280b19d13422bd67cf0cf123897b6acef16c7bfd84319c2af6b222a2ca"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 373795,
+      "webpBytes": 276236,
+      "width": 699,
+      "height": 532,
+      "rgbaSha256": "2a05991aad3660c7f58f9fb386abdee9807d83cf2d9d0d91d5f39a8e5b3e59de",
+      "sourceSha256": "f733f0944835e05677232f814293d6c0f1a0bfa0a9a73ddc482811f410c0cf55",
+      "webpSha256": "24d20372bf3f8e3ba769cf4149a48381ddaff0d97168cedf34244a562c884cae"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 376752,
+      "webpBytes": 279750,
+      "width": 681,
+      "height": 504,
+      "rgbaSha256": "dbbe44086074e40ef7b8de94951ec8d0cd573e37ce536a22cf429eb00761ada3",
+      "sourceSha256": "4e1093f8cafd587d17b1832c9c4728b77c41e472abe6b4cdbf6ab1b52c5ffbf0",
+      "webpSha256": "1617008b964f39ca0e5bc4a9f09e218a8b5172973d87b886fbd499c2561ea906"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 327723,
+      "webpBytes": 242696,
+      "width": 672,
+      "height": 490,
+      "rgbaSha256": "7b7a6ea0dbe225777975d4a6905eca7e3caaecfe63db65ec42cf58b457c3af2f",
+      "sourceSha256": "f33cdf89ad57ff625f335925fdfccd21a569c91c514b5bcb6c0b3168f1eb19b8",
+      "webpSha256": "accb4df3e7d2f7f8410bc43ae858060e5341aeaee787a0f0381e1130106d9282"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 403936,
+      "webpBytes": 296748,
+      "width": 858,
+      "height": 504,
+      "rgbaSha256": "c6119376e47871472dc98285bb89ef9e33c445d2687d51addebf3de3b1609de9",
+      "sourceSha256": "afea61f67c5c4050cd98b7b3e23aec535557165dc3af553998ab0e6cd4d75ddb",
+      "webpSha256": "fe19dfef756eeda2796f22f3a233c2a2393f95ef1ed9e3460f621a4293d88588"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 468385,
+      "webpBytes": 353194,
+      "width": 855,
+      "height": 514,
+      "rgbaSha256": "6aea08b327ce38e601179e44d2327634a99995805045355adeb98d53e13aae56",
+      "sourceSha256": "7a0421a27cea7f4a3af36240af34ecab26c9e8ed0886035934c6ae10e0fb8048",
+      "webpSha256": "0cd2dd0712b8366a2c00c4b7bead795134696ac276061de410c5c4bea3e44248"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 358589,
+      "webpBytes": 266988,
+      "width": 705,
+      "height": 554,
+      "rgbaSha256": "51e430bbbce65e359fc9a8769c2ed3bb8254f5588f2f7bed5ea38cf4705a4dd8",
+      "sourceSha256": "627bd012995c7e3371a8bcc295ed639ba711b40411e4e5eb273d6f5924356385",
+      "webpSha256": "406e8b60e91a614298d35fdb100d6a65fd111c79369dbdc6f6975eb9d7c26656"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 363687,
+      "webpBytes": 264614,
+      "width": 870,
+      "height": 508,
+      "rgbaSha256": "25e2cb1ee27c93ae47ea888bb43988d3595ee5ee51eb5a8a86a6c9ad2cd52598",
+      "sourceSha256": "f31f7f04e297ad4e5957d837c3ba16fa6596db28ddfe5dcd8bce4b0e66d2295f",
+      "webpSha256": "03002910715cec8acf0d1ae1a8a793c00c9482ed94921ebcd809a07e85c8a2a4"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 701704,
+      "webpBytes": 522684,
+      "width": 1215,
+      "height": 854,
+      "rgbaSha256": "bd1a2f31634897fc5295449e565d012747de9714e2542e993f80a4d4bfc8ec40",
+      "sourceSha256": "dc9bc30aef93faab8ff9d417d9d4f8fc53a1299b6b33a4c87dc0c2b6ffbd71f2",
+      "webpSha256": "ed86c3b1bb404e174b1fffef19fc62d09072caa64068414b8c44a7b62bdea4ef"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 339299,
+      "webpBytes": 252596,
+      "width": 645,
+      "height": 502,
+      "rgbaSha256": "b30a1e2931ec57e3c6a0106288dc0da7cecbef0a67de121d5f7edf4edc8a9684",
+      "sourceSha256": "94019192c75028c13e89a2c0bf7142eb6cae701ec332644077986d9b4f3a1b3e",
+      "webpSha256": "c5907a3ccfe8d5bc85f9518ec473d794061fb24a24b43e975593534cab3d4b34"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 335034,
+      "webpBytes": 247138,
+      "width": 753,
+      "height": 510,
+      "rgbaSha256": "19b5fa1480be39b4a79e23c24d7b245be0827c8521dcbc2762e5a2b715c47817",
+      "sourceSha256": "5996f8b3508bba27051004902fabbf035900951a39aa5cfbea461ed64afb0a8e",
+      "webpSha256": "38e3b153f0427bafc19014b9e967e64ad461f0aef2e48f576b08b741578f01c4"
+    },
+    "assets/characters/leigneron/awakened/ashen-seer/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/ashen-seer/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 376564,
+      "webpBytes": 285998,
+      "width": 723,
+      "height": 506,
+      "rgbaSha256": "a5909b251b5e526a39f456036854e41134cf9bf8f6327e09678974c105af8fe4",
+      "sourceSha256": "e07a6d0460c11cfe1f795dfe79c53c3b27d9b83ccd87ab53e5913bc71670aea7",
+      "webpSha256": "b8155145918815ebd183e6abe24a63b44db6aa8c98db457976e60fb880cf0b89"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/attack-atlas-v1.lossless.webp",
+      "pngBytes": 2057856,
+      "webpBytes": 1541480,
+      "width": 1048,
+      "height": 1602,
+      "rgbaSha256": "b5f64293950e34205329e113225657b52dae0adffa04f2d7c4818417bcb65afc",
+      "sourceSha256": "5e162bb346b25760ff5dac0eae5a910ef2ed45b54783a47d5ec80c09e960623e",
+      "webpSha256": "e76ad87eadcacfeb16b9d5c3c93d74c4cbf51bb03e00d95d198585d187cf37e2"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 701625,
+      "webpBytes": 524998,
+      "width": 1416,
+      "height": 624,
+      "rgbaSha256": "ff082afc03c0b6544a49e41aaa304db3523af5f349229b769a0e8177f6ab2e5f",
+      "sourceSha256": "69dbdc510d65eb07dc160a9fb4dce11d2a5280aa0b45adc81d11a8fbb1b5e9c3",
+      "webpSha256": "36830bb94b493ed27dc178c46f05a456abe30dbf0861ff2628e15fdb126453b8"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 729665,
+      "webpBytes": 539546,
+      "width": 1677,
+      "height": 620,
+      "rgbaSha256": "074ba814417ad8c27cc824c214d1fd04675049dd151b7a40ae9079680814a77c",
+      "sourceSha256": "4f058af0ad57e6cb10b33f86f87bdfe38ff98cb0685e31ed0b2baa8f98185846",
+      "webpSha256": "bebd3f205f2548b62d814e6c9ea726d1f18918c42bd62c4a1ce0b0e7f24b290b"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 724118,
+      "webpBytes": 555854,
+      "width": 1017,
+      "height": 802,
+      "rgbaSha256": "1f4784af384482b17bac8bee73e2dc8335829ecfd33692b8778b2070d0d4638a",
+      "sourceSha256": "da9120b480f4d03f50f3416119697c68177536af5f525fabbf0df5581f9b3fb1",
+      "webpSha256": "6c6ba5f473062455d7b838866eebee4100fd8a4c78203c2494a467aa4fca24b9"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 448896,
+      "webpBytes": 331388,
+      "width": 690,
+      "height": 532,
+      "rgbaSha256": "57b954bfe9d9ac044c775f930d02871c4dfbda9a5510e7be7c9e5ffcfffaf878",
+      "sourceSha256": "6d26635c778f683a300eaef49d16d72811e64cbd152ffd39663a15a40cb2c21a",
+      "webpSha256": "6d3291c51a611489c8f38a2dc99ec10dbe0d916d1adffc9d691b2c0d77d93fb0"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 421055,
+      "webpBytes": 309012,
+      "width": 684,
+      "height": 504,
+      "rgbaSha256": "19b5c1e29f9e399822f4b38af12ae743edcc255112986b57571b2f07258a0871",
+      "sourceSha256": "ae716138fc9bc3a6fe749594803cf09988ec7183065aa490d247979c984eb190",
+      "webpSha256": "1112219eaee590428762e6e92a8f69ff19bc3d90ddd99e685827c5921bb0bb7c"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 359246,
+      "webpBytes": 267464,
+      "width": 633,
+      "height": 490,
+      "rgbaSha256": "a3f71cb344af249e07216896560d9b12da4b111c24dc754b68c9deb67328aafc",
+      "sourceSha256": "b2b5d71adb01eaf6e7ea09d069b435e3017992334887f3de0942344dfc424e5c",
+      "webpSha256": "239b1c13d669e08a53fe1641caef0c10371769e308f0f9d7176d32e52eb4fd34"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 445646,
+      "webpBytes": 322284,
+      "width": 828,
+      "height": 510,
+      "rgbaSha256": "41bbff4ecf1dca7de22b5a84d675baf0bbb94a9f38d3c5f46c01a45e0b8e4359",
+      "sourceSha256": "6c02e9e7a221e6cea8b20769ba82d9e3c3f7eeebcf49bf89c0dbded2f6bd2511",
+      "webpSha256": "52291cb1548dd258c61864b7efc70cac14c8d66e5567d8717c2068d753c7d350"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 458638,
+      "webpBytes": 339966,
+      "width": 726,
+      "height": 516,
+      "rgbaSha256": "8cd48aae04b540cc6b9412548be53bc2064e4573d852b95285a5f1d69a14e670",
+      "sourceSha256": "2695816c116b345cc59607bcbe4ad89a124939e0b2ffda6953df08d56d77f08b",
+      "webpSha256": "4a58bdc8fd3efdc23804120753f00aa26f74261372c965798e6fd50e2896f741"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 416837,
+      "webpBytes": 304410,
+      "width": 729,
+      "height": 534,
+      "rgbaSha256": "4722addc62f7a0fcb59b50f8031786cd3769957bbd6feba761f38249383b34e8",
+      "sourceSha256": "afc40aae5cb1604e1a294c20ad2ea9db56c0a6f530a9fdfb7403975633664dcb",
+      "webpSha256": "634d851fad21ca61d8af37a7893aa118e76ef399f9b517f147b6a31cf17a5d1a"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 394679,
+      "webpBytes": 287918,
+      "width": 831,
+      "height": 494,
+      "rgbaSha256": "d154ef16017873a9ed8ad0255b7cc4384017b05c6295e7898011ae9262254ed0",
+      "sourceSha256": "bdf482f917719dc7c6f0a6c6aa262c5aea0f1b7f72bb98aebdb93698db43ce9a",
+      "webpSha256": "1651c91642346015698d8bda2179b6c3ac787f73ef9683b313cf0330ed52d9a4"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 755343,
+      "webpBytes": 558568,
+      "width": 1161,
+      "height": 880,
+      "rgbaSha256": "321d87f0c48a77f0ea16d7c6c5986eb679475f9d2269ebc11a00a48814faa602",
+      "sourceSha256": "3de37f1c06efd4683e96ef993c72ca0957f378b873e84bbe6ea2884ae631d2ee",
+      "webpSha256": "86f6cd31fee0b19f3d282ffe71952f3ee4ba79efbc764bd7fbc00effde17460a"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 387035,
+      "webpBytes": 282176,
+      "width": 651,
+      "height": 502,
+      "rgbaSha256": "fdb54d19966b3cfb4fa56612ca8e16d8c0a591acb6df6213230dbd9013a20b4a",
+      "sourceSha256": "b6d10a1e16e88409590358604c534d0211629c89f59e9109ec4f73b8d5c77864",
+      "webpSha256": "cfecf4e754beb77fd23488930a55f85580eace9d44bfc400f283ad402c674b56"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 378794,
+      "webpBytes": 279400,
+      "width": 738,
+      "height": 510,
+      "rgbaSha256": "ff0b7e4db0c6f4da44b130b3158b0eae0f0d3b9f9efcbd05c0b96ddbe3eef5d7",
+      "sourceSha256": "1ae1313b1ab40f2eb67b7f76c9424dc103087d501faa37f683266f3191d50a32",
+      "webpSha256": "0706cf9ffc3447e3dff951a384242be97157266c8e9a14ecbd1e3a3efbab6172"
+    },
+    "assets/characters/leigneron/awakened/frost-wyrm/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/frost-wyrm/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 412640,
+      "webpBytes": 303898,
+      "width": 723,
+      "height": 512,
+      "rgbaSha256": "825bcf005317c5e386980aeba9c6042005b92e0429d3e4dd818dec2605db243c",
+      "sourceSha256": "2f7c4090cdc154eead93c6f3d1ce8918f0260ea2bc9aa59becb94547a0132627",
+      "webpSha256": "70a3b9120dd5e2c30c179c8d193cb017873d38ea9461ee10964104402f8445ee"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1893534,
+      "webpBytes": 1516162,
+      "width": 1036,
+      "height": 1578,
+      "rgbaSha256": "329dfb442eb078571ba9ea606f7e2a1878777e7e264fe53fa6a745e371c83b3a",
+      "sourceSha256": "4e0f9b1e5ecb4e35cd6aa2e901a9abe7d3742f534c33175f8cae9b7a37e7d940",
+      "webpSha256": "8ba6489eef8321a1cdc2d966741f4ad147bc97c3222e78314f595854650471ad"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 668502,
+      "webpBytes": 515020,
+      "width": 1530,
+      "height": 636,
+      "rgbaSha256": "6a1f64742625bfdd9c1ced62849e191672eaddeebe26fb0712a101e3826a8f0e",
+      "sourceSha256": "bf7d9633f33385c5e9eb3e3cf90882eb4c4675d0febb05a253baea0eefea4fb6",
+      "webpSha256": "6abdd1b87f90d92f1e904311ded890742f80d4ae98618debaf87fb7587991b25"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 724340,
+      "webpBytes": 544660,
+      "width": 2001,
+      "height": 590,
+      "rgbaSha256": "69db5388dfd7d79da8329b6070fcc76fe4927ea290623248cfa6a679c0213fd3",
+      "sourceSha256": "63f26f68271f20c5a7f33dfee73c1207d8c40eacdeac0da81b3d875f4428a847",
+      "webpSha256": "85a9903583b18b416c03b1403fb9630666da8ea1f4b8f5119a37eff87dedfcc7"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 716444,
+      "webpBytes": 564916,
+      "width": 1089,
+      "height": 806,
+      "rgbaSha256": "da7ff7c8d87601e3773098f38d56fe4b13340dc104b8ed6c7da5bb987d1b8a1d",
+      "sourceSha256": "83f58bc4c398745fd01d62baf3d9ab1ed5da6e01a9d44d6d21845247a31b5547",
+      "webpSha256": "fa8da596a6cc826a51b92f7b9b8b46108bffb9000ccaefdd940a65b35de8db49"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 420851,
+      "webpBytes": 322644,
+      "width": 669,
+      "height": 534,
+      "rgbaSha256": "6d52963000e6d2995ab89a7b07386d8edb23c99dd43addeb508fd6b1760de95d",
+      "sourceSha256": "bdad906e1fafbed86e0487af3c810a0d1a33905589af06b74c7232f0545fd56b",
+      "webpSha256": "30b88e82fa78271e2445f19e7f4af8925afe979cdff18d77c1da17a39a6ec356"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 403688,
+      "webpBytes": 304838,
+      "width": 672,
+      "height": 504,
+      "rgbaSha256": "a327b07fbc7196d4f2be62cb93fd73fffcd618183050723b2943b24face675ef",
+      "sourceSha256": "b8142cf68443cd0c85db2a3306667ba35330cbe7056a4a9a1a9ddf0724b167cc",
+      "webpSha256": "f3bb995ff43dfa920db09ed8bfb136c70ecdaf611ae2ee4a5a5de150f2fc7c84"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 336150,
+      "webpBytes": 255400,
+      "width": 633,
+      "height": 490,
+      "rgbaSha256": "62063b89eea82408dc38c5687a660475a7232d475d268211713f9d89f7e7881f",
+      "sourceSha256": "5491cc5e9f31317ab5b83a09dfc0303f8a5fc827d63f2db19087df3b7b869715",
+      "webpSha256": "0bc04c0b49b18fc13ca5237e65dd77309e7a318056711926c0249fa191cbaf75"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 428373,
+      "webpBytes": 325470,
+      "width": 813,
+      "height": 510,
+      "rgbaSha256": "9fe4af4afbd2b260b31bf241eaa388451893724cb3bb06c41815e832db923d6a",
+      "sourceSha256": "9369b54a141317500c462a3cff82d226e75da62264911a15421311dcba2ef63d",
+      "webpSha256": "2fc08fbb2910d47616a0793062dfa9f3ade586b7f5462473d13a384c54312c9b"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 442289,
+      "webpBytes": 335398,
+      "width": 714,
+      "height": 512,
+      "rgbaSha256": "d12816cd7acc9fb2746ac7e24c02c21b6b949953c28e5b95317e09ba56e4911e",
+      "sourceSha256": "b3f9b0b3360a152c97e73858418f1c065f65b50fca6d6bcc4738d7881d7479c0",
+      "webpSha256": "4d1c05ecad5cca0630345f0c6134e4ba8e58ce94d68942364cf0d4bbf5462a73"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 407889,
+      "webpBytes": 304844,
+      "width": 723,
+      "height": 544,
+      "rgbaSha256": "53cfc99dbde60c34129e58bb12f3c2704f86244f7fa4cc84cd3f6e9da6334346",
+      "sourceSha256": "c3e7dece03386a6c6765d55d93526950fefdf5f34c461e492ef107ef4d61ab40",
+      "webpSha256": "660116ea038f3b9ba26e3e71ea29740bdd9d83d2047795b9c1e53a9bb535699a"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 401930,
+      "webpBytes": 300968,
+      "width": 870,
+      "height": 520,
+      "rgbaSha256": "93dea2c945835cb8b0da81f2d48fa7234ee99f49ae9d00f16cf6c9f0c83441ca",
+      "sourceSha256": "80b143209be46c15aad43476549f2e2c955c758bcdff8452d0857a9a5114be18",
+      "webpSha256": "bebc8891118f7c8c1c838a5e1d63f9ba6f81d426e7d231f8d9adfc3cde4f9b16"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 750346,
+      "webpBytes": 582304,
+      "width": 1284,
+      "height": 868,
+      "rgbaSha256": "1a2529eef3a1085d12ce830188d536bfa109fe94a6863916d8f1bcf8a2f53766",
+      "sourceSha256": "745bd10348c0a9df47c8a839e1036ba7c02c58faf15494eea6a9d7175363dbbe",
+      "webpSha256": "543dc20cd85a40ffb240a017506ef7011832997719cc8e43069c22ec3ff8a4fb"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 394247,
+      "webpBytes": 297502,
+      "width": 672,
+      "height": 504,
+      "rgbaSha256": "75bac8fc83bc632255abd0f1c2c927a0d223662d0961b9ae73971378f345b8d3",
+      "sourceSha256": "a0724a16f2fee4fe5bfa9df05cca9f827d977a77a2cae7b79488936b3f7e08c8",
+      "webpSha256": "dff65ebc78d8429fbbed58f5c86aff54a5e515c184bbadb0f60c6d212876e7a1"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 365397,
+      "webpBytes": 278408,
+      "width": 741,
+      "height": 510,
+      "rgbaSha256": "040ce85ec4ac990d4f88ccb05c2248e295a7148d0bd835f3f93a72e8bf4e9e3a",
+      "sourceSha256": "97b6fed3cc75f8e6e313b6e1a2e8f0465efe2c8b398537a41076c338a5057695",
+      "webpSha256": "ec64f5039f3f78b9e0e71e7c16bb5102a75ab59642d4d5622c435c967c3d3ece"
+    },
+    "assets/characters/leigneron/awakened/iron-tusk/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/iron-tusk/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 361585,
+      "webpBytes": 267284,
+      "width": 591,
+      "height": 510,
+      "rgbaSha256": "f23efe5ec4597476701ecd57fda6b326b04608921500c164034db916471f3208",
+      "sourceSha256": "04871ffa314c6a85b8776a7d6e70605925f7f9cca2b3409f54eb9a57bf02c8d6",
+      "webpSha256": "457d04107c7e58bdeb989941bad7b152a3ec998a1e4baa8251d930fdb8f7adc8"
+    },
+    "assets/characters/leigneron/awakened/rootfather/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1772824,
+      "webpBytes": 1363966,
+      "width": 1012,
+      "height": 1554,
+      "rgbaSha256": "d84bbbfaeb67c5e9b9774c409b21c21c1b32fda31fd7e2166362eb742e21d6ea",
+      "sourceSha256": "f94b0e7ca5bc668188c232d609f4cc8b84233b9b9b5ad3d48ff230baa35f5078",
+      "webpSha256": "61f703af0030febd97007efeae443811af7d4f5e22ec371cc5d0e2e6e8ea0e46"
+    },
+    "assets/characters/leigneron/awakened/rootfather/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 704253,
+      "webpBytes": 530432,
+      "width": 1449,
+      "height": 644,
+      "rgbaSha256": "e339f53f4eb19ae670a855302cb4a23e30b27ff776ad9d39f9c5a3cb439f6607",
+      "sourceSha256": "3a8bf0844aaea1c9f434873c9d33af6ee00bd3d9a104cf37c176652ce1b97114",
+      "webpSha256": "95112f603b3fd6ab9f6e155eb0062fa9c89d9fb0c6f7957b0a264e70441ec0d7"
+    },
+    "assets/characters/leigneron/awakened/rootfather/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 673900,
+      "webpBytes": 500398,
+      "width": 1596,
+      "height": 598,
+      "rgbaSha256": "3618546794c62d1806d01f5f1d71284ffbc63bc9da460fec4a326be4abce4556",
+      "sourceSha256": "e06ddb35a5e436a0b21c0dc32366a0915b5df9b2dd89d561cb316dc10f346c61",
+      "webpSha256": "d3911eccc0c57f14d631fa63f5f85ddfbf982c232e8759c6e18a855a0daffb14"
+    },
+    "assets/characters/leigneron/awakened/rootfather/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 687458,
+      "webpBytes": 540670,
+      "width": 987,
+      "height": 804,
+      "rgbaSha256": "6430e7b1524e9bba4f1546bea2f582b98d92c6c57feac0c72697233cb03a21c6",
+      "sourceSha256": "dd955d63398a1c3d1c5c2909a216f3c1d1d2616efa3845a385e4e194f23ed0fa",
+      "webpSha256": "20b38f8a82f85b8bf47d5426c92c5831a1c6a218ee2783ec2d3a5f9abe118528"
+    },
+    "assets/characters/leigneron/awakened/rootfather/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 414044,
+      "webpBytes": 311836,
+      "width": 669,
+      "height": 526,
+      "rgbaSha256": "61957a5490ef693e70ee266e9461233b6ca3a31cb28f0437cf84fc9d259537e3",
+      "sourceSha256": "6f61982766bdf6284e121f00b541fd4ddf71a19d36d281232cbcc51b349f3311",
+      "webpSha256": "9c185ed8889369a0cda2a4e844ee19dfe046d830b4d85a40a151dfa3eab89d74"
+    },
+    "assets/characters/leigneron/awakened/rootfather/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 396702,
+      "webpBytes": 293948,
+      "width": 681,
+      "height": 504,
+      "rgbaSha256": "5544ef2049b4b5eb413e333cc3f691a21e61234010f803a9a850969e49c55c7f",
+      "sourceSha256": "12583770221513ecf672478a8ed918df2465c86f80cd23fa840c0b01e91dd855",
+      "webpSha256": "0a319cbeb4af833b603b441496428102b686d98a094cf97c91aa69b4d933b19f"
+    },
+    "assets/characters/leigneron/awakened/rootfather/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 342600,
+      "webpBytes": 257570,
+      "width": 627,
+      "height": 490,
+      "rgbaSha256": "cb9eb71537a5763ced689ad074ddfc9c5fce24b20b6484bed735abc9a1a2fa5d",
+      "sourceSha256": "50d2103a2899f45f184de46dc3c8aeb64a7413686ee5ecf9402665a8e6f86a9c",
+      "webpSha256": "db0f893ebdbf3f75aae37df2833e82d09762b99aa330c45939ac9495b2e1f035"
+    },
+    "assets/characters/leigneron/awakened/rootfather/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 434451,
+      "webpBytes": 326272,
+      "width": 819,
+      "height": 516,
+      "rgbaSha256": "3bd298ac6f47e112044e63540ca3e880ed964e659849e6fc628f423f172b437c",
+      "sourceSha256": "c9bf24918837844ed115196a56182195261d8b5a667d9e3178203ac2e3635ece",
+      "webpSha256": "4d7057aefc12e45e8f106cafcc316dc25d0dfb07d0c985a6733dcaf481891404"
+    },
+    "assets/characters/leigneron/awakened/rootfather/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 437714,
+      "webpBytes": 327994,
+      "width": 726,
+      "height": 514,
+      "rgbaSha256": "30d82b2a1e29a3149202bb873aed9810c2fd9cdf541ba5bb85238d17725a56c7",
+      "sourceSha256": "f55b719337dacc59fd427c58c30fe82c26ba064b189fea6b824ea1d8d61c5e73",
+      "webpSha256": "fa77aef7d0f171feb64faa279f453bdecdeeff769c451cf3c6a691cd515b1776"
+    },
+    "assets/characters/leigneron/awakened/rootfather/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 390283,
+      "webpBytes": 287762,
+      "width": 705,
+      "height": 550,
+      "rgbaSha256": "e5497b0a66e39b209ce42de1be37a0208f97cc790808fc5954a25cff2f85fb03",
+      "sourceSha256": "f44ce2ac2920a11ce6454ad760efd85846d88d93e0a82896a4391985aa18101a",
+      "webpSha256": "dea653230175f145f6bf745c8f1a6f07489ec6b3e1040ffd0caffc5bbad5ecb0"
+    },
+    "assets/characters/leigneron/awakened/rootfather/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 397384,
+      "webpBytes": 290618,
+      "width": 867,
+      "height": 500,
+      "rgbaSha256": "be2d8f1271ae4717b44339d29ba3da9cfeb66e9517e107481933858bc185a7ec",
+      "sourceSha256": "6e84578b0fe7c333cabf3445117fc0124617d6cfb43cfb000b9302799de8b446",
+      "webpSha256": "92d8adcc9aa6f05890d1fc5a62c2c51bdfce7092fe465c381dc0f5c119bca6d3"
+    },
+    "assets/characters/leigneron/awakened/rootfather/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 738040,
+      "webpBytes": 548864,
+      "width": 1221,
+      "height": 874,
+      "rgbaSha256": "a2939f39007ff6e82a0d26db52ee8be4656028ec7b97000abe82cea6a1695611",
+      "sourceSha256": "75a7fe4a75c4f7fde93f98ee56668c828b88245ae834f4ef40da49ab3474aecd",
+      "webpSha256": "5a0d868a9a86609c97c11b50a134834b7737a6a7ad5d61176e2296087a7d29c6"
+    },
+    "assets/characters/leigneron/awakened/rootfather/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 377288,
+      "webpBytes": 282868,
+      "width": 663,
+      "height": 508,
+      "rgbaSha256": "0653e81aab2234519e71e7850565d749362a1b99e2e40f404823391f8c928cf6",
+      "sourceSha256": "5eccbbbe03fd2df251e52b70157005f0f3d7680d6d25a62cc9ab8c3c524a3028",
+      "webpSha256": "2c97f2ed1762bf4dc4057945e4de0871bff5979874eb2796382fb34a63642608"
+    },
+    "assets/characters/leigneron/awakened/rootfather/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 362082,
+      "webpBytes": 270918,
+      "width": 738,
+      "height": 512,
+      "rgbaSha256": "15215dfee750ec16b23699bdb51d07984c8d7d170f5ceb8373ac87c29b61016a",
+      "sourceSha256": "0be6dfaf423ed57eb0b1c09d0eefb087c9151f4cad13d2554def1aa12e80aa3a",
+      "webpSha256": "fb77d2188bf3bfe741eac1b0698147bcca194ed8af6c72bd15f75f1563619fac"
+    },
+    "assets/characters/leigneron/awakened/rootfather/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/rootfather/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 333469,
+      "webpBytes": 243934,
+      "width": 654,
+      "height": 510,
+      "rgbaSha256": "e3ee61a312061c26080eea28467f37c7fbb2cc356f1f999734c9ed2550e2af83",
+      "sourceSha256": "c9b5c29ff2b0bdbb46431158e3921603941a5435b2e8745fae2ae4bce098b54f",
+      "webpSha256": "69b8675c3c3ab90c9d7a2df4491f5479cc191951652326e64f60c2d2727eebae"
+    },
+    "assets/characters/leigneron/awakened/salt-king/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1736694,
+      "webpBytes": 1401498,
+      "width": 988,
+      "height": 1554,
+      "rgbaSha256": "9b65cc6f8461a2722048ae35fa80726921b7cae99faaf861f3c9f3e7bbe9c876",
+      "sourceSha256": "3f310651ccbb48958ef7d70e9a27efbf9501e423948926580505adbdab66ba27",
+      "webpSha256": "2ca65b3cfde5dd13170459681b4d6c497336b37fe2803a5c528d3b2da071b8cd"
+    },
+    "assets/characters/leigneron/awakened/salt-king/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 657541,
+      "webpBytes": 515522,
+      "width": 1485,
+      "height": 640,
+      "rgbaSha256": "4f3af8f490f76ea67491ebe4db25366c2a8e343f051445e1e62e8d47416017dc",
+      "sourceSha256": "31ffaf9d71beeae2b144ae00e348723ab7ec36f0811e7ed8028616826ea55482",
+      "webpSha256": "9fb9cb84dbaa279231bd766164736be2355902e8723be75859eda0e18460fef3"
+    },
+    "assets/characters/leigneron/awakened/salt-king/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 677012,
+      "webpBytes": 525882,
+      "width": 1743,
+      "height": 588,
+      "rgbaSha256": "6ef7f2ae7b149e3a20ea83118734146425bc19605e277941a780654bc9e45357",
+      "sourceSha256": "294abe9552a5de126c97068fa749ccd62446a0250442437b47d70de3570e1067",
+      "webpSha256": "1c3ed3973548fffc3bbf53ce0d4e67118ee77b7bdfaff60036a7a5da65ff08dd"
+    },
+    "assets/characters/leigneron/awakened/salt-king/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 680195,
+      "webpBytes": 545206,
+      "width": 993,
+      "height": 784,
+      "rgbaSha256": "8b7adf4c8a12a750755b88b011600a72dbac42e7bfaa98032dfab00c31a73f6a",
+      "sourceSha256": "ce431cbadd0ffd16cab559453fd870b970f7d17de05ae804933bc1b36376658b",
+      "webpSha256": "8717d5dfe4dda40b3f309702331370cf466e085d95a8eb607c3d2935a1d16bde"
+    },
+    "assets/characters/leigneron/awakened/salt-king/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 399704,
+      "webpBytes": 308184,
+      "width": 660,
+      "height": 528,
+      "rgbaSha256": "e79555756d345f6cfcad1c8a89992ac60f9cd239eb9f52c1ec117b0a270e3207",
+      "sourceSha256": "c8ef852de228db7b28e209e24c1463d5138d4896ba046d3c16804c8435f5cad3",
+      "webpSha256": "f0c37def70f5a4142a68ae25d2cadbbed5f0f04e81899f3c5bea6467b87ddb79"
+    },
+    "assets/characters/leigneron/awakened/salt-king/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 386553,
+      "webpBytes": 294532,
+      "width": 672,
+      "height": 504,
+      "rgbaSha256": "1dc37b702362fe4b91d1a0dcc2ed6622a7b91ac425b1d65c17f1b756cde4ecaa",
+      "sourceSha256": "a53c34e6f0f768efd7940ea0c3cc6453b814fbdd85c744ec6ad8a96cc0983f36",
+      "webpSha256": "43bf3d79ecd26fac36591930d724e79b600a49129bad70fe557f160187ed5308"
+    },
+    "assets/characters/leigneron/awakened/salt-king/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 336282,
+      "webpBytes": 259144,
+      "width": 681,
+      "height": 490,
+      "rgbaSha256": "1557af38febf203e08a220285dfc58010a922294c01d233b36e485b069ffbc90",
+      "sourceSha256": "396b52cbc63e2b40df4be6173dfc767478a4ff09de2287c4349d8187c9d8cd81",
+      "webpSha256": "5d7ccaab1fc8310f10f47956553bffeb196ce0a5411a251d70669d69492bdd07"
+    },
+    "assets/characters/leigneron/awakened/salt-king/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 406322,
+      "webpBytes": 320344,
+      "width": 834,
+      "height": 504,
+      "rgbaSha256": "fc93dcc55b7e957e4837e3c4c00b64f2b9bb0f1638fd2c8164307f3d4b3e8607",
+      "sourceSha256": "8f1584238c1afba68bd5c9dbc4e1633dcebe6874403bcf7311065ac1aa87d659",
+      "webpSha256": "ced562eea5568e23cf16d99fbc4a8a9fda0180acf5dd6b1a79f3733a83f8a08c"
+    },
+    "assets/characters/leigneron/awakened/salt-king/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 424886,
+      "webpBytes": 332722,
+      "width": 717,
+      "height": 512,
+      "rgbaSha256": "baca011bd76549b183286b4d0d56562dc9d3ea6632bf9f5df8923d93eb651e1d",
+      "sourceSha256": "9ff98e67a19043beee5b3683bed1a77f81fddcbbdb17e70c9b1395a25b40b3d8",
+      "webpSha256": "3ce45be3a54bfe4e1047369843ed36780244091e581b7ec404b6e319a664f2a1"
+    },
+    "assets/characters/leigneron/awakened/salt-king/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 351691,
+      "webpBytes": 271602,
+      "width": 705,
+      "height": 536,
+      "rgbaSha256": "5d7026e03d1d0cf284f7df5ae454d9ab32a7f16ff9cdf408f252519b2d72c42b",
+      "sourceSha256": "c61e09bea541bb3b8ea351ae09e32129bb6327f6ef69189e97093221ef24ca4e",
+      "webpSha256": "2e79a22d868df5397f3560fb7b8a5e0b55ba85eee4a6cb61c0e13dfd6b7e28b1"
+    },
+    "assets/characters/leigneron/awakened/salt-king/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 384529,
+      "webpBytes": 291628,
+      "width": 915,
+      "height": 514,
+      "rgbaSha256": "1c7d5f53949b01a864ac275f10202c4c6c230030a173b093723d027da02d5511",
+      "sourceSha256": "a0d4e509ad7aa9445865002cef81084a42ce2e443ca0ed0821bbbb8cb923f610",
+      "webpSha256": "f854f8ceff709181e8bc6cb55ffebb0b90528c134427b300550cefcc78879ac8"
+    },
+    "assets/characters/leigneron/awakened/salt-king/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 674245,
+      "webpBytes": 526620,
+      "width": 1134,
+      "height": 840,
+      "rgbaSha256": "df37268bda6c8d0292d2bf1aa4ee7eaef9194bebe723673f7be0e31d36ff68d0",
+      "sourceSha256": "e5cf0cf243a98ca0b124a9cb33808c28a368e2e3b24554f7c3ebaf5079424ca3",
+      "webpSha256": "876e74f3c1c345e6b4ba9c2453e486c68538b3c7cb1b0d777d1dda491cccdf46"
+    },
+    "assets/characters/leigneron/awakened/salt-king/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 347793,
+      "webpBytes": 269192,
+      "width": 630,
+      "height": 502,
+      "rgbaSha256": "f35feae8d09993538e3362a109c05db31e48595dabfd30bb8ac31d777c77667a",
+      "sourceSha256": "a85d8bba4f0346e5bc4f061d49bd787edb54189ac4af02f8ae8d8e153fceefcf",
+      "webpSha256": "685ccbf23244dcfcfb7a2fa69511d25e3364cee3689b2bfdf801e914e638c2c9"
+    },
+    "assets/characters/leigneron/awakened/salt-king/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 347692,
+      "webpBytes": 268288,
+      "width": 750,
+      "height": 510,
+      "rgbaSha256": "443a765b425423563d845d29898058abc419fa3429a7d204f85c38cf2e7e38d7",
+      "sourceSha256": "46c3811ac73ccb5f067f93f1c54d83fb8571d650afc0b1bd518c300c62e5a174",
+      "webpSha256": "adcc1799469f3db3343a190c27eb0ebe7ae9e8f8835e438666b562c5abe0eb6a"
+    },
+    "assets/characters/leigneron/awakened/salt-king/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/salt-king/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 313879,
+      "webpBytes": 244816,
+      "width": 567,
+      "height": 508,
+      "rgbaSha256": "bd9d9c3dc5b873d96042e3a3480643aa142302bdebe7dd9dc5199d3eda54d202",
+      "sourceSha256": "58e747a9b1d111e3b5bc5eebad33ce87af7fa6686cb13d9489ae88bd96d6c4b8",
+      "webpSha256": "2f8d33712b74a138dbf17f8bfb079137df0c420fc8080fdab6c8856419b2a633"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1775987,
+      "webpBytes": 1363434,
+      "width": 1040,
+      "height": 1578,
+      "rgbaSha256": "f37c09f6e2b3d2085ffe6927988fd95509db0c70138cfed0440601ae70be8130",
+      "sourceSha256": "51afc5a318aecf7a7eeb3d450fc93f586482914d708cd1410e7732ad46e37a4b",
+      "webpSha256": "459222cb223a31f7e320a6ac33323b20e57ef53e8ce50337d18b575afa47a0a6"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 681571,
+      "webpBytes": 506486,
+      "width": 1605,
+      "height": 610,
+      "rgbaSha256": "194b8ea2e65046d32178ee7907d52bf67ec632d8774f4668444d556b46d3d306",
+      "sourceSha256": "3a80b9d874158fdab105ec34efaf580f28389fa772579c452bd6791caf09cf23",
+      "webpSha256": "63247de7675caa05277032c856116f4cf5b786d002863a36bd80775ff14cf132"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 678618,
+      "webpBytes": 498490,
+      "width": 1701,
+      "height": 600,
+      "rgbaSha256": "9974826424f323ae0fbf8a447d3828b626ce0fe82c743d3beb8c0eac5899b8b5",
+      "sourceSha256": "64845ec0cc3ab142ffca5eb07402f602fb2bc703d921a851cd180203cffea4d2",
+      "webpSha256": "56699165a3480417b3ff7504779e2dbeb2ad65d19687f0f2fb4f52c7204a2f1d"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 714626,
+      "webpBytes": 546518,
+      "width": 1017,
+      "height": 810,
+      "rgbaSha256": "946ca019bac071c8d8b34149f03933229b641fb0861d9a1de6903131425087e9",
+      "sourceSha256": "8f913c8e3b423c03a65b1963804fea77f645064f64082e661cc7ccd7b99ce66b",
+      "webpSha256": "6e4b9f57041ba1402d781395263983311da6fe9f6dcb81a3be4c63f15f58a9ab"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 386891,
+      "webpBytes": 286306,
+      "width": 660,
+      "height": 530,
+      "rgbaSha256": "75a350745fb6c01a43d47c0ced0d0a4300030bbda6acdd7793311b832c64f8b5",
+      "sourceSha256": "8c22e78c691dd03e191af7249edd96b0946aa3b1dd292ed5dbd867d45ffb121a",
+      "webpSha256": "a6bda50bf9a3befd696bfac8ec9b8d72b56e834c6e24a461f84e9ef2e53bacfe"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 402814,
+      "webpBytes": 292760,
+      "width": 696,
+      "height": 508,
+      "rgbaSha256": "83bc66c944df2ab997d71264c8fb59e3c80187aeb1f3215c5f5fb96cdfb55a79",
+      "sourceSha256": "8f03e21fd48544d9770c9a1868d5b42feab3361190234c3ec60d0b068c3bc0a0",
+      "webpSha256": "29f22d65f7e8c8d808d3e620ba37ead28cc9e0489291f7843d3742113544ea6c"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 328589,
+      "webpBytes": 246356,
+      "width": 627,
+      "height": 490,
+      "rgbaSha256": "b81c220ff0f06baee39c1f1725a3f962bb76752c5e914a26633309eab64ad91f",
+      "sourceSha256": "868888fcd92b06e1ed0701f983582cd2c223b6b4d2cf23d11b7e142f7ec3ba08",
+      "webpSha256": "a0c370a3e23a2f612a2f20b25247a13544bc24ec8ef1b4f213acd8e5d66ba415"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 422501,
+      "webpBytes": 315090,
+      "width": 831,
+      "height": 508,
+      "rgbaSha256": "5381c1d29f31c2d5f36209cac5c7ffab2ee91e2295f1cbaa9a5534baee21d3cd",
+      "sourceSha256": "fba1a949e5abc836e3d16101dfa4782700ab6ad04ee06e8a066393bf198c8b2b",
+      "webpSha256": "1736c65ba09e5703efeca90270bf08552eef7098628132e715754ec23e66bb83"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 430000,
+      "webpBytes": 316986,
+      "width": 726,
+      "height": 516,
+      "rgbaSha256": "7d6b6ff19c492fd5b59d2d368e48049fd1d44cbf40d84177327a27713ce708e3",
+      "sourceSha256": "1a289cf61472dc24ae024bf4580f7bdd418490262b331a893f015267d384d6bd",
+      "webpSha256": "b715cf20c4e3178b9feb61dc1a72ab27621e688bcf5c473b5ca50f985b3c4d42"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 372908,
+      "webpBytes": 271654,
+      "width": 708,
+      "height": 540,
+      "rgbaSha256": "50a97f1dccd22ba0ebe8963a3944f5f5c6ec70e087abf23669a40eb721590580",
+      "sourceSha256": "d2384e4e82d49aaecbf0fb7ec87401463bcc6a887174f81964a75908e582470c",
+      "webpSha256": "62d4fc2b4134ae13d895a59248fcd9b302127ed3bd5db8381f6c5e7c40f29252"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 392244,
+      "webpBytes": 288640,
+      "width": 885,
+      "height": 516,
+      "rgbaSha256": "9de8b01e40fc9431eb79c8a10f81fbdb766ee70ad5c6e889000b59872006f0a8",
+      "sourceSha256": "5b7a47984aff337e58757a9e66e1887f2b44262fb944707066e6fc04a6668934",
+      "webpSha256": "1aed74b71e04b58a94f28bc2f07b33136bf9f02c5a54c3c60f2f650afe92757a"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 698055,
+      "webpBytes": 512144,
+      "width": 1224,
+      "height": 852,
+      "rgbaSha256": "736d054490525b5450fd3d983c18fe2df6478ed35d66797b5b91cceb9e462f30",
+      "sourceSha256": "f56b3bff2ddf4177c2b641db3d8fc01fd12808c9c9ccd6415002311f8438e429",
+      "webpSha256": "9b6ec1eb5fc01bc3828a5cf2e677ea10aeff5f75ecb883a3092a6bef6dc6c9ec"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 370077,
+      "webpBytes": 275612,
+      "width": 666,
+      "height": 504,
+      "rgbaSha256": "addafa41d14265b5ab57e21d2543b1118009b13ea24ad310d58c1c21e0a382b4",
+      "sourceSha256": "4bb7769ee8c9ad4808589829897b6ac7ccdb522f583c76088a8de79119473ed6",
+      "webpSha256": "5dd9ec843464c7c45b9378464969bb9ec6da560b6f3f027426038ccff985ce5a"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 356662,
+      "webpBytes": 264982,
+      "width": 744,
+      "height": 514,
+      "rgbaSha256": "cbf857058a4ea151892c646e2cc6c9e176c27cc86032de66ca1019a8484bf826",
+      "sourceSha256": "35267c25afb775c035d8a8ddfe9daa7695f651f4c9a1126f9a6cefe76da4951c",
+      "webpSha256": "b5d1a18919280b242e8950ad30212247b7a561eeb93fe279b678a0c8e2e9ba02"
+    },
+    "assets/characters/leigneron/awakened/stonejaw/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/stonejaw/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 352306,
+      "webpBytes": 263362,
+      "width": 693,
+      "height": 506,
+      "rgbaSha256": "8d5f38abf201df2cc8ec6497b0e9fa5abc7e4bdf0505f5b087b6025789f4012e",
+      "sourceSha256": "765cb79247f724fe0ca94f98252c94911c4e3f43d6ef5211c2daddfb0f2ffb58",
+      "webpSha256": "deaad7e4b93266213bb48990b4979ff0ce3642a563cf7b43c589d775abca0aba"
+    },
+    "assets/characters/leigneron/awakened/varkhul/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1888833,
+      "webpBytes": 1527894,
+      "width": 1028,
+      "height": 1590,
+      "rgbaSha256": "8f335416bf31d3b9b3c778e1bc6bffb564e43fd0a1b25cfc22bd9900a9a010ed",
+      "sourceSha256": "f71ff4c857ad3fee769190331dde61a687f34ee647d1a2d9c353097ca81060ae",
+      "webpSha256": "051319b8f525bfc389586c006b2c7859be25087c3f25357470081b07f6abfcec"
+    },
+    "assets/characters/leigneron/awakened/varkhul/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 710657,
+      "webpBytes": 555508,
+      "width": 1578,
+      "height": 622,
+      "rgbaSha256": "c0ed88022fec436f4082ff331141e554dd6f96070e9bf89358044aac9d54d32c",
+      "sourceSha256": "73ffda56303378339fe323dbfe8f0f75d88bcf513de0cf6bf2436762bd2dbf06",
+      "webpSha256": "c38c58833ce68602ef1acd8c810884d04bc61f690dada7e19770c6e74a1b8876"
+    },
+    "assets/characters/leigneron/awakened/varkhul/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 654362,
+      "webpBytes": 511812,
+      "width": 1800,
+      "height": 600,
+      "rgbaSha256": "16a0b03e57bff42dd2729aaaaa7bf82ae7e6ea4f6f83bb19f9ff12e985717eea",
+      "sourceSha256": "c7dc334d22783fa59ccfcb261d843b44d313ebd630359f6c6323782a135227d7",
+      "webpSha256": "8547deca200478efaa576f77629b49dcd106525cdb1adbd63134b44578abc52a"
+    },
+    "assets/characters/leigneron/awakened/varkhul/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 699330,
+      "webpBytes": 562390,
+      "width": 993,
+      "height": 808,
+      "rgbaSha256": "3f79f95029fdda4634ea8d2ebe249abdd14befe39c1c5f55e1de20a27034ab5f",
+      "sourceSha256": "2981ff097b617ef5423a9fb3a13fb3e75eb29c2ff5ca5b40983f1144dd56608d",
+      "webpSha256": "cc3cbbe840c81de17c1b99b3fb0a30ede2b364d0d5be9710803c0dd4eb0e8f60"
+    },
+    "assets/characters/leigneron/awakened/varkhul/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 395828,
+      "webpBytes": 308640,
+      "width": 675,
+      "height": 536,
+      "rgbaSha256": "31767f7306dc14f31ca9902d73f2abd27f8023c548d429dc80fc6c6fdb5afa52",
+      "sourceSha256": "d022bc561c500397dd1531dfa0cc2d639e98db9c798343a7b846037b099aff79",
+      "webpSha256": "2ad9bc12df73e2b5a9edbcc5206e429b7fa6aa538b79062887e2e7f0781570b7"
+    },
+    "assets/characters/leigneron/awakened/varkhul/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 405103,
+      "webpBytes": 319116,
+      "width": 666,
+      "height": 504,
+      "rgbaSha256": "e784b3c9041e4350ba500ed99c58d6b8dbcade48afa177b0d740e02c3b846649",
+      "sourceSha256": "08231b203fc6cd1d5877e4251663f49d986e660bf7a8d5f5316ff70a1007c05b",
+      "webpSha256": "b0761d1472910a3c9d9a3f24476ef68625feb2d1b7556d6f594679e9262c0ec5"
+    },
+    "assets/characters/leigneron/awakened/varkhul/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 319978,
+      "webpBytes": 248490,
+      "width": 618,
+      "height": 490,
+      "rgbaSha256": "a164297769c69a712c0ec75bd0bc029015c505577428e0309b8eeba9493ec3c2",
+      "sourceSha256": "ca7674f912bab6ac9dc8442a1ba45b242e592b7a4bd2bd8a204b5991546c30c3",
+      "webpSha256": "8d56f270c27aaf5623fdcf870e4a6dd7aae8beb270bfb62fd42e85d29c644a4c"
+    },
+    "assets/characters/leigneron/awakened/varkhul/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 436400,
+      "webpBytes": 350088,
+      "width": 801,
+      "height": 512,
+      "rgbaSha256": "2be933d4f0095297be66f80e683ad425c86c918b7c8f61ef12eab8620be28ae2",
+      "sourceSha256": "dee9ecf5d78260ae7d8737aaa27e57ff4d883cae770e3ac63e8c6d574e091577",
+      "webpSha256": "9ea990471bfda673b390b1cbb148dc82624a4271edfc18c2ccab941f246f7cf1"
+    },
+    "assets/characters/leigneron/awakened/varkhul/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 463639,
+      "webpBytes": 363970,
+      "width": 849,
+      "height": 512,
+      "rgbaSha256": "93054969816a4bf874ece13cc98d950dc2bf576be11c2db0e45da3b3c108fc01",
+      "sourceSha256": "c4805dc81b374c3c7506c079bf74c061f11523a38eab7b0083dbcaa19c3fd5b8",
+      "webpSha256": "c4143777fd8f70f43928dc3f4b4d4676f3b92b1d350b458faeb8fe21ef780b6f"
+    },
+    "assets/characters/leigneron/awakened/varkhul/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 376602,
+      "webpBytes": 294702,
+      "width": 696,
+      "height": 538,
+      "rgbaSha256": "ce895cd01fda33254557a3e0f0b7d30285ac3b53222343e6a27ab146b4dbef20",
+      "sourceSha256": "2f9217dad9767ea05dee34a79d392eed62136a11fbaac52e4c232f9f849b4468",
+      "webpSha256": "287ce4da8d460b838b0c48d29bb929d0563de5d53b63154473e1ddfeaa5a7546"
+    },
+    "assets/characters/leigneron/awakened/varkhul/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 401763,
+      "webpBytes": 314918,
+      "width": 876,
+      "height": 524,
+      "rgbaSha256": "88d821f77dccfc660a337632f98523131b4fbb950c6e4e5ca4f62a06c3adf7fb",
+      "sourceSha256": "5f76e896362550a2c0c5903ee6ce3cd871f6ab671d63a6b9974517bd2cca9be0",
+      "webpSha256": "e5f3ec195381adea31ebdaa05b29668fa8e259326979be066fa8712b169d8785"
+    },
+    "assets/characters/leigneron/awakened/varkhul/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 635284,
+      "webpBytes": 501636,
+      "width": 1455,
+      "height": 692,
+      "rgbaSha256": "65e5b73ef693e633f8ee1ef6ac4ae58210649c3284771c6e6629346297e11e00",
+      "sourceSha256": "be9fc7470aafd5fce46dcbdcb72d9168d1d38a16a9ee96ae0121d25765d98d9c",
+      "webpSha256": "0044dff1a8d3f44ad1a9e1ebf6a393b7f3553b79958adfd824b7d75610e272cd"
+    },
+    "assets/characters/leigneron/awakened/varkhul/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 389621,
+      "webpBytes": 301520,
+      "width": 690,
+      "height": 506,
+      "rgbaSha256": "f6eaa35f6674f0166009016c24cb699d9dbcb9ca66e2800bb9eaf39fc20bbdac",
+      "sourceSha256": "aa0a444edbf0cdcd413dc0e2b4190e849b7e9b556b6737cc93d57e684f2a6cf9",
+      "webpSha256": "cfb7f989228cfa774b055dff92a12f95190909f74069b9851250035913880648"
+    },
+    "assets/characters/leigneron/awakened/varkhul/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 349223,
+      "webpBytes": 275102,
+      "width": 741,
+      "height": 510,
+      "rgbaSha256": "f516b4aca410fd681840668e5d798d871c7c59fe96bab495e9024ff99abfc1e7",
+      "sourceSha256": "866c941bee31fef51faed36b45a4716160c46d4268c8af2126208d5ad45a861c",
+      "webpSha256": "75a40d189c0a0b9b933ab0fc0b05ece23e7efd29567a52a3f3425b5718b4e4f2"
+    },
+    "assets/characters/leigneron/awakened/varkhul/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varkhul/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 320763,
+      "webpBytes": 248914,
+      "width": 552,
+      "height": 510,
+      "rgbaSha256": "d1f3739a4630ed87824e31a47ca25e48a713dd84d0e6efd5da5a55f9bd92d308",
+      "sourceSha256": "4aca5974d70dd37e56d0836fcc5b1a3d789702b5e92dc7b868ea82486820a55c",
+      "webpSha256": "ee995e3225bf231ffb4bbe1d220ae3e71d9aa485da6dcb5416a1e71e94ff1e17"
+    },
+    "assets/characters/leigneron/awakened/varr/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1683517,
+      "webpBytes": 1283210,
+      "width": 992,
+      "height": 1560,
+      "rgbaSha256": "d9ffd70059309bdd2fb0abc2a17cd641c672a91e14a7beaa03bc00f3926567a4",
+      "sourceSha256": "206c7e49a96552dde3386eedbacc53a325e34c772ca5ab9b6d5e3c8237fc0019",
+      "webpSha256": "40d1c14c8ba44df89181689447ac3146be86257579a833cb00b3a98098db7e94"
+    },
+    "assets/characters/leigneron/awakened/varr/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 670784,
+      "webpBytes": 491868,
+      "width": 1836,
+      "height": 602,
+      "rgbaSha256": "4b3b170b84bf44c2a784fbad54fab47359a3d5fe2adad789479e27b9ce4bde2d",
+      "sourceSha256": "c2e84e3e9aacab7620ae935d3b1a0d84c456419fe36831a8bffb82a3d1bc2761",
+      "webpSha256": "9fa6aabf49681be1b9b2e6bd4e4821aa2fbf28ebd8119e91c4ab83a2eeaf05ea"
+    },
+    "assets/characters/leigneron/awakened/varr/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 667534,
+      "webpBytes": 492646,
+      "width": 1494,
+      "height": 602,
+      "rgbaSha256": "a409c483602c78c456dc728c2529b0f34aa4d37fb90923b162752455415b9923",
+      "sourceSha256": "64bf07f92b87deafe1b2eabb383aff891fa8cfdd9ad681f2f8a18b59de8fdaf1",
+      "webpSha256": "dc75123dd313d1f5f6131454880687ddb095d34da9d99c97ca0d0bdb2b15b6a3"
+    },
+    "assets/characters/leigneron/awakened/varr/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 658761,
+      "webpBytes": 499554,
+      "width": 1002,
+      "height": 814,
+      "rgbaSha256": "4a7d177dff0143129699b1a7a41886b91e989124954f1cc45dcf3292e0606f2d",
+      "sourceSha256": "f056f606c8543d0c1d9ff49e30783fa6b81d4e40bdd02ad7ae4f838c0d43ae92",
+      "webpSha256": "b78636ee1c751f4cfd523014eabf41569aba689cb475d99754917218e24b6836"
+    },
+    "assets/characters/leigneron/awakened/varr/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 375669,
+      "webpBytes": 271334,
+      "width": 663,
+      "height": 528,
+      "rgbaSha256": "154dabb511f6d75e6c4deda9efed5e95aea830bf6f64a8a1d8e5010e38d1b88b",
+      "sourceSha256": "a8c0e2c779e348335306cee47992c3c9707251498c14d27b86f3aef482006d85",
+      "webpSha256": "eafc884eb310896f5de4deb3a26b963193ee19549de9c13b1e16d2dc209563b7"
+    },
+    "assets/characters/leigneron/awakened/varr/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 359091,
+      "webpBytes": 258530,
+      "width": 678,
+      "height": 504,
+      "rgbaSha256": "e262d5779aa6f4a1c438e0154ef6094b3c19f7b2e6a50f5b870af11b613fb681",
+      "sourceSha256": "ad5d491310f8559b74e72121e9dac3d1b14efea05d951c06dc85ab3ef0c07d1e",
+      "webpSha256": "95769b91ff409372e69c3bcb4422587c5463081b5082f7fc5985916be19826ba"
+    },
+    "assets/characters/leigneron/awakened/varr/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 297301,
+      "webpBytes": 214814,
+      "width": 654,
+      "height": 490,
+      "rgbaSha256": "9026c34a3a287c52ffe4751142eebffe4c6e26b2ce30b3056bea5aaa1654d71d",
+      "sourceSha256": "400fe62a3640a2a84174e51e53d9add6cb4fceaac86cbd7b4a037a52bf2312a5",
+      "webpSha256": "cebb6e8a05f0e3d3a8ee1c39eb7a9191c0b081de3b4f9cd9bbb214f8dea75d2a"
+    },
+    "assets/characters/leigneron/awakened/varr/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 381998,
+      "webpBytes": 276162,
+      "width": 813,
+      "height": 510,
+      "rgbaSha256": "861ade220b4f0af75c175afe26903cf7690475e034ae5a86fc99773130a8decf",
+      "sourceSha256": "a704e406ae504a0794dfd63be8a965325969275fe4cec4bdd4937ec1c1933cbe",
+      "webpSha256": "64498fe5fcbd05c0c06b1eb0409aa225fb8678561f3e1ba59057d2bce2ff60d0"
+    },
+    "assets/characters/leigneron/awakened/varr/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 400487,
+      "webpBytes": 290846,
+      "width": 729,
+      "height": 512,
+      "rgbaSha256": "c51e3e6617e2233335de233ab6fc16d3fd8bba3d86c164441e84522059d607bb",
+      "sourceSha256": "628e340445bbd137665eb616413bd6d46a8abf738aee524f63dde7ede2ab7588",
+      "webpSha256": "086211f0e5f96c4bed647ad1ed184104400f87aa3cb4a1253e5e979e139f5cc0"
+    },
+    "assets/characters/leigneron/awakened/varr/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 340542,
+      "webpBytes": 244034,
+      "width": 696,
+      "height": 540,
+      "rgbaSha256": "6cede7bc9e8a6ea98bd06be782a6c94d8c647c049ecb5fb6e250dbae4c86a434",
+      "sourceSha256": "a9d74b861a82ae7e3d85b001f456c18b009008acdc15c4ee40ab5688cc81b3d4",
+      "webpSha256": "b6705f3db686a5d747affec1cec3873c5370af38ecb724dd78c431733aed4bff"
+    },
+    "assets/characters/leigneron/awakened/varr/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 373300,
+      "webpBytes": 265760,
+      "width": 852,
+      "height": 506,
+      "rgbaSha256": "16cfbed4069e917e1db1d49ebaf8638d8c51260778c041bc82d8de93e564ca14",
+      "sourceSha256": "a00b832f3eeb18584f5b787b948cc31ec71cabb30a3ab6e05fcdb9e11a2b85a9",
+      "webpSha256": "8ea3632669308daab80f94ab4ef8f4101783b8b8bdff4913e4543e113e931eea"
+    },
+    "assets/characters/leigneron/awakened/varr/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 690966,
+      "webpBytes": 500750,
+      "width": 1209,
+      "height": 866,
+      "rgbaSha256": "99e9450ee29fec0982625cd1a7af91c5ba145596ca393e3228f5afc962607732",
+      "sourceSha256": "8a9923d477a9f9129ce41c7449c9720b52d6c10067c0170e04df3427cdd56f67",
+      "webpSha256": "22fae973718a74cb94e9b9eebdd152d640884f28c041fb4a173d34feb67494d9"
+    },
+    "assets/characters/leigneron/awakened/varr/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 348612,
+      "webpBytes": 251930,
+      "width": 657,
+      "height": 508,
+      "rgbaSha256": "648ac40165117eddbbbbc21bf83bd88ea7d9cf87ba4909d412237edd396e8ea9",
+      "sourceSha256": "6914bc615c6dbfd27f42db0de832ffc3c42e93b45864aaf85423bf2a89471416",
+      "webpSha256": "a47e8d3e83c3dd7542f210a0b99bdb431379db00b8f0de9b27cd0917a3b0f966"
+    },
+    "assets/characters/leigneron/awakened/varr/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 324321,
+      "webpBytes": 233110,
+      "width": 750,
+      "height": 512,
+      "rgbaSha256": "a18fbc4b8f124daec56c4d4c0c838c1c5fe8b9a1a2abe4c02e38d3a9e596463f",
+      "sourceSha256": "dd91b40eaf1bf8bbcc4fa5a4867cafbfe143ed5c6e02e3be4ff37a5afefe1150",
+      "webpSha256": "c53fa57e30f2d975e3bc79c0674967d9a92843052b95ea6d914e71b065f6089d"
+    },
+    "assets/characters/leigneron/awakened/varr/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/varr/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 338202,
+      "webpBytes": 243594,
+      "width": 693,
+      "height": 508,
+      "rgbaSha256": "3140cd95f2489688b97dc19ec46b339c73cb91e95532f19cafd365ae31869e15",
+      "sourceSha256": "8d1c5019344a15971c6aa98a9f0da84d769029132fbdc26fafd2e7b6b4588aa3",
+      "webpSha256": "71d4aa9f6fed284c99f910865557181617d72fb3083d4f2486138acab9fd5e17"
+    },
+    "assets/characters/leigneron/awakened/warden/attack-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/attack-atlas-v1.lossless.webp",
+      "pngBytes": 1805423,
+      "webpBytes": 1279552,
+      "width": 1104,
+      "height": 1584,
+      "rgbaSha256": "098ad80ce7bcc72eb61913e9995442afbf785ae39b8befb4eeaaea99f752b126",
+      "sourceSha256": "3209eda665972afb53b842ad85d6706129eac11958998044f375d0235c33ec79",
+      "webpSha256": "32a25e797f8ed48af4fdb8ea2c80552e96a5b46fb23067e7d067c326cf120a12"
+    },
+    "assets/characters/leigneron/awakened/warden/azure-cleave-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/azure-cleave-atlas-v1.lossless.webp",
+      "pngBytes": 661399,
+      "webpBytes": 477492,
+      "width": 1449,
+      "height": 596,
+      "rgbaSha256": "470458c8e3d55d435c7d3832a293138df1211a9bc23bb37f94bf83002c3cf5fe",
+      "sourceSha256": "33fe264712f7089ae48bbf61a517b1f9cb8c74adf929a3778ac921ccfbe3a8fb",
+      "webpSha256": "b3ec9928f9ab9b7df6f85d67ca35ae1de9b2798a2c3f00b54db5d033e76a6312"
+    },
+    "assets/characters/leigneron/awakened/warden/crescent-flurry-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/crescent-flurry-atlas-v1.lossless.webp",
+      "pngBytes": 710986,
+      "webpBytes": 513646,
+      "width": 1614,
+      "height": 606,
+      "rgbaSha256": "2efb5ddfa765c433cc85a81233d8567ff262494aefb8104111bfca08d469720e",
+      "sourceSha256": "cf3bf31f453ba74cfa2bf51164efa68ed42956511b94395ef6a9059664bf9108",
+      "webpSha256": "409fc6d1b26cb5a47b87ad8b2e118ed1e166cf25a4d9e6d12d0faf9b3369ed34"
+    },
+    "assets/characters/leigneron/awakened/warden/crown-rally-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/crown-rally-atlas-v1.lossless.webp",
+      "pngBytes": 675594,
+      "webpBytes": 491594,
+      "width": 1008,
+      "height": 790,
+      "rgbaSha256": "6730353dbfd18f97b9e9ae9c9db26e14b46a1216bbc9a8d0b0bb735634e4d9a3",
+      "sourceSha256": "2d879df34e060a34042ca0e8c2c06301a5a39bd27d5d4c0457b40e0c3f32d4b8",
+      "webpSha256": "342d7a53ac21aef58550692b8466c8c321757b7765cd6fc3e1e48d0913c35507"
+    },
+    "assets/characters/leigneron/awakened/warden/ember-snare-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/ember-snare-atlas-v1.lossless.webp",
+      "pngBytes": 391559,
+      "webpBytes": 273548,
+      "width": 687,
+      "height": 530,
+      "rgbaSha256": "7110408e30e7c10df88480b031e37c316578ba4d33d3f8f5b1a11779e57efde2",
+      "sourceSha256": "9b62cc5d421629a2f6e142218954482712a1269d515936a6dd7c8fbe3f723ee5",
+      "webpSha256": "564a70cd475e97159250e76a4508f01e2c259e83da067afbf6b106abcde93a3c"
+    },
+    "assets/characters/leigneron/awakened/warden/idle-front-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/idle-front-atlas-v1.lossless.webp",
+      "pngBytes": 372181,
+      "webpBytes": 258564,
+      "width": 666,
+      "height": 504,
+      "rgbaSha256": "03f8e9942433728e01d393de5bf8ba5f79cdd91255f80b72b3aa4562e7b9b723",
+      "sourceSha256": "e64692d2dd8506873fbc6658172e249913b5367e0f13dcfba12a361e630a8b63",
+      "webpSha256": "e28174c6e84c86fcc1e0c435f97c4a170d7fa146bc17327fd645a4862f8e76dc"
+    },
+    "assets/characters/leigneron/awakened/warden/idle-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/idle-side-atlas-v1.lossless.webp",
+      "pngBytes": 338643,
+      "webpBytes": 235092,
+      "width": 675,
+      "height": 490,
+      "rgbaSha256": "76c3a340ae5c3dae5d91aba06ca6dabdc31c8dc89652f501961a5dd2c428577c",
+      "sourceSha256": "3d916806357761a90bd2214c00db208164babdbeb0f3b89c1ed3e75615ad13f1",
+      "webpSha256": "7457e64263f8c59dd0d64e23cc8a97484eaab967415ac728a7e3a908591102ca"
+    },
+    "assets/characters/leigneron/awakened/warden/iron-rush-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/iron-rush-atlas-v1.lossless.webp",
+      "pngBytes": 421803,
+      "webpBytes": 285996,
+      "width": 873,
+      "height": 508,
+      "rgbaSha256": "3b9f0f8e759515fc587293e5a853ad6ca6723da18b74b20207a1cb0c1ff4cdb1",
+      "sourceSha256": "f83c9f7470280493fa3f872218d551bc1a0c93b973b04bc3c215f213c8f047d4",
+      "webpSha256": "7466b878de8f21681ff1292c960e444eb46d883992acc661641bd4905c2895d1"
+    },
+    "assets/characters/leigneron/awakened/warden/iron-rush-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/iron-rush-down-atlas-v1.lossless.webp",
+      "pngBytes": 402405,
+      "webpBytes": 278128,
+      "width": 705,
+      "height": 512,
+      "rgbaSha256": "146a0bf21aea19d1e0d3b187566853f7bbecdbf42a0554bb1c43566f472c12ba",
+      "sourceSha256": "90cb545fa616cf45665be2631d223e96008e606aaef98b135e389f3554b8aa17",
+      "webpSha256": "5b3c33a847390ed1408642b27640e4ad23e3b8cc2881dd9973bb9f4523f464d9"
+    },
+    "assets/characters/leigneron/awakened/warden/iron-rush-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/iron-rush-up-atlas-v1.lossless.webp",
+      "pngBytes": 358629,
+      "webpBytes": 248704,
+      "width": 711,
+      "height": 546,
+      "rgbaSha256": "25b0b03d4a83d73636f39787a0c827fb659ee0148a96451ceefabc481bd9c19e",
+      "sourceSha256": "937606d068d311cf146744ae533b75e0ebe949c0bf7489dea0e28b7c9b0e746d",
+      "webpSha256": "e26cb3ee8057de1c74c270ccbdace0aaacacd2ab79050fa2507ddfce70dc4bf4"
+    },
+    "assets/characters/leigneron/awakened/warden/run-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/run-side-atlas-v1.lossless.webp",
+      "pngBytes": 393396,
+      "webpBytes": 268768,
+      "width": 909,
+      "height": 506,
+      "rgbaSha256": "9c64ff9f6b7b11beec97ea5064426b1260041dee67a5d8e8c83395f24233c9c6",
+      "sourceSha256": "222d7197c8cbc9c0e44686783e98487eb19d2b62858fde625ce6eff7ffd5353e",
+      "webpSha256": "447d0c8afcd8d9519c78a889d628b00c9dfaad6e375fd53c83568c653cb2601e"
+    },
+    "assets/characters/leigneron/awakened/warden/skyfall-slam-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/skyfall-slam-atlas-v1.lossless.webp",
+      "pngBytes": 661544,
+      "webpBytes": 457458,
+      "width": 1143,
+      "height": 832,
+      "rgbaSha256": "cf665db4f9450333f9c681d29d6e23400cd53be7bb8c3f2c350de7e7abc89ee8",
+      "sourceSha256": "31ede760fa7ef0d918eaf4ddfd73381bb06fdd43738c1597aa4a362067d76831",
+      "webpSha256": "2032161bab9ab9381acd547094fe3b1fc472da5412c1564901390107a9a6e21b"
+    },
+    "assets/characters/leigneron/awakened/warden/walk-down-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/walk-down-atlas-v1.lossless.webp",
+      "pngBytes": 346019,
+      "webpBytes": 237438,
+      "width": 651,
+      "height": 504,
+      "rgbaSha256": "691623f4ed1a95181130bf71fde8762e12b269105613e919525bf4a68a9c969f",
+      "sourceSha256": "a0da03fa5538f70f4b6db4f0f3b12f40fd89030d4fddf45eb4893538ed10f3d4",
+      "webpSha256": "a9069e15e11d6d5d29647901f389b86088c67a23bc5ad85910ef4d0d46c3eccf"
+    },
+    "assets/characters/leigneron/awakened/warden/walk-side-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/walk-side-atlas-v1.lossless.webp",
+      "pngBytes": 360531,
+      "webpBytes": 246690,
+      "width": 774,
+      "height": 514,
+      "rgbaSha256": "4ebf7847e203397bf7b7740381b96fbc0cc3e85005a14df59648f2d8c4b85c7d",
+      "sourceSha256": "136839ef7f6b31ea20065974c9ed66855ee91308e4678513e3fd9dc347ca15fd",
+      "webpSha256": "640bb3bdf2b86b1b59cd0df7ac57c31960e780ce326d73f4bd71d9ff57453a9b"
+    },
+    "assets/characters/leigneron/awakened/warden/walk-up-atlas-v1.png": {
+      "path": "assets/characters/leigneron/awakened/warden/walk-up-atlas-v1.lossless.webp",
+      "pngBytes": 319428,
+      "webpBytes": 219662,
+      "width": 612,
+      "height": 508,
+      "rgbaSha256": "9fd9bedf7ca9ec916e20ffb873bb6501cdca32f67b81e16473ba8148113c668a",
+      "sourceSha256": "ac39df565a5f22b69bb4501d1490027a67395bfb2d7206b16562f5ca7f8661dc",
+      "webpSha256": "6fb204f5186dc1d458b7080c3075b794759b4f891c497e3f015dcbadb484f89b"
+    },
+    "assets/effects/boss-motion-v1.png": {
+      "path": "assets/effects/boss-motion-v1.lossless.webp",
+      "pngBytes": 1472547,
+      "webpBytes": 1197354,
+      "width": 2048,
+      "height": 1280,
+      "rgbaSha256": "c49a9ff3f4a4a04f83ec1b2a364882b4c7d94ceb672ddfce2e838d3ea13bde4e",
+      "sourceSha256": "d2f0d8826e9230b2488c781620e84543729b39c58d11896c739dbaefa6c9ec42",
+      "webpSha256": "bac1b6b3274466e0b6d9299907a9013c88114d0037c184b0fe9df03363674c9a"
+    },
+    "assets/effects/boss-skills-v2.png": {
+      "path": "assets/effects/boss-skills-v2.lossless.webp",
+      "pngBytes": 1475491,
+      "webpBytes": 1239640,
+      "width": 768,
+      "height": 1536,
+      "rgbaSha256": "df4a412e746f6e7e5872b3f88b7d03ec6d9bfb62f457d13e944fa4fb7c94f4ff",
+      "sourceSha256": "c34223bd61408f43f98c20316215dda872cc00c3f72e3625450838b5ab2cdade",
+      "webpSha256": "29840c5aa85aca2f6de6dcad4306ea79d0afed0fa1e9c287eeb1490ae6f6b764"
+    },
+    "assets/interiors/housing-floor-v1.png": {
+      "path": "assets/interiors/housing-floor-v1.lossless.webp",
+      "pngBytes": 59902,
+      "webpBytes": 41390,
+      "width": 176,
+      "height": 176,
+      "rgbaSha256": "d0073b6910249ba87e2d96f645ac2882c3666e00f50507971c07dbb86c21ef51",
+      "sourceSha256": "71062447655962c10af8ddd1d60eeb2ec86ded1d17c105ad904cef17a315dd15",
+      "webpSha256": "6804ff1306dad85639ca9562f7b2966bdf1c82d4d4f9b13b62632ac36d224036"
+    },
+    "assets/interiors/housing-furniture-0-v1.png": {
+      "path": "assets/interiors/housing-furniture-0-v1.lossless.webp",
+      "pngBytes": 2979747,
+      "webpBytes": 2198122,
+      "width": 1920,
+      "height": 1152,
+      "rgbaSha256": "c48b661d2ba1218f05a40a36699a34799e6fe45cff9b84165c8c7643180e358a",
+      "sourceSha256": "0366a5a1d7089d2b74a4134368ad16cf6859bb356657ee0e2225ad4b0a26664c",
+      "webpSha256": "293f4585ea78c1d6f8d1fd9da417ce1838cc0f1ef78c72376aef7f58aa3267be"
+    },
+    "assets/interiors/housing-furniture-1-v1.png": {
+      "path": "assets/interiors/housing-furniture-1-v1.lossless.webp",
+      "pngBytes": 2936228,
+      "webpBytes": 2116258,
+      "width": 1920,
+      "height": 1152,
+      "rgbaSha256": "5faa934d2ec8a5043b7743bb9c3a10cc1eab02d655942f8e498ae932abd1502c",
+      "sourceSha256": "d19ad73a80a97652b80c2c6710a803175c4425f416dee03630ba5d31fb18e1b2",
+      "webpSha256": "1f9ba84b27b827049d7c3d21def18df2ed1b9bc1a0c5bf4bff44522da3617ab2"
+    },
+    "assets/interiors/housing-furniture-2-v1.png": {
+      "path": "assets/interiors/housing-furniture-2-v1.lossless.webp",
+      "pngBytes": 2958882,
+      "webpBytes": 2130178,
+      "width": 1920,
+      "height": 1152,
+      "rgbaSha256": "205975fab17332ebf70db8ea290601b61b4e6019a55dd89c646c719fc6bf323a",
+      "sourceSha256": "86d9d326cdb76f5d54395ba4b0110f6ed0627e6b69643bdca71630acb9b3e148",
+      "webpSha256": "39bc876e55eeda864ac1a0581eda91c3d67496ad8c742c7ee8e59f5b0c3525e4"
+    }
+  },
+  "inventory": {
+    "publicBytes": 718844996,
+    "shippingBytes": 609783318,
+    "shippingFiles": 593
+  },
+  "originalPublicBytes": 683198188
+}

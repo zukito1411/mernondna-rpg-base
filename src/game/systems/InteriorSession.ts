@@ -3,6 +3,7 @@ import {housingFor,HOME_FLOORS,HOME_ENTRANCE,FURNITURE_BY_ART,furnitureFootprint
 import {isPlayerHome,PLAYER_HOME_BY_ID} from '../../data/playerHomes';
 import housingArt from '../../data/housingArt.json';
 import {SWORD_TEXTURE} from './EquippedSwordVisual';
+import {losslessImagePath} from '../../utils/losslessImagePath';
 import {INTERIOR_ENTRIES,INTERIOR_RESIDENTS_BY_ENTRY,roomPlan,roomFloorContains,type InteriorEntry,type RoomPlan,type RoomRect} from '../../data/interiors';
 import {NPC_BY_ID} from '../../data/npcs';
 import {useGameStore} from '../../store/gameStore';
@@ -217,7 +218,7 @@ export class InteriorSession {
       if(entry.id===TOWER_ENTRY_ID)this.scene.load.image({key:TOWER_CHEST_SOURCE,url:CAVE_ART_PATH,xhrSettings:{responseType:'blob',timeout:15000}});
       if(entry.id===TOWER_ENTRY_ID)this.scene.load.image({key:TOWER_DOOR_SOURCE,url:TOWER_DOOR_ART,xhrSettings:{responseType:'blob',timeout:15000}});
       if(isPlayerHome(entry.id))for(const [i,key] of HOME_ATLASES.entries())if(!this.scene.textures.exists(key))
-        this.scene.load.image({key,url:`assets/interiors/housing-furniture-${i}-v1.png`,xhrSettings:{responseType:'blob',timeout:15000}});
+        this.scene.load.image({key,url:losslessImagePath(`assets/interiors/housing-furniture-${i}-v1.png`),xhrSettings:{responseType:'blob',timeout:15000}});
       this.scene.load.image({
         key:SOURCE,url:entry.id===TOWER_ENTRY_ID?TOWER_ROOM_ART:entry.profile==='cave'?CAVE_ART_PATH:`assets/interiors/${entry.kit}/kit.png`,
         xhrSettings:{responseType:'blob',timeout:15000},

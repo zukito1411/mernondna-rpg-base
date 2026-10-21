@@ -4,6 +4,7 @@ import {AWAKENED_HERO_STATES,AWAKENED_HERO_DENSITY,type AwakenedHeroManifest} fr
 import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {useGameStore} from '../../store/gameStore';
 import {heroFrameData} from './heroFrameData';
+import {losslessImagePath} from '../../utils/losslessImagePath';
 let nextOwner=0;
 
 /** Cosmetic-only presentation. The original actor still owns animation timing,
@@ -79,7 +80,7 @@ export class AwakenedHeroVisual{
    const worker=async()=>{while(next<states.length&&alive()){
     const spec=states[next++],image=new Image();image.decoding='async';
     const cancel=()=>{image.src='';};abort.signal.addEventListener('abort',cancel,{once:true});
-    try{image.src=root+spec.state+'-atlas-v1.png';await image.decode();}
+    try{image.src=import.meta.env.BASE_URL+losslessImagePath(awakeningArtPath(profile,spec.state+'-atlas-v1.png'));await image.decode();}
     finally{abort.signal.removeEventListener('abort',cancel);}
     if(!alive())return;
     const meta=manifest.states[spec.state];

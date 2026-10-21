@@ -7,6 +7,7 @@ import {STORY_PANEL_ART} from '../src/data/storyPanelArt';
 import {CINEMATICS} from '../src/data/cinematics';
 import {existsSync} from 'node:fs';
 import {NPC_BY_ID} from '../src/data/npcs';
+import {losslessImagePath} from '../src/utils/losslessImagePath';
 
 type TestStore = {
   cinematic: { id: string; title: string; line: string; ready: boolean; covered?:boolean;ending?:boolean;illustration?:StoryPanelRef } | null;
@@ -50,7 +51,7 @@ describe('cinematic loading presentation', () => {
     const markup=renderToStaticMarkup(createElement(CinematicPanel));
     expect(markup).toContain('is-covered');expect(markup).toContain('is-ending');
     expect(markup).toContain('cinematic-curtain');expect(markup).toContain('Illustrated scene');
-    expect(markup).toContain('assets/cinematics/story/river-account-v1.png');
+    expect(markup).toContain(losslessImagePath(STORY_PANEL_ART['river-account'].path));
     expect(markup.match(/class="cinematic-story-panel /g)).toHaveLength(3);
     expect(markup.match(/class="cinematic-story-panel is-active"/g)).toHaveLength(1);
   });

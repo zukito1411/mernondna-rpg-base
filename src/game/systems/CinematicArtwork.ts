@@ -1,3 +1,5 @@
+import {losslessImagePath} from '../../utils/losslessImagePath';
+
 /** Bounded, cancellable DOM-image preload. Artwork belongs to the HTML story
  * overlay, not to the world's GPU texture cache or chunk residency. */
 export function loadCinematicArtwork(path:string){
@@ -17,7 +19,7 @@ export function loadCinematicArtwork(path:string){
       if(typeof image.decode==='function')void image.decode().then(()=>finish(true),()=>finish(false));
       else finish(true);
     };
-    image.onerror=()=>finish(false);image.src=path;
+    image.onerror=()=>finish(false);image.src=import.meta.env.BASE_URL+losslessImagePath(path);
   });
   return {promise,cancel:()=>cancel()};
 }
