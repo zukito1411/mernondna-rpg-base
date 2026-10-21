@@ -4,16 +4,33 @@ import {ENEMIES} from '../src/data/enemies';
 import {ART_BY_KEY,NPC_ANIMATIONS} from '../src/data/art';
 import {NPC_IDLE_ART} from '../src/data/npcIdleArt';
 import {GUARD_MARCH_ART,GUARD_MARCH_FRAME_GUTTER,guardMarchFrameOrigin} from '../src/data/guardMarchArt';
-import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorTravelDirection,enemyLocomotionKey,validDirectionalSourceSize} from '../src/data/directionalEnemyArt';
+import {DIRECTIONAL_ENEMY_ART,ACTOR_DIRECTIONS,actorAimDirection,actorTravelDirection,enemyLocomotionKey,validDirectionalSourceSize} from '../src/data/directionalEnemyArt';
 import {actorSpriteGridSubjects,actorSpriteSubjects} from '../src/game/systems/spriteComponents';
 import {PIRATE_SPECIES,PIRATE_TEXTURE,PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../src/data/pirateArt';
 import {SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH} from '../src/data/saltKingArt';
 import {BOATSWAIN_SPECIES,BOATSWAIN_TEXTURE,BOATSWAIN_ANIMATIONS} from '../src/data/boatswainArt';
 import {GOBLIN_SPECIES,GOBLIN_TEXTURE,GOBLIN_ANIMATIONS} from '../src/data/goblinArt';
-import {M14_ART,M14_ANIMATIONS} from '../src/data/m14Art';
+import {M14_ART,M14_ANIMATIONS,m14BossAttackPhase} from '../src/data/m14Art';
 import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 describe('complete actor walking coverage',()=>{
+ it('resolves committed unit-vector aim independently of the walking dead zone',()=>{
+  for(const [x,y,direction] of [[1,0,'right'],[-1,0,'left'],[0,1,'down'],[0,-1,'up']] as const)
+   for(const previous of ACTOR_DIRECTIONS)expect(actorAimDirection(x,y,previous)).toBe(direction);
+  expect(actorAimDirection(0,0,'up')).toBe('up');
+  expect(actorTravelDirection(1,0,'left')).toBe('left');
+ });
+ it('registers separate preparation and release clips for every directional M14 world boss',()=>{
+  for(const spec of M14_ART.filter(s=>s.boss&&s.species!==19))for(const direction of ACTOR_DIRECTIONS){
+   const action=20+ACTOR_DIRECTIONS.indexOf(direction)*6;
+   const prepare=m14BossAttackPhase(spec.species,direction,'windup')!;
+   const release=m14BossAttackPhase(spec.species,direction,'recovery')!;
+   expect(prepare.frames).toEqual([action]);expect(release.frames).toEqual([action+1,action+2]);
+   expect(M14_ANIMATIONS.find(clip=>clip.key===prepare.key)).toEqual(prepare);
+   expect(M14_ANIMATIONS.find(clip=>clip.key===release.key)).toEqual(release);
+  }
+  expect(m14BossAttackPhase(19,'down','windup')).toBeUndefined();
+ });
  it('gives every authored NPC its registered walk art or complete idle presentation',()=>{
   const families=new Map<string,number>();
   for(const npc of NPCS){

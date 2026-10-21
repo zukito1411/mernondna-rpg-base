@@ -9,7 +9,10 @@ import {DragonBreathEffect} from './DragonBreathEffect';
 import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth} from './dragonBreath';
 import {ATTACK_WARNING_FRAMES,ATTACK_WARNING_TEXTURE} from './attackWarning';
 import {AttackTelegraph} from './AttackTelegraph';
-import {bossPattern,type BossCombatProfile,type BossMove} from '../../data/bossCombatProfiles';
+import {bossPattern,VARKHUL_WORLD_PROFILE,type BossCombatProfile,type BossMove} from '../../data/bossCombatProfiles';
+import {attackAreaContains,type AttackArea} from './attackWarning';
+import {BossPhaseState,BOSS_PHASE_TWO_TRANSITION_MS} from './BossPhaseState';
+import type {BossPhaseSnapshot} from '../types';
 import {TOWER_ROUND_FLOOR} from '../../data/towerRoom';
 import {BossSkillVisual} from './BossSkillVisual';
 
@@ -33,6 +36,12 @@ export class DragonCombat {
   private readonly home:{x:number;y:number};
   private readonly tower:boolean;
   private move:BossMove|null=null;
+  private combo:readonly BossMove[]=[];private step=0;
+  private readonly rage=new BossPhaseState();
+  private roarPresented=false;
+  private impactRadius=240;
+  private aftershock:{area:AttackArea;age:number;windup:number;damage:number;fired:boolean}|null=null;
+  private readonly aftershockWarning:AttackTelegraph;
   private breathRange:number=DRAGON_BREATH.range;
   constructor(private readonly enemy:Enemy,private readonly scene:WorldScene,private currentProfile?:BossCombatProfile){
     const profile=currentProfile;
@@ -41,6 +50,7 @@ export class DragonCombat {
     this.nextAttack=this.tower?900:2500;
     this.effects=new BossSkillVisual(scene,'ember');
     this.warningFill=new AttackTelegraph(scene,'dragon-windup-fill:'+enemy.instanceId,false);
+    this.aftershockWarning=new AttackTelegraph(scene,'dragon-aftershock:'+enemy.instanceId,false);
     this.warningArt=scene.add.image(enemy.x,enemy.y,ATTACK_WARNING_TEXTURE,ATTACK_WARNING_FRAMES.circle.name)
       .setOrigin(.5).setAlpha(0).setVisible(false).setName('dragon-warning:'+enemy.instanceId);
     this.fire=new DragonBreathEffect(scene,enemy.instanceId);
@@ -50,15 +60,31 @@ export class DragonCombat {
       .setVisible(false).setName('dragon-flight:'+enemy.instanceId);
     this.shadow=scene.add.ellipse(enemy.x,enemy.y,180,70,0x100909,.4).setVisible(false).setName('dragon-flight-shadow');
   }
-  get profile(){return this.currentProfile;}
+  get profile(){return this.currentProfile??VARKHUL_WORLD_PROFILE;}
   // An airborne dragon finishes its existing landing before selecting the new
   // move set. Never replace a live flight controller or strand its collision.
   setProfile(profile:BossCombatProfile){this.currentProfile=profile;}
   get airborne(){return this.phase==='flight'||this.phase==='landing';}
-  get attackName(){return this.move&&this.phase!=='rest'&&this.phase!=='recover'?this.move.name:this.phase==='stomp-windup'?'Ember stomp':this.phase==='breath-windup'||this.phase==='breath'?'Ember breath':this.airborne?'Skyfall landing':null;}
+  get engagedWithPlayer(){
+    const p=this.scene.player;
+    return p.active&&p.hp>0&&this.scene.combatAllowed&&(this.tower?this.scene.canEnemyTargetPlayer(this.enemy)
+      :inDragonArena(p.x,p.y,80)&&Math.hypot(p.x-DRAGON_LAIR.x,p.y-DRAGON_LAIR.y)<1100);
+  }
+  get phaseNumber(){return this.rage.phase;}
+  get regenerating(){return this.rage.transitioning;}
+  get phaseSnapshot(){return this.rage.snapshot();}
+  restorePhase(snapshot:BossPhaseSnapshot){this.rage.restore(snapshot);this.roarPresented=false;}
+  resetPhase(){this.rage.reset();this.roarPresented=false;this.combo=[];this.step=0;}
+  depleteFirstForm(){
+    if(!this.rage.deplete(this.profile,this.enemy.hp))return false;
+    this.leaveAir();this.enter('rest');this.effects.clear();this.clearAftershock();
+    this.combo=[];this.step=0;this.sequence=0;this.move=null;this.roarPresented=false;
+    return true;
+  }
+  get attackName(){return this.rage.transitioning?null:this.aftershock?'Sovereign aftershock':this.move&&this.phase!=='rest'&&this.phase!=='recover'?this.move.name:this.phase==='stomp-windup'?'Ember stomp':this.phase==='breath-windup'||this.phase==='breath'?'Ember breath':this.airborne?'Skyfall landing':null;}
   private get stompWindupMs(){return this.move?.dragonAction==='stomp'?this.move.windup:1000;}
   private get breathWindupMs(){return this.move?.dragonAction==='breath'?this.move.windup:DRAGON_BREATH.windupMs;}
-  get windupFraction(){return this.phase==='stomp-windup'?Math.min(1,this.age/this.stompWindupMs):this.phase==='breath-windup'?Math.min(1,this.age/this.breathWindupMs):this.phase==='flight'?this.age/4300:this.phase==='landing'?Math.min(1,(3200+this.age)/4300):null;}
+  get windupFraction(){return this.rage.transitioning?null:this.aftershock?Math.min(1,this.aftershock.age/this.aftershock.windup):this.phase==='stomp-windup'?Math.min(1,this.age/this.stompWindupMs):this.phase==='breath-windup'?Math.min(1,this.age/this.breathWindupMs):this.phase==='flight'?this.age/4300:this.phase==='landing'?Math.min(1,(3200+this.age)/4300):null;}
   get visual():Phaser.GameObjects.Sprite{return this.airborne?this.flight:this.enemy;}
   pause(paused:boolean){if(!this.flight.active)return;if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
   private enter(phase:Phase){
@@ -85,16 +111,35 @@ export class DragonCombat {
   }
   update(delta:number){
     const e=this.enemy,body=e.body as Phaser.Physics.Arcade.Body,player=this.scene.player;
-    if(e.hp<=0||player.hp<=0||!player.active||!this.scene.combatAllowed){this.leaveAir();this.enter('rest');this.effects.clear();return;}
+    if(!e.isAlive||player.hp<=0||!player.active||!this.scene.combatAllowed){this.leaveAir();this.enter('rest');this.effects.clear();this.clearAftershock();this.combo=[];this.roarPresented=false;return;}
     const dt=Math.min(Math.max(0,delta),100)*(this.airborne?1:e.attackSpeedMultiplier);this.age+=dt;this.clock+=dt;
     this.effects.update(dt);
     const distance=Math.hypot(player.x-e.x,player.y-e.y);
-    const engaged=this.tower?this.scene.canEnemyTargetPlayer(e):inDragonArena(player.x,player.y,80)&&Math.hypot(player.x-DRAGON_LAIR.x,player.y-DRAGON_LAIR.y)<1100;
+    const engaged=this.engagedWithPlayer;
     if(!engaged&&this.phase!=='rest'){
-      this.leaveAir();body.reset(this.home.x,this.home.y);this.enter('rest');this.effects.clear();this.nextAttack=this.clock+2500;
+      this.leaveAir();body.reset(this.home.x,this.home.y);this.enter('rest');this.effects.clear();this.clearAftershock();this.combo=[];this.nextAttack=this.clock+2500;
+    }
+    if(!engaged){
+      if(this.combo.length||this.aftershock){this.combo=[];this.step=0;this.clearAftershock();this.effects.clear();}
+      if(this.rage.transitioning){this.effects.endWindup();this.roarPresented=false;}
     }
     body.setVelocity(0,0);e.setDepth(this.scene.playerRenderDepth(e.y));
     if(e.isStaggered)return;
+    if(this.rage.transitioning){
+      if(engaged){
+        if(!this.roarPresented){
+          this.roarPresented=true;e.playBossRoar(Math.atan2(player.y-e.y,player.x-e.x));
+          this.scene.playDragonSound(e.instanceId,'roar',e.x,e.y,Math.max(1,BOSS_PHASE_TWO_TRANSITION_MS*(1-(this.rage.progress??0))));
+          if(this.rage.progress===0)this.scene.notify(this.profile.phaseTwo!.announcement);
+          this.effects.begin(e,{kind:'circle',x:e.x,y:e.y,angle:0,radius:100});
+        }
+        this.effects.gather(this.rage.progress??0);
+        const finished=this.rage.advance(dt);e.hp=this.rage.refillHp(e.definition.hp);
+        if(finished){this.effects.endWindup();e.cancelBossWindup();this.roarPresented=false;this.nextAttack=this.clock+150;}
+      }
+      return;
+    }
+    this.updateAftershock(dt);
     if(this.phase==='rest'){
       const goal=engaged?{x:player.x,y:player.y}:{x:this.home.x+Math.cos(this.clock*.00018)*150,y:this.home.y+Math.sin(this.clock*.00018)*110};
       const dx=goal.x-e.x,dy=goal.y-e.y,length=Math.hypot(dx,dy);
@@ -112,20 +157,18 @@ export class DragonCombat {
         e.setFlipX(this.aim.x<0);
         e.playMonsterVocal('attack');
         e.playMonsterAttackFoley('windup');
-        // Wounded Varkhul alternates pressure breath with more aerial attacks,
-        // retaining the full stomp, breath and landing dodge windows.
-        const choices=e.hp/e.definition.hp<=.5?[1,2,0,1,2,1]:[0,1,2,1];
-        this.move=this.profile?bossPattern(this.profile,this.sequence,e.hp/e.definition.hp)[0]:null;
+        if(!this.combo.length){this.combo=bossPattern(this.profile,this.sequence,this.rage.phase===2?0:1);this.step=0;}
+        this.move=this.combo[this.step];
         const action=this.move?.dragonAction;
-        const choice=action==='flight'?2:action==='breath'?1:action==='stomp'?0:choices[this.sequence%choices.length];
-        this.sequence++;
+        const choice=action==='flight'?2:action==='breath'?1:0;
+        this.impactRadius=this.safeRadius(e.x,e.y,this.move.radius);
         if(choice===2)this.startFlight();
         else if(choice===0){this.enter('stomp-windup');this.scene.playDragonSound(e.instanceId,'roar',e.x,e.y,1000);e.anims.stop();e.setFrame(enemyAnimation(5,'attack').frames[1]);this.scene.notify('Varkhul raises his claws — leave the marked stomp circle!');}
         else {this.enter('breath-windup');this.lockBreathRange();e.anims.stop();this.breathPose(0);this.scene.notify('Varkhul draws breath — move out of the fire cone!');}
       }
     }else if(this.phase==='stomp-windup'){
-      this.drawCircle(e.x,e.y,240,this.age/this.stompWindupMs);
-      if(this.age>=this.stompWindupMs){e.setFrame(enemyAnimation(5,'attack').frames[2]);this.slam(e.x,e.y,240,this.move?.damage??1);this.recover();}
+      this.drawCircle(e.x,e.y,this.impactRadius,this.age/this.stompWindupMs);
+      if(this.age>=this.stompWindupMs){e.setFrame(enemyAnimation(5,'attack').frames[2]);this.slam(e.x,e.y,this.impactRadius,this.move?.damage??1);this.recover();}
     }else if(this.phase==='breath-windup'){
       this.breathPose(Math.min(2,Math.floor(this.age/360)));
       this.drawCone(false);
@@ -157,15 +200,19 @@ export class DragonCombat {
       }
       body.reset(x,y);
       this.drawFlight(Math.min(1,p/.12)*60+arc*(this.tower?30:110));
-      this.drawCircle(this.landingPoint.x,this.landingPoint.y,240,this.age/(3200+1100));
-      if(p>=1){body.reset(this.landingPoint.x,this.landingPoint.y);this.enter('landing');this.drawCircle(e.x,e.y,240,3200/4300);}
+      this.drawCircle(this.landingPoint.x,this.landingPoint.y,this.impactRadius,this.age/(3200+1100));
+      if(p>=1){body.reset(this.landingPoint.x,this.landingPoint.y);this.enter('landing');this.drawCircle(e.x,e.y,this.impactRadius,3200/4300);}
     }else if(this.phase==='landing'){
-      this.drawCircle(e.x,e.y,240,(3200+this.age)/(3200+1100));this.drawFlight(60*(1-Math.min(1,this.age/1100)));
-      if(this.age>=1100){this.leaveAir();this.slam(e.x,e.y,240,this.move?.damage??1.25);this.recover();}
+      this.drawCircle(e.x,e.y,this.impactRadius,(3200+this.age)/(3200+1100));this.drawFlight(60*(1-Math.min(1,this.age/1100)));
+      if(this.age>=1100){this.leaveAir();this.slam(e.x,e.y,this.impactRadius,this.move?.damage??1.25);this.recover();}
     }else if(this.phase==='recover'){
-      this.groundAnimation('idle');if(this.age>=(this.move?.recovery??1100)){
-        this.enter('rest');const enraged=e.hp/e.definition.hp<=(this.profile?.enrageAt??.5);
-        this.nextAttack=this.clock+(this.profile?this.profile.cooldown*(enraged?(this.profile.enrageCooldownMultiplier??1):1):1500);
+      this.groundAnimation('idle');if(this.age>=(this.move?.recovery??1100)&&!this.aftershock){
+        this.enter('rest');this.step++;
+        if(this.step<this.combo.length)this.nextAttack=this.clock+180;
+        else {
+          this.combo=[];this.step=0;this.sequence++;
+          this.nextAttack=this.clock+this.profile.cooldown*(this.rage.phase===2?(this.profile.enrageCooldownMultiplier??1):1);
+        }
       }
     }
   }
@@ -227,7 +274,32 @@ export class DragonCombat {
       this.scene.damagePlayer(Math.round(this.enemy.definition.damage*multiplier));
     this.scene.shakeCombatCamera(170,.003);this.scene.playAudio('sfx-heavy-slam',.45);
     this.effects.impact({id:'dragon-impact'},{kind:'circle',x,y,radius,angle:0});
+    const shock=this.move?.dragonAftershock;
+    if(shock){
+      const outer=this.safeRadius(x,y,shock.radius);
+      this.aftershock={area:{kind:'ring',x,y,angle:0,radius:outer,innerRadius:Math.min(shock.innerRadius,outer*.7)},
+        age:0,windup:shock.windup,damage:shock.damage,fired:false};
+      this.aftershockWarning.draw(this.aftershock.area,0,this.scene.playerRenderDepth(y)-1,0xffa25c);
+    }
   }
+  private safeRadius(x:number,y:number,radius:number){
+    return this.tower?Math.max(40,Math.min(radius,TOWER_ROUND_FLOOR.radius-Math.hypot(x-this.home.x,y-this.home.y)-24)):radius;
+  }
+  private updateAftershock(delta:number){
+    const shock=this.aftershock;if(!shock)return;
+    shock.age+=delta;const progress=Math.min(1,shock.age/shock.windup);
+    this.aftershockWarning.draw(shock.area,progress,this.scene.playerRenderDepth(shock.area.y)-1,0xffa25c);
+    if(shock.age>=shock.windup&&!shock.fired){
+      shock.fired=true;this.effects.impact({id:'dragon-aftershock'},shock.area);
+      const p=this.scene.player;
+      if(attackAreaContains(shock.area,p.x,p.y)&&this.scene.hasClearPath(shock.area.x,shock.area.y,p.x,p.y,this.enemy))
+        this.scene.damagePlayer(Math.round(this.enemy.definition.damage*shock.damage));
+      this.scene.playAudio('sfx-heavy-slam',.35);
+    }
+    if(shock.fired)this.aftershockWarning.graphics.setAlpha(Math.max(0,1-(shock.age-shock.windup)/160));
+    if(shock.age>=shock.windup+160)this.clearAftershock();
+  }
+  private clearAftershock(){if(!this.aftershock)return;this.aftershock=null;this.aftershockWarning.clear();this.aftershockWarning.graphics.setAlpha(1);}
   private startFlight(){
     this.flightStart={x:this.enemy.x,y:this.enemy.y};
     this.lastFlightX=this.enemy.x;this.flight.setFlipX(this.enemy.flipX);
@@ -236,6 +308,7 @@ export class DragonCombat {
     let proposed={x:this.home.x+dx,y:this.home.y+dy};
     if(this.tower)proposed=this.clampTowerPoint(this.scene.player.x,this.scene.player.y);
     this.landingPoint=this.scene.canEnemyOccupy(proposed.x,proposed.y,this.enemy)?proposed:{...this.home};
+    this.impactRadius=this.safeRadius(this.landingPoint.x,this.landingPoint.y,this.move?.radius??240);
     this.enter('flight');this.enemy.setAlpha(1);
     this.scene.playDragonSound(this.enemy.instanceId,'flight',this.enemy.x,this.enemy.y,2400);
     (this.enemy.body as Phaser.Physics.Arcade.Body).checkCollision.none=true;
@@ -267,7 +340,7 @@ export class DragonCombat {
     // Cancel ground windups and live breath together with their warnings,
     // fire sprites and looped sound. Flight/landing remain untargetable.
     this.enter('rest');this.nextAttack=Math.max(this.nextAttack,this.clock+duration+150);
-    this.effects.clear();
+    this.effects.clear();this.clearAftershock();this.combo=[];this.step=0;
   }
-  destroy(){this.scene.stopDragonSound(this.enemy.instanceId);this.effects.destroy();this.warningArt.destroy();this.warningFill.destroy();this.fire.destroy();this.flight.destroy();this.shadow.destroy();}
+  destroy(){this.scene.stopDragonSound(this.enemy.instanceId);this.effects.destroy();this.warningArt.destroy();this.warningFill.destroy();this.aftershockWarning.destroy();this.fire.destroy();this.flight.destroy();this.shadow.destroy();}
 }

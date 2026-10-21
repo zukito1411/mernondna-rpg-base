@@ -18,6 +18,15 @@ export const M14_ART:readonly M14ArtSpec[]=[
   {id:'rootfather',species:17,texture:'enemy_rootfather',region:'druganwoods',boss:true,folder:'rootfather',height:126,frameWidth:224,frameHeight:224,windup:880,recovery:1300,hold:2},
   {id:'ashen-seer',species:18,texture:'enemy_ashen_seer',region:'darkav',boss:true,glide:true,folder:'ashen_seer',height:108,frameWidth:224,frameHeight:192,windup:980,recovery:1400,hold:2},
 ];
+/** Separate authored preparation/contact poses follow the combat controller's
+ * warning and recovery durations, not the sum of both phases. */
+export function m14BossAttackPhase(species:number,direction:typeof ACTOR_DIRECTIONS[number],phase:'windup'|'recovery'):SpriteAnimation|undefined{
+ const spec=M14_ART.find(s=>s.species===species&&s.boss&&s.species!==19);if(!spec)return;
+ const action=20+ACTOR_DIRECTIONS.indexOf(direction)*6;
+ return {key:`enemy:${species}:boss-${phase}:${direction}`,texture:spec.texture,
+  frames:phase==='windup'?[action]:[action+1,action+2],frameRate:10,repeat:0,
+  frameDurations:phase==='windup'?[300]:[110,190]};
+}
 export function m14Animations(spec:M14ArtSpec):SpriteAnimation[]{
   const animations=ACTOR_DIRECTIONS.flatMap((direction,row):SpriteAnimation[]=>{
     const walk=row*5,action=20+row*6;
@@ -36,6 +45,9 @@ export function m14Animations(spec:M14ArtSpec):SpriteAnimation[]{
     animations.push({...clip,key:`enemy:${spec.species}:${state}`});
   }
   if(spec.species===19)animations.push({key:'grand-magus:bats',texture:spec.texture,frames:[58,59,60,61],frameRate:12,repeat:-1});
+  for(const direction of ACTOR_DIRECTIONS)for(const phase of ['windup','recovery'] as const){
+    const clip=m14BossAttackPhase(spec.species,direction,phase);if(clip)animations.push(clip);
+  }
   return animations;
 }
 export const M14_ANIMATIONS=M14_ART.flatMap(m14Animations);

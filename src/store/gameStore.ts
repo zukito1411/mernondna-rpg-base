@@ -54,6 +54,8 @@ export interface BossEncounter {
   maxHp: number;
   attackName?:string|null;
   windup?:number|null;
+  phase?:1|2;
+  refilling?:boolean;
 }
 export interface RareLootNotice {id:number;weaponId:string;kind:'weapon'|'material'|'salvage'|'armor'|'armor-salvage'|'armor-set'|'heart';gold:number;newArmorPieces?:number}
 export interface LevelUpNotice {id:number;from:number;level:number;attributes:number;learning:number}

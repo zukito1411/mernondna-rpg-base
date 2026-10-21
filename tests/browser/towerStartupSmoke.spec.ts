@@ -112,6 +112,12 @@ test('focused New Game, Continue, backup recovery and live Magus spell smoke',as
   await page.screenshot({path:shots+'/mobile-sized-fight.png'});
   await page.evaluate(()=>{const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
    const e=s['dungeons'].enemies[0];e.takeDamage(e.hp*10,s.player.lastDirection.clone().set(0,0));});
+  await page.waitForFunction(()=>{
+   const e=(window.__mernondnaGame!.scene.getScene('world') as WorldScene)['dungeons'].enemies[0];
+   return e?.bossPhase===2&&!e.bossRegenerating;
+  },null,{timeout:30000});
+  await page.evaluate(()=>{const s=window.__mernondnaGame!.scene.getScene('world') as WorldScene;
+   const e=s['dungeons'].enemies[0];e.takeDamage(e.hp*10,s.player.lastDirection.clone().set(0,0));});
   await page.waitForTimeout(650);await page.screenshot({path:shots+'/bats.png'});
   await page.waitForFunction(()=>Boolean((window.__mernondnaGame!.scene.getScene('world') as WorldScene).children.getByName('tower-return-portal')));
   await page.screenshot({path:shots+'/treasure-and-portal.png'});

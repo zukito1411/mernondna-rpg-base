@@ -25,6 +25,12 @@ export function enemyLocomotionKey(species:number,state:'idle'|'walk',direction:
 /** Hysteresis at diagonal corners; very small motion retains the last facing. */
 export function actorTravelDirection(x:number,y:number,previous:ActorDirection):ActorDirection{
  if(Math.hypot(x,y)<3)return previous;
+ return actorAimDirection(x,y,previous);
+}
+/** A committed aim may be a unit vector. Never apply the walking speed dead
+ * zone here: that leaves stationary casters facing their last travel heading. */
+export function actorAimDirection(x:number,y:number,previous:ActorDirection):ActorDirection{
+ if(!Number.isFinite(x)||!Number.isFinite(y)||Math.hypot(x,y)<1e-6)return previous;
  const sideways=previous==='left'||previous==='right';
  return Math.abs(x)>Math.abs(y)*(sideways?.85:1.15)?x<0?'left':'right':y<0?'up':'down';
 }

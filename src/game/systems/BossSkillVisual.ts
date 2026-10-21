@@ -3,13 +3,14 @@ import type {Enemy} from '../entities/Enemy';
 import type {WorldScene} from '../scenes/WorldScene';
 import type {BossMove} from '../../data/bossCombatProfiles';
 import type {AttackArea} from './attackWarning';
-import {BOSS_SKILL_CONTENT,BOSS_SKILL_FRAMES,BOSS_SKILL_ACCENTS,BOSS_SKILL_TEXTURE,type BossSkillFamily} from '../../data/bossSkillEffects';
+import {BOSS_SKILL_CONTENT,BOSS_SKILL_FRAMES,BOSS_SKILL_ACCENTS,BOSS_SKILL_TEXTURE,
+ BOSS_MOTION_TEXTURE,BOSS_MOTION_START,BOSS_MOTION_GROUND_Y,BOSS_MOTION_SEA_SWEEP,type BossSkillFamily} from '../../data/bossSkillEffects';
 import {ensureBossSkillArt} from './BossSkillArt';
 
 interface Glow {
  sprite:Phaser.GameObjects.Sprite;active:boolean;age:number;duration:number;size:number;
  alpha:number;rotation:number;turn:number;rise:number;x:number;y:number;moveX:number;moveY:number;
- held:boolean;retiring:boolean;startScale:number;travelling:boolean;
+ held:boolean;retiring:boolean;startScale:number;travelling:boolean;clipStart:number|null;stage:number;
 }
 const smooth=(p:number)=>{const t=Math.max(0,Math.min(1,p));return t*t*(3-2*t);};
 /** Authored effect sprites, animated by the owning combat clock. At most 24
@@ -20,12 +21,15 @@ export class BossSkillVisual {
  private charge:Glow|null=null;
  private cursor=0;
  constructor(private readonly scene:WorldScene,private readonly family:BossSkillFamily){ensureBossSkillArt(scene);}
- private add(x:number,y:number,size:number,duration=650,rotation=0,accent=false):Glow|null{
+ private add(x:number,y:number,size:number,duration=650,rotation=0,accent=false,motionStart:number|null=BOSS_MOTION_START[this.family]):Glow|null{
   if(!ensureBossSkillArt(this.scene))return null;
+  const clipStart=!accent&&motionStart!==null&&this.scene.textures.exists(BOSS_MOTION_TEXTURE)?motionStart:null;
+  const texture=clipStart===null?BOSS_SKILL_TEXTURE:BOSS_MOTION_TEXTURE;
+  const frame=clipStart??(accent?BOSS_SKILL_ACCENTS[this.family]:BOSS_SKILL_FRAMES[this.family]);
   let glow=this.pool.find(item=>!item.active);
   if(!glow&&this.pool.length<24){
    glow={sprite:this.scene.add.sprite(0,0,BOSS_SKILL_TEXTURE,BOSS_SKILL_FRAMES[this.family])
-    .setName('boss-skill:'+this.family),active:false,age:0,duration:0,size:0,alpha:0,rotation:0,turn:0,rise:0,x:0,y:0,moveX:0,moveY:0,held:false,retiring:false,startScale:.7,travelling:false};
+    .setName('boss-skill:'+this.family),active:false,age:0,duration:0,size:0,alpha:0,rotation:0,turn:0,rise:0,x:0,y:0,moveX:0,moveY:0,held:false,retiring:false,startScale:.7,travelling:false,clipStart:null,stage:0};
    this.pool.push(glow);
   }
   if(!glow){
@@ -35,8 +39,8 @@ export class BossSkillVisual {
    }
   }
   if(!glow)return null;
-  Object.assign(glow,{active:true,age:0,duration,size,alpha:.88,rotation,turn:0,rise:0,x,y,moveX:0,moveY:0,held:false,retiring:false,startScale:.7,travelling:false});
-  glow.sprite.setFrame(accent?BOSS_SKILL_ACCENTS[this.family]:BOSS_SKILL_FRAMES[this.family])
+  Object.assign(glow,{active:true,age:0,duration:Math.max(1,duration),size,alpha:.88,rotation,turn:0,rise:0,x,y,moveX:0,moveY:0,held:false,retiring:false,startScale:.7,travelling:false,clipStart,stage:0});
+  glow.sprite.setTexture(texture,frame)
    .setPosition(x,y).setOrigin(.5).setScale(size/BOSS_SKILL_CONTENT*.7)
    .setRotation(rotation).setAlpha(0).setVisible(true).setFlip(false,false)
    .setDepth(this.scene.playerRenderDepth(y)+1);
@@ -69,9 +73,11 @@ export class BossSkillVisual {
    }
   }else if(area.kind==='cone'){
    const offset=area.radius*.42;
+   const sweep=slashing||this.family==='broadside';
    const glow=this.add(area.x+Math.cos(area.angle)*offset,area.y+Math.sin(area.angle)*offset,
-    area.radius*1.3,slashing?360:700,slashing?area.angle:0,this.family==='blade');
-   if(glow&&slashing){glow.turn=move.id.includes('right')||move.id.includes('turn')?-.65:.65;glow.alpha=.95;}
+    area.radius*1.3,sweep?440:700,sweep?area.angle:0,false,
+    this.family==='broadside'?BOSS_MOTION_SEA_SWEEP:BOSS_MOTION_START[this.family]);
+   if(glow&&sweep){glow.turn=move.id.includes('right')||move.id.includes('return')||move.id.includes('reverse')?-.45:.45;glow.alpha=.95;}
   }else if(area.kind==='line'){
    const range=area.range??0,count=Math.max(1,Math.min(6,Math.ceil(range/(area.radius*2))));
    for(let i=0;i<count;i++){
@@ -83,9 +89,15 @@ export class BossSkillVisual {
    // The eruption settles into different authored ground art. Long root/ice
    // hazards retain that detailed ground formation, not a frozen explosion.
    const grounded=this.family==='roots'||this.family==='frost'||this.family==='stone'||this.family==='ember';
-   const glow=this.add(area.x,area.y,area.radius*2,grounded?520:850);
-   if(glow&&grounded)glow.rise=-12;
-   if(grounded)this.add(area.x,area.y,area.radius*1.85,Math.max(950,duration),0,true);
+   const glow=this.add(area.x,area.y,area.radius*2,grounded?650:850,0,false,slashing?null:BOSS_MOTION_START[this.family]);
+   // Upright eruptions originate at ground contact. Ground accents stay flat;
+   // ranged moon seals retain their seal art rather than becoming saber cuts.
+   const groundY=BOSS_MOTION_GROUND_Y[this.family];
+   if(glow&&glow.clipStart!==null&&groundY!==undefined)glow.sprite.setOrigin(.5,groundY);
+   if(grounded){
+    const patch=this.add(area.x,area.y,area.radius*1.85,Math.max(950,duration),0,true);
+    if(patch){patch.alpha=.5;patch.sprite.setDepth(this.scene.playerRenderDepth(area.y)-1);}
+   }
    if(this.family==='ash'){
     const omen=this.add(area.x,area.y-18,area.radius*.9,1000,0,true);
     if(omen){omen.rise=-24;omen.alpha=.6;omen.turn=.18;}
@@ -129,8 +141,12 @@ export class BossSkillVisual {
    glow.age+=dt;if(glow.held)continue;
    const p=Math.min(1,glow.age/glow.duration),reveal=smooth(glow.age/100);
    const scale=glow.retiring?Math.min(1,glow.startScale*(1+.08*smooth(p))):.7+.3*reveal;
-   const fadeStart=glow.travelling?.88:glow.duration>1200?.8:.22;
+   const fadeStart=glow.travelling?.88:glow.duration>1200?.8:glow.clipStart!==null?.48:.22;
    const alpha=glow.retiring?1-smooth(p):reveal*(1-smooth((p-fadeStart)/(1-fadeStart)));
+   if(glow.clipStart!==null&&!glow.retiring){
+    const stage=p<.12?0:p<.36?1:p<.62?2:3;
+    if(stage!==glow.stage){glow.stage=stage;glow.sprite.setFrame(glow.clipStart+stage);}
+   }
    glow.sprite.setScale(glow.size/BOSS_SKILL_CONTENT*scale)
     .setAlpha(glow.alpha*alpha)
     .setRotation(glow.rotation+glow.turn*smooth(p))

@@ -1,5 +1,9 @@
 # Boss skill effects
 
+Latest HD/motion revision: [BOSS_MOTION_AND_MAGUS_HD.md](BOSS_MOTION_AND_MAGUS_HD.md).
+The original sheet below now accompanies a forty-frame animated motion sheet;
+its ground, projectile and seal roles remain, while impact sequences animate.
+
 ## Runtime integration
 
 | Boss | Presentation |

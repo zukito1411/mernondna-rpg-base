@@ -8,8 +8,8 @@ import {fitAtlasPoses} from './atlasPoseFit';
 import {prepareGrandMagusArt} from './GrandMagusArt';
 
 export function m14Sources(spec:M14ArtSpec){
-  if(spec.species===19)return ['down','side','up','dissolve','bat','spells'].map(kind=>({kind,key:`m14-source:${spec.id}:${kind}`,
-    path:`assets/enemies/${spec.folder}/${kind}-v1.png`,columns:kind==='bat'?4:kind==='spells'?2:3,rows:kind==='bat'?1:2}));
+  if(spec.species===19)return [{kind:'atlas',key:`m14-source:${spec.id}:atlas`,path:`assets/enemies/${spec.folder}/atlas-hd-v2.png`,columns:1,rows:1},
+    {kind:'spells',key:`m14-source:${spec.id}:spells`,path:`assets/enemies/${spec.folder}/spells-v1.png`,columns:2,rows:2}];
   const files=[{kind:'walk',path:`assets/enemies/${spec.folder}/${spec.boss?'walk-v2':'walk'}.png`,columns:spec.boss?4:5,rows:3},
     {kind:'actions',path:`assets/enemies/${spec.folder}/${spec.species===14?'actions-transparent-v2':'actions'}.png`,columns:6,rows:3}];
   if(spec.species===12)files.push({kind:'passing',path:`assets/enemies/${spec.folder}/passing.png`,columns:1,rows:1},

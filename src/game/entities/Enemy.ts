@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {DepthSortedSprite,setDepthIfChanged} from '../systems/renderDepth';
-import type { BossDefinition, EnemyDefinition, EncounterBehavior } from '../types';
+import type { BossDefinition, EnemyDefinition, EncounterBehavior, BossPhaseSnapshot } from '../types';
 import { BOSS_BY_ID, enemyAppearanceMultiplier,isWolfFamily } from '../../data/enemies';
 import { enemyLevelAt,scaledEnemy,runtimeEnemyLevel } from '../../data/enemyTiers';
 import {WORLD_ASCENSION} from '../../data/breakthrough';
@@ -14,7 +14,7 @@ import { useGameStore } from '../../store/gameStore';
 import { approachVelocity, strideRate } from '../systems/locomotion';
 import {groundMarkerPosition} from '../systems/groundMarkers';
 import {DragonCombat} from '../systems/DragonCombat';
-import {actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../../data/directionalEnemyArt';
+import {actorAimDirection,actorTravelDirection,enemyLocomotionKey,type ActorDirection} from '../../data/directionalEnemyArt';
 import {pirateAttackPhase,piratePhaseDuration} from '../../data/pirateMotion';
 import {isPirateEnemy} from '../../data/pirateArt';
 import {ATTACK_WARNING_TEXTURE,enemyAttackWarningLayout,type EnemyAttackWarningStyle} from '../systems/attackWarning';
@@ -23,6 +23,8 @@ import {WEAPON_PROFILES,WEAPON_STATUS_ATK_SCALE} from '../../data/weaponProfiles
 import {enhancedWeapon,enhancedProcChance} from '../../data/weaponUpgrades';
 import {worldBossCombatProfile,type BossCombatProfile} from '../../data/bossCombatProfiles';
 import {BossCombat} from '../systems/BossCombat';
+import {BOSS_PHASE_TWO_TRANSITION_MS} from '../systems/BossPhaseState';
+import {m14BossAttackPhase} from '../../data/m14Art';
 import {AttackTelegraph} from '../systems/AttackTelegraph';
 import type {Npc} from './Npc';
 
@@ -107,6 +109,20 @@ export class Enemy extends DepthSortedSprite {
   private get poiseProfile():BossCombatProfile|undefined{return this.bossCombat?.profile??this.dragonCombat?.profile;}
   get bossAttackName(){return this.bossCombat?.attackName??this.dragonCombat?.attackName??null;}
   get bossWindupFraction(){return this.bossCombat?.windupFraction??this.dragonCombat?.windupFraction??null;}
+  get bossPhase():1|2{return this.bossCombat?.phaseNumber??this.dragonCombat?.phaseNumber??1;}
+  get bossRegenerating(){return this.bossCombat?.regenerating??this.dragonCombat?.regenerating??false;}
+  get bossPhaseSnapshot(){return this.bossCombat?.phaseSnapshot??this.dragonCombat?.phaseSnapshot;}
+  restoreBossPhase(snapshot:BossPhaseSnapshot){this.bossCombat?.restorePhase(snapshot);this.dragonCombat?.restorePhase(snapshot);}
+  /** An empty first bar is a living, protected transition, not a defeat. */
+  get isAlive(){return this.hp>0||this.bossRegenerating;}
+  private depleteFirstForm(){
+    if(this.hp>0||this.bossPhase!==1||!this.poiseProfile?.phaseTwo)return;
+    this.interruptAttack();
+    const changed=this.bossCombat?.depleteFirstForm()??this.dragonCombat?.depleteFirstForm()??false;
+    if(!changed)return;
+    this.weaponStatus.clear();this.flurrySuppressed=false;this.hitStunUntil=0;
+    (this.body as Phaser.Physics.Arcade.Body).setVelocity(0,0);
+  }
   private visualDirection:ActorDirection='right';
   // Each pack member claims a stable hunting lane until it is unloaded.
   private wolfFlankSlot: number | null = null;
@@ -155,7 +171,7 @@ export class Enemy extends DepthSortedSprite {
     }
     this.statusAttackRate=rate;
   }
-  get isStaggered(){return this.flurrySuppressed||this.scene.time.now<this.hitStunUntil;}
+  get isStaggered(){return !this.bossRegenerating&&(this.flurrySuppressed||this.scene.time.now<this.hitStunUntil);}
   get facingLeft(){return this.visualDirection==='left';}
   get isRangedAttacker(){return this.definition.combatStyle==='spear-thrower'||this.definition.combatStyle==='stone-thrower';}
   private get directionalCombat(){return this.isRangedAttacker||this.definition.combatStyle==='boatswain'||['hedge-goblin','blighted-thornling','grove-spider','redmesa-chieftain','rootfather','frost-wyrm','ashen-seer','grand-magus'].includes(this.definition.id);}
@@ -248,11 +264,12 @@ export class Enemy extends DepthSortedSprite {
   }
 
   updateEnemy(time: number,delta=16) {
-    if(!this.active||this.hp<=0)return;
-    const damage=this.weaponStatus.update(delta,this.canBeTargeted);
+    if(!this.active||!this.isAlive)return;
+    const damage=this.weaponStatus.update(delta,this.canBeTargeted&&!this.bossRegenerating);
     if(damage>0){
       this.hp=Math.max(0,this.hp-damage);this.lastDamagedAt=time;
-      if(this.hp<=0){this.weaponStatus.clear();this.interruptAttack();(this.scene as WorldScene).handleEnemyDefeated(this);return;}
+      if(this.hp<=0)this.depleteFirstForm();
+      if(!this.isAlive){this.weaponStatus.clear();this.interruptAttack();(this.scene as WorldScene).handleEnemyDefeated(this);return;}
     }
     this.syncStatusAttackSpeed(time);this.applyStatusTint();
     this.updateEnemyBehavior(time,delta);
@@ -289,22 +306,29 @@ export class Enemy extends DepthSortedSprite {
     const spotted=(scene.storyActor(this)||playerDistance<=this.definition.aggroRange||advancedPursuit)&&territory;
     this.bossAlerted=spotted;
     const encounterMode=this.encounterBehavior&&this.hp>0 ? scene.encounterDecision(this,time,spotted,territory) : null;
-    const pursuing = encounterMode ? encounterMode==='pursue' : spotted;
+    // Dragon combat reaches beyond its initial detection radius. Its actual
+    // arena engagement must also prevent passive healing/resolve resets.
+    const pursuing = this.dragonCombat?this.dragonCombat.engagedWithPlayer:encounterMode ? encounterMode==='pursue' : spotted;
     if (pursuing) this.lastEngagedAt = time;
-    if (this.hp>0 && this.hp<this.definition.hp && !pursuing
+    if (this.hp>0 && !pursuing
       && playerDistance>this.definition.aggroRange*1.2
       && time-Math.max(this.lastDamagedAt,this.lastEngagedAt)>=12000
       && !this.attackTelegraph && !this.dragonCombat?.airborne) {
-      const healingRate=this.boss ? .008 : .02; // Bosses recover more slowly.
-      this.hp=Math.min(this.definition.hp,
-        this.hp+this.definition.hp*healingRate*Math.max(0,Math.min(delta,100))/1000);
+      if(this.hp<this.definition.hp){
+        const healingRate=this.boss ? .008 : .02; // Bosses recover more slowly.
+        this.hp=Math.min(this.definition.hp,
+          this.hp+this.definition.hp*healingRate*Math.max(0,Math.min(delta,100))/1000);
+      }
+      // A full roar refill is not an encounter reset. Reset spent resolve only
+      // after the existing twelve-second out-of-combat recovery condition.
+      if(this.hp>=this.definition.hp&&this.bossPhase===2){this.bossCombat?.resetPhase();this.dragonCombat?.resetPhase();}
     }
     if(this.dragonCombat){this.dragonCombat.update(delta);return;}
 
     const distance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
     const body = this.body as Phaser.Physics.Arcade.Body;
 
-    if (this.hp <= 0) {
+    if (!this.isAlive) {
       body.setVelocity(0, 0);
       this.updateVisual(time);
       return;
@@ -349,8 +373,9 @@ export class Enemy extends DepthSortedSprite {
     if(this.bossCombat){
       const engaged=pursuing&&territory;
       this.bossCombat.update(delta,engaged);
-      if(engaged){
-        if(!this.isStaggered)this.updateBossSkill(scene,time);
+      if(engaged||this.bossRegenerating){
+        if(engaged&&!this.isStaggered&&!this.bossRegenerating)this.updateBossSkill(scene,time);
+        if(this.bossRegenerating)body.setVelocity(0,0);
         this.lastSafe={x:this.x,y:this.y};
         this.setDepth(scene.playerRenderDepth(this.y));this.updateVisual(time);return;
       }
@@ -703,9 +728,26 @@ export class Enemy extends DepthSortedSprite {
   }
 
   private magusSpell=false;
+  /** Reviewed complete authored poses: challenge, chest-thump, raised arms or
+   * open-mouth roar. Hold the pose; never play an un-warned strike as a roar. */
+  playBossRoar(angle:number){
+    this.facing.set(Math.cos(angle),Math.sin(angle));
+    this.visualDirection=actorAimDirection(this.facing.x,this.facing.y,this.visualDirection);
+    const species=this.definition.spriteFrame,row=['down','left','right','up'].indexOf(this.visualDirection);
+    const attack=enemyAnimation(species,'attack',this.directionalCombat?this.visualDirection:undefined);
+    this.useVisualTexture(attack.texture as ArtTextureKey);this.anims.stop();
+    const frame=species===19?44+row*2
+      :species===15||species===16?20+row*6+3
+      :species===17||species===18?20+row*6
+      :species===1?attack.frames[2]
+      :species===4?attack.frames[3]
+      :species===5||species===6?attack.frames[1]:attack.frames[0];
+    this.setFrame(frame).setFlipX(this.directionalCombat?false:this.facing.x<0);
+    this.attackTimingActive=false;this.visualUntil=this.scene.time.now+BOSS_PHASE_TWO_TRANSITION_MS;
+  }
   playBossWindup(windup:number,recovery:number,angle:number,spell=false){
     this.facing.set(Math.cos(angle),Math.sin(angle));
-    if(this.directionalCombat)this.visualDirection=actorTravelDirection(this.facing.x,this.facing.y,this.visualDirection);
+    if(this.directionalCombat)this.visualDirection=actorAimDirection(this.facing.x,this.facing.y,this.visualDirection);
     this.playAction('attack');
     if(this.definition.id==='grand-magus'){
       this.magusSpell=spell;const row=['down','left','right','up'].indexOf(this.visualDirection);
@@ -713,7 +755,7 @@ export class Enemy extends DepthSortedSprite {
       this.attackTimingActive=true;this.visualUntil=this.scene.time.now+(windup+recovery)/this.attackSpeedMultiplier;return;
     }
     const animation=enemyAnimation(this.definition.spriteFrame,'attack',this.directionalCombat?this.visualDirection:undefined);
-    const clip=pirateAttackPhase(this.definition.spriteFrame,'windup');
+    const clip=pirateAttackPhase(this.definition.spriteFrame,'windup')??m14BossAttackPhase(this.definition.spriteFrame,this.visualDirection,'windup');
     if(clip){this.anims.play(clip.key);this.anims.timeScale=piratePhaseDuration(clip)/windup*this.attackSpeedMultiplier;}
     else this.anims.timeScale=animationDuration(animation)/(windup+recovery)*this.attackSpeedMultiplier;
     if(this.definition.combatStyle==='troll')this.anims.timeScale=(animation.frames.length-1)*1000/(animation.frameRate*windup)*this.attackSpeedMultiplier;
@@ -722,7 +764,7 @@ export class Enemy extends DepthSortedSprite {
   finishBossWindup(recovery:number,angle?:number){
     if(angle!==undefined){
       this.facing.set(Math.cos(angle),Math.sin(angle));
-      if(this.directionalCombat)this.visualDirection=actorTravelDirection(this.facing.x,this.facing.y,this.visualDirection);
+      if(this.directionalCombat)this.visualDirection=actorAimDirection(this.facing.x,this.facing.y,this.visualDirection);
       this.playAction('attack');
       const animation=enemyAnimation(this.definition.spriteFrame,'attack',this.directionalCombat?this.visualDirection:undefined);
       this.anims.timeScale=animationDuration(animation)/Math.max(1,recovery)*this.attackSpeedMultiplier;
@@ -731,7 +773,7 @@ export class Enemy extends DepthSortedSprite {
       const row=['down','left','right','up'].indexOf(this.visualDirection);
       this.anims.stop();this.setFrame(this.magusSpell?45+row*2:21+row*6);return;
     }
-    const clip=pirateAttackPhase(this.definition.spriteFrame,'recovery');
+    const clip=pirateAttackPhase(this.definition.spriteFrame,'recovery')??m14BossAttackPhase(this.definition.spriteFrame,this.visualDirection,'recovery');
     if(clip){this.anims.play(clip.key);this.anims.timeScale=piratePhaseDuration(clip)/recovery*this.attackSpeedMultiplier;}
   }
   playBossImpact(radius:number){
@@ -850,6 +892,7 @@ export class Enemy extends DepthSortedSprite {
   /** Flurry holds only reachable targets, releasing them when the cast ends,
    * is cancelled, or they leave its area. Damage pulses still play hurt poses. */
   setFlurrySuppressed(suppressed:boolean){
+    if(this.bossRegenerating){this.flurrySuppressed=false;return;}
     if(suppressed&&this.poiseProfile?.resistFlurry)return;
     if(!this.active||this.hp<=0||this.flurrySuppressed===suppressed)return;
     if(suppressed&&!this.canBeTargeted)return;
@@ -866,6 +909,7 @@ export class Enemy extends DepthSortedSprite {
     this.clearWolfLeap();
   }
   private stagger(forced:boolean){
+    if(this.bossRegenerating)return false;
     const now=this.scene.time.now;
     if((!forced||this.poiseProfile?.resistFlurry)&&now<this.staggerImmuneUntil)return false;
     const directional=this.directionalCombat;
@@ -883,7 +927,7 @@ export class Enemy extends DepthSortedSprite {
   }
 
   takeDamage(amount: number, knockback: Phaser.Math.Vector2, options:{forceStagger?:boolean;nonLethal?:boolean;source?:'story-ally'|'ambient-ally'|'companion';weaponId?:string;procHitWeight?:number;impact?:'light'|'heavy'|'slam'}={}) {
-    if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted) return 0;
+    if (!Number.isFinite(amount)||amount<=0||!this.active || this.hp <= 0 || !this.canBeTargeted||this.bossRegenerating) return 0;
     const state=useGameStore.getState();
     const support=options.nonLethal||options.source==='story-ally'||options.source==='ambient-ally'||options.source==='companion';
     if(!support||options.source==='companion')this.playerContributed=true;
@@ -894,21 +938,22 @@ export class Enemy extends DepthSortedSprite {
     const applied=options.nonLethal?Math.min(damage,Math.max(0,this.hp-1)):damage;
     if(applied<=0)return 0;
     const actualLoss=Math.min(applied,this.hp);
-    this.hp -= applied;
+    this.hp=Math.max(0,this.hp-applied);
+    if(this.hp<=0)this.depleteFirstForm();
     const scene=this.scene as WorldScene;
     if(!support)scene.player.absorbLifeFromHit(actualLoss);
     const impact=options.impact??'light';
     if(!support)scene.confirmedPlayerImpact(impact);
     if(!support)scene.targeting.engage(this);
-    scene.playEnemyVocal(this.definition,this.instanceId,this.hp<=0?'death':'hurt',this.x,this.y);
+    scene.playEnemyVocal(this.definition,this.instanceId,!this.isAlive?'death':'hurt',this.x,this.y);
     this.lastDamagedAt=this.scene.time.now;
-    const fatal=this.hp<=0;
+    const fatal=!this.isAlive;
     if(fatal)this.ambientDefeat=options.source==='ambient-ally';
     // Small NPC support hits must not interrupt telegraphs or stun-lock a foe.
     const staggered=!support&&!fatal&&this.stagger(Boolean(options.forceStagger));
     if(fatal)this.interruptAttack();
     const proc=options.weaponId?WEAPON_PROFILES[options.weaponId]?.proc:undefined;
-    if(!fatal&&!support&&proc){
+    if(!fatal&&!this.bossRegenerating&&!support&&proc){
       // Damage over time is based on the attacker's effective weapon ATK,
       // not raw blade damage, enemy HP, or a multi-hit art's single tick.
       const weapon=enhancedWeapon(options.weaponId!,state.weaponUpgrades,state.awakenedWeapons);
@@ -933,7 +978,7 @@ export class Enemy extends DepthSortedSprite {
     }
     this.hitFlashUntil=this.scene.time.now+70;this.setTintFill(0xffffff);
     this.scene.time.delayedCall(70, () => this.applyStatusTint());
-    if (this.hp <= 0) (this.scene as WorldScene).handleEnemyDefeated(this);
+    if (fatal) (this.scene as WorldScene).handleEnemyDefeated(this);
     return applied;
   }
   createRetreatVisual(){this.dragonCombat?.createRetreatVisual();}
@@ -945,7 +990,7 @@ export class Enemy extends DepthSortedSprite {
     if (paused) this.anims.pause(); else if (this.anims.isPaused) this.anims.resume();
     this.applyStatusTint();
     const distance = Phaser.Math.Distance.Between(playerX, playerY, this.x, this.y);
-    const visible = this.hp > 0 && distance < 700 && (Boolean(this.definition.boss) || this.hp < this.definition.hp || distance < this.definition.aggroRange);
+    const visible = this.isAlive && distance < 700 && (Boolean(this.definition.boss) || this.hp < this.definition.hp || distance < this.definition.aggroRange);
     const width = this.definition.boss ? 48 : this.definition.id === 'road-bandit' ? 35 : 30;
     const scene=this.scene as WorldScene;
     // Reject actors outside the camera before costly targeting LOS queries.

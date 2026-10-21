@@ -8,6 +8,8 @@ import {MagusSpellVisual,magusSpellColor} from './MagusSpellVisual';
 import {BossSkillVisual} from './BossSkillVisual';
 import {BOSS_SKILL_BY_ENEMY} from '../../data/bossSkillEffects';
 import {TOWER_ROUND_FLOOR} from '../../data/towerRoom';
+import {BossPhaseState} from './BossPhaseState';
+import type {BossPhaseSnapshot} from '../types';
 
 interface CommittedZone {
   area:AttackArea;at:number;duration:number;fired:boolean;hit:boolean;expired:boolean;warning:AttackTelegraph;
@@ -16,6 +18,8 @@ interface CommittedZone {
 /** Bounded active-play state machine: no damaging timers survive cancellation,
  * death, a menu, loss of sight/territory, staggering or chunk unloading. */
 export class BossCombat {
+  private readonly rage=new BossPhaseState();
+  private roarPresented=false;
   private phase:'ready'|'windup'|'charge'|'projectile'|'recovery'='ready';
   private clock=0;private age=0;private nextReady=900;private sequence=0;
   private combo:readonly BossMove[]=[];private step=0;
@@ -36,9 +40,20 @@ export class BossCombat {
   }
   get profile(){return this.currentProfile;}
   setProfile(profile:BossCombatProfile){if(profile!==this.currentProfile){this.cancel();this.currentProfile=profile;}}
-  get attackName(){return this.phase==='ready'?null:this.combo[this.step]?.name??null;}
-  get isAttacking(){return this.phase!=='ready';}
-  get windupFraction(){return this.phase==='windup'?(this.zones.length?
+  get phaseNumber(){return this.rage.phase;}
+  get regenerating(){return this.rage.transitioning;}
+  get phaseSnapshot(){return this.rage.snapshot();}
+  restorePhase(snapshot:BossPhaseSnapshot){this.rage.restore(snapshot);this.roarPresented=false;}
+  resetPhase(){this.cancel();this.rage.reset();this.roarPresented=false;}
+  depleteFirstForm(){
+    if(!this.rage.deplete(this.profile,this.enemy.hp))return false;
+    // Depleting a life ends its committed attacks too: no old projectile,
+    // charge or delayed zone may damage the player during the refill.
+    this.cancel();this.sequence=0;return true;
+  }
+  get attackName(){return this.rage.transitioning||this.phase==='ready'?null:this.combo[this.step]?.name??null;}
+  get isAttacking(){return this.rage.transitioning||this.phase!=='ready';}
+  get windupFraction(){return this.rage.transitioning?null:this.phase==='windup'?(this.zones.length?
     Math.min(1,this.age/(this.zones.find(zone=>!zone.fired)?.at??this.zones[0].at)):this.warning.progress):null;}
   update(delta:number,engaged:boolean){
     const e=this.enemy,body=e.body as Phaser.Physics.Arcade.Body,player=this.scene.player;
@@ -46,16 +61,31 @@ export class BossCombat {
     this.magusVisual?.update(delta);
     this.skillVisual?.update(dt);
     this.clock+=dt;
-    if(!engaged||e.hp<=0||!player.active||!this.scene.combatAllowed){this.cancel();return;}
+    if(!engaged||!e.isAlive||!player.active||!this.scene.combatAllowed){this.cancel();return;}
     if(e.isStaggered){body.setVelocity(0,0);return;}
+    if(this.rage.transitioning){
+      if(!this.roarPresented){
+        this.roarPresented=true;e.playBossRoar(Math.atan2(player.y-e.y,player.x-e.x));
+        e.playMonsterVocal('growl');if(this.rage.progress===0)this.scene.notify(this.profile.phaseTwo!.announcement);
+        this.skillVisual?.begin(e,{kind:'circle',x:e.x,y:e.y,angle:0,radius:80});
+      }
+      body.setVelocity(0,0);this.skillVisual?.gather(this.rage.progress??0);
+      const finished=this.rage.advance(dt);e.hp=this.rage.refillHp(e.definition.hp);
+      if(finished){
+        this.skillVisual?.endWindup();e.cancelBossWindup();this.nextReady=this.clock+150;
+        this.roarPresented=false;
+      }
+      return;
+    }
     this.age+=dt;
-    if(!this.combo.length){this.combo=bossPattern(this.profile,this.sequence,e.hp/e.definition.hp);this.step=0;}
+    const patternHealth=this.profile.phaseTwo?(this.rage.phase===2?0:1):e.hp/e.definition.hp;
+    if(!this.combo.length){this.combo=bossPattern(this.profile,this.sequence,patternHealth);this.step=0;}
     // Alternate close defence with the actual spell rotation. Staying nearby
     // must not pin the Magus to the same staff strike for the whole encounter.
     if(this.phase==='ready'&&this.profile.closeMove){
       if(this.sequence%2===0&&Math.hypot(player.x-e.x,player.y-e.y)<=(this.profile.closeRange??0)){
         this.combo=[this.profile.closeMove];this.step=0;
-      }else if(this.combo[0]===this.profile.closeMove){this.combo=bossPattern(this.profile,this.sequence,e.hp/e.definition.hp);this.step=0;}
+      }else if(this.combo[0]===this.profile.closeMove){this.combo=bossPattern(this.profile,this.sequence,patternHealth);this.step=0;}
     }
     const move=this.combo[this.step];
     if(this.phase==='ready'){
@@ -129,7 +159,7 @@ export class BossCombat {
         }
       }
       this.sequence++;this.combo=[];this.phase='ready';this.age=0;
-      const enraged=e.hp/e.definition.hp<=(this.profile.enrageAt??.5);
+      const enraged=this.profile.phaseTwo?this.rage.phase===2:e.hp/e.definition.hp<=(this.profile.enrageAt??.5);
       this.nextReady=this.clock+this.profile.cooldown*(enraged?(this.profile.enrageCooldownMultiplier??1):1);this.warning.clear();
     }
   }
@@ -140,6 +170,7 @@ export class BossCombat {
     const angle=Math.atan2(player.y-e.y,player.x-e.x);
     this.area={kind:move.kind,x:move.target?player.x:e.x,y:move.target?player.y:e.y,angle,
       radius:move.radius,range:move.range,innerRadius:move.innerRadius,halfAngle:move.halfAngle};
+    this.fitTowerArea(this.area);
     if(move.kind==='line'){
       // Validate the advertised lane before drawing it, then validate it again
       // while travelling in case an actor or collision has changed. Spell
@@ -156,11 +187,7 @@ export class BossCombat {
           innerRadius:spec.innerRadius??a.innerRadius,angle:a.angle+(spec.angleOffset??0),
           x:a.x+Math.cos(angle)*forward-Math.sin(angle)*side,
           y:a.y+Math.sin(angle)*forward+Math.cos(angle)*side};
-        if(area.kind==='circle'&&e.instanceId.startsWith('dungeon-event:might-')){
-          const centre=this.scene.dungeonPoint(TOWER_ROUND_FLOOR),dx=area.x-centre.x,dy=area.y-centre.y;
-          const scale=Math.min(1,(TOWER_ROUND_FLOOR.radius-area.radius-24)/Math.max(1,Math.hypot(dx,dy)));
-          area.x=centre.x+dx*scale;area.y=centre.y+dy*scale;
-        }
+        this.fitTowerArea(area);
         if(!e.instanceId.startsWith('dungeon-event:might-')&&(area.kind==='circle'||area.kind==='line'))this.fitGroundOrigin(area);
         if(area.kind==='line')this.clipLane(area,move.range);
         this.zoneWarnings[i]??=new AttackTelegraph(this.scene,'boss-zone:'+e.instanceId+':'+i,false);
@@ -180,6 +207,20 @@ export class BossCombat {
     }
     else this.skillVisual?.begin(e,this.area);
     if(!move.zones)this.warning.draw(this.area,0,this.warningDepth,magusSpellColor(move,this.profile.color));
+  }
+  private fitTowerArea(area:AttackArea){
+    if(!this.enemy.instanceId.startsWith('dungeon-event:might-')||(area.kind!=='circle'&&area.kind!=='ring'))return;
+    const centre=this.scene.dungeonPoint(TOWER_ROUND_FLOOR),dx=area.x-centre.x,dy=area.y-centre.y;
+    const distance=Math.hypot(dx,dy);
+    if(area.kind==='ring'){
+      // Keep a boss-centred hollow ring centred on that boss. Constrain its
+      // entire footprint at commitment, including its advertised safe pocket.
+      const scale=Math.min(1,Math.max(1,TOWER_ROUND_FLOOR.radius-distance-24)/area.radius);
+      area.radius*=scale;if(area.innerRadius!==undefined)area.innerRadius*=scale;
+    }else{
+      const scale=Math.min(1,Math.max(0,TOWER_ROUND_FLOOR.radius-area.radius-24)/Math.max(1,distance));
+      area.x=centre.x+dx*scale;area.y=centre.y+dy*scale;
+    }
   }
   private clipLane(area:AttackArea,range:number){
     let length=0,previousX=area.x,previousY=area.y;
@@ -208,7 +249,12 @@ export class BossCombat {
   private updateZones(move:BossMove){
     const color=magusSpellColor(move,this.profile.color),player=this.scene.player;
     let finished=true;
-    this.skillVisual?.gather(windupProgress(this.age,move.windup));
+    const progress=windupProgress(this.age,move.windup);
+    this.skillVisual?.gather(progress);
+    if(move.spell){
+      if(progress>=.7&&!this.released){this.released=true;this.enemy.finishBossWindup(move.recovery);}
+      this.magusVisual?.windup(this.enemy,move,progress);
+    }
     for(const zone of this.zones){
       if(zone.expired)continue;
       const age=this.age-zone.at;
@@ -306,6 +352,7 @@ export class BossCombat {
     else body.setVelocity(0,0);
   }
   cancel(delay=700){
+    this.roarPresented=false;
     if(this.phase==='ready'&&!this.combo.length&&!this.area){this.nextReady=this.clock+delay;return;}
     this.clearZones();
     this.clearSpell(true,true);

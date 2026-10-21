@@ -96,6 +96,17 @@ for(const device of ['desktop','mobile'] as const)test(`Tower arena, doors, port
   await page.screenshot({path:`test-results/tower-of-might/${device}-magus-cast.png`});
   await page.evaluate(()=>{
    const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene,e=scene['dungeons'].enemies[0];
+   scene.player.hp=100000; // Isolate refill/treasure behavior from player survival balance.
+   e.takeDamage(e.hp*10,scene.player.lastDirection.clone().set(0,0));
+  });
+  // First-form lethal damage must trigger the refill, not grant the treasure.
+  await page.waitForFunction(()=>{
+   const e=(window.__mernondnaGame!.scene.getScene('world') as WorldScene)['dungeons'].enemies[0];
+   return e?.bossPhase===2&&!e.bossRegenerating;
+  },null,{timeout:30000});
+  expect((await towerState(page)).portal).toBe(false);
+  await page.evaluate(()=>{
+   const scene=window.__mernondnaGame!.scene.getScene('world') as WorldScene,e=scene['dungeons'].enemies[0];
    e.takeDamage(e.hp*10,scene.player.lastDirection.clone().set(0,0));
   });
   await page.waitForTimeout(650);

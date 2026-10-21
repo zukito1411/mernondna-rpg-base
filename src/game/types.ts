@@ -243,10 +243,16 @@ export interface InteractableContentDefinition extends ContentBase {
   contractTownId?:string;
 }
 export type ContentDefinition = NpcContentDefinition | CreatureContentDefinition | PropContentDefinition | SettlementContentDefinition | InteractableContentDefinition;
+export interface BossPhaseSnapshot {
+  phase:2;
+  refill?:{elapsedMs:number;startRatio:number};
+}
 export interface ContentState extends Vec2 {
   /** Validated replacement arena for an authored patrol; survives streaming/save/load. */
   encounterPlacement?:{home:Vec2;station:Vec2};
   hp?: number; hpMax?:number; defeated?: boolean; used?: boolean; trust?: number;
+  /** Spent resolve and an unfinished roar survive world streaming/save/load. */
+  bossPhase?:BossPhaseSnapshot;
   respawnAt?:number;
   /** Empty members means a cleared wave, with its post-defeat UTC deadline. */
   summonWave?: { encounterId: string; members: string[]; nextAt: number };

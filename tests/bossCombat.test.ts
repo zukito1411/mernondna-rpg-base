@@ -6,6 +6,7 @@ import {BOSS_COMBAT_PROFILES,bossPattern} from '../src/data/bossCombatProfiles';
 vi.mock('phaser',()=>({default:{Math:{Clamp:(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value)),
   Vector2:class {constructor(public x:number,public y:number){}}}}}));
 vi.mock('../src/game/systems/AttackTelegraph',()=>({AttackTelegraph:class {
+  graphics={setAlpha:vi.fn()};
   progress=0;draw(_area:unknown,progress:number){this.progress=progress;return this;}clear(){this.progress=0;}destroy(){}
 }}));
 import {BossCombat} from '../src/game/systems/BossCombat';
@@ -13,19 +14,34 @@ import {BossCombat} from '../src/game/systems/BossCombat';
 function fixture(id='captain-varr'){
   const player={x:80,y:0,active:true};
   const enemy={x:0,y:0,hp:100,definition:{hp:100,damage:20},attackSpeedMultiplier:1,movementSpeed:80,
-    isStaggered:false,instanceId:'boss:'+id,playBossWindup:vi.fn(),finishBossWindup:vi.fn(),playBossImpact:vi.fn(),cancelBossWindup:vi.fn(),playMonsterVocal:vi.fn(),playMonsterAttackFoley:vi.fn()};
+    isStaggered:false,instanceId:'boss:'+id,playBossRoar:vi.fn(),playBossWindup:vi.fn(),finishBossWindup:vi.fn(),playBossImpact:vi.fn(),cancelBossWindup:vi.fn(),playMonsterVocal:vi.fn(),playMonsterAttackFoley:vi.fn()};
   const body={setVelocity:vi.fn(),reset:(x:number,y:number)=>{enemy.x=x;enemy.y=y;}};
   const circle={setStrokeStyle:()=>circle,setDepth:()=>circle,destroy:vi.fn()};
-  const scene={player,combatAllowed:true,damagePlayer:vi.fn(),playEffect:vi.fn(),playerRenderDepth:vi.fn((y:number)=>y),
+  const scene={player,combatAllowed:true,notify:vi.fn(),damagePlayer:vi.fn(),playEffect:vi.fn(),playerRenderDepth:vi.fn((y:number)=>y),
     hasClearPath:vi.fn(()=>true),canEnemyOccupy:vi.fn((_x:number,_y:number)=>true),
     enemyNavigationPoint:()=>player,add:{circle:()=>circle},tweens:{add:vi.fn()}};
   const actor=Object.assign(enemy,{body});
   const combat=new BossCombat(actor as unknown as Enemy,scene as unknown as WorldScene,BOSS_COMBAT_PROFILES[id]);
+  Object.defineProperty(actor,'isAlive',{get:()=>actor.hp>0||combat.regenerating});
   const advance=(ms:number,engaged=true)=>{while(ms>0){const delta=Math.min(ms,100);combat.update(delta,engaged);ms-=delta;}};
   return {enemy:actor,scene,combat,player,advance};
 }
 
 describe('distinct boss attack sequences',()=>{
+  it('ends the first life at zero HP and cancels its committed attack before a harmless refill',()=>{
+    const f=fixture();f.advance(900);f.enemy.hp=45;
+    f.advance(100);expect(f.combat.phaseNumber).toBe(1);expect(f.scene.notify).not.toHaveBeenCalled();
+    expect(f.combat.depleteFirstForm()).toBe(false);
+    f.enemy.hp=0;expect(f.combat.depleteFirstForm()).toBe(true);
+    expect(f.enemy.hp).toBe(0);expect(f.combat.depleteFirstForm()).toBe(false);
+    const hits=f.scene.damagePlayer.mock.calls.length;
+    f.advance(1);expect(f.combat.phaseNumber).toBe(2);expect(f.scene.notify).toHaveBeenCalledTimes(1);
+    expect(f.combat.regenerating).toBe(true);expect(f.combat.attackName).toBeNull();expect(f.combat.windupFraction).toBeNull();
+    f.advance(1200);expect(f.scene.damagePlayer).toHaveBeenCalledTimes(hits);
+    expect(f.enemy.hp).toBeGreaterThan(0);
+    f.combat.cancel();f.advance(50);expect(f.scene.notify).toHaveBeenCalledTimes(1);
+    expect(f.enemy.hp).toBe(100);expect(f.combat.regenerating).toBe(false);
+  });
   it('places interior boss warnings above the interior floor layer',()=>{
     const f=fixture();f.scene.playerRenderDepth.mockImplementation(y=>10_000_000+y);
     const draw=vi.spyOn(f.combat['warning'],'draw');f.advance(900);

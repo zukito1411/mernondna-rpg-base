@@ -30,6 +30,7 @@ import {parseDungeons} from '../data/dungeons';
 import {nextTowerWeeklyReset,gateTowerQuest} from '../data/towerOfMight';
 import {BASE_LEVEL_CAP,playerLevelCap,attributeCap} from '../data/progression';
 import {BREAKTHROUGH_ACCEPTED,BREAKTHROUGH_TRIAL,BREAKTHROUGH_COMPLETE,WORLD_ASCENSION,ASCENDED_MONSTER_LEVEL} from '../data/breakthrough';
+import {parseBossPhaseSnapshot} from '../game/systems/BossPhaseState';
 
 // Retain the key used by existing installations, including after schema migrations.
 export const SAVE_KEY = 'mernondna-save-v1';
@@ -72,7 +73,10 @@ function skillIds(value: unknown): value is SkillId[] {
 function maximumSavedEnemyHp(definition:CreatureContentDefinition):number {
   const enemy=ENEMY_BY_ID[definition.enemyId];
   const level=Math.max(ASCENDED_MONSTER_LEVEL,MAX_AREA_MONSTER_LEVEL+(enemy.boss?10:5)+globalMonsterBonus(MAX_PLAYER_LEVEL));
-  const scaled=scaledEnemy(enemy,level,true).hp;
+  // Varkhul used to have 1,800 base HP. Keep that historical validation ceiling
+  // so an existing wounded/max-HP record survives the reduction. Actor restore
+  // already converts its saved HP fraction onto today's smaller maximum.
+  const scaled=scaledEnemy(enemy.id==='ash-dragon'?{...enemy,hp:Math.max(enemy.hp,1800)}:enemy,level,true).hp;
   return definition.wolfAlpha?Math.round(scaled*1.35):scaled;
 }
 
@@ -153,9 +157,12 @@ function validateContent(value: unknown): ContentWorldState | null {
       || (s.defeated !== undefined && typeof s.defeated !== 'boolean') || (s.used !== undefined && typeof s.used !== 'boolean')
       || (s.trust !== undefined && !numberIn(s.trust, 0, 100))
       || (s.respawnAt!==undefined && (!numberIn(s.respawnAt)||!Number.isInteger(s.respawnAt)||s.defeated!==true
-        ||definition.kind!=='creature'||!definition.id.startsWith('pirate:flagship:crew:')&&!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs)))
-      || (s.hp === 0 && s.defeated !== true))
+        ||definition.kind!=='creature'||!definition.id.startsWith('pirate:flagship:crew:')&&!BOSSES.some(b=>b.id===definition.bossId&&b.respawns&&b.respawnDelayMs))))
       return contentInvalid(id,'invalid actor state, coordinates, or respawn flag');
+    const bossPhase=definition.kind==='creature'&&definition.bossId&&!s.defeated?parseBossPhaseSnapshot(s.bossPhase):undefined;
+    // Zero HP is living state only for a boss's explicitly saved refill. Do not
+    // broaden this exception to ordinary enemies or a finished second form.
+    if(s.hp===0&&s.defeated!==true&&!bossPhase?.refill)return contentInvalid(id,'zero HP without defeat or boss refill');
     if(s.hp!==undefined || s.hpMax!==undefined){
       if(definition.kind!=='creature')return contentInvalid(id,'non-creature has combat health');
       const maxHp=maximumSavedEnemyHp(definition);
@@ -198,6 +205,7 @@ function validateContent(value: unknown): ContentWorldState | null {
     states[id] = { x: position.x, y: position.y,
       ...(typeof s.hp === 'number' ? { hp: s.hp } : {}), ...(typeof s.trust === 'number' ? { trust: s.trust } : {}),
       ...(typeof s.hpMax==='number'?{hpMax:s.hpMax}:{}),
+      ...(bossPhase?{bossPhase}:{}),
       ...(typeof s.defeated === 'boolean' ? { defeated: s.defeated } : {}), ...(typeof s.used === 'boolean' ? { used: s.used } : {}),
       ...(typeof s.respawnAt==='number'?{respawnAt:s.respawnAt}:{}),
       ...(summonWave?{summonWave}:{}),

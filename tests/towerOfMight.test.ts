@@ -25,9 +25,9 @@ it('uses a circular floor for the tower instead of its camera bounding box',()=>
   expect(roomFloorContains(plan,900+dx,650+dy)).toBe(true);
 });
 
-it('doubles the complete Magus model and feet without inflating his combat stats',()=>{
+it('keeps the current Magus silhouette and feet independent of his combat stats',()=>{
  const magus=ENEMY_BY_ID['grand-magus'];
- expect(magus.appearanceMultiplier).toBe(1.4*2);expect(magus.bodyRadius).toBe(27*2);
+ expect(magus.appearanceMultiplier).toBe(1.8);expect(magus.bodyRadius).toBe(35);
  expect(towerCombatStats(10,5,magus).hp).toBe(55000);
  expect(TOWER_BOSS_PROFILES[9].closeMove?.radius).toBe(245);
 });

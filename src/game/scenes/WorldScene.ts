@@ -742,7 +742,8 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       position: actor => actor,
       capture: (definition, actor) => ({ ...(definition.kind==='npc'&&definition.npcId===ALICE_NPC_ID
         &&aliceIsFollowing(useGameStore.getState().storyFlags)?definition.world:{x:actor.x,y:actor.y}),
-        ...(definition.kind === 'creature' ? { hp: (actor as Enemy).hp,hpMax:(actor as Enemy).definition.hp } : {}),
+        ...(definition.kind === 'creature' ? { hp: (actor as Enemy).hp,hpMax:(actor as Enemy).definition.hp,
+          bossPhase:(actor as Enemy).bossPhaseSnapshot } : {}),
       }),
       destroy: actor => this.destroyContentActor(actor),
     });
@@ -1219,7 +1220,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       const nearby=cinematicView?position.x>=cinematicView.left-768&&position.x<=cinematicView.right+768
         &&position.y>=cinematicView.top-768&&position.y<=cinematicView.bottom+768
         :Math.abs(Math.floor(position.x/CHUNK_SIZE)-cx)<=STREAM_RADIUS&&Math.abs(Math.floor(position.y/CHUNK_SIZE)-cy)<=STREAM_RADIUS;
-      if (!nearby || (actor ? actor.hp <= 0 : state?.defeated)) continue;
+      if (!nearby || (actor ? !actor.isAlive : state?.defeated)) continue;
       if (!actor) pendingBosses++;
       const definition = ENEMY_BY_ID[boss.enemyId];
       if (!this.contentManager.hasUnfinishedSummons(boss.id))
@@ -1391,7 +1392,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
     const owner=this.contentManager.getSummonOwner(enemy.instanceId);
     if(owner){
       const boss=this.contentManager.getActor(owner) as Enemy|undefined;
-      if(!boss?.active||boss.hp<=0||this.player.hp<=0
+      if(!boss?.active||!boss.isAlive||this.player.hp<=0
         ||Math.hypot(boss.x-this.player.x,boss.y-this.player.y)>boss.definition.aggroRange)return 'return' as const;
       spotted=true;
     }
@@ -1486,6 +1487,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
   }
 
   handleEnemyDefeated(enemy: Enemy) {
+    if(enemy.isAlive)return; // A depleted first bar is not a loot/progression kill.
     if(enemy.instanceId.startsWith('dungeon-event:')){this.dungeons?.defeated(enemy);return;}
     if(this.storyEncounters?.defeated(enemy)){useGameStore.getState().discoverCreature(enemy.definition.id,undefined,true);return;}
     this.forgetOrcSpears(enemy.instanceId);
@@ -1865,6 +1867,7 @@ export class WorldScene extends Phaser.Scene implements EventDirectorHost {
       }
       this.groundShadows.register(enemy);
       enemy.hp=restoredEnemyHealth(state,enemy.definition.hp);
+      if(state.bossPhase)enemy.restoreBossPhase(state.bossPhase);
       this.creatureBodies.add(enemy); this.enemies.add(enemy);this.combatEnemyListDirty=true;
       if (definition.bossId && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 1200) {
         const boss = BOSSES.find(b => b.id === definition.bossId);

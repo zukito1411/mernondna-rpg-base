@@ -123,7 +123,7 @@ export const ENEMIES: EnemyDefinition[] = [
 ];
 
 ENEMIES.push({id:'ash-dragon',name:'Varkhul, the Returning Ember',spriteFrame:5,spriteTexture:'enemy_dragon',appearanceMultiplier:1.6,
-  bodyRadius:64,combatStyle:'dragon',hp:1800,damage:36,moveSpeed:72,aggroRange:650,attackRange:170,attackRadius:240,
+  bodyRadius:64,combatStyle:'dragon',hp:900,damage:36,moveSpeed:72,aggroRange:650,attackRange:170,attackRadius:240,
   attackCooldownMs:2200,attackWindupMs:1000,attackRecoveryMs:900,xp:520,goldMin:70,goldMax:100,boss:true,regionWeights:{}});
 // Keep body, reach and warning geometry in proportion with the visual change.
 // Dragon ground/flight presentation reads this same appearance multiplier.

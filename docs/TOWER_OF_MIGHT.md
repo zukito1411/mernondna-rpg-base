@@ -74,8 +74,9 @@ to the tower and never enters overworld boss progression or loot tables.
   Those species templates are unscaled, not level-120 or ascended actors.
 - Bosses move 15% faster than their species template. Distinct tower
   combinations keep the original complete warnings (750–1,700ms), with
-  between-pattern cooldowns at 70% of their previous tower values. Below
-  60% HP their stronger combos start and cooldowns shorten by another 20%.
+  between-pattern cooldowns at 70% of their previous tower values. After the
+  first bar reaches zero, a protected roar refills it fully; stronger second-form
+  combos then start, with cooldowns at 72% of the first form's value.
 - Tower boss poise prevents a permanent Crescent Flurry hold. Damage still
   lands; one brief stagger is possible per five-second recovery window.
   Interrupting advances the pattern instead of restarting pattern zero.
@@ -94,8 +95,8 @@ difficulty for every build. No automatic enemy scaling punishes better gear.
 His violet ground seals, glacial staff lance, fire orb, thunder strike and
 hollow eclipse receive full, element-colored warnings. Fire/ice/shadow have
 visible travelling casts; thunder descends on its locked ground mark. Nearby
-enemies provoke a separate physical staff strike. Below
-60% HP he combines spells, retaining each warning. The complete front,
+enemies provoke a separate physical staff strike. After his first bar reaches
+zero and the roar refills it, he combines spells, retaining each warning. The complete front,
 side and rear poses are drawn at one shared scale, with separate casting
 and striking frames, never stitched body parts.
 
@@ -127,7 +128,15 @@ plus eight impact pieces), with a defensive overlap cap of nineteen including
 the active projectile. Cancel/death/room exit destroys them. Companion textures share
 the boss pack's cleanup. Closing the tower discards pending Magus preparation
 without resetting unrelated shared-loader work; enemy image requests have
-explicit 15-second XHR timeouts. The shared body atlas stays below 2048px.
+explicit 15-second XHR timeouts. The body now uses a prepacked 2048x904 HD
+atlas: 62 virtual frame IDs share 34 unique whole poses, at density 2. Trimming
+transparent space preserves the virtual canvas, boot line, palm registrations,
+world height and collision circle. It retains twice the physical body detail
+instead of enlarging the old 112px downsample. The body page occupies about
+7.06 MiB RGBA before GPU overhead, versus roughly 13 MiB for the old isolated
+page. Packing and silhouette scans happen offline, not on entering the arena.
+The four-spell preparation remains lazy. Source poses are unchanged and retained.
+See `docs/art/BOSS_MOTION_AND_MAGUS_HD.md` for source paths and limitations.
 
 Source review confirmed Continue clears transient dungeon state and restores
 the saved exterior position; tower artwork is not part of the startup pack.
@@ -188,6 +197,12 @@ under its painting. Other houses, caves and castles retain their layouts.
 Source master, prompt and registration notes: `docs/art/tower-interior/`.
 
 ## Artwork
+
+Boss phase-two follow-up: see `docs/BOSS_PHASE_TWO.md`. Every echo now has a
+latched fury phase, a full HP refill during its protected roar, phase-exclusive
+sequences and two red resolve dots beneath the health bar (one dims on the roar).
+There is no phase-name/number HUD label. Level-75 World Ascension shares the same tower phase profiles.
+Varkhul executes full multi-action rage combos with warned hollow aftershocks.
 
 Built-in image generation was used with the original
 `public/assets/sprites/buildings.png` as a supporting style reference.

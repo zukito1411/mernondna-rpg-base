@@ -155,7 +155,7 @@ export class ContentChunkManager<Actor> {
       // A due return blocked by an active encounter must be reconsidered next
       // update, exactly as before; only future deadlines skip their scan.
       if(this.host.canRespawn&&!this.host.canRespawn(definition)){this.nextReturnAt=Math.min(this.nextReturnAt,state.respawnAt);continue;}
-      const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined,
+      const restored={...state,...this.host.initialState(definition),defeated:false,respawnAt:undefined,bossPhase:undefined,
         ...(definition.kind==='creature'&&definition.bossId&&!state.summonWave?.members.length?{summonWave:undefined}:{})};
       this.states.set(id,restored);this.index(id,contentChunkKey(restored.x,restored.y));
       this.returns.delete(id);changed=true;

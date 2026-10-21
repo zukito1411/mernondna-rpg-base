@@ -3,6 +3,9 @@ import {useGameStore} from '../src/store/gameStore';
 import {CONTENT_BY_ID,WORLD_CONTENT,initialContentState} from '../src/data/content';
 import {ContentChunkManager} from '../src/game/systems/ContentChunkManager';
 import {QUEST_BY_ID} from '../src/data/quests';
+import {ENEMY_BY_ID} from '../src/data/enemies';
+import {scaledEnemy} from '../src/data/enemyTiers';
+import {restoredEnemyHealth} from '../src/game/systems/enemyHealth';
 import {allowExplicitNewGame,createSaveBackupExport,getSaveRecoveryNotice,hasSavedGame,importSaveBackup,
   inspectSaveImport,loadGame,parseSave,SAVE_KEY,saveGame,setSaveSnapshotProvider,watchProgressSaves} from '../src/utils/save';
 
@@ -22,6 +25,37 @@ afterEach(()=>{
 });
 
 describe('save, restore and recovery',()=>{
+  it('retains a depleted first bar with its pending refill, but rejects an unexplained living zero-HP actor',()=>{
+    const id='boss:captain-varr',definition=CONTENT_BY_ID[id];
+    const bossPhase={phase:2 as const,refill:{elapsedMs:0,startRatio:0}};
+    useGameStore.setState({gold:312,worldContent:{states:{[id]:{...initialContentState(definition),hp:0,bossPhase}},spawns:{},nextSpawnSequence:0}});
+    expect(saveGame()).toBe(true);useGameStore.getState().resetGame();expect(loadGame()).toBe(true);
+    expect(useGameStore.getState().worldContent.states[id]).toMatchObject({hp:0,bossPhase});
+    expect(useGameStore.getState().gold).toBe(312);
+    const invalid=JSON.parse(values.get(SAVE_KEY)!);
+    invalid.state.worldContent.states[id].bossPhase={phase:2};
+    expect(parseSave(JSON.stringify(invalid))).toBeNull();
+  });
+  it('accepts Varkhul HP recorded before the base reduction and restores the same damage fraction',()=>{
+    const id='boss:varkhul',definition=CONTENT_BY_ID[id],enemy=ENEMY_BY_ID['ash-dragon'];
+    const formerMaximum=scaledEnemy({...enemy,hp:1800},120,true).hp;
+    const newMaximum=scaledEnemy(enemy,120,true).hp;
+    expect(newMaximum).toBe(formerMaximum/2);
+    useGameStore.setState({gold:312,worldContent:{states:{[id]:{...initialContentState(definition),hp:formerMaximum/2,hpMax:formerMaximum}},spawns:{},nextSpawnSequence:0}});
+    expect(saveGame()).toBe(true);useGameStore.getState().resetGame();expect(loadGame()).toBe(true);
+    expect(restoredEnemyHealth(useGameStore.getState().worldContent.states[id],newMaximum)).toBe(newMaximum/2);
+    expect(useGameStore.getState().gold).toBe(312);
+  });
+  it('round-trips spent boss resolve and unfinished refill timing without losing progress',()=>{
+    const id='boss:captain-varr',definition=CONTENT_BY_ID[id];
+    const bossPhase={phase:2 as const,refill:{elapsedMs:600,startRatio:.4}};
+    useGameStore.setState({gold:312,worldContent:{states:{[id]:{...initialContentState(definition),bossPhase}},spawns:{},nextSpawnSequence:0}});
+    expect(saveGame()).toBe(true);useGameStore.getState().resetGame();expect(loadGame()).toBe(true);
+    expect(useGameStore.getState().gold).toBe(312);
+    expect(useGameStore.getState().worldContent.states[id].bossPhase).toEqual(bossPhase);
+    useGameStore.setState({worldContent:{states:{[id]:{...initialContentState(definition),bossPhase:{phase:2}}},spawns:{},nextSpawnSequence:0}});
+    expect(saveGame()).toBe(true);expect(parseSave(values.get(SAVE_KEY)!)?.state.worldContent.states[id].bossPhase).toEqual({phase:2});
+  });
   it('round-trips the real world ledger, quest evidence and discoveries through new authored placements',()=>{
     const states=Object.fromEntries(WORLD_CONTENT.map(d=>[d.id,initialContentState(d)]));
     for(const id of ['collect:cibar-fitting:0','story:frost-lantern','loot:pirate-flagship:cargo','discovery:clan-road-muster'])
