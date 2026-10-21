@@ -79,7 +79,7 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .xp-meter span { position: absolute; inset: 0; display: grid; place-items: center; color: #fff4db; font-size: 8px; line-height: 1; text-shadow: 0 1px 3px #16111d; }
 .status-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 8px; font-size: 11px; color: #d9c9ab; }
 .quest-card { position: absolute; left: max(12px, env(safe-area-inset-left)); top: 132px; width: min(360px, 70vw); border-radius: 10px; padding: 9px 12px; display: grid; gap: 2px; }
-.boss-encounter-card { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(560px, 56vw); padding: 9px 18px 11px; border: 1px solid rgba(218,166,117,.55); border-radius: 7px; background: linear-gradient(180deg, rgba(29,20,16,.94), rgba(12,11,12,.94)); box-shadow: 0 5px 22px rgba(0,0,0,.52), inset 0 1px rgba(255,235,208,.12); text-align: center; }
+.boss-encounter-card { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(560px, 56vw); padding: 9px 18px 11px; border: 0; background: transparent; box-shadow: none; text-align: center; pointer-events: none; }
 .boss-encounter-card strong { color: #f0d8b5; font: 600 13px Georgia, serif; letter-spacing: .12em; text-shadow: 0 1px 3px #000; }
 .boss-resolve-dots { display: flex; justify-content: center; align-items: center; gap: 7px; height: 9px; margin-top: 4px; pointer-events: none; }
 .boss-resolve-dots i { display: block; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; border: 1px solid #67403b; background: #2c1616; box-shadow: none; transition: background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
@@ -87,9 +87,6 @@ button:focus-visible { outline: 2px solid #f2d28d; outline-offset: 2px; }
 .boss-health-meter { height: 11px; margin-top: 7px; overflow: hidden; border: 1px solid rgba(239,198,160,.4); border-radius: 2px; background: #170e0d; box-shadow: inset 0 1px 3px #000; }
 .boss-health-meter div { height: 100%; background: linear-gradient(180deg, #df7356, #873229 72%, #5a201c); box-shadow: inset 0 1px rgba(255,218,184,.28); transition: width 180ms ease-out; }
 .boss-health-meter.is-refilling div { transition: width 50ms linear; }
-.boss-attack-timing {margin-top:5px;color:#f1d4a8;font-size:10px;}
-.boss-windup-meter {height:4px;margin-top:3px;background:#241c18;border-radius:3px;overflow:hidden;}
-.boss-windup-meter i {display:block;height:100%;background:linear-gradient(90deg,#e8ae50,#ff6a58);}
 .quest-card strong { color: #f4dca6; font-family: Georgia, serif; }
 .quest-card span { font-size: 12px; color: #e6ddcc; line-height: 1.35; }
 .quest-guidance { display: flex; align-items: center; gap: 8px; padding-top: 7px; margin-top: 5px; border-top: 1px solid var(--line); }

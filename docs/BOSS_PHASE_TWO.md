@@ -10,7 +10,9 @@ and hazards without awarding loot or quest credit. The boss then pauses for a
 smoothly refills to the current maximum, and the existing health bar follows it.
 Two small red dots sit directly below the bar: both initially lit, then the
 second dims as the roar begins. No phase name, numeral or awakening timer is
-displayed. Normal attack names/warnings resume afterward.
+displayed. Ground attack warnings resume afterward. The boss HUD is transparent
+and borderless around the name, health meter and resolve dots; it has no attack
+name or windup readout. The health meter retains its own narrow track for contrast.
 
 The refill is protected from direct/status damage and stagger, without hiding
 the targeted boss or its health bar. Direct hits and status ticks can both empty
@@ -48,6 +50,27 @@ globally accelerated; damage/range changes are authored per move rather than an
 unbounded stat multiplier. Up to six committed zones and the existing effect
 pool limits remain. No terrain destruction, extra summons or persistent hazards
 are generated outside these bounded, warned attack areas.
+
+## Attack damage
+
+Each move's `damage` is a multiplier of the boss's current scaled attack stat,
+not a flat shared damage amount. An ordinary impact applies
+`round(boss.damage * move.damage)` before the player's existing mitigation and
+evasion. The same profiles serve tower and ascended-world encounters, without
+changing their independently scaled base stats. Cave leaders use these helpers too.
+
+Quick cuts, repeated seals and follow-up echoes generally hit for 0.7–1.1×;
+committed charges, heavy blows and finishers use 1.2–1.55×, with authored
+exceptions per attack. These are per-impact values: each delayed zone can hit
+once, and lingering areas do not repeatedly tick damage. Existing invulnerability
+windows and full floor warnings are unchanged.
+
+For example, Varr's normal cut/thrust/cleave use 0.8×/1.0×/1.15×. Stonejaw's
+crush hits for 1.4× versus his 1.0× quake. Magus's seal/fire/ice/thunder/eclipse
+use 0.9×/1.1×/1.25×/1.35×/1.45×; his final devouring eclipse uses 1.55×.
+Varkhul retains sustained breath damage at `0.38 * move.damage` per accepted
+burn tick, versus full-impact stomp/landing multipliers and separately authored
+aftershocks. Do not treat his breath multiplier as a single-hit attack.
 
 ## Owning systems and integration
 

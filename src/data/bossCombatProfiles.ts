@@ -7,6 +7,8 @@ export interface BossZone {
 }
 export interface BossMove {
   id:string;name:string;kind:AttackArea['kind'];radius:number;range:number;windup:number;recovery:number;
+  /** Multiplier of the scaled boss ATK per impact (dragon breath: per .38-ATK tick).
+   * Multi-zone moves pay this per zone, not once for the entire combination. */
   damage:number;target?:boolean;innerRadius?:number;halfAngle?:number;chargeMs?:number;presentation?:'cast'|'staff';
   spell?:'fire'|'ice'|'thunder'|'shadow';
   dragonAction?:'stomp'|'breath'|'flight';
@@ -24,36 +26,37 @@ const cone=(id:string,name:string,radius:number,windup:number,damage=1,halfAngle
   ({id,name,kind:'cone',radius,range:radius,windup,recovery:450,damage,halfAngle});
 const slam=(id:string,name:string,radius:number,windup:number,damage=1):BossMove=>
   ({id,name,kind:'circle',radius,range:radius,windup,recovery:750,damage});
-const burst=(id:string,name:string,radius:number,windup:number,range=390):BossMove=>
-  ({...slam(id,name,radius,windup,.85),target:true,range,recovery:480});
-const charge=(id:string,name:string,range:number,windup:number,radius=34):BossMove=>
-  ({id,name,kind:'line',radius,range,windup,recovery:800,damage:1.1,chargeMs:440});
-const ring=(id:string,name:string,radius:number,innerRadius:number,windup:number):BossMove=>
-  ({...slam(id,name,radius,windup,.95),kind:'ring',innerRadius,range:radius});
+const burst=(id:string,name:string,radius:number,windup:number,range=390,damage=.85):BossMove=>
+  ({...slam(id,name,radius,windup,damage),target:true,range,recovery:480});
+const charge=(id:string,name:string,range:number,windup:number,radius=34,damage=1.2):BossMove=>
+  ({id,name,kind:'line',radius,range,windup,recovery:800,damage,chargeMs:440});
+const ring=(id:string,name:string,radius:number,innerRadius:number,windup:number,damage=1.1):BossMove=>
+  ({...slam(id,name,radius,windup,damage),kind:'ring',innerRadius,range:radius});
 const cut=cone('varr-cut','Roadwarden cut',105,500,.8);
-const thrust=charge('varr-thrust','Committed thrust',190,750,27);
-const moonLeap=charge('moon-leap','Moonlit rush',270,900,38);
+const thrust=charge('varr-thrust','Committed thrust',190,750,27,1);
+const moonLeap=charge('moon-leap','Moonlit rush',270,900,38,1.2);
 const moonfall=burst('moonfall','Moonfall seal',88,1000);
-const crush=slam('stone-crush','Boulder crush',145,1100,1.15);
-const quake=ring('stone-quake','Echoing quake',230,110,1050);
-const tuskRush=charge('tusk-rush','Iron-Tusk charge',310,1050,44);
+const crush=slam('stone-crush','Boulder crush',145,1100,1.4);
+const quake=ring('stone-quake','Echoing quake',230,110,1050,1);
+const tuskRush=charge('tusk-rush','Iron-Tusk charge',310,1050,44,1.35);
 const tuskSweep=cone('tusk-sweep','War-chief sweep',145,750,1.05,1.45);
-const roots=burst('grasping-roots','Grasping roots',90,1150,420);
-const rootRing=ring('root-ring','Rootwater eruption',250,115,1200);
+const roots=burst('grasping-roots','Grasping roots',90,1150,420,.8);
+const rootRing=ring('root-ring','Rootwater eruption',250,115,1200,1.2);
 const deckCut=cone('deck-cut','Captain’s broadside',120,600,.85,1.35);
-const deckThrust=charge('deck-thrust','Boarding thrust',170,780,27);
-const iceRush=charge('ice-rush','Glacial rush',335,1050,46);
-const iceBurst=burst('ice-burst','Ice eruption',95,1050,420);
+const deckThrust=charge('deck-thrust','Boarding thrust',170,780,27,1.15);
+const iceRush=charge('ice-rush','Glacial rush',335,1050,46,1.35);
+const iceBurst=burst('ice-burst','Ice eruption',95,1050,420,.9);
 const cinder=burst('cinder-seal','Cinder seal',88,1100,470);
-const ashRing=ring('ash-ring','Ashen corona',245,120,1200);
-const shadowSeal:BossMove={...burst('magus-seal','Shadow realm seal',150,1350,900),presentation:'cast',spell:'shadow'};
-const shadowCrown:BossMove={...ring('magus-crown','Sovereign eclipse',430,200,1550),presentation:'cast',spell:'shadow'};
+const ashRing=ring('ash-ring','Ashen corona',245,120,1200,1.2);
+const shadowSeal:BossMove={...burst('magus-seal','Shadow realm seal',150,1350,900,.9),presentation:'cast',spell:'shadow'};
+const shadowCrown:BossMove={...ring('magus-crown','Sovereign eclipse',430,200,1550,1.45),presentation:'cast',spell:'shadow'};
 const shadowRay:BossMove={id:'magus-ray',name:'Glacial staff lance',kind:'line',radius:48,range:820,windup:1400,recovery:700,damage:1.25,presentation:'cast',spell:'ice',projectileMs:700};
-const magusFire:BossMove={...shadowSeal,id:'magus-fire',name:'Realmfire orb',spell:'fire'};
-const magusThunder:BossMove={...shadowSeal,id:'magus-thunder',name:'Sovereign thunder',spell:'thunder',windup:1500};
+const magusFire:BossMove={...shadowSeal,id:'magus-fire',name:'Realmfire orb',spell:'fire',damage:1.1};
+const magusThunder:BossMove={...shadowSeal,id:'magus-thunder',name:'Sovereign thunder',spell:'thunder',windup:1500,damage:1.35};
 
 /** Distinct, bounded sequences. Every follow-up receives its own full warning;
- * below half health bosses combine moves, without removing dodge windows. */
+ * second-form bosses combine moves, without removing dodge windows. Quick and
+ * repeated hits stay lighter than committed charges and single heavy impacts. */
 export const BOSS_COMBAT_PROFILES:Record<string,BossCombatProfile>={
   'captain-varr':{identity:'Mobile duelist: measured cuts followed by a committed thrust.',preferredRange:82,strafe:.38,color:0xf2bc66,cooldown:900,
     phaseTwo:{name:'Rededge unleashed',announcement:'Varr’s grip tightens on Rededge. “No more warnings, then.”'},enrageCooldownMultiplier:.75,
@@ -68,18 +71,18 @@ export const BOSS_COMBAT_PROFILES:Record<string,BossCombatProfile>={
   'stonejaw-troll':{identity:'Slow siege brute: crushing blows followed by hollow shockwaves.',preferredRange:115,strafe:0,color:0xe3c89b,cooldown:1600,
     phaseTwo:{name:'Mountain’s wrath',announcement:'Stonejaw bellows. Cracks race across the ground beneath his fists.'},enrageCooldownMultiplier:.8,
     patterns:[[crush],[quake]],enraged:[[{...slam('stone-fault','Breaking fault',175,1250,1.25),zones:[{delay:0},{delay:950,kind:'ring',innerRadius:185,radius:305}]},burst('stone-fall','Falling crag',110,1250,440)],
-      [slam('stone-rage','Mountainbreaker',195,1400,1.4),ring('stone-backwash','Fault-line echo',310,150,1300)]]},
+      [slam('stone-rage','Mountainbreaker',195,1400,1.55),ring('stone-backwash','Fault-line echo',310,150,1300)]]},
   'iron-tusk':{identity:'Charging war-chief: commits to a lane, then controls his flanks.',preferredRange:170,strafe:.1,color:0xffb079,cooldown:1200,
     phaseTwo:{name:'War-chief’s blood oath',announcement:'Krag strikes his breastplate. “You face the whole clan’s fury!”'},enrageCooldownMultiplier:.75,
-    patterns:[[tuskRush],[tuskSweep],[slam('tusk-stamp','Iron-Tusk stamp',130,900)]],enraged:[[charge('tusk-blood-road','Blood-oath charge',380,1150,48),
+    patterns:[[tuskRush],[tuskSweep],[slam('tusk-stamp','Iron-Tusk stamp',130,900,.95)]],enraged:[[charge('tusk-blood-road','Blood-oath charge',380,1150,48,1.45),
       {...cone('tusk-execution','War-chief’s execution',185,1000,1.2,.9),zones:[{delay:0,angleOffset:.85},{delay:750,angleOffset:-.85}]}],
       [cone('tusk-clanbreaker','Clanbreaker',205,1200,1.4,.6),slam('tusk-earthbreak','Earthbreaking stamp',180,1150,1.25)]]},
   rootfather:{identity:'Territorial guardian: distant root traps and rings with a safe inner pocket.',preferredRange:220,strafe:0,color:0xb1d47b,cooldown:1500,
     phaseTwo:{name:'Heartwood fury',announcement:'Rootfather’s branches shudder. Ancient roots tear free beneath your feet.'},enrageCooldownMultiplier:.8,
-    patterns:[[roots],[rootRing],[slam('root-bash','Ancient root crush',150,1050)]],enraged:[[
+    patterns:[[roots],[rootRing],[slam('root-bash','Ancient root crush',150,1050,1.35)]],enraged:[[
       {...burst('root-prison','Heartwood prison',95,1300,500),zones:[{delay:0,side:-120,lingerMs:1900},{delay:650,side:120,lingerMs:1900},{delay:1500,radius:115,lingerMs:1400}]},
       ring('root-wrath','Heartwood crown',300,150,1350)],
-      [burst('root-sunder','Splintering heart',120,1250,500),charge('root-trample','Ancient trample',250,1250,48)]]},
+      [burst('root-sunder','Splintering heart',120,1250,500,1.15),charge('root-trample','Ancient trample',250,1250,48,1.4)]]},
   'salt-king':{identity:'Deck fencer: circles, cuts broadly, then lunges across the planks.',preferredRange:86,strafe:.68,color:0xffd67d,cooldown:1000,
     phaseTwo:{name:'Dead man’s broadside',announcement:'The Salt King bares his teeth. “All guns! Send this wretch to the deep!”'},enrageCooldownMultiplier:.75,
     patterns:[[deckCut],[deckThrust],[{...deckCut,id:'deck-reverse',name:'Backhand cut',halfAngle:1.6,windup:800,damage:1.1}]],enraged:[[
@@ -90,14 +93,14 @@ export const BOSS_COMBAT_PROFILES:Record<string,BossCombatProfile>={
     phaseTwo:{name:'Winter unbound',announcement:'The Wyrm’s scales crack with blue light. Its furious cry freezes the air.'},enrageCooldownMultiplier:.78,
     patterns:[[iceRush],[iceBurst],[slam('frost-tail','Frozen tail sweep',170,1000)]],enraged:[[
       {...slam('ice-fangs','Winter’s hunting fangs',75,1250,1.05),range:500,zones:[{delay:0,forward:140,side:-75,lingerMs:1300},{delay:0,forward:140,side:75,lingerMs:1300},
-        {delay:800,forward:290,side:-110,lingerMs:1300},{delay:800,forward:290,side:110,lingerMs:1300}]},charge('ice-unbound','Winter unbound',400,1200,52)],
+        {delay:800,forward:290,side:-110,lingerMs:1300},{delay:800,forward:290,side:110,lingerMs:1300}]},charge('ice-unbound','Winter unbound',400,1200,52,1.45)],
       [ring('ice-crown','Shattered winter crown',320,165,1400),slam('ice-tailbreak','Frostshatter tail',200,1200,1.3)]]},
   'ashen-seer':{identity:'Ranged controller: marks fixed ash seals and punishes careless approaches.',preferredRange:280,strafe:.48,color:0xe2a6ee,cooldown:1300,
     phaseTwo:{name:'The prophecy burns',announcement:'The Seer’s whisper becomes a scream. “Then let the future burn with you!”'},enrageCooldownMultiplier:.78,
-    patterns:[[cinder],[ashRing],[cinder,{...cinder,id:'cinder-echo',name:'Cinder echo',windup:950}]],enraged:[[
+    patterns:[[cinder],[ashRing],[cinder,{...cinder,id:'cinder-echo',name:'Cinder echo',windup:950,damage:.7}]],enraged:[[
       {...burst('ash-three-fates','Three burning fates',100,1300,550),zones:[{delay:0},{delay:750,side:-140},{delay:1550,side:140},{delay:2400,radius:130}]},
-      ring('ash-black-sun','Black sun prophecy',300,155,1400)],
-      [burst('ash-judgment','Cinder judgment',125,1250,550),burst('ash-echo-judgment','Judgment’s echo',135,1400,550)]]},
+      ring('ash-black-sun','Black sun prophecy',300,155,1400,1.35)],
+      [burst('ash-judgment','Cinder judgment',125,1250,550,1.1),burst('ash-echo-judgment','Judgment’s echo',135,1400,550,1.25)]]},
 };
 
 /** Ordinary Varkhul retains his dedicated flight/breath renderer. */
@@ -124,25 +127,25 @@ export function bossPattern(profile:BossCombatProfile,sequence:number,hpFraction
 const towerPatterns:readonly BossCombatProfile[]=[
  {identity:'Varr: a committed crossing sword combination; dodge behind the first cut, then change sides.',preferredRange:140,strafe:.65,color:0xffce76,cooldown:850,
   patterns:[[{...cone('might-varr-cross','Rededge crossing blades',210,900,1.05,.65),zones:[{delay:0,angleOffset:-.6},{delay:650,angleOffset:.6}]}],
-   [charge('might-varr-pursuit','Pursuing Rededge',390,1050,38)]],
+   [charge('might-varr-pursuit','Pursuing Rededge',390,1050,38,1.25)]],
   enraged:[[{...cone('might-varr-three','Three roads to ruin',230,950,1.1,.65),zones:[{delay:0,angleOffset:-.7},{delay:600,angleOffset:.7},{delay:1350,angleOffset:Math.PI,radius:260}]}],
-   [charge('might-varr-last','Last road charge',440,1150,42),cone('might-varr-return','Returning cross-cut',210,900,1.2,1.25)]]},
+   [charge('might-varr-last','Last road charge',440,1150,42,1.35),cone('might-varr-return','Returning cross-cut',210,900,1.2,1.25)]]},
  {identity:'Warden: paired moon seals close from the flanks before a central moonfall.',preferredRange:270,strafe:.55,color:0xc6b4ff,cooldown:1100,
   patterns:[[{...burst('might-moon-pincer','Closing crescent moons',95,1250,750),zones:[{delay:0,side:-165},{delay:0,side:165},{delay:850,radius:125}]}],
    [charge('might-moon-hunt','Pale pursuit',460,1200,45)]],
   enraged:[[{...burst('might-moon-cross','Fourfold moonfall',100,1300,750),zones:[{delay:0,side:-175},{delay:0,side:175},{delay:700,forward:-175},{delay:700,forward:175},{delay:1500,radius:140}]}],
-   [ring('might-moon-halo','Hollow moon',340,165,1400),charge('might-moon-break','Moonbreaker',480,1250,48)]]},
+   [ring('might-moon-halo','Hollow moon',340,165,1400,1.25),charge('might-moon-break','Moonbreaker',480,1250,48,1.4)]]},
  {identity:'Stonejaw: the mountain cracks outward in three separately warned shockwave bands.',preferredRange:150,strafe:0,color:0xe0c89b,cooldown:1450,
   patterns:[[{...slam('might-stone-wave','Walking earthquake',140,1400,1.15),zones:[{delay:0},{delay:600,kind:'ring',innerRadius:150,radius:280},{delay:1250,kind:'ring',innerRadius:290,radius:430}]}],
    [{...burst('might-stone-fall','Falling summits',105,1450,750),zones:[{delay:0},{delay:700,forward:220},{delay:1400,forward:440}]}]],
   enraged:[[{...slam('might-stone-collapse','Mountain collapse',155,1450,1.2),zones:[{delay:0},{delay:550,kind:'ring',innerRadius:165,radius:300},{delay:1150,kind:'ring',innerRadius:310,radius:455},{delay:2050,radius:200}]}]]},
  {identity:'Krag: long committed charges end in a delayed two-sided axe execution.',preferredRange:260,strafe:.12,color:0xffb878,cooldown:1000,
-  patterns:[[charge('might-tusk-road','Iron warpath',510,1300,58),{...cone('might-tusk-flanks','Warpath execution',235,1050,1.25,.85),zones:[{delay:0,angleOffset:Math.PI/2},{delay:700,angleOffset:-Math.PI/2}]}],
+  patterns:[[charge('might-tusk-road','Iron warpath',510,1300,58,1.4),{...cone('might-tusk-flanks','Warpath execution',235,1050,1.25,.85),zones:[{delay:0,angleOffset:Math.PI/2},{delay:700,angleOffset:-Math.PI/2}]}],
    [{...cone('might-tusk-cleave','Clanbreaker cleave',310,1450,1.5,.48),recovery:1100}]],
   enraged:[[charge('might-tusk-first','First warpath',450,1200,55),charge('might-tusk-second','Second warpath',450,1250,55),{...cone('might-tusk-end','Warchief execution',270,1100,1.3,1),zones:[{delay:0,angleOffset:Math.PI/2},{delay:650,angleOffset:-Math.PI/2},{delay:1500,kind:'circle',radius:220}]}]]},
  {identity:'Rootfather: persistent thorn patches surround a clear escape lane, then close the centre.',preferredRange:300,strafe:0,color:0xb6e295,cooldown:1200,
   patterns:[[{...burst('might-root-garden','Thorn prison',90,1350,780),zones:[{delay:0,side:-170,lingerMs:2400},{delay:0,side:170,lingerMs:2400},{delay:800,forward:170,lingerMs:2000},{delay:1550,lingerMs:1600}]}],
-   [ring('might-root-crown','Crown of roots',390,190,1550)]],
+   [ring('might-root-crown','Crown of roots',390,190,1550,1.35)]],
   enraged:[[{...burst('might-root-maze','Heartwood labyrinth',100,1400,780),zones:[{delay:0,side:-180,lingerMs:2800},{delay:0,side:180,lingerMs:2800},{delay:700,forward:180,lingerMs:2400},{delay:1400,forward:-180,lingerMs:2200},{delay:2200,radius:125,lingerMs:1600}]}]]},
  {identity:'Salt King: parallel cannon lanes fire in a staggered broadside, followed by boarding.',preferredRange:300,strafe:.65,color:0xffd58a,cooldown:1100,
   patterns:[[{id:'might-salt-salvo',name:'Port battery broadside',kind:'line',radius:42,range:760,windup:1400,recovery:700,damage:1.05,zones:[{delay:0,side:-170,travelMs:650},{delay:600,travelMs:650},{delay:1200,side:170,travelMs:650}]}],
@@ -150,9 +153,9 @@ const towerPatterns:readonly BossCombatProfile[]=[
   enraged:[[{id:'might-salt-cross',name:'Crossing ghost batteries',kind:'line',radius:42,range:780,windup:1450,recovery:850,damage:1.15,zones:[{delay:0,side:-180,travelMs:600},{delay:500,side:180,travelMs:600},{delay:1150,angleOffset:-.5,travelMs:650},{delay:1750,angleOffset:.5,travelMs:650}]}]]},
  {identity:'Wyrm: ice fangs advance in forked lanes and remain dangerous on the ground.',preferredRange:300,strafe:.15,color:0x9de4ff,cooldown:1250,
   patterns:[[{...slam('might-ice-fork','Forked glacier',85,1400,1.05),range:780,zones:[{delay:0,forward:180,side:-100,lingerMs:1400},{delay:0,forward:180,side:100,lingerMs:1400},{delay:650,forward:370,side:-150,lingerMs:1400},{delay:650,forward:370,side:150,lingerMs:1400},{delay:1400,forward:560,radius:120,lingerMs:1200}]}],
-   [charge('might-ice-road','Winter road',520,1400,60)]],
+   [charge('might-ice-road','Winter road',520,1400,60,1.4)]],
   enraged:[[{...ring('might-ice-thaw','Closing ice jaws',450,320,1500),zones:[{delay:0},{delay:750,radius:310,innerRadius:180},{delay:1550,kind:'circle',radius:165}]}],
-   [charge('might-ice-end','Winter unbound',550,1450,65)]]},
+   [charge('might-ice-end','Winter unbound',550,1450,65,1.5)]]},
  {identity:'Seer: predicts a trail through the arena, then echoes the original omen after a delay.',preferredRange:350,strafe:.45,color:0xeab0ff,cooldown:1150,
   patterns:[[{...burst('might-ash-fate','Footsteps of fate',105,1400,800),zones:[{delay:0},{delay:650,forward:200},{delay:1300,forward:400},{delay:2250,radius:140}]}],
    [{...ring('might-ash-return','Receding ash prophecy',430,290,1550),zones:[{delay:0},{delay:800,radius:280,innerRadius:150},{delay:1650,kind:'circle',radius:140}]}]],
@@ -170,7 +173,7 @@ const towerPatterns:readonly BossCombatProfile[]=[
   closeRange:230,closeMove:{...cone('magus-staff','Sovereign staff strike',245,750,1.15,1.2),presentation:'staff'},
   patterns:[[shadowSeal],[shadowRay],[magusFire],[magusThunder],[shadowCrown]],
   enraged:[[magusFire,{...magusThunder,id:'magus-second',radius:165},shadowRay],
-   [shadowCrown,{...shadowSeal,id:'magus-last',name:'The realm answers',radius:185,windup:1450}]]},
+   [shadowCrown,{...shadowSeal,id:'magus-last',name:'The realm answers',radius:185,windup:1450,damage:1.2}]]},
 ];
 
 const towerPhaseTwo:readonly NonNullable<BossCombatProfile['phaseTwo']>[]=[
@@ -188,21 +191,21 @@ const towerPhaseTwo:readonly NonNullable<BossCombatProfile['phaseTwo']>[]=[
 // Additional phase-exclusive sequences complement each echo's original rage
 // mechanic. Six zones maximum; every delayed impact has its own full warning.
 const towerRageFinishers:readonly (readonly BossMove[])[]=[
- [cone('might-varr-execution','No road home',275,1150,1.35,.7),charge('might-varr-red-end','Rededge execution',490,1250,42)],
+ [cone('might-varr-execution','No road home',275,1150,1.35,.7),charge('might-varr-red-end','Rededge execution',490,1250,42,1.5)],
  [{...burst('might-moon-ravenous','Ravenous moon',115,1450,800),zones:[{delay:0,side:-200},{delay:650,side:200},{delay:1400,forward:-200},{delay:2300,radius:165}]},
   charge('might-moon-eclipse-hunt','Eclipse pursuit',500,1300,48)],
  [{...burst('might-stone-rain','Rain of broken summits',120,1550,800),zones:[{delay:0,side:-190},{delay:650,side:190},{delay:1350,forward:190},{delay:2200,radius:180}]},
-  ring('might-stone-ruin','Ruined mountain',460,240,1550)],
+  ring('might-stone-ruin','Ruined mountain',460,240,1550,1.4)],
  [slam('might-tusk-shatter','Blood-oath earthbreaker',260,1450,1.45),ring('might-tusk-reprisal','Iron-Tusk reprisal',410,245,1400)],
- [ring('might-root-wither','Withering crown',440,245,1650),
+ [ring('might-root-wither','Withering crown',440,245,1650,1.45),
   {...burst('might-root-last-garden','The last garden',110,1500,800),zones:[{delay:0,side:-210,lingerMs:2200},{delay:650,side:210,lingerMs:2200},{delay:1450,radius:145,lingerMs:1400}]}],
  [{id:'might-salt-armada',name:'Dead man’s armada',kind:'line',radius:40,range:800,windup:1550,recovery:900,damage:1.2,
   zones:[{delay:0,side:-220,travelMs:650},{delay:550,side:220,travelMs:650},{delay:1150,angleOffset:-.55,travelMs:700},{delay:1800,angleOffset:.55,travelMs:700},{delay:2600,travelMs:700}]},
   cone('might-salt-last-reverse','The King’s last backhand',250,1150,1.3,1.45)],
  [{...slam('might-ice-storm','Ravenous glacier',100,1500,1.15),range:800,zones:[{delay:0,forward:170,side:-140,lingerMs:1500},{delay:0,forward:170,side:140,lingerMs:1500},
   {delay:750,forward:360,side:-190,lingerMs:1500},{delay:750,forward:360,side:190,lingerMs:1500},{delay:1700,forward:540,radius:145,lingerMs:1200}]},
-  charge('might-ice-avalanche','Avalanche pursuit',560,1500,65)],
- [ring('might-ash-black-sun','The black sun',460,290,1650),
+  charge('might-ice-avalanche','Avalanche pursuit',560,1500,65,1.55)],
+ [ring('might-ash-black-sun','The black sun',460,290,1650,1.4),
   {...burst('might-ash-condemned','The condemned future',130,1500,820),zones:[{delay:0,side:-180},{delay:850,side:180},{delay:1850,radius:170}]}],
  [{...slam('might-ember-cataclysm','Cataclysm claws',280,1450,1.4),dragonAction:'stomp',recovery:1300,
    dragonAftershock:{radius:410,innerRadius:220,windup:1200,damage:.85}},
@@ -211,7 +214,7 @@ const towerRageFinishers:readonly (readonly BossMove[])[]=[
    dragonAftershock:{radius:430,innerRadius:210,windup:1250,damage:.9}}],
  [{...magusThunder,id:'magus-realmstorm',name:'Judgment of the shadow realm',windup:1650,radius:120,damage:1.1,
    zones:[{delay:0,side:-210},{delay:850,side:210},{delay:1850,radius:175}]},
-  {...shadowCrown,id:'magus-devour',name:'The realm devours',windup:1750,radius:460,innerRadius:240}],
+  {...shadowCrown,id:'magus-devour',name:'The realm devours',windup:1750,radius:460,innerRadius:240,damage:1.55}],
 ];
 // Replace isolated dragon actions with real combos, not renamed single moves.
 const towerDragonRage:readonly (readonly BossMove[])[]=[

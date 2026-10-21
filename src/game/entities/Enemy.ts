@@ -107,8 +107,6 @@ export class Enemy extends DepthSortedSprite {
   private readonly bossCombat:BossCombat|undefined;
   get isBossEncounter():boolean{return Boolean(this.definition.boss||this.bossCombat||this.dragonCombat);}
   private get poiseProfile():BossCombatProfile|undefined{return this.bossCombat?.profile??this.dragonCombat?.profile;}
-  get bossAttackName(){return this.bossCombat?.attackName??this.dragonCombat?.attackName??null;}
-  get bossWindupFraction(){return this.bossCombat?.windupFraction??this.dragonCombat?.windupFraction??null;}
   get bossPhase():1|2{return this.bossCombat?.phaseNumber??this.dragonCombat?.phaseNumber??1;}
   get bossRegenerating(){return this.bossCombat?.regenerating??this.dragonCombat?.regenerating??false;}
   get bossPhaseSnapshot(){return this.bossCombat?.phaseSnapshot??this.dragonCombat?.phaseSnapshot;}

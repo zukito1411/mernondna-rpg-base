@@ -52,8 +52,6 @@ export interface BossEncounter {
   name: string;
   hp: number;
   maxHp: number;
-  attackName?:string|null;
-  windup?:number|null;
   phase?:1|2;
   refilling?:boolean;
 }

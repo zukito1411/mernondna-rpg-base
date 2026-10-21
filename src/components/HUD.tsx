@@ -97,12 +97,6 @@ export function HUD() {
           aria-label={bossEncounter.phase===1?'Two red seals remain':'One red seal remains'}>
           <i className="is-lit" aria-hidden="true"/><i className={bossEncounter.phase===1?'is-lit':''} aria-hidden="true"/>
         </div>}
-        {bossEncounter.attackName&&<div className="boss-attack-timing"><span>{bossEncounter.attackName}</span>
-          {bossEncounter.windup!=null&&<div className="boss-windup-meter" role="progressbar" aria-label="Boss attack windup"
-            aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(bossEncounter.windup*100)}>
-            <i style={{width:`${bossEncounter.windup*100}%`}}/>
-          </div>}
-        </div>}
       </section>}
       <MiniMap />
       {!blocked && interaction && <button type="button" className="interaction-hint"

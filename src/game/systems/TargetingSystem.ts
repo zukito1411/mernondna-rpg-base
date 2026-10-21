@@ -58,12 +58,10 @@ export class TargetingSystem {
     const boss=enemy&&(enemy.definition.boss||enemy.isBossEncounter)&&(enemy===this.manual||enemy===this.engaged)
       &&(selectionChecked||this.eligible(enemy))?enemy:null;
     const next=boss?{id:boss.instanceId,name:BOSS_BY_ID[boss.instanceId.replace(/^boss:/,'')]?.name??boss.definition.name,
-      hp:Math.max(0,Math.round(boss.hp)),maxHp:boss.definition.hp,attackName:boss.bossAttackName,
-      phase:boss.bossPhase,refilling:boss.bossRegenerating,
-      windup:boss.bossWindupFraction==null?null:Math.floor(boss.bossWindupFraction*20)/20}:null;
+      hp:Math.max(0,Math.round(boss.hp)),maxHp:boss.definition.hp,
+      phase:boss.bossPhase,refilling:boss.bossRegenerating}:null;
     const store=useGameStore.getState(),previous=store.bossEncounter;
     if(previous?.id!==next?.id||previous?.hp!==next?.hp||previous?.maxHp!==next?.maxHp||previous?.name!==next?.name
-      ||previous?.attackName!==next?.attackName||previous?.windup!==next?.windup
       ||previous?.phase!==next?.phase||previous?.refilling!==next?.refilling)
       store.setBossEncounter(next);
   }
