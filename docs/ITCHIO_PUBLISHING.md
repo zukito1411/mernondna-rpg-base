@@ -7,7 +7,7 @@ Channel: `android` (single APK, not a zipped folder).
 
 1. In itch.io while signed in as the account authorized to edit that page, create an API key at https://itch.io/user/settings/api-keys.
 2. In GitHub, open `zukito1411/mernondna-rpg-base` > Settings > Secrets and variables > Actions > New repository secret.
-3. Name the secret **`BUTLER_API_KEY`** and paste the itch.io key there. Never commit or paste it in chat.
+3. Name the secret **`BUTLER_API_KEY`** (or your existing **`BUTER_API_KEY`**) and paste the itch.io key there. Never commit or paste it in chat.
 4. Open Actions > **Publish Android APK to itch.io** > Run workflow, leaving `release_tag` blank to upload the latest GitHub Android release.
 
 ## Subsequent releases
@@ -19,7 +19,7 @@ SHA-256 file and uploads the same APK to itch.io using the official butler tool.
 One channel is updated each time; the existing GitHub APK publication remains
 independent and unchanged.
 
-If the secret is missing, the workflow logs an explicit notice and skips the
+If both secret names are missing, the workflow logs an explicit notice and skips the
 upload without touching itch.io. A manual re-run after adding the key is needed
 for the latest already published APK; secrets are not retroactive triggers.
 

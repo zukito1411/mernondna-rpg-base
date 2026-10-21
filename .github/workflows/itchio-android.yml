@@ -27,11 +27,11 @@ jobs:
     steps:
       - name: Check itch.io authentication
         env:
-          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY || secrets.BUTER_API_KEY }}
         shell: bash
         run: |
           if [[ -z "${BUTLER_API_KEY:-}" ]]; then
-            echo '::notice::itch.io upload skipped: add the BUTLER_API_KEY repository Actions secret, then manually run this workflow.'
+            echo '::notice::itch.io upload skipped: add the BUTLER_API_KEY or BUTER_API_KEY repository Actions secret, then manually run this workflow.'
             echo 'ITCH_UPLOAD_ENABLED=false' >> "$GITHUB_ENV"
           else
             echo 'ITCH_UPLOAD_ENABLED=true' >> "$GITHUB_ENV"
@@ -82,7 +82,7 @@ jobs:
         if: env.ITCH_UPLOAD_ENABLED == 'true'
         shell: bash
         env:
-          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY || secrets.BUTER_API_KEY }}
         run: |
           set -euo pipefail
           version="1.0-${RELEASE_TAG#android-}"
