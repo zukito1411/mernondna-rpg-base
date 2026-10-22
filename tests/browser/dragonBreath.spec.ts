@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import type Phaser from 'phaser';
 import type {WorldScene} from '../../src/game/scenes/WorldScene';
 import type {Enemy} from '../../src/game/entities/Enemy';
-type CombatFixture={age:number;aim:{set(x:number,y:number):unknown};startBreath():void;enter(phase:string):void;breathPose(pose:number):void;update(delta:number):void};
+type CombatFixture={phase:string;age:number;aim:{set(x:number,y:number):unknown};startBreath():void;enter(phase:string):void;breathPose(pose:number):void;update(delta:number):void};
 for(const viewport of [{width:1280,height:720},{width:844,height:390}])test.describe('Dragon breath at '+viewport.width+'px',()=>{
 test.use({viewport,hasTouch:viewport.width===844,isMobile:viewport.width===844});
 test('painted breath frames attach to the jaw, aim, pause and clean up with the dragon',async({page})=>{
@@ -40,21 +40,26 @@ test('painted breath frames attach to the jaw, aim, pause and clean up with the 
    s.cameras.main.centerOn(e.x+direction.x*110,e.y+direction.y*110-65);
    s.cameras.main.setZoom(direction.name==='south'?.8:1);
    const c=(e as unknown as {dragonCombat:CombatFixture}).dragonCombat;c.aim.set(direction.x,direction.y);
-   c.startBreath();c.age=500;c.update(0);const windup=e.frame.name;
+   c.startBreath();const repositioned=c.phase==='flight';
+   for(let i=0;i<3&&(c.phase==='flight'||c.phase==='landing');i++){c.age=10000;c.update(0);}
+   if(c.phase!=='breath-windup')throw Error('Expected a legal firing position before the breath warning');
+   const breathPath='/src/game/systems/dragonBreath.ts';const {insideBreathCone}=await import(breathPath);
+   c.age=500;c.update(0);const windup=e.frame.name;
    const windupFire=(s.children.getByName('dragon-fire:boss:varkhul') as Phaser.GameObjects.Sprite).visible;
    c.enter('breath');c.breathPose(2);c.age=500;c.update(0);
    const fire=s.children.getByName('dragon-fire:boss:varkhul') as Phaser.GameObjects.Sprite;
    const from={frame:fire.frame.name,x:fire.x,y:fire.y,rotation:fire.rotation};
+   const reachesTarget=insideBreathCone(s.player.x-fire.x,s.player.y-fire.y,e.flipX?-1:1,0);
    s.player.restoreAt(e.x+(e.flipX?200:-200),e.y+200);c.update(80);
-   return {windup,windupFire,pose:e.frame.name,texture:fire.texture.key,visible:fire.visible,from,to:{frame:fire.frame.name,x:fire.x,y:fire.y,rotation:fire.rotation},rotation:fire.rotation,flipped:e.flipX};
+   return {repositioned,reachesTarget,windup,windupFire,pose:e.frame.name,texture:fire.texture.key,visible:fire.visible,from,to:{frame:fire.frame.name,x:fire.x,y:fire.y,rotation:fire.rotation},rotation:fire.rotation,flipped:e.flipX};
   },direction);
   expect(result.texture).toBe('dragon-breath');expect(result.visible).toBe(true);
+  expect(result.reachesTarget).toBe(true);if(direction.name==='south')expect(result.repositioned).toBe(true);
   expect(result.windupFire).toBe(false);
   expect(result.windup).not.toBe(result.pose);expect(result.from.frame).not.toBe(result.to.frame);
   expect(result.from.x).toBe(result.to.x);expect(result.from.y).toBe(result.to.y);
   expect(result.from.rotation).toBe(result.to.rotation);
-  if(direction.name==='west'){expect(result.flipped).toBe(true);expect(result.rotation).toBeCloseTo(Math.PI);}
-  else expect(result.rotation).toBeCloseTo(0);
+  expect(result.rotation).toBeCloseTo(result.flipped?Math.PI:0);
   // Temporarily hide the menu overlay for a gameplay screenshot, while keeping
   // the store's menu pause so the exact rendered pose remains still.
   const overlay=page.getByRole('dialog');await overlay.evaluateAll(nodes=>nodes.forEach(n=>(n as HTMLElement).style.visibility='hidden'));

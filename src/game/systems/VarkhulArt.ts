@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {VARKHUL_ATLAS_PAGES,VARKHUL_DENSITY,VARKHUL_SIDE_WALK_FRAMES} from '../../data/varkhulArt';
+import {VARKHUL_ATLAS_PAGES,VARKHUL_DENSITY,VARKHUL_SIDE_WALK_FRAMES,VARKHUL_WALK_CYCLE_MS} from '../../data/varkhulArt';
 import {ACTOR_DIRECTIONS,enemyLocomotionKey} from '../../data/directionalEnemyArt';
 import type {SpriteAnimation} from '../../data/animationPacks';
 
@@ -22,10 +22,10 @@ export function prepareVarkhulArt(scene:Phaser.Scene):SpriteAnimation[]{
  }
  return ACTOR_DIRECTIONS.flatMap((direction,row)=>[
   {key:enemyLocomotionKey(5,'idle',direction),texture:'enemy_walk_dragon',frames:[row*5],frameRate:1,repeat:-1},
-  // Eight side steps retain the existing half-second loop duration. The
-  // shared actor locomotion code mirrors only the left-facing presentation.
+  // Same deliberate cycle duration in every direction. The shared actor
+  // locomotion code mirrors only the left-facing presentation.
   {key:enemyLocomotionKey(5,'walk',direction),texture:'enemy_walk_dragon',
    frames:direction==='left'||direction==='right'?VARKHUL_SIDE_WALK_FRAMES:[1,2,3,4].map(i=>row*5+i),
-   frameRate:direction==='left'||direction==='right'?16:8,repeat:-1},
+   frameRate:(direction==='left'||direction==='right'?VARKHUL_SIDE_WALK_FRAMES.length:4)*1000/VARKHUL_WALK_CYCLE_MS,repeat:-1},
  ]);
 }

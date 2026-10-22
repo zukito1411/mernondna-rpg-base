@@ -4,9 +4,10 @@ import type {WorldScene} from '../scenes/WorldScene';
 import {DRAGON_LAIR,inDragonArena} from '../../data/dragonLair';
 import {artScale,actorArtLayout} from '../../data/art';
 import {enemyAppearanceMultiplier} from '../../data/enemies';
+import {VARKHUL_STALK_SPEED} from '../../data/varkhulArt';
 import {enemyAnimation} from '../../data/animationPacks';
 import {DragonBreathEffect} from './DragonBreathEffect';
-import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth,dragonBreathDirection} from './dragonBreath';
+import {DRAGON_BREATH,DRAGON_BREATH_HOP,breathPresentation,insideBreathCone,dragonMouth,dragonBreathDirection,dragonBreathStagingPoint} from './dragonBreath';
 import {ATTACK_WARNING_FRAMES,ATTACK_WARNING_TEXTURE} from './attackWarning';
 import {AttackTelegraph} from './AttackTelegraph';
 import {bossPattern,VARKHUL_WORLD_PROFILE,type BossCombatProfile,type BossMove} from '../../data/bossCombatProfiles';
@@ -32,6 +33,7 @@ export class DragonCombat {
   private breathSoundPlayed=false;
   private flightStart={x:0,y:0};private landingPoint={...DRAGON_LAIR};
   private lastFlightX=0;
+  private flightPurpose:'slam'|'breath'='slam';
   private readonly effects:BossSkillVisual;
   private readonly home:{x:number;y:number};
   private readonly tower:boolean;
@@ -68,6 +70,8 @@ export class DragonCombat {
   // move set. Never replace a live flight controller or strand its collision.
   setProfile(profile:BossCombatProfile){this.currentProfile=profile;}
   get airborne(){return this.phase==='flight'||this.phase==='landing';}
+  private get flightTravelMs(){return this.flightPurpose==='breath'?DRAGON_BREATH_HOP.travelMs:3200;}
+  private get flightLandingMs(){return this.flightPurpose==='breath'?DRAGON_BREATH_HOP.landingMs:1100;}
   get engagedWithPlayer(){
     const p=this.scene.player;
     return p.active&&p.hp>0&&this.scene.combatAllowed&&(this.tower?this.scene.canEnemyTargetPlayer(this.enemy)
@@ -84,11 +88,11 @@ export class DragonCombat {
     this.combo=[];this.step=0;this.sequence=0;this.move=null;this.roarPresented=false;
     return true;
   }
-  get attackName(){return this.rage.transitioning?null:this.aftershock?'Sovereign aftershock':this.move&&this.phase!=='rest'&&this.phase!=='recover'?this.move.name:this.phase==='stomp-windup'?'Ember stomp':this.phase==='breath-windup'||this.phase==='breath'?'Ember breath':this.airborne?'Skyfall landing':null;}
+  get attackName(){return this.rage.transitioning?null:this.aftershock?'Sovereign aftershock':this.move&&this.phase!=='rest'&&this.phase!=='recover'?this.move.name:this.phase==='stomp-windup'?'Ember stomp':this.phase==='breath-windup'||this.phase==='breath'?'Ember breath':this.airborne?(this.flightPurpose==='breath'?'Ember reposition':'Skyfall landing'):null;}
   private get stompWindupMs(){return this.move?.dragonAction==='stomp'?this.move.windup:1000;}
   private get breathWindupMs(){return this.move?.dragonAction==='breath'?this.move.windup:DRAGON_BREATH.windupMs;}
   private get breathIgnitionAt(){return Math.max(0,this.breathWindupMs-220);}
-  get windupFraction(){return this.rage.transitioning?null:this.aftershock?Math.min(1,this.aftershock.age/this.aftershock.windup):this.phase==='stomp-windup'?Math.min(1,this.age/this.stompWindupMs):this.phase==='breath-windup'?Math.min(1,this.age/this.breathWindupMs):this.phase==='flight'?this.age/4300:this.phase==='landing'?Math.min(1,(3200+this.age)/4300):null;}
+  get windupFraction(){return this.rage.transitioning?null:this.aftershock?Math.min(1,this.aftershock.age/this.aftershock.windup):this.phase==='stomp-windup'?Math.min(1,this.age/this.stompWindupMs):this.phase==='breath-windup'?Math.min(1,this.age/this.breathWindupMs):this.phase==='flight'?this.age/(this.flightTravelMs+this.flightLandingMs):this.phase==='landing'?Math.min(1,(this.flightTravelMs+this.age)/(this.flightTravelMs+this.flightLandingMs)):null;}
   get visual():Phaser.GameObjects.Sprite{return this.airborne?this.flight:this.enemy;}
   pause(paused:boolean){if(!this.flight.active)return;if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
   private enter(phase:Phase){
@@ -99,12 +103,10 @@ export class DragonCombat {
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state==='attack'){this.enemy.useVisualTexture('enemy_dragon');this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);}
     else this.enemy.playLocomotion(state);
-    // A half-second step loop (8 side poses / 4 vertical poses) covers a
-    // 36-world-pixel stride at the normal 72px/s stalk. Slow patrols and
-    // movement debuffs need slower steps,
-    // not the same rapid foot cycle sliding over a much slower body.
+    // A heavy one-second stalk. Match cadence to actual movement so patrols
+    // and movement debuffs do not leave rapid feet beneath a slow body.
     const body=this.enemy.body as Phaser.Physics.Arcade.Body;
-    this.enemy.anims.timeScale=state==='walk'?Phaser.Math.Clamp(body.velocity.length()/72,.1,2):1;
+    this.enemy.anims.timeScale=state==='walk'?Phaser.Math.Clamp(body.velocity.length()/VARKHUL_STALK_SPEED,.1,1.35):1;
   }
   private leaveAir(){
     (this.enemy.body as Phaser.Physics.Arcade.Body).checkCollision.none=false;
@@ -120,7 +122,7 @@ export class DragonCombat {
   }
   update(delta:number){
     const e=this.enemy,body=e.body as Phaser.Physics.Arcade.Body,player=this.scene.player;
-    if(!e.isAlive||player.hp<=0||!player.active||!this.scene.combatAllowed){this.leaveAir();this.enter('rest');this.effects.clear();this.clearAftershock();this.combo=[];this.roarPresented=false;return;}
+    if(!e.isAlive||player.hp<=0||!player.active||!this.scene.combatAllowed){body.setVelocity(0,0);this.leaveAir();this.enter('rest');this.effects.clear();this.clearAftershock();this.combo=[];this.roarPresented=false;return;}
     const dt=Math.min(Math.max(0,delta),100)*(this.airborne?1:e.attackSpeedMultiplier);this.age+=dt;this.clock+=dt;
     this.effects.update(dt);
     const distance=Math.hypot(player.x-e.x,player.y-e.y);
@@ -153,11 +155,12 @@ export class DragonCombat {
       const goal=engaged?{x:player.x,y:player.y}:{x:this.home.x+Math.cos(this.clock*.00018)*150,y:this.home.y+Math.sin(this.clock*.00018)*110};
       const dx=goal.x-e.x,dy=goal.y-e.y,length=Math.hypot(dx,dy);
       if(length>(engaged?170:35)){
-        const vx=dx/length*e.movementSpeed*(engaged?1:.45),vy=dy/length*e.movementSpeed*(engaged?1:.45);
+        const speed=e.movementSpeed*(2/3)*(engaged?1:.45);
+        const vx=dx/length*speed,vy=dy/length*speed;
         const ahead={x:e.x+vx*.7,y:e.y+vy*.7};
         if(this.inArena(ahead.x,ahead.y)&&this.scene.canEnemyOccupy(ahead.x,ahead.y,e)&&this.scene.hasClearPath(e.x,e.y,ahead.x,ahead.y,e)){
           // playLocomotion owns all four authored facings (including diagonal
-          // hysteresis). Do not pre-mirror the dedicated left-facing artwork.
+          // hysteresis and the shared side-cycle mirror).
           body.setVelocity(vx,vy);this.groundAnimation('walk');
         }else this.groundAnimation('idle');
       }else this.groundAnimation('idle');
@@ -201,10 +204,11 @@ export class DragonCombat {
       }
       if(this.age>=DRAGON_BREATH.burningMs+DRAGON_BREATH.fadeMs)this.recover();
     }else if(this.phase==='flight'){
-      const p=Math.min(1,this.age/3200),arc=Math.sin(p*Math.PI),angle=p*Math.PI*2;
-      let x=Phaser.Math.Linear(this.flightStart.x,this.landingPoint.x,p)+Math.cos(angle)*arc*(this.tower?90:220);
-      let y=Phaser.Math.Linear(this.flightStart.y,this.landingPoint.y,p)+Math.sin(angle)*arc*(this.tower?70:160);
-      if(this.tower){
+      const t=Math.min(1,this.age/this.flightTravelMs),breathHop=this.flightPurpose==='breath';
+      const p=breathHop?smooth(t):t,arc=Math.sin(t*Math.PI),angle=t*Math.PI*2;
+      let x=Phaser.Math.Linear(this.flightStart.x,this.landingPoint.x,p)+(breathHop?0:Math.cos(angle)*arc*(this.tower?90:220));
+      let y=Phaser.Math.Linear(this.flightStart.y,this.landingPoint.y,p)+(breathHop?0:Math.sin(angle)*arc*(this.tower?70:160));
+      if(this.tower&&!breathHop){
         const dx=x-this.home.x,dy=y-this.home.y;
         const scale=Math.min(1,(TOWER_ROUND_FLOOR.radius-300)/Math.max(1,Math.hypot(dx,dy)));
         // Ease inward during takeoff; never snap an edge-positioned dragon.
@@ -213,12 +217,27 @@ export class DragonCombat {
         y=Phaser.Math.Linear(y,this.home.y+dy*scale,blend);
       }
       body.reset(x,y);
-      this.drawFlight(Math.min(1,p/.12)*60+arc*(this.tower?30:110));
-      this.drawCircle(this.landingPoint.x,this.landingPoint.y,this.impactRadius,this.age/(3200+1100));
-      if(p>=1){body.reset(this.landingPoint.x,this.landingPoint.y);this.enter('landing');this.drawCircle(e.x,e.y,this.impactRadius,3200/4300);}
+      this.drawFlight(Math.min(1,t/.12)*60+arc*(breathHop?65:this.tower?30:110));
+      this.drawCircle(this.landingPoint.x,this.landingPoint.y,this.impactRadius,this.age/(this.flightTravelMs+this.flightLandingMs));
+      if(t>=1){
+        body.reset(this.landingPoint.x,this.landingPoint.y);
+        if(breathHop){e.setFlipX(this.breathFlipped);this.breathPose(0);}
+        this.enter('landing');this.drawCircle(e.x,e.y,this.impactRadius,this.flightTravelMs/(this.flightTravelMs+this.flightLandingMs));
+      }
     }else if(this.phase==='landing'){
-      this.drawCircle(e.x,e.y,this.impactRadius,(3200+this.age)/(3200+1100));this.drawFlight(60*(1-Math.min(1,this.age/1100)));
-      if(this.age>=1100){this.leaveAir();this.slam(e.x,e.y,this.impactRadius,this.move?.damage??1.25);this.recover();}
+      this.drawCircle(e.x,e.y,this.impactRadius,(this.flightTravelMs+this.age)/(this.flightTravelMs+this.flightLandingMs));
+      this.drawFlight(60*(1-Math.min(1,this.age/this.flightLandingMs)));
+      if(this.age>=this.flightLandingMs){
+        this.leaveAir();
+        if(this.flightPurpose==='breath'){
+          // A single committed hop, not an endless player-tracking chase.
+          // Recheck newly loaded blockers before restoring grounded combat.
+          if(!this.safeBreathLanding(e.x,e.y)){
+            const back=this.scene.canEnemyOccupy(this.flightStart.x,this.flightStart.y,e)?this.flightStart:this.home;
+            body.reset(back.x,back.y);this.recover();
+          }else this.commitBreath(this.breathFlipped);
+        }else {this.slam(e.x,e.y,this.impactRadius,this.move?.damage??1.25);this.recover();}
+      }
     }else if(this.phase==='recover'){
       this.groundAnimation('idle');if(this.age>=(this.move?.recovery??1100)&&!this.aftershock){
         this.enter('rest');this.step++;
@@ -232,24 +251,69 @@ export class DragonCombat {
   }
   private recover(){this.enter('recover');}
   private startBreath(){
-    const e=this.enemy;
-    this.enter('breath-windup');
-    this.breathFlipped=e.flipX;
-    this.breathDirection=dragonBreathDirection(this.breathFlipped);
-    this.breathPose(2);
-    // Capture the release mouth once. Charging and burning share this nozzle,
-    // axis and footprint; later player movement must not bend or retarget it.
-    const frame=e.frame,meta=frame.customData as {mouth?:{x:number;y:number};density?:number};
+    const e=this.enemy,p=this.scene.player;
+    const preferred=Math.abs(p.x-e.x)<1?e.flipX:p.x<e.x;
+    // Do not commit a horizontal breath simply because the FEET are close.
+    // First check the real release-mouth cone, including its height offset.
+    for(const flipped of [preferred,!preferred]){
+      const offset=this.releaseMouthOffset(flipped),origin={x:e.x+offset.x,y:e.y+offset.y};
+      if(this.breathCanReach(origin,flipped)>0){this.commitBreath(flipped);return;}
+    }
+    // Bounded planning once per attack, not a world search or per-frame scan.
+    // Vertical alternatives accommodate the southern rim without changing the
+    // mouth's authored axis or firing through the tower walls.
+    for(const flipped of [preferred,!preferred]){
+      const offset=this.releaseMouthOffset(flipped);
+      for(const distance of [260,380,180])for(const vertical of [0,-80,-160]){
+        const point=dragonBreathStagingPoint(p,offset,flipped,distance,vertical);
+        if(!this.safeBreathLanding(point.x,point.y))continue;
+        const origin={x:point.x+offset.x,y:point.y+offset.y};
+        if(this.breathCanReach(origin,flipped)<=0)continue;
+        this.breathFlipped=flipped;e.setFlipX(flipped);this.breathPose(0);
+        this.impactRadius=(e.definition.bodyRadius??64)+16;
+        this.launchFlight(point,'breath');
+        this.scene.notify('Varkhul beats his wings and moves to your flank!');
+        return;
+      }
+    }
+    // No legal firing lane: use an already warned, authored dive rather than
+    // an empty breath, an unsafe teleport or repeated homing hops.
+    this.move={id:'ember-reposition-dive',name:'Ember descent',kind:'circle',radius:240,
+      range:850,windup:4300,recovery:this.move?.recovery??1100,damage:this.move?.damage??1.15,dragonAction:'flight'};
+    this.startFlight();
+  }
+  private releaseMouthOffset(flipped:boolean){
+    const e=this.enemy,frame=this.scene.textures.get('enemy_dragon').get(enemyAnimation(5,'attack').frames[2]);
+    const meta=frame.customData as {mouth?:{x:number;y:number};density?:number};
     if(meta.mouth){
       const density=meta.density??2;
-      this.breathOrigin.set(e.x+(e.flipX?-1:1)*(meta.mouth.x*density-e.originX*frame.realWidth)*e.scaleX,
-        e.y+(meta.mouth.y*density-e.originY*frame.realHeight)*e.scaleY);
-    }else{
-      const mouth=dragonMouth(e.x,e.y,e.flipX,2*1.3*e.scaleX,2);
-      this.breathOrigin.set(mouth.x,mouth.y);
+      return {x:(flipped?-1:1)*(meta.mouth.x*density-.5*frame.realWidth)*e.scaleX,
+        y:(meta.mouth.y*density-actorArtLayout('enemy_dragon').originY*frame.realHeight)*e.scaleY};
     }
-    this.lockBreathRange();
-    // Never fall back to an unvalidated cone through a tower wall.
+    return dragonMouth(0,0,flipped,2*1.3*e.scaleX,2);
+  }
+  private breathCanReach(origin:{x:number;y:number},flipped:boolean){
+    const p=this.scene.player,direction=dragonBreathDirection(flipped);
+    if(!insideBreathCone(p.x-origin.x,p.y-origin.y,direction.x,direction.y)
+      ||!this.scene.hasClearPath(origin.x,origin.y,p.x,p.y,this.enemy))return 0;
+    const required=Math.abs(p.x-origin.x)/Math.cos(DRAGON_BREATH.halfAngle);
+    const range=this.breathRangeAt(origin,flipped,Math.max(72,required));
+    return insideBreathCone(p.x-origin.x,p.y-origin.y,direction.x,direction.y,range)?range:0;
+  }
+  private safeBreathLanding(x:number,y:number){
+    const e=this.enemy,r=e.definition.bodyRadius??64;
+    if(this.tower?Math.hypot(x-this.home.x,y-this.home.y)>TOWER_ROUND_FLOOR.radius-r-24:!inDragonArena(x,y,-r))return false;
+    return this.scene.canEnemyOccupy(x,y,e)&&this.scene.canEnemyOccupy(x-r,y,e)
+      &&this.scene.canEnemyOccupy(x+r,y,e)&&this.scene.canEnemyOccupy(x,y-r,e)&&this.scene.canEnemyOccupy(x,y+r,e);
+  }
+  private commitBreath(flipped:boolean){
+    const e=this.enemy,offset=this.releaseMouthOffset(flipped);
+    this.enter('breath-windup');
+    this.breathFlipped=flipped;this.breathDirection=dragonBreathDirection(flipped);
+    // Landing completes before a fresh FULL warning. From here the mouth,
+    // direction and cone are fixed; dodging during the warning remains valid.
+    this.breathOrigin.set(e.x+offset.x,e.y+offset.y);
+    this.breathRange=this.breathRangeAt(this.breathOrigin,flipped);
     if(this.breathRange<=0){this.recover();return;}
     this.breathPose(0);
     this.scene.notify('Varkhul draws breath — move out of the fire cone!');
@@ -260,23 +324,29 @@ export class DragonCombat {
     this.enemy.setFrame(enemyAnimation(5,'attack').frames[pose]);
     if(this.phase==='breath-windup'||this.phase==='breath')this.enemy.setFlipX(this.breathFlipped);
   }
-  private lockBreathRange(){
-    this.breathRange=DRAGON_BREATH.range;
-    if(!this.tower)return;
-    // Lock both the marked cone and its damage to the same arena-safe extent.
-    // Only one bounded geometry check per windup, never a per-frame scan.
-    const e=this.enemy,origin=this.breathOrigin,angle=this.breathDirection.angle,half=DRAGON_BREATH.halfAngle;
-    if(Math.hypot(origin.x-this.home.x,origin.y-this.home.y)>TOWER_ROUND_FLOOR.radius-25){this.breathRange=0;return;}
-    for(let range=DRAGON_BREATH.range;range>=72;range-=18){
+  private breathRangeAt(origin:{x:number;y:number},flipped:boolean,minimum=72):number{
+    if(!this.tower)return DRAGON_BREATH.range;
+    // Fit the convex cone to the circular floor analytically BEFORE querying
+    // static obstacles. Candidate planning never searches the whole world.
+    const e=this.enemy,angle=dragonBreathDirection(flipped).angle,half=DRAGON_BREATH.halfAngle;
+    const dx=origin.x-this.home.x,dy=origin.y-this.home.y,limit=TOWER_ROUND_FLOOR.radius-25;
+    const squared=dx*dx+dy*dy;if(squared>=limit*limit)return 0;
+    let maximum:number=DRAGON_BREATH.range;
+    for(const offset of [-half,0,half]){
+      const projection=dx*Math.cos(angle+offset)+dy*Math.sin(angle+offset);
+      const exit=-projection+Math.sqrt(projection*projection+limit*limit-squared);
+      maximum=Math.min(maximum,(exit-1)/(offset===0?Math.cos(half):1));
+    }
+    for(let range=maximum;range>=minimum;range-=18){
       const safe=[-half,0,half].every(offset=>{
         const distance=offset===0?range*Math.cos(half):range;
         const x=origin.x+Math.cos(angle+offset)*distance,y=origin.y+Math.sin(angle+offset)*distance;
         return Math.hypot(x-this.home.x,y-this.home.y)<=TOWER_ROUND_FLOOR.radius-25
           &&this.scene.hasClearPath(origin.x,origin.y,x,y,e);
       });
-      if(safe){this.breathRange=range;return;}
+      if(safe)return range;
     }
-    this.breathRange=0;
+    return 0;
   }
   private drawCircle(x:number,y:number,radius:number,progress:number){
     const fraction=Phaser.Math.Clamp(progress,0,1),pulse=fraction>.72?(1+Math.sin(this.age*.025))*.5:0;
@@ -332,24 +402,32 @@ export class DragonCombat {
   }
   private clearAftershock(){if(!this.aftershock)return;this.aftershock=null;this.aftershockWarning.clear();this.aftershockWarning.graphics.setAlpha(1);}
   private startFlight(){
-    this.flightStart={x:this.enemy.x,y:this.enemy.y};
-    this.lastFlightX=this.enemy.x;this.flight.setFlipX(this.enemy.flipX);
     let dx=this.scene.player.x-this.home.x,dy=this.scene.player.y-this.home.y;
     const radius=Math.hypot(dx/900,dy/700);if(radius>.7){dx*=.7/radius;dy*=.7/radius;}
     let proposed={x:this.home.x+dx,y:this.home.y+dy};
     if(this.tower)proposed=this.clampTowerPoint(this.scene.player.x,this.scene.player.y);
-    this.landingPoint=this.scene.canEnemyOccupy(proposed.x,proposed.y,this.enemy)?proposed:{...this.home};
-    this.impactRadius=this.safeRadius(this.landingPoint.x,this.landingPoint.y,this.move?.radius??240);
+    const point=this.scene.canEnemyOccupy(proposed.x,proposed.y,this.enemy)?proposed:{...this.home};
+    this.impactRadius=this.safeRadius(point.x,point.y,this.move?.radius??240);
+    this.launchFlight(point,'slam');
+    this.scene.notify('Varkhul takes flight. Watch his landing circle!');
+  }
+  private launchFlight(point:{x:number;y:number},purpose:'slam'|'breath'){
+    this.flightPurpose=purpose;this.flightStart={x:this.enemy.x,y:this.enemy.y};this.landingPoint={...point};
+    this.lastFlightX=this.enemy.x;this.flight.setFlipX(this.enemy.flipX);
+    this.enemy.anims.stop();this.enemy.anims.timeScale=1;
     this.enter('flight');this.enemy.setAlpha(1);
-    this.scene.playDragonSound(this.enemy.instanceId,'flight',this.enemy.x,this.enemy.y,2400);
+    this.scene.playDragonSound(this.enemy.instanceId,'flight',this.enemy.x,this.enemy.y,Math.min(2400,this.flightTravelMs));
     (this.enemy.body as Phaser.Physics.Arcade.Body).checkCollision.none=true;
     this.flight.setVisible(true).play('dragon-fly');this.shadow.setVisible(true);
     this.drawFlight(0);
-    this.scene.notify('Varkhul takes flight. Watch his landing circle!');
   }
   private drawFlight(height:number){
     const dx=this.enemy.x-this.lastFlightX;if(Math.abs(dx)>1)this.flight.setFlipX(dx<0);this.lastFlightX=this.enemy.x;
-    const alpha=this.phase==='landing'?smooth((1100-this.age)/220):smooth(this.age/260);
+    // Turn toward the committed firing lane before the landing crossfade,
+    // instead of revealing an oppositely facing ground pose at touchdown.
+    if(this.flightPurpose==='breath'&&(this.phase==='landing'||this.age>=this.flightTravelMs*.8))
+      this.flight.setFlipX(this.breathFlipped);
+    const alpha=this.phase==='landing'?smooth((this.flightLandingMs-this.age)/220):smooth(this.age/260);
     // Crossfade complete ground/flight poses rather than swapping them abruptly.
     this.enemy.setAlpha(1-alpha);
     this.flight.setPosition(this.enemy.x,this.enemy.y-height).setAlpha(alpha)

@@ -125,7 +125,10 @@ try{
     s.cameras.main.setZoom(viewportScale()).centerOn(e.x+direction.x*150,e.y+direction.y*120-75);
     function viewportScale(){return window.innerWidth<900?.62:.8;}
     const controller=e['dragonCombat'];controller.aim.set(direction.x,direction.y);
-    controller.startBreath();controller.enter('breath');controller.breathPose(2);controller.age=500;controller.update(0);
+    controller.startBreath();
+    for(let i=0;i<3&&(controller.phase==='flight'||controller.phase==='landing');i++){controller.age=10000;controller.update(0);}
+    if(controller.phase!=='breath-windup')throw Error('No valid breath firing lane for '+direction.name);
+    controller.enter('breath');controller.breathPose(2);controller.age=500;controller.update(0);
     const fire=s.children.getByName('dragon-fire:boss:varkhul'),mouth=e.frame.customData.mouth;
     const expected={x:e.x+(e.flipX?-1:1)*(mouth.x*2-e.originX*e.frame.realWidth)*e.scaleX,
      y:e.y+(mouth.y*2-e.originY*e.frame.realHeight)*e.scaleY};

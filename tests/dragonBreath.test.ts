@@ -1,6 +1,22 @@
 import {describe,it,expect} from 'vitest';
-import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth,dragonBreathDirection} from '../src/game/systems/dragonBreath';
+import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth,dragonBreathDirection,dragonBreathStagingPoint} from '../src/game/systems/dragonBreath';
 describe('dragon breath timing and ground footprint',()=>{
+ it('stages a horizontal release at the target height, even for targets below the feet',()=>{
+  for(const target of [{x:0,y:300},{x:0,y:-300},{x:-350,y:0},{x:350,y:0}])for(const flipped of [false,true]){
+   const offset={x:(flipped?-1:1)*170,y:-90};
+   const feet=dragonBreathStagingPoint(target,offset,flipped,260);
+   const mouth={x:feet.x+offset.x,y:feet.y+offset.y},direction=dragonBreathDirection(flipped);
+   expect(mouth.y).toBe(target.y);
+   expect(Math.abs(target.x-mouth.x)).toBe(260);
+   expect(insideBreathCone(target.x-mouth.x,target.y-mouth.y,direction.x,direction.y)).toBe(true);
+  }
+ });
+ it('keeps bounded vertical alternatives inside the same fixed-angle cone',()=>{
+  const target={x:100,y:500},offset={x:170,y:-90};
+  const feet=dragonBreathStagingPoint(target,offset,false,380,-160);
+  expect(insideBreathCone(target.x-feet.x-offset.x,target.y-feet.y-offset.y,1,0)).toBe(true);
+  expect(insideBreathCone(0,300,1,0)).toBe(false);
+ });
  it('uses the forward mouth axis, mirrored with the authored side-facing head',()=>{
   const right=dragonBreathDirection(false),left=dragonBreathDirection(true);
   expect(right).toEqual({x:1,y:0,angle:0});

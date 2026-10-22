@@ -204,9 +204,9 @@ All eight steps are registered. Existing frame slots remain valid; four
 additional side-step slots extend the walking texture to twenty-four slots.
 Left/right animations share the same eight complete packed poses and mirror
 the actor for left facing. Idle uses the same source's planted first pose,
-avoiding the rejected model when stopping. The eight side steps run at 16fps
-to retain the previous half-second cycle; four-pose down/up cycles stay at
-8fps. The controller still scales cadence with movement speed.
+avoiding the rejected model when stopping. The initial eight-step integration
+used a half-second cycle; the slower stalk adjustment below supersedes that
+timing. The controller still scales cadence with movement speed.
 
 Only eighteen unique poses are stored in the walking atlas (down/up plus the
 shared side cycle), now 2048x1440. Its aliases do not duplicate pixel storage.
@@ -227,4 +227,37 @@ Android-device behavior remain pending explicit testing permission.
 
 The supplied master did not come with a generation prompt, so none is
 invented or claimed for it. Later generated drafts were not integrated.
+
+### Heavy stalk and breath positioning
+
+Walking now takes one second per cycle: eight side frames at 8fps and four
+vertical frames at 4fps. Normal grounded pursuit slows from 72 to 48 world
+pixels/second; patrol speed remains 45% of pursuit speed. Cadence follows
+actual movement relative to 48 pixels/second. Approved source artwork, body
+scale and attack/flight animation rates are unchanged. The standalone walking
+HTML uses the updated one-second timing too.
+
+Breath selection checks the actual release-mouth cone, not feet-to-player
+distance. If the player is beneath, behind or vertically outside that cone,
+the controller searches at most eighteen authored flank candidates. Each
+candidate offsets the feet so the registered mouth can reach the player on
+its fixed left/right axis. Both arena containment and landing clearance are
+checked; tower cone extent is fitted to the circular boundary before bounded
+obstacle checks. There is no per-frame planning or whole-world search.
+
+A valid flank triggers a 1.2-second wing-assisted reposition and 0.3-second
+landing using existing flight artwork, collision restoration, pause handling,
+crossfades and owned sound/effect objects. The ground pose is prepared before
+touchdown and the flying sprite turns toward its firing lane before fading.
+Only after landing does the full existing breath warning begin. The mouth,
+direction, damage and visual footprint remain fixed throughout that cast;
+players may still dodge. There is no repeated homing hop within one cast.
+If no safe lane exists, the selected stage becomes a normally warned skyfall
+dive rather than a useless breath or an unsafe landing.
+
+The candidate helper regression cases and browser-review sources were updated
+for repositioning, fixed orientation and reachable target geometry. They were
+not executed. Both mandatory TypeScript compiler checks passed; gameplay,
+landing transitions, corner behavior and Android performance still require
+explicitly authorized runtime verification.
 

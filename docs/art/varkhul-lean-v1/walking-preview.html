@@ -10,7 +10,7 @@ Promise.all(Object.entries(registration.pages).map(([key,page])=>new Promise((re
   canvas.width=640;canvas.height=400;caption.textContent=label;figure.append(canvas,caption);document.getElementById('views').append(figure);return {ctx:canvas.getContext('2d'),key,frames,mirrored};
  });
  let elapsed=0,previous=performance.now();function draw(now){if(!paused)elapsed+=Math.min(100,now-previous);previous=now;
-  for(const {ctx,key,frames,mirrored} of outputs){const page=registration.pages[key],entry=page.frames[frames[Math.floor(elapsed/(frames.length===8?62.5:125))%frames.length]], [x,y,w,h]=entry.rect,[fw,fh,tx,ty]=entry.trim,scale=.65;
+  for(const {ctx,key,frames,mirrored} of outputs){const page=registration.pages[key],entry=page.frames[frames[Math.floor(elapsed/(1000/frames.length))%frames.length]], [x,y,w,h]=entry.rect,[fw,fh,tx,ty]=entry.trim,scale=.65;
    ctx.clearRect(0,0,640,400);ctx.strokeStyle='#736749';ctx.beginPath();ctx.moveTo(0,310);ctx.lineTo(640,310);ctx.stroke();ctx.imageSmoothingEnabled=false;
    ctx.save();if(mirrored){ctx.translate(640,0);ctx.scale(-1,1);}ctx.drawImage(images[key],x,y,w,h,320+(tx-fw/2)*scale,310+(ty-(fh-page.groundPadding*registration.density))*scale,w*scale,h*scale);ctx.restore();
   }requestAnimationFrame(draw);
