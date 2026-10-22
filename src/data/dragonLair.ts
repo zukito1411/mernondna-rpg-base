@@ -54,7 +54,7 @@ export const DRAGON_QUEST:QuestDefinition={
     {id:'survey-ward',type:'investigate',targetId:'varkhul-ward',contentId:'clue:varkhul-ward',amount:1,text:'Inspect the Cinderwatch Ward beside the lava-ringed lair.'},
     {id:'repel-varkhul',type:'kill',targetId:'ash-dragon',bossId:DRAGON_BOSS_ID,amount:1,text:'Force Varkhul to retreat from his basalt lair.'},
     {id:'dain-report',type:'talk',targetId:'blackspire-warder',amount:1,text:'Tell Dain Emberfall that the ash road has a respite.',
-      dialogue:['I saw him leave. I could hardly believe it. We got the workers out, thank goodness.','Yeah, I saw him fly off. Thank you for giving us a chance to get everyone out. I don’t know when he’ll come back, and I don’t want to be here when he does.']},
+      dialogue:['I counted them twice. Everyone’s here. One of the lads went back for his hammer—I nearly dragged him out by his collar.','Look at my hands. Still shaking. Give me a moment, then I’ll take the crews back to Vexa. She’ll want to see them for herself.']},
     {id:'vexa-resolution',type:'talk',targetId:'blackspire-forgemaster',amount:1,text:'Return to Vexa as the ward chains are reforged.',
       dialogue:['Dain says everyone’s back. I made him count twice. I was so scared we’d lost someone else.','I know he’ll come back. But the workers are safe tonight. Let me be happy about that for a little while.']},
   ],rewardGold:300,rewardXp:650,

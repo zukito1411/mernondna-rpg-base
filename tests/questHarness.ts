@@ -6,6 +6,7 @@ import { useGameStore } from '../src/store/gameStore';
 import { nextObjective } from '../src/game/systems/storyProgress';
 import { resolveQuestTarget } from '../src/game/systems/questNavigation';
 import type { QuestObjective } from '../src/game/types';
+import {questStageComplete} from '../src/game/systems/questDependencies';
 
 /** Virtual UI time: exercise the real debounce without waiting between clicks. */
 let questTime = 1000;
@@ -37,7 +38,14 @@ export function playObjective(questId: string, objective: QuestObjective, choice
   if (['talk', 'deliver', 'choice', 'puzzle'].includes(objective.type)) {
     store.trackQuest(questId); readDialogue(objective.targetId, choiceId);
   } else if (objective.type === 'quest') {
-    finishQuest(objective.targetId); store.progressQuest('quest', objective.targetId, 1, questId);
+    if(objective.targetObjectiveId){
+      if(!questStageComplete(objective.targetId,objective.targetObjectiveId,useGameStore.getState().quests,QUEST_BY_ID)){
+        reachObjective(objective.targetId,objective.targetObjectiveId);
+        const stage=QUEST_BY_ID[objective.targetId].objectives.find(o=>o.id===objective.targetObjectiveId)!;
+        playObjective(objective.targetId,stage);
+      }
+    }else finishQuest(objective.targetId);
+    store.progressQuest('quest', objective.targetId, 1, questId);
   } else if (objective.type === 'kill' && objective.killContentPrefix) {
     const actors = WORLD_CONTENT.filter(d => d.kind === 'creature' && d.id.startsWith(objective.killContentPrefix!)
       && (objective.enemyIds ?? [objective.targetId]).includes(d.enemyId));
@@ -70,6 +78,13 @@ export function playObjective(questId: string, objective: QuestObjective, choice
 export function reachObjective(questId: string, objectiveId?: string, choices: Record<string, string> = {}) {
   const quest = QUEST_BY_ID[questId];
   if (quest.prerequisiteQuestId && useGameStore.getState().quests[quest.prerequisiteQuestId].status !== 'completed') finishQuest(quest.prerequisiteQuestId);
+  if(quest.prerequisiteObjective){
+    const stage=quest.prerequisiteObjective;
+    if(!questStageComplete(stage.questId,stage.objectiveId,useGameStore.getState().quests,QUEST_BY_ID)){
+      reachObjective(stage.questId,stage.objectiveId);
+      playObjective(stage.questId,QUEST_BY_ID[stage.questId].objectives.find(o=>o.id===stage.objectiveId)!);
+    }
+  }
   if (useGameStore.getState().quests[questId].status === 'locked') {
     useGameStore.getState().startDialogue(quest.giverNpcId);
     useGameStore.getState().endDialogue(); // Accepting isn't hearing the whole conversation.

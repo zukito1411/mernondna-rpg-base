@@ -1,6 +1,16 @@
 import {describe,it,expect} from 'vitest';
-import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth} from '../src/game/systems/dragonBreath';
+import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth,dragonBreathDirection} from '../src/game/systems/dragonBreath';
 describe('dragon breath timing and ground footprint',()=>{
+ it('uses the forward mouth axis, mirrored with the authored side-facing head',()=>{
+  const right=dragonBreathDirection(false),left=dragonBreathDirection(true);
+  expect(right).toEqual({x:1,y:0,angle:0});
+  expect(left).toEqual({x:-1,y:0,angle:Math.PI});
+  for(const direction of [right,left]){
+   expect(insideBreathCone(direction.x*200,0,direction.x,direction.y)).toBe(true);
+   expect(insideBreathCone(0,200,direction.x,direction.y)).toBe(false);
+   expect(insideBreathCone(-direction.x*100,0,direction.x,direction.y)).toBe(false);
+  }
+ });
  it('starts and ends without damage while the plume grows and dissipates',()=>{
   expect(breathPresentation(0)).toMatchObject({alpha:0,growth:0,damaging:false});
   expect(breathPresentation(70).alpha).toBeCloseTo(.5);

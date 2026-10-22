@@ -10,3 +10,14 @@ for(const town of ['elarion','starhold','redmesa','deepford','tidewatch','skallh
  (QUEST_SCENE_BINDINGS['eight-regions']??={})['brief:'+town]='regional-'+town+'-warning';
  QUEST_SCENE_BINDINGS['eight-regions']['report:'+town]='regional-'+town+'-resolution';
 }
+Object.assign(QUEST_SCENE_BINDINGS['first-road'],{'roads:polish-bell-rule':'roads-silent-alarm'});
+QUEST_SCENE_BINDINGS['crown-summons']={'roads:polish-messenger-name':'roads-messenger-known'};
+Object.assign(QUEST_SCENE_BINDINGS['eight-regions'],{
+ 'roads:song-explained':'roads-borrowed-song',
+ 'roads:polish-mountain-scope':'roads-pass-awaits',
+ 'roads:polish-clan-cause':'roads-common-road',
+ 'roads:polish-grief-rest':'roads-river-breathing',
+ 'roads:polish-shore-next':'roads-white-sail',
+ 'roads:polish-cold-next':'roads-cold-to-ash',
+});
+QUEST_SCENE_BINDINGS['the-last-ward']={'covenant-forge':'roads-many-hands'};

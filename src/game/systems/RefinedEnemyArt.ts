@@ -3,14 +3,13 @@ import {ART_BY_KEY,type ArtTextureKey} from '../../data/art';
 import {enemyAnimation} from '../../data/animationPacks';
 import {actorSpriteSubjects} from './spriteComponents';
 import {createSpriteCropper,spriteSubjectCanvas} from './spriteArt';
-import {fitAtlasPoses,atlasGroundY} from './atlasPoseFit';
+import {fitAtlasPoses} from './atlasPoseFit';
 
 export const REFINED_ENEMY_ART=[
- {species:4,id:'cave-troll'}, {species:5,id:'ash-dragon'},
+ {species:4,id:'cave-troll'},
 ] as const;
 export const REFINED_ENEMY_STATES=['attack','hurt','death'] as const;
 export const refinedEnemyPath=(id:string,state:string)=>`assets/enemies/refined/${id}-${state}.png`;
-export const REFINED_DRAGON_FLIGHT=refinedEnemyPath('ash-dragon','fly');
 
 /** Replace whole action poses at one species scale. Never stitch body parts or
  * resize a live atlas: all cells/UVs are allocated once by the boot pipeline. */
@@ -28,7 +27,7 @@ export function prepareRefinedEnemyArt(scene:Phaser.Scene){
    const clip=enemyAnimation(art.species,state),sheet=ART_BY_KEY[clip.texture as ArtTextureKey];
    const texture=scene.textures.get(clip.texture) as Phaser.Textures.CanvasTexture,ctx=texture.getContext();
    const roots=regions.map(([rx,ry,w,h],i)=>{
-    const footRight=rx+w*(art.species===4?.62:1);let weightedX=0,weight=0;
+    const footRight=rx+w*.62;let weightedX=0,weight=0;
     for(let py=ry+Math.floor(h*.88);py<ry+h;py++)for(let px=rx;px<footRight;px++){
      const a=subjects[i].pixels[((py-ry)*w+px-rx)*4+3];if(a>128){weightedX+=px*a;weight+=a;}
     }
@@ -46,39 +45,12 @@ export function prepareRefinedEnemyArt(scene:Phaser.Scene){
     // The group uses one bounded scale; a long club cannot overrun its frame.
     ctx.clearRect(frame.cutX,frame.cutY,frame.cutWidth,frame.cutHeight);
     drawPose(ctx,spriteSubjectCanvas(subjects[i]),[0,0,w,h],frame.cutX+left*density,frame.cutY+top*density,w*fit*density,h*fit*density);
-    const mouth=art.species===5&&state==='attack'&&i<3?[
-     [468,354],[943,228],[1483,373],
-    ][i]:undefined;
     frame.customData={fullSprite:true,isolatedSubject:true,foreignProbes:subjects[i].foreignProbes,sourcePath:refinedEnemyPath(art.id,state),sourceImageSize:[source.width,source.height],sourceRegion:region,sourceFit:fit,
-     visibleBounds:{left,top,width:w*fit,height:h*fit},
-     ...(mouth?{mouth:{x:sheet.frameWidth/2+(mouth[0]-root)*fit,y:sheet.frameHeight-(sheet.groundPadding??2)+(mouth[1]-ry-h)*fit}}:{})};
+     visibleBounds:{left,top,width:w*fit,height:h*fit}};
    });
    scene.textures.remove(key);
   }
   const prepared=scene.textures.get(neutral.texture) as Phaser.Textures.CanvasTexture;
   prepared.refresh();prepared.setFilter(Phaser.Textures.FilterMode.NEAREST);
  }
- // Flight shares the restored ground model's head/body detail. Register the
- // body under the wings, using authored anchors rather than wing bounds.
- const key='refined-source:ash-dragon:fly',source=scene.textures.get(key).getSourceImage() as HTMLImageElement;
- const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
- const context=canvas.getContext('2d',{willReadFrequently:true})!;context.drawImage(source,0,0);
- const subjects=actorSpriteSubjects(context.getImageData(0,0,source.width,source.height).data,source.width,source.height,3,2),regions=subjects.map(s=>s.region);
- const anchors=[[275,558],[670,547],[1080,543],[315,1078],[698,1104],[1115,1089]];
- const sheet=ART_BY_KEY.enemy_dragon_fly,density=sheet.density;
- const flightPoses=regions.map((region,i)=>({region,rootX:anchors[i][0],rootY:anchors[i][1]}));
- const fit=fitAtlasPoses(.65,sheet.frameWidth,sheet.frameHeight,sheet.frameHeight-(sheet.groundPadding??2),flightPoses);
- const drawGround=atlasGroundY(sheet.frameHeight-(sheet.groundPadding??2),sheet.frameHeight,flightPoses,fit);
- const texture=scene.textures.get('enemy_dragon_fly') as Phaser.Textures.CanvasTexture,ctx=texture.getContext();
- ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
- regions.forEach((region,i)=>{
-  const [rx,ry,w,h]=region,[rootX,rootY]=anchors[i],frame=texture.get(i);
-  const left=sheet.frameWidth/2+(rx-rootX)*fit,top=drawGround+(ry-rootY)*fit;
-  // Account for the complete wings without a fatal startup exception.
-  ctx.clearRect(frame.cutX,frame.cutY,frame.cutWidth,frame.cutHeight);
-  drawPose(ctx,spriteSubjectCanvas(subjects[i]),[0,0,w,h],frame.cutX+left*density,frame.cutY+top*density,w*fit*density,h*fit*density);
-  frame.customData={fullSprite:true,isolatedSubject:true,foreignProbes:subjects[i].foreignProbes,sourcePath:REFINED_DRAGON_FLIGHT,sourceImageSize:[source.width,source.height],sourceRegion:region,sourceFit:fit,
-   visibleBounds:{left,top,width:w*fit,height:h*fit}};
- });
- texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);scene.textures.remove(key);
 }

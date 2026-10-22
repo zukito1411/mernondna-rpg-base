@@ -45,7 +45,9 @@ import {FLAGSHIP_ART_PATH,preparePirateFlagshipArt} from '../systems/PirateFlags
 import {PIRATE_PATH,PIRATE_SIDE_PATH,PIRATE_GAIT_PATH} from '../../data/pirateArt';
 import {PIRATE_ATTACK_PHASES} from '../../data/pirateMotion';
 import {SALT_KING_STATES,SALT_KING_SIDE_PATH,SALT_KING_GAIT_PATH,saltKingArtPath} from '../../data/saltKingArt';
-import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,REFINED_DRAGON_FLIGHT,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
+import {REFINED_ENEMY_ART,REFINED_ENEMY_STATES,refinedEnemyPath,prepareRefinedEnemyArt} from '../systems/RefinedEnemyArt';
+import {VARKHUL_ATLAS_PAGES,isVarkhulTexture} from '../../data/varkhulArt';
+import {prepareVarkhulArt} from '../systems/VarkhulArt';
 import {ATTACK_WARNING_TEXTURE,registerAttackWarningFrames} from '../systems/attackWarning';
 import {RABBIT_PATH,RABBIT_SOURCE,prepareRabbitArt} from '../systems/RabbitArt';
 import {SQUIRREL_PATH,SQUIRREL_SOURCE,prepareSquirrelArt} from '../systems/SquirrelArt';
@@ -101,7 +103,7 @@ export class BootScene extends Phaser.Scene {
    * sprite sizes before preparing any generated atlases. */
   private repairSpriteSources():boolean {
     const required=new Map<string,{expected?:readonly [number,number];name:string}>();
-    for(const sheet of ART_SHEETS.filter(s=>s.key!=='walls')){
+    for(const sheet of ART_SHEETS.filter(s=>s.key!=='walls'&&!isVarkhulTexture(s.key))){
       if(sheet.sources?.length){
         for(const frame of sheet.sources){
           const expected=sheet.key==='leigneron'?undefined:frame.imageSize;
@@ -121,12 +123,18 @@ export class BootScene extends Phaser.Scene {
       if(!image||(info.expected&&(image.width!==info.expected[0]||image.height!==info.expected[1])))
         invalid.push({key,file,expected:info.expected,actual});
     }
-    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6)){
+    for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6&&a.species!==5)){
       const key='directional-source:'+art.id,file=art.sourcePath;
       const image=this.textures.exists(key)
         ?this.textures.get(key).getSourceImage() as HTMLImageElement|undefined:undefined;
       if(!image||!validDirectionalSourceSize(image.width,image.height,art.sourceColumns))
         invalid.push({key,file,actual:image?image.width+'x'+image.height:'missing image'});
+    }
+    for(const page of VARKHUL_ATLAS_PAGES){
+      const key='varkhul-source:'+page.texture;
+      const image=this.textures.exists(key)?this.textures.get(key).getSourceImage() as HTMLImageElement:undefined;
+      if(!image||image.width!==page.width||image.height!==page.height)
+        invalid.push({key,file:page.path,expected:[page.width,page.height],actual:image?image.width+'x'+image.height:'missing image'});
     }
     if(!invalid.length)return false;
     if(this.sourceRepairAttempted){
@@ -214,7 +222,7 @@ export class BootScene extends Phaser.Scene {
     for(const art of NPC_WALK_ART)this.load.image('npc-walk-source:'+art.walk,npcWalkPath(art));
     for(const art of NPC_COMBAT_ART.filter(a=>a.eager))for(const [i,source] of art.sources.entries())
       this.load.image(`npc-combat-source:${art.id}:${i}`,source.path);
-    for (const art of DIRECTIONAL_ENEMY_ART.filter(a => a.species !== 6)) {
+    for (const art of DIRECTIONAL_ENEMY_ART.filter(a => a.species !== 6&&a.species!==5)) {
       this.load.image('directional-source:' + art.id, art.sourcePath);
     }
     this.load.image('rindass-orc-raider:actions','assets/enemies/rindass_orc_raider/actions.png');
@@ -222,10 +230,10 @@ export class BootScene extends Phaser.Scene {
     for(const art of BANDIT_COMBAT_ART)this.load.image('bandit-combat-source:'+art.state,banditCombatPath(art.state));
     for(const art of REFINED_ENEMY_ART)for(const state of REFINED_ENEMY_STATES)
       this.load.image(`refined-source:${art.id}:${state}`,refinedEnemyPath(art.id,state));
-    this.load.image('refined-source:ash-dragon:fly',REFINED_DRAGON_FLIGHT);
+    for(const page of VARKHUL_ATLAS_PAGES)this.load.image('varkhul-source:'+page.texture,page.path);
 
     const files = new Set<string>();
-    for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls')) {
+    for (const sheet of ART_SHEETS.filter(s => s.key !== 'walls'&&!isVarkhulTexture(s.key))) {
       if (sheet.sources) {
         for (const source of sheet.sources) files.add(source.path);
       } else {
@@ -242,7 +250,7 @@ export class BootScene extends Phaser.Scene {
     await new Promise<void>(resolve=>window.setTimeout(resolve,0));
   }
 
-  async prepareRegisteredSheets(sheets:typeof ART_SHEETS=ART_SHEETS){
+  async prepareRegisteredSheets(sheets:typeof ART_SHEETS=ART_SHEETS.filter(s=>!isVarkhulTexture(s.key))){
     const pixels = new Map<string, { data: Uint8ClampedArray; width: number }>();
     const remainingSources=new Map<string,number>();
     for(const sheet of sheets.filter(s=>s.key!=='walls'))
@@ -614,7 +622,7 @@ export class BootScene extends Phaser.Scene {
     prepareRefinedEnemyArt(this);
     await this.yieldArtworkFrame();
     if(!this.startupActive())return;
-    const directionalEnemyAnimations=prepareDirectionalEnemyArt(this);
+    const directionalEnemyAnimations=[...prepareDirectionalEnemyArt(this),...prepareVarkhulArt(this)];
     await this.yieldArtworkFrame();
     if(!this.startupActive())return;
     prepareBanditCombatArt(this);

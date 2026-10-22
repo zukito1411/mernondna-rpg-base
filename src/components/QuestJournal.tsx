@@ -27,15 +27,16 @@ export function QuestJournal() {
       const chapters=[...new Set(visible.map(o=>o.chapter??q.chapter??'Journal record'))];
       const target=navigation.target;
       const dependency=current?.type==='quest'?QUEST_BY_ID[current.targetId]:undefined;
-      const contact=NPC_BY_ID[current?.targetId??'']??(dependency?NPC_BY_ID[dependency.giverNpcId]:undefined);
+      const milestone=current?.targetObjectiveId?dependency?.objectives.find(o=>o.id===current.targetObjectiveId):undefined;
+      const contact=NPC_BY_ID[current?.targetId??'']??(dependency?NPC_BY_ID[milestone?.targetId??dependency.giverNpcId]:undefined);
       const travel=current?questTravelHint(current,region):undefined;
-      return <article key={q.id}><small>{q.kind==='main'?'Main story':'Side adventure'} · {q.chapter??'A story of Mernodna'}</small><h3>{q.name} <small>{runtime.status}</small></h3><p>{q.summary}</p>
+      return <article key={q.id}><small>{q.kind==='main'?'Main story':q.worldQuest?'World quest':'Side adventure'} · {q.chapter??'A story of Mernodna'}</small><h3>{q.name} <small>{runtime.status}</small></h3><p>{q.summary}</p>
         {runtime.status==='active'&&<button onClick={()=>trackQuest(q.id)}>{trackedQuestId===q.id?'Tracking':'Track this quest'}</button>}
         {current&&<div className="journal-current"><strong>Now: {questObjectiveText(current)}</strong>
           {travel&&<p>{travel}</p>}
           {current.amount>1&&<p>{runtime.objectiveProgress[current.id]??0} / {current.amount} completed in the marked encounter.</p>}
           {contact&&<p>Contact: {contact.name} — {contact.title}</p>}
-          {dependency&&<p>Continue “{dependency.name}”. Its current objective is tracked through this chapter.</p>}
+          {dependency&&<p>Continue “{dependency.name}”{milestone?` until: ${milestone.text}`:'. Its current objective is tracked through this chapter.'}</p>}
           {target&&(target.questId===q.id||target.questId===dependency?.id)&&<p>Destination: {target.label}{target.travelHint&&<small> · {target.travelHint}</small>}</p>}
           {current.type==='escort'&&<p>Stay near the survivor. They will stop if you move too far ahead; the guide switches between them and the safe arrival point.</p>}
           {current.type==='encounter'&&<p>Follow the marker to begin this story event. Defeat its waves, then interact with the marked site if work remains. Moving away interrupts that work. Leaving or falling in battle preserves defeated attackers.</p>}

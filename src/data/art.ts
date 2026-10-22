@@ -1,5 +1,6 @@
 import {NATIVE_PROP_ART,type NativePropTexture} from './nativePropArt';
 import {HERO_BODY_HEIGHT} from './heroBodyRegistration';
+import {varkhulGroundPadding} from './varkhulArt';
 import { HERO_PACK, SHRINE_PACK, clipSources, directionalSources, ENEMY_SOURCES,TROLL_SOURCES,DRAGON_SOURCES,DRAGON_FLY_SOURCES,TROLL_IMPACT_SOURCES,DIRECTION_CLIPS,ORC_SPEARMAN_IDLE_SOURCES,ORC_SPEARMAN_ATTACK_SOURCES,ORC_SPEARMAN_STATE_SOURCES, type SpriteSource } from './animationPacks';
 
 import { PLAYER_EFFECTS, PLAYER_IDLE_ANIMATION, SPRITE_BOARDS, boardSources } from './spriteBoards';
@@ -145,9 +146,9 @@ export const ART_SHEETS: readonly ArtSheet[] = [
     sources:ENEMY_SOURCES,contentSize:[176,158],names:ENEMY_SOURCES.map(source => source.name) },
   {key:'enemy_troll',path:TROLL_SOURCES[0].path,columns:TROLL_SOURCES.length,atlasColumns:8,density:2,frameWidth:192,frameHeight:160,groundPadding:8,blackBackground:false,
     sources:TROLL_SOURCES,names:TROLL_SOURCES.map(s=>s.name)},
-  {key:'enemy_dragon',path:DRAGON_SOURCES[0].path,columns:DRAGON_SOURCES.length,atlasColumns:6,density:2,frameWidth:320,frameHeight:256,blackBackground:false,
+  {key:'enemy_dragon',path:DRAGON_SOURCES[0].path,columns:DRAGON_SOURCES.length,atlasColumns:6,density:2,frameWidth:320,frameHeight:256,groundPadding:varkhulGroundPadding('enemy_dragon'),blackBackground:false,
     sources:DRAGON_SOURCES,names:DRAGON_SOURCES.map(s=>s.name)},
-  {key:'enemy_dragon_fly',path:DRAGON_FLY_SOURCES[0].path,columns:6,atlasColumns:3,density:2,frameWidth:416,frameHeight:416,groundPadding:64,blackBackground:false,
+  {key:'enemy_dragon_fly',path:DRAGON_FLY_SOURCES[0].path,columns:6,atlasColumns:3,density:2,frameWidth:416,frameHeight:416,groundPadding:varkhulGroundPadding('enemy_dragon_fly'),blackBackground:false,
     sources:DRAGON_FLY_SOURCES,names:DRAGON_FLY_SOURCES.map(s=>s.name)},
   {key:'effect_troll_impact',path:TROLL_IMPACT_SOURCES[0].path,columns:4,atlasColumns:4,density:2,frameWidth:96,frameHeight:64,groundPadding:16,blackBackground:false,
     sources:TROLL_IMPACT_SOURCES,names:TROLL_IMPACT_SOURCES.map(s=>s.name)},
@@ -297,6 +298,7 @@ const directionalSheets: ArtSheet[] = DIRECTIONAL_ENEMY_ART.map(a => ({
   atlasColumns: a.species >= 8 ? 6 : 5,
   frameWidth: a.frameWidth,
   frameHeight: a.frameHeight,
+  groundPadding:varkhulGroundPadding(a.walkTexture),
   density: 2,
   blackBackground: false,
   names: Array.from(

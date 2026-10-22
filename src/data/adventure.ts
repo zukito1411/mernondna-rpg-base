@@ -1,4 +1,5 @@
 import type {QuestDefinition,QuestObjective} from '../game/types';
+import {ROAD_CLUES,ROAD_ENCOUNTERS} from './roadStories';
 export const ADVENTURE_REVISION_FLAG='campaign:living-roads-v1';
 
 /** Authorizations are deliberately finite. They never change ambient habitats. */
@@ -9,6 +10,7 @@ export interface StoryEncounter {
   work?:{label:string;duration:number};
 }
 export const STORY_ENCOUNTERS:readonly StoryEncounter[]=[
+  ...ROAD_ENCOUNTERS,
   {id:'oakmere-raid',questId:'first-road',objectiveId:'defend-oakmere',townId:'oakmere',npcId:'elara-voss',radius:650,
     name:'Oakmere Under Attack',waves:[['road-bandit','road-bandit','road-bandit'],['road-bandit','road-bandit','road-bandit'],['road-bandit','road-bandit']],
     warning:'The warning bell! Raiders are coming for the survey records. Hold the village approach!',
@@ -63,6 +65,7 @@ export const storyEncounterInCourtyard=(e:StoryEncounter,flags:Record<string,boo
 
 /** Authored discoveries use existing world-art props, not abstract menu steps. */
 export const ADVENTURE_CLUES=[
+  ...ROAD_CLUES,
   {id:'adventure:poacher-snare',townId:'oakmere',siteId:'',dx:2100,dy:1250,name:'Snares in the brush',
     text:'Wire snares face the village, not the game trail. A hired man has been driving wounded animals toward Oakmere. Alice recognizes the hunter’s knot.'},
   {id:'adventure:family-deed',townId:'willowcross',siteId:'',dx:-2000,dy:1100,name:'A family deed',
@@ -158,7 +161,7 @@ export function applyAdventure(quests:QuestDefinition[]){
         inspect('adventure:family-deed','Recover the family deed southwest of Willowcross, Trandum.'),
         {id:'protect-deed',type:'choice',targetId:'willowcross-keeper',amount:1,text:'Bring the deed to the keeper in Willowcross before confronting the uncle.',dialogue:[
           'Two men came asking where the children sleep. It frightened me. I won’t let them near the house, but what if they come back?'],choices:[
-          {id:'watch',text:'Give the watch a witnessed copy. Let them arrest the hired men.',response:'I’ll get Tovan to sign as a witness. I want this settled without anyone getting hurt.',flag:'siblings-guarded-deed'},
+          {id:'watch',text:'Give Isabel a copy. Ask her to keep the children safe.',response:'I’ll get Tovan to sign as a witness. I want this settled without anyone getting hurt.',flag:'siblings-guarded-deed'},
           {id:'defend',text:'Keep the children here. I will confront his men at the roadside shelter.',response:'All right. The children can stay here. Please be careful out there.',flag:'siblings-defend-deed'},
         ]},
         {...event('false-inheritance'),completedByFlag:'siblings-guarded-deed'},
@@ -179,7 +182,7 @@ export function applyAdventure(quests:QuestDefinition[]){
         inspect('adventure:sailor-locket','Search Salt Bay Outlook south of Tidewatch, Portquill.'),event('last-debt'),
         {id:'truth',type:'choice',targetId:'tidewatch-sailmaker',amount:1,text:'Return to Sailmaker House, Tidewatch, with the sailor’s account.',dialogue:['He sold her father’s route to the smugglers, then lied and blamed the storm. Now he wants her forgiveness. I don’t even know if she’ll want to speak to him.'],choices:[
           {id:'confession',text:'Give her the truth. Let her decide whether she wants his apology.',response:'I’ll give her the letter. He can wait until she decides whether she wants to answer.',flag:'pirate-confession'},
-          {id:'watch',text:'Give her the account and send a copy to the harbor watch.',response:'All right. I’ll make a copy for her and one for the harbor watch. He doesn’t get to hide what he did.',flag:'pirate-accountability'},
+          {id:'watch',text:'Tell her what happened. Let the harbor watch hear it too.',response:'All right. I’ll make a copy for her and one for the harbor watch. He doesn’t get to hide what he did.',flag:'pirate-accountability'},
         ]},
       ],'The daughter receives the true account. Forgiveness belongs to her, not to the man asking for it.'),
   );

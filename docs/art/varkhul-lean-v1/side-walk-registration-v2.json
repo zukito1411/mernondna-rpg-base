@@ -1,0 +1,10 @@
+{
+  "description": "Four complete right-facing gait poses. The opposite passing pose was redrawn separately at twice the source pixel density; it is not a patched limb. Mirror whole poses offline for the left-facing cycle. One uniform anatomical scale in shared source units, with no per-frame silhouette fitting.",
+  "scale": 0.39,
+  "frames": [
+    {"source":"side-walk-v2", "index":0, "rootX":430, "groundY":470, "sourceUnits":1, "phase":"contact"},
+    {"source":"side-walk-v2", "index":1, "rootX":1198, "groundY":470, "sourceUnits":1, "phase":"passing: near hind and far fore lift"},
+    {"source":"side-walk-v2", "index":2, "rootX":430, "groundY":974, "sourceUnits":1, "phase":"opposite contact"},
+    {"source":"side-walk-passing-v2", "index":0, "rootX":860, "groundY":923, "sourceUnits":0.5, "phase":"opposite passing: near fore and far hind lift"}
+  ]
+}

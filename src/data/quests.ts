@@ -10,6 +10,7 @@ import {QUEST_SCENE_BINDINGS} from './questScenes';
 import {applyCampaign} from './campaign';
 import {applyStoryRevision} from './storyRevision';
 import {applyAdventure} from './adventure';
+import {applyStoryExpansion} from './storyExpansion';
 
 export const QUESTS: QuestDefinition[] = [
   {
@@ -59,6 +60,7 @@ for (let i = 0; i < QUESTS.length; i += 1) {
 applyCampaign(QUESTS);
 applyStoryRevision(QUESTS);
 applyAdventure(QUESTS);
+applyStoryExpansion(QUESTS);
 QUESTS.push(TOWER_QUEST);
 // Every side-quest giver participates in the same dialogue and overhead cue
 // system, including quests added after the original NPC catalogue was built.

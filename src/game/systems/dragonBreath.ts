@@ -3,6 +3,11 @@ export const DRAGON_BREATH = {
   burningMs: 1600, fadeMs: 200, frameMs: 75, frames: 6,
 } as const;
 const smooth=(p:number)=>{const t=Math.max(0,Math.min(1,p));return t*t*(3-2*t);};
+/** The authored breath-release head faces sideways. Do not aim the plume
+ * vertically while leaving that head pointing left/right. Lock at cast start. */
+export function dragonBreathDirection(flipped:boolean){
+  return {x:flipped?-1:1,y:0,angle:flipped?Math.PI:0};
+}
 /** A local attack clock keeps frame animation, growth and damage in sync. */
 export function breathPresentation(age:number){
   const growth=smooth(age/DRAGON_BREATH.ignitionMs);

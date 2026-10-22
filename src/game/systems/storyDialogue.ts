@@ -2,6 +2,13 @@ import { NPC_BY_ID,NPC_NAME_ALIASES } from '../../data/npcs';
 import {rewriteNpcMentions} from '../../data/npcPresentation';
 import type { QuestRuntimeState } from '../types';
 import {nextObjective} from './storyProgress';
+import {ROAD_SIDE_QUESTS,WORLD_STORY_QUESTS} from '../../data/roadStories';
+
+const roadStoriesByGiver=new Map<string,typeof ROAD_SIDE_QUESTS[number][]>();
+for(const q of [...ROAD_SIDE_QUESTS,...WORLD_STORY_QUESTS]){
+  const stories=roadStoriesByGiver.get(q.giverNpcId)??[];
+  stories.unshift(q);roadStoriesByGiver.set(q.giverNpcId,stories);
+}
 
 /** Event-driven reactions; no additional resident simulation or portrait assets. */
 export function reactiveStoryDialogue(id:string,quests:Record<string,QuestRuntimeState>,flags:Record<string,boolean>):string[]|undefined {
@@ -30,6 +37,14 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
   if(flags['encounter:redmesa-defense:complete']&&!flags['region-resolved:redmesa']&&id==='redmesa-beastmaster')return [
     'You stayed and helped us when Krag attacked. Thank you. I won’t forget it.',
     'The clans are finally talking. I just want to get the well open before anyone starts fighting again.'];
+  // Remember the actual chosen response, including after the main ending.
+  // The store always gives a current quest conversation priority over this.
+  for(const q of roadStoriesByGiver.get(id)??[]){
+    if(quests[q.id]?.status!=='completed')continue;
+    const ending=q.objectives.at(-1)?.choices?.find(c=>flags[c.flag]);
+    if(ending)return [ending.response,...npc.dialogue.slice(0,1)];
+    if(q.worldQuest&&q.objectives.at(-1)?.dialogue)return q.objectives.at(-1)!.dialogue;
+  }
   if(quests['home-for-two']?.status==='completed'&&id==='willowcross-keeper')return [
     flags['siblings-widow']?'The children moved in with the widow. One of them insisted on bringing that old broken chair. It belonged to their mother.'
       :'Isabel asked the children where they wanted to live. They looked so surprised someone was asking them.',
@@ -63,7 +78,7 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
       'break-blockade':"Varr’s men are still up by the tower. Don’t try to take the whole road on your own.",
       'tower-dispatch':"Someone paid for that ambush. There’s a letter near the tower that might tell us who.",
       'kill-varr':"I wish I could go with you. Be careful around Varr. He knows how to fight.",
-      'compass-question':"Orin asked about your compass. I think he knows something I don’t.",
+      'compass-question':"Orin asked about your compass. I think she knows something I don’t.",
       'return-aldren':"You’re back. Thank goodness. Come inside and tell me what happened.",
     };
     return [concerns[current?.id??'']??"I just want you home safe, all right?",
@@ -75,7 +90,7 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
       'mira-fen':'Come on, sit down. You promised you’d tell me everything. And don’t leave out the embarrassing parts.',
       'sena-marrow':'There’s food on the table. You look tired. Sit down and eat something.',
       'orin-bell':'That compass of yours is finally pointing straight. I never thought I’d see it.',
-      'renna-vale':flags['covenant-local-keepers']?'The first reports came in from the villages. It’s good to see local people signing their own records.':'The new watch reports to the people in each region now. I hope it stays that way.',
+      'renna-vale':flags['covenant-local-keepers']?'A letter came from Moonfall. The children are using the grove path again. Their keeper says they’re louder than the birds.':'Edmund sent word from the new watch. Apparently half of them tied their boots wrong. He sounds delighted to have someone to teach.',
     };
     if(home[id])return after(home[id]);
     // Ordinary residents retain their own lives and voices after the ending.
@@ -93,7 +108,7 @@ function storyReaction(id:string,quests:Record<string,QuestRuntimeState>,flags:R
     const reactions:Record<string,string>={
       elarion:flags['narenthil-grove-keepers']?'Ilyra and the other lorekeepers have started repairing the stones. I hope the paths will be safe again soon.':'The bowyers are helping guard the path. It’s been a relief to see people working together.',
       redmesa:flags['rindass-clan-water']?'We’ve put the watering times up by the well. At least the children don’t have to wait for Krag’s men anymore.':'We’ve agreed to share the well. I hope nobody tries to take it over again.',
-      tidewatch:flags['portquill-public-cargo']?'The missing passengers’ families can check the lists now. I hope they find someone they’re looking for.':'The guild’s paying for the search, but the families are keeping the names. I think that’s fair.',
+      tidewatch:flags['portquill-public-cargo']?'Did you see the white sail coming in? Someone on the quay started crying before the boat even tied up. I hope it was good news.':'Jessa’s crews brought people in by the sheltered shore. We took blankets down. Some of them could barely stand.',
       blackspire:flags['darkav-open-account']?'We finally told the workers what happened. They were angry. I don’t blame them.':'We sent copies of the forge records to the other towns. I’d feel better if no one could hide them again.',
       starhold:'The beacon’s working again. Someone still has to keep watch every night, but at least the wagons are getting through.',
       deepford:'Bruni’s been reading the missing miners’ names at the gallery. Some people come to listen. Others aren’t ready.',

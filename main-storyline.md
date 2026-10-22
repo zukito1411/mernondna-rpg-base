@@ -1,10 +1,19 @@
 # TALES OF LEIGNERON
 ## The Roads We Leave Behind
-### Complete Base-Game Storyline — Version 1.0
+### Complete Base-Game Storyline — Version 2.1: The Broken Wards
 
 **Genre:** Medieval Fantasy / Action RPG / Mystery / Adventure
 
-**Main-story target:** Approximately 2 hours and 45 minutes
+**Main-story pacing target:** 9–10 hours for a first playthrough.
+
+**Side-story pacing target:** 5–7 hours, separate from the main story, repeatable
+contracts, the Tower of Might, housing and endgame grinding.
+
+These are design targets, not measured playtimes. The playable expansion is
+defined in `src/data/roadStories.ts` and applied by `src/data/storyExpansion.ts`.
+The chapter additions below take precedence over the shorter original outlines.
+See [the implementation and pacing notes](docs/ROAD_STORIES_EXPANSION.md) for
+the exact scope, existing-save behavior and remaining verification.
 
 **Structure:** 8 chapters across 5 narrative acts
 
@@ -88,11 +97,32 @@ The player takes control.
 
 ## Chapter 1: The Broken Road
 
-<text>**Estimated duration: 18 minutes**</text>
+**Pacing target: 55–60 minutes, not yet playthrough-verified.**
 
 **Locations:** Oakmere, eastern farms, ruined watchtower
 
 **Chapter boss:** Captain Varr
+
+### Expanded adventure — The bell beneath the ground
+
+Open with Edmund hearing a bell under an orchard where no bell exists. A dying
+rider asked for the boy whose compass would not settle. Rescue Lena promptly;
+do not delay her behind shopping or optional errands. Her rescue is the first
+answer, not the end of the chapter.
+
+After the raid, a missing child’s basket leads to the Silent Orchard. Fight the
+wolves around the hollow tree, follow the search home and learn that the child
+heard the same buried bell. Etheldreda explains that injured ward-stones can
+repeat sounds. The compass reacts to iron; it does not prove a special destiny.
+
+Along Varr’s road, find a warning crossed out beside an opened stone. Fight the
+men and frightened beasts holding that clearing, then cover the exposed hollow.
+Hugh remembers that Varr knew what digging would wake. The boss confrontation
+now answers a question the player has seen and heard, not merely a bandit quota.
+
+Lena also remembers the rider asking whether the village bell had rung. Recover
+his unfinished warning and explain to Etheldreda why runners are safer until
+the exposed iron is covered. The alarm is an actionable rule, not just an omen.
 
 ### Story
 
@@ -210,11 +240,30 @@ For the first time in years, the compass needle moves.
 
 ## Chapter 2: A Body at the Bridge
 
-<text>**Estimated duration: 25 minutes**</text>
+**Pacing target: 50–55 minutes, not yet playthrough-verified.**
 
 **Locations:** Highmere, Royal Archive, Lower Ward, old weighhouse
 
-**Central conflict:** Murder investigation and political conspiracy
+**Central conflict:** A river that calls with dead voices, a hunted witness,
+and a night shelter surrounded by spirits.
+
+### Expanded adventure — Something under Highmere
+
+Before the archive visit, the bridge warden describes a child’s voice coming
+from the water. Search the claw marks and lantern, then fight the spirits at
+the crossing. The stolen ward iron explains why the threat reached the city.
+
+The murder investigation and Thomas’s escape remain. They lead to No One Left
+Inside: hear survivors, find the shelter door broken from within, fight the men
+and spirits closing its escape route, and physically unbar it after the battle.
+Check the rescued families at the kitchen. The crown’s short decision is about
+where these people sleep tonight, not a long dispute over trade or money.
+
+Resolve the first mystery here: the messenger was Giles, Cecily's rider. Edmund
+wrote to her about the compass last winter, and she told Giles whom to ask for
+in Oakmere. Oswin was the separate inspector murdered at the bridge; Giles
+carried a copy of his warning. Neither death is a supernatural summons to a
+chosen hero. Cecily promises to tell Giles's sister what he accomplished.
 
 ### Story
 
@@ -346,11 +395,34 @@ This affects later dialogue, but both choices preserve the main story.
 
 ## Chapter 3: The Forest and the Mountain
 
-<text>**Estimated duration: 23 minutes**</text>
+**Pacing target: 110–115 minutes, not yet playthrough-verified.**
 
 **Regions:** Narenthil and Nardorous
 
 **Chapter bosses:** Moonlit Warden and Stonejaw
+
+### Expanded adventure — Borrowed songs and warning knocks
+
+Narenthil’s ribbons move against the wind. A warning says not to follow a voice
+that sounds like your mother. Fight through the singing roots, then learn that
+the grove remembers voices without understanding the grief it causes. The dead
+have not returned. The Warden is trying to contain the forest’s injury.
+
+At Moonfall, a webbed lantern and a child’s badly carved bird explain how the
+pilgrims separated to protect their children. Clear the lantern shelter, cut its
+silk and return the bird before facing the Warden. The herbalist’s ordinary
+affection makes the missing pilgrims people rather than names on a list.
+
+In Nardorous, a buried bell-rope records knocks from beneath the ridge. Clear
+the Silent Ridge, follow cairn candles, open the porters’ last escape route and
+learn why the warning stopped. Only then recover the signal kit, relight the
+beacon and confront Stonejaw. The existing full warnings and boss phases remain.
+
+Before the Warden, interpret the keeper's shelter mark: its dry path was left
+open while the guardian held the wounded root. Before Stonejaw, open the Ridge
+Refuge for the next convoy. The first rescue does not pretend that the whole
+pass is already safe. The tools left by the iron-cutters carry Dorga's forge
+mark, and a warning is sent to Ugra before the journey to Rindass.
 
 ### Part I — Narenthil: The Mourning Grove
 
@@ -428,11 +500,33 @@ For the first time, he begins to suspect that the disturbances are consequences 
 
 ## Chapter 4: Blood and Roots
 
-<text>**Estimated duration: 25 minutes**</text>
+**Pacing target: 95–105 minutes, not yet playthrough-verified.**
 
 **Regions:** Rindass and Druganwoods
 
 **Chapter bosses:** Krag the Iron-Tusk and the Rootfather
+
+### Expanded adventure — Teeth behind the banners
+
+Ugra finds her clan’s marks cut from harnesses used in attacks. Search the
+broken tusk, stop Krag’s men destroying the harnesses and expose his attempt to
+turn the clans on one another. Friendly orcs remain allies. A banner bearing
+two brothers’ names leads to a wounded dissenter’s escape route. Fight to open
+it and let the brothers’ needs, not a council speech, shape the pre-boss choice.
+
+In Druganwoods, hammers laid in a circle explain the knocks beneath the mine.
+Clear the answering spirits and unfasten a rescue line before reaching Bruni.
+The old crossing rope, with a spoon tied on for children’s numb hands, gives
+the parents’ revelation something personal to hold. Read the existing flood
+letter with Bruni nearby. No villain secretly killed the parents; no false voice
+or later spell brings them back. The Rootfather battle protects a real repair.
+
+Raise a plain distress flag after clearing Krag's rear guard. It welcomes the
+families his clan colours excluded. In Druganwoods, let Leigneron sit with Bruni
+after the flood letter instead of immediately asking him to solve another
+problem. The old rescue and the recent iron shipments are explicitly years
+apart. A Portquill dock mark, not a new accusation about his parents' deaths,
+provides the next lead.
 
 ### Part I — Rindass: The Broken Clan
 
@@ -586,13 +680,27 @@ The screen fades as they watch the river.
 
 ## Chapter 5: The Stolen Sea
 
-<text>**Estimated duration: 23 minutes**</text>
+**Pacing target: 90–100 minutes, not yet playthrough-verified.**
 
 **Regions:** Portquill and Frostlands
 
 **Chapter bosses:** Salt King and Frost Wyrm
 
-### Part I — Portquill: The Pirate's Ledger
+### Expanded adventure — The shore that lied
+
+At Portquill, a lantern blackened on its landward side reveals a wreckers’ trap.
+Fight the shore crew and cover the false light. Orren recognises an escape sign
+cut into a stolen ward chain. Secure that shore approach before boarding the
+existing flagship. Decide how Jessa’s boats should reach the captives, then face
+the Salt King. The harbour danger is experienced before its cause is explained.
+
+In Frostlands, a boot frozen from within and a broken sled show that a family
+refused to abandon an injured father. Open the hunters’ route and check on him
+at the longhouse. Cracked eggshells and wounded scales reveal what happened to
+the Wyrm’s hollow. Runa understands its anger but cannot leave it among the
+fishing huts. The signal rescue and Wyrm battle follow, not another cargo dispute.
+
+### Part I — Portquill: The False Lights
 
 Leigneron arrives at Tidewatch, where pirate attacks have disrupted maritime trade.
 
@@ -658,13 +766,25 @@ The orders originated in Highmere.
 
 ## Chapter 6: The Ashen Truth
 
-<text>**Estimated duration: 18 minutes**</text>
+**Pacing target: 55–65 minutes, not yet playthrough-verified.**
 
 **Region:** Darkav
 
 **Locations:** Blackspire, burned chainworks, volcanic outskirts
 
 **Chapter boss:** Ashen Seer
+
+### Expanded adventure — No one comes back through fire
+
+Follow workers’ handprints through Ashwood Watch and uncover its buried bell
+after clearing the spirits. Vexa explains how the Seer first gained followers:
+she promised that grieving people could hear their dead, then asked for iron.
+
+A cold pilgrim lamp records a father realising that the voice asking him to
+hurt others could not be his daughter. Fight the spirits around it and close
+the lamp without carrying its flame. Dain asks how to tell the waiting father.
+Then free the chainworks survivors and confront the Seer. Walter paid for the
+thefts, but the Seer knowingly turned human grief into a growing monster threat.
 
 ### Story
 
@@ -744,11 +864,24 @@ Before confronting Varkhul, Leigneron must return to Highmere and expose Walter 
 
 ## Chapter 7: The Crown's Betrayal
 
-<text>**Estimated duration: 15 minutes**</text>
+**Pacing target: 35–40 minutes, not yet playthrough-verified.**
 
 **Location:** Highmere
 
-**Central conflict:** Confronting the human architect of the conspiracy
+**Central conflict:** The broken iron draws the dead toward Highmere while
+Walter’s remaining men try to silence the survivors.
+
+### Expanded adventure — What followed you home
+
+A rider’s abandoned lantern warns that the stolen iron calls the creatures.
+Fight the Homeward Hunt on the king’s road before entering Highmere. Isabel
+moves the iron away from occupied houses. Cecily offers Leigneron a chair before
+confirming the flood letter. She does not repeat the whole mystery as a speech.
+
+Keep the existing archive defence, courtyard recovery and Walter arrest. His
+admission is brief: he paid Varr, saw the danger and kept finding reasons not to
+stop. Responsibility matters, but it is not another chapter of political debate.
+The quiet return to Edmund remains essential before the final journey.
 
 ### Story
 
@@ -848,11 +981,35 @@ Leigneron smiles slightly.
 
 ## Chapter 8: The Returning Ember
 
-<text>**Estimated duration: 20 minutes**</text>
+**Pacing target: 50–60 minutes, not yet playthrough-verified.**
 
 **Region:** Darkav, followed by Oakmere
 
 **Final boss:** Varkhul, the Returning Ember
+
+### Expanded adventure — A way back for everyone
+
+Before the final approach, follow Dain’s scorched shelter markers. Fight to
+clear the retreat path and raise its fallen marker. Speak to Dain about the
+workers who chose to stay. At the old pilgrims’ hearth, protect the unfinished
+binding until the smiths can carry it. The eight equal marks recall the parents’
+drawings without granting Leigneron a hidden inheritance or divine power.
+
+Vexa’s last request is to return after the dragon lifts off. All new preparation
+happens before Varkhul: do not insert hunts or errands into the brief repair
+opening after his retreat. Preserve the existing ward repair, homecoming, free
+exploration and repeatable dragon encounter.
+
+The playable final approach now explicitly waits for the **covenant-forge**
+stage of The Roads We Keep. It does not wait for that whole quest to finish,
+because its later repair requires the dragon's retreat. This keeps the order
+real without creating a circular dependency. Vexa's binding scene shows how
+the regions' different discoveries made the final repair possible.
+
+The Seer's boss scene offers the false return Leigneron once wanted. He refuses
+because he now understands the difference between a remembered voice and the
+parents whose actions he has learned to honour. Varkhul is the physical climax
+after that emotional choice, not another mastermind invented at the last moment.
 
 ### Main Quest: The Last Ward
 
@@ -1079,7 +1236,20 @@ Varkhul continues to exist as a dangerous, repeatable encounter.
 
 # OPTIONAL SIDE STORIES
 
-These stories are separate from the main campaign. They provide approximately 60–90 additional minutes of gameplay without being required to finish the story.
+These four foundation stories remain separate from the main campaign. Sixteen
+additional regional adventures are now authored in `src/data/roadStories.ts`.
+Together with the existing watch and Cibar investigations, they target 5–7 hours
+of first-time side-story play. This has not been measured. No side adventure is
+a new dependency for the main ending; the Tower and repeatable contracts are
+not counted toward this target.
+
+Eight optional **World quests** now follow the regional victories. They explain
+what those victories made possible and what still needs work: Oakmere's warning
+posts, Narenthil's blocked spring, Starhold's falling rock, Red Mesa's frightened
+herds, Deepford's waste channel, Portquill's false lights, Skallheim's snowbound
+shelters and Darkav's remaining cold lamps. They unlock at the relevant report,
+not at an arbitrary late level, and remain available after the main ending.
+Their local aftermath is not a claim that the world has become free of monsters.
 
 ## Side Quest 1 — A Home for Two
 
@@ -1159,17 +1329,21 @@ The ending depends on how Leigneron handles the truth.
 
 | Chapter | Location | Approx. duration |
 |---|---|---:|
-| 1. The Broken Road | Oakmere, Trandum | 18 min |
-| 2. A Body at the Bridge | Highmere, Trandum | 25 min |
-| 3. The Forest and the Mountain | Narenthil, Nardorous | 23 min |
-| 4. Blood and Roots | Rindass, Druganwoods | 25 min |
-| 5. The Stolen Sea | Portquill, Frostlands | 23 min |
-| 6. The Ashen Truth | Darkav | 18 min |
-| 7. The Crown's Betrayal | Highmere | 15 min |
-| 8. The Returning Ember | Darkav, Oakmere | 20 min |
-| **Total main storyline** | | **167 min (~2h 47m)** |
+| 1. The Broken Road | Oakmere, Trandum | 55–60 min |
+| 2. A Body at the Bridge | Highmere, Trandum | 50–55 min |
+| 3. The Forest and the Mountain | Narenthil, Nardorous | 110–115 min |
+| 4. Blood and Roots | Rindass, Druganwoods | 95–105 min |
+| 5. The Stolen Sea | Portquill, Frostlands | 90–100 min |
+| 6. The Ashen Truth | Darkav | 55–65 min |
+| 7. The Crown's Betrayal | Highmere | 35–40 min |
+| 8. The Returning Ember | Darkav, Oakmere | 50–60 min |
+| **Target budget, not measured runtime** | | **540–600 min (9–10h)** |
 
-The chapter durations are planning estimates that include intended travel, exploration, conversations, combat, and cinematics. Actual playtime must be measured after implementation.
+The chapter durations are pacing budgets, not evidence that the current content
+already takes that long. Actual playtime must be measured with normal gear,
+without local unlimited gold/vitals, skipped dialogue or memorised routes. If
+the expanded build remains short, add new authored situations and playable
+spaces; do not force waits, disable travel, repeat bosses or simply inflate HP.
 
 For this duration to be achievable, the campaign should provide convenient routes through already-visited areas, unlock shrine travel appropriately, and use direct sea passages without excessive backtracking.
 

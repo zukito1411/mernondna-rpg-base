@@ -9,9 +9,8 @@ export class DragonBreathEffect {
     this.glow=scene.add.sprite(0,0,'dragon-breath',0).setOrigin(BREATH_ROOT/512,.5).setVisible(false)
       .setBlendMode(Phaser.BlendModes.ADD).setName('dragon-fire-glow:'+id);
   }
-  show(mouth:{x:number;y:number},tip:{x:number;y:number},age:number,depth:number,charging=false){
-    const p=breathPresentation(age),dx=tip.x-mouth.x,dy=tip.y-mouth.y;
-    const scale=Math.hypot(dx,dy)/BREATH_LENGTH,angle=Math.atan2(dy,dx);
+  show(mouth:{x:number;y:number},angle:number,reach:number,age:number,depth:number,charging=false){
+    const p=breathPresentation(age),scale=reach/BREATH_LENGTH;
     const growth=charging?.13+.07*p.growth:.12+.88*p.growth,alpha=charging?.3*p.alpha:p.alpha;
     this.flame.setVisible(alpha>.001).setFrame(p.frame).setPosition(mouth.x,mouth.y).setRotation(angle)
       .setScale(scale*growth,scale*(charging?.16:.72+.28*p.growth)).setAlpha(alpha).setDepth(depth);

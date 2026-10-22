@@ -2,6 +2,7 @@ import { QUEST_BY_ID } from '../../data/quests';
 import { WORLD_CONTENT } from '../../data/content';
 import type { ContentWorldState, QuestObjective, QuestRuntimeState } from '../types';
 import {gateTowerQuest} from '../../data/towerOfMight';
+import {questDependencyComplete,questRequirementsMet} from './questDependencies';
 
 const campIds=new Map<string,string[]>();
 function clearedCampCount(objective:QuestObjective,world?:ContentWorldState){
@@ -33,7 +34,7 @@ export function advanceQuests(
     if (!definition) continue;
     let runtime = quests[id] ?? savedRuntime;
     if (runtime.status === 'locked'
-      && (!definition.prerequisiteQuestId||quests[definition.prerequisiteQuestId]?.status==='completed')
+      && questRequirementsMet(definition,quests,QUEST_BY_ID)
       && Object.values(QUEST_BY_ID).some(previous => previous.nextQuestId === id && quests[previous.id]?.status === 'completed')) {
       runtime = { status: 'active', objectiveProgress: {} };
       quests[id] = runtime;
@@ -52,10 +53,11 @@ export function advanceQuests(
         progress[objective.id]=Math.min(objective.amount,cleared);
       } else if (objective.bossId && !objective.requiresFreshDefeat && defeatedBosses.includes(objective.bossId)) {
         progress[objective.id] = objective.amount;
-      } else if((objective.type==='quest'&&quests[objective.targetId]?.status==='completed')
+      } else if((objective.type==='quest'&&questDependencyComplete(objective,quests,QUEST_BY_ID))
         ||(objective.type==='investigate'&&storyFlags['discovery:'+objective.targetId])){
         progress[objective.id]=objective.amount;
       } else if (!usedEvents.has(id) && event?.type === objective.type
+        && objective.type!=='quest'
         &&(!event.questId||event.questId===id)
         && (objective.type==='kill'?(objective.enemyIds??[objective.targetId]).includes(event.targetId):event.targetId===objective.targetId)
         && (objective.type!=='kill'||!objective.killContentPrefix||Boolean(event.contentId?.startsWith(objective.killContentPrefix)))) {

@@ -62,7 +62,10 @@ export function questDestination(objective:QuestObjective):QuestDestination|null
   if(['talk','deliver','choice','puzzle','escort'].includes(objective.type))destination=npcQuestDestination(objective.targetId);
   if(objective.type==='quest'){
     const dependency=QUEST_BY_ID[objective.targetId];
-    if(dependency)destination=npcQuestDestination(dependency.giverNpcId);
+    if(dependency){
+      const stage=objective.targetObjectiveId?dependency.objectives.find(o=>o.id===objective.targetObjectiveId):undefined;
+      destination=npcQuestDestination(stage?.targetId??dependency.giverNpcId);
+    }
   }
   if(objective.type==='visit'){
     const town=TOWN_BY_ID[objective.targetId];

@@ -813,7 +813,8 @@ export class Enemy extends DepthSortedSprite {
     if(crew&&this.anims.currentAnim?.key.includes(':walk:'))this.pirateWalkProgress=progress;
     const changed=this.anims.currentAnim?.key!==key;
     this.useVisualTexture(this.scene.anims.get(key).frames[0].textureKey as ArtTextureKey);
-    const mirroredSide=this.definition.id==='salt-king'||this.definition.id==='cutlass-pirate';
+    const mirroredSide=this.definition.id==='salt-king'||this.definition.id==='cutlass-pirate'
+      ||this.texture.key==='enemy_walk_dragon';
     this.setFlipX(!this.directionalCombat&&this.visualDirection==='left'&&(mirroredSide||this.texture.key===(this.definition.spriteTexture??'enemies'))).anims.play(key,true);
     if(changed&&state==='walk'&&progress>0)this.anims.setProgress(progress);
     else if(changed&&state==='walk'&&crew&&(this.visualDirection==='left'||this.visualDirection==='right'))

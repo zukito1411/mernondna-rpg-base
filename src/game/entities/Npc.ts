@@ -13,6 +13,7 @@ import { TOWN_BY_ID } from '../../data/towns';
 import { npcStreetRoute, formationPosition } from '../systems/npcRoutes';
 import { useGameStore } from '../../store/gameStore';
 import {QUEST_BY_ID} from '../../data/quests';
+import {questRequirementsMet} from '../systems/questDependencies';
 import { approachVelocity, strideRate } from '../systems/locomotion';
 import { MARCH_SPEED } from '../../data/capitalResidents';
 import {guardMarchTexture} from '../../data/guardMarchArt';
@@ -528,9 +529,8 @@ export class Npc extends DepthSortedSprite {
       const story=useGameStore.getState();
       const available=this.definition.questIds.some(id=>{
         const quest=QUEST_BY_ID[id],status=story.quests[id];
-        if(quest?.kind!=='side'||!status||quest.prerequisiteQuestId&&story.quests[quest.prerequisiteQuestId]?.status!=='completed')return false;
-        if(status.status==='locked')return quest.giverNpcId===this.definition.id
-          &&(!quest.prerequisiteQuestId||story.quests[quest.prerequisiteQuestId]?.status==='completed');
+        if(quest?.kind!=='side'||!status||!questRequirementsMet(quest,story.quests,QUEST_BY_ID))return false;
+        if(status.status==='locked')return quest.giverNpcId===this.definition.id;
         const next=quest.objectives.find(o=>(status.objectiveProgress[o.id]??0)<o.amount);
         return status.status==='active'&&next?.targetId===this.definition.id
           &&['talk','deliver','choice','puzzle'].includes(next.type);

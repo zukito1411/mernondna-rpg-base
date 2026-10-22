@@ -161,6 +161,8 @@ export interface QuestObjective {
   requiresFreshDefeat?: boolean;
   /** A deliberate peaceful choice may resolve a later confrontation. */
   completedByFlag?:string;
+  /** A quest dependency may require one stage, not its entire later ending. */
+  targetObjectiveId?:string;
 }
 
 export interface QuestDefinition {
@@ -173,6 +175,8 @@ export interface QuestDefinition {
   rewardXp: number;
   nextQuestId?: string;
   prerequisiteQuestId?: string;
+  prerequisiteObjective?:{questId:string;objectiveId:string};
+  worldQuest?:boolean;
   kind?: 'main' | 'side';
   chapter?: string;
   resolution?: string;

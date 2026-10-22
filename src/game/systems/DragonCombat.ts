@@ -6,7 +6,7 @@ import {artScale,actorArtLayout} from '../../data/art';
 import {enemyAppearanceMultiplier} from '../../data/enemies';
 import {enemyAnimation} from '../../data/animationPacks';
 import {DragonBreathEffect} from './DragonBreathEffect';
-import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth} from './dragonBreath';
+import {DRAGON_BREATH,breathPresentation,insideBreathCone,dragonMouth,dragonBreathDirection} from './dragonBreath';
 import {ATTACK_WARNING_FRAMES,ATTACK_WARNING_TEXTURE} from './attackWarning';
 import {AttackTelegraph} from './AttackTelegraph';
 import {bossPattern,VARKHUL_WORLD_PROFILE,type BossCombatProfile,type BossMove} from '../../data/bossCombatProfiles';
@@ -43,6 +43,9 @@ export class DragonCombat {
   private aftershock:{area:AttackArea;age:number;windup:number;damage:number;fired:boolean}|null=null;
   private readonly aftershockWarning:AttackTelegraph;
   private breathRange:number=DRAGON_BREATH.range;
+  private readonly breathOrigin=new Phaser.Math.Vector2();
+  private breathDirection=dragonBreathDirection(false);
+  private breathFlipped=false;
   constructor(private readonly enemy:Enemy,private readonly scene:WorldScene,private currentProfile?:BossCombatProfile){
     const profile=currentProfile;
     this.tower=Boolean(profile&&enemy.instanceId.startsWith('dungeon-event:might-'));
@@ -84,6 +87,7 @@ export class DragonCombat {
   get attackName(){return this.rage.transitioning?null:this.aftershock?'Sovereign aftershock':this.move&&this.phase!=='rest'&&this.phase!=='recover'?this.move.name:this.phase==='stomp-windup'?'Ember stomp':this.phase==='breath-windup'||this.phase==='breath'?'Ember breath':this.airborne?'Skyfall landing':null;}
   private get stompWindupMs(){return this.move?.dragonAction==='stomp'?this.move.windup:1000;}
   private get breathWindupMs(){return this.move?.dragonAction==='breath'?this.move.windup:DRAGON_BREATH.windupMs;}
+  private get breathIgnitionAt(){return Math.max(0,this.breathWindupMs-220);}
   get windupFraction(){return this.rage.transitioning?null:this.aftershock?Math.min(1,this.aftershock.age/this.aftershock.windup):this.phase==='stomp-windup'?Math.min(1,this.age/this.stompWindupMs):this.phase==='breath-windup'?Math.min(1,this.age/this.breathWindupMs):this.phase==='flight'?this.age/4300:this.phase==='landing'?Math.min(1,(3200+this.age)/4300):null;}
   get visual():Phaser.GameObjects.Sprite{return this.airborne?this.flight:this.enemy;}
   pause(paused:boolean){if(!this.flight.active)return;if(paused)this.flight.anims.pause();else this.flight.anims.resume();}
@@ -95,7 +99,12 @@ export class DragonCombat {
   private groundAnimation(state:'idle'|'walk'|'attack'){
     if(state==='attack'){this.enemy.useVisualTexture('enemy_dragon');this.enemy.play(enemyAnimation(this.enemy.definition.spriteFrame,state).key,true);}
     else this.enemy.playLocomotion(state);
-    this.enemy.anims.timeScale=1;
+    // A half-second step loop (8 side poses / 4 vertical poses) covers a
+    // 36-world-pixel stride at the normal 72px/s stalk. Slow patrols and
+    // movement debuffs need slower steps,
+    // not the same rapid foot cycle sliding over a much slower body.
+    const body=this.enemy.body as Phaser.Physics.Arcade.Body;
+    this.enemy.anims.timeScale=state==='walk'?Phaser.Math.Clamp(body.velocity.length()/72,.1,2):1;
   }
   private leaveAir(){
     (this.enemy.body as Phaser.Physics.Arcade.Body).checkCollision.none=false;
@@ -147,7 +156,9 @@ export class DragonCombat {
         const vx=dx/length*e.movementSpeed*(engaged?1:.45),vy=dy/length*e.movementSpeed*(engaged?1:.45);
         const ahead={x:e.x+vx*.7,y:e.y+vy*.7};
         if(this.inArena(ahead.x,ahead.y)&&this.scene.canEnemyOccupy(ahead.x,ahead.y,e)&&this.scene.hasClearPath(e.x,e.y,ahead.x,ahead.y,e)){
-          body.setVelocity(vx,vy);e.setFlipX(dx<0);this.groundAnimation('walk');
+          // playLocomotion owns all four authored facings (including diagonal
+          // hysteresis). Do not pre-mirror the dedicated left-facing artwork.
+          body.setVelocity(vx,vy);this.groundAnimation('walk');
         }else this.groundAnimation('idle');
       }else this.groundAnimation('idle');
       if(engaged&&distance<650&&this.clock>=this.nextAttack&&this.scene.hasClearPath(e.x,e.y,player.x,player.y)){
@@ -164,13 +175,15 @@ export class DragonCombat {
         this.impactRadius=this.safeRadius(e.x,e.y,this.move.radius);
         if(choice===2)this.startFlight();
         else if(choice===0){this.enter('stomp-windup');this.scene.playDragonSound(e.instanceId,'roar',e.x,e.y,1000);e.anims.stop();e.setFrame(enemyAnimation(5,'attack').frames[1]);this.scene.notify('Varkhul raises his claws — leave the marked stomp circle!');}
-        else {this.enter('breath-windup');this.lockBreathRange();e.anims.stop();this.breathPose(0);this.scene.notify('Varkhul draws breath — move out of the fire cone!');}
+        else this.startBreath();
       }
     }else if(this.phase==='stomp-windup'){
       this.drawCircle(e.x,e.y,this.impactRadius,this.age/this.stompWindupMs);
       if(this.age>=this.stompWindupMs){e.setFrame(enemyAnimation(5,'attack').frames[2]);this.slam(e.x,e.y,this.impactRadius,this.move?.damage??1);this.recover();}
     }else if(this.phase==='breath-windup'){
-      this.breathPose(Math.min(2,Math.floor(this.age/360)));
+      // No upward roar in the breath windup. The open forward-facing release
+      // pose is held before any visible ignition and throughout the flame.
+      this.breathPose(this.age>=this.breathIgnitionAt?2:0);
       this.drawCone(false);
       if(this.age>=this.breathWindupMs){this.enter('breath');this.breathTick=DRAGON_BREATH.ignitionMs;this.breathPose(2);e.playMonsterVocal('growl');}
     }else if(this.phase==='breath'){
@@ -182,7 +195,8 @@ export class DragonCombat {
       if(breathPresentation(this.age).damaging&&this.age>=this.breathTick){
         this.breathTick=this.age+350;
         // Match the marked triangle, including its far chord and rear edge.
-        if(insideBreathCone(player.x-e.x,player.y-e.y,this.aim.x,this.aim.y,this.breathRange)&&this.scene.hasClearPath(e.x,e.y,player.x,player.y,e))
+        if(insideBreathCone(player.x-this.breathOrigin.x,player.y-this.breathOrigin.y,this.breathDirection.x,this.breathDirection.y,this.breathRange)
+          &&this.scene.hasClearPath(this.breathOrigin.x,this.breathOrigin.y,player.x,player.y,e))
           this.scene.damagePlayer(Math.round(e.definition.damage*.38*(this.move?.damage??1)));
       }
       if(this.age>=DRAGON_BREATH.burningMs+DRAGON_BREATH.fadeMs)this.recover();
@@ -217,27 +231,52 @@ export class DragonCombat {
     }
   }
   private recover(){this.enter('recover');}
+  private startBreath(){
+    const e=this.enemy;
+    this.enter('breath-windup');
+    this.breathFlipped=e.flipX;
+    this.breathDirection=dragonBreathDirection(this.breathFlipped);
+    this.breathPose(2);
+    // Capture the release mouth once. Charging and burning share this nozzle,
+    // axis and footprint; later player movement must not bend or retarget it.
+    const frame=e.frame,meta=frame.customData as {mouth?:{x:number;y:number};density?:number};
+    if(meta.mouth){
+      const density=meta.density??2;
+      this.breathOrigin.set(e.x+(e.flipX?-1:1)*(meta.mouth.x*density-e.originX*frame.realWidth)*e.scaleX,
+        e.y+(meta.mouth.y*density-e.originY*frame.realHeight)*e.scaleY);
+    }else{
+      const mouth=dragonMouth(e.x,e.y,e.flipX,2*1.3*e.scaleX,2);
+      this.breathOrigin.set(mouth.x,mouth.y);
+    }
+    this.lockBreathRange();
+    // Never fall back to an unvalidated cone through a tower wall.
+    if(this.breathRange<=0){this.recover();return;}
+    this.breathPose(0);
+    this.scene.notify('Varkhul draws breath — move out of the fire cone!');
+  }
   private breathPose(pose:number){
     this.enemy.useVisualTexture('enemy_dragon');
     this.enemy.anims.stop();this.enemy.anims.timeScale=1;
     this.enemy.setFrame(enemyAnimation(5,'attack').frames[pose]);
+    if(this.phase==='breath-windup'||this.phase==='breath')this.enemy.setFlipX(this.breathFlipped);
   }
   private lockBreathRange(){
     this.breathRange=DRAGON_BREATH.range;
     if(!this.tower)return;
     // Lock both the marked cone and its damage to the same arena-safe extent.
     // Only one bounded geometry check per windup, never a per-frame scan.
-    const e=this.enemy,angle=this.aim.angle(),half=DRAGON_BREATH.halfAngle;
+    const e=this.enemy,origin=this.breathOrigin,angle=this.breathDirection.angle,half=DRAGON_BREATH.halfAngle;
+    if(Math.hypot(origin.x-this.home.x,origin.y-this.home.y)>TOWER_ROUND_FLOOR.radius-25){this.breathRange=0;return;}
     for(let range=DRAGON_BREATH.range;range>=72;range-=18){
       const safe=[-half,0,half].every(offset=>{
         const distance=offset===0?range*Math.cos(half):range;
-        const x=e.x+Math.cos(angle+offset)*distance,y=e.y+Math.sin(angle+offset)*distance;
+        const x=origin.x+Math.cos(angle+offset)*distance,y=origin.y+Math.sin(angle+offset)*distance;
         return Math.hypot(x-this.home.x,y-this.home.y)<=TOWER_ROUND_FLOOR.radius-25
-          &&this.scene.hasClearPath(e.x,e.y,x,y,e);
+          &&this.scene.hasClearPath(origin.x,origin.y,x,y,e);
       });
       if(safe){this.breathRange=range;return;}
     }
-    this.breathRange=72;
+    this.breathRange=0;
   }
   private drawCircle(x:number,y:number,radius:number,progress:number){
     const fraction=Phaser.Math.Clamp(progress,0,1),pulse=fraction>.72?(1+Math.sin(this.age*.025))*.5:0;
@@ -247,25 +286,17 @@ export class DragonCombat {
     this.warningFill.draw({kind:'circle',x,y,angle:0,radius},progress,this.scene.playerRenderDepth(y)-1,0xffa25c);
   }
   private drawCone(burning:boolean){
-    const e=this.enemy,angle=this.aim.angle(),half=DRAGON_BREATH.halfAngle,r=this.breathRange;
+    const e=this.enemy,origin=this.breathOrigin,angle=this.breathDirection.angle,half=DRAGON_BREATH.halfAngle,r=this.breathRange;
     const pulse=!burning&&this.age>this.breathWindupMs*.72?(1+Math.sin(this.age*.025))*.5:0;
     const warningWidth=r*Math.cos(half),warningHeight=2*r*Math.sin(half);
     this.warningArt.setTexture(ATTACK_WARNING_TEXTURE,ATTACK_WARNING_FRAMES.cone.name).setOrigin(0,.5)
-      .setPosition(e.x,e.y).setDisplaySize(warningWidth,warningHeight).setRotation(angle)
+      .setPosition(origin.x,origin.y).setDisplaySize(warningWidth,warningHeight).setRotation(angle)
       .setAlpha(burning?.13:.2+pulse*.05).setVisible(true).setDepth(this.scene.playerRenderDepth(e.y)-2);
     if(burning)this.warningFill.clear();
-    else this.warningFill.draw({kind:'cone',x:e.x,y:e.y,angle,radius:r,halfAngle:half,flatEnd:true},this.age/this.breathWindupMs,this.scene.playerRenderDepth(e.y)-1,0xffa25c);
-    const pose=burning?2:Math.min(2,Math.floor(this.age/360));
-    // Atlas density 2, registered source scale 1.3, actor scale includes boss size.
-    const registered=(e.frame.customData as {mouth?:{x:number;y:number}}).mouth;
-    const muzzle=registered?{
-      x:e.x+(e.flipX?-1:1)*(registered.x-e.frame.cutWidth/4)*2*e.scaleX,
-      y:e.y+(registered.y-e.originY*e.frame.cutHeight/2)*2*e.scaleY,
-    }:dragonMouth(e.x,e.y,e.flipX,2*1.3*e.scaleX,pose);
-    const reach=r*Math.cos(half),tip={x:e.x+this.aim.x*reach,y:e.y+this.aim.y*reach-35};
-    const depth=this.scene.playerRenderDepth(e.y)+180,ignition=this.breathWindupMs-220;
-    if(burning)this.fire.show(muzzle,tip,this.age,depth);
-    else if(this.age>ignition)this.fire.show(muzzle,tip,this.age-ignition,depth,true);
+    else this.warningFill.draw({kind:'cone',x:origin.x,y:origin.y,angle,radius:r,halfAngle:half,flatEnd:true},this.age/this.breathWindupMs,this.scene.playerRenderDepth(e.y)-1,0xffa25c);
+    const reach=r*Math.cos(half),depth=this.scene.playerRenderDepth(e.y)+180,ignition=this.breathIgnitionAt;
+    if(burning)this.fire.show(origin,angle,reach,this.age,depth);
+    else if(this.age>ignition)this.fire.show(origin,angle,reach,this.age-ignition,depth,true);
     else this.fire.hide();
   }
   private slam(x:number,y:number,radius:number,multiplier:number){

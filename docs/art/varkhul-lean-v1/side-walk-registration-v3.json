@@ -1,0 +1,8 @@
+{
+  "description":"User-selected eight-pose source, kept unchanged. One uniform clip scale; authored torso roots and planted-claw baselines. Left/right share packed full poses and mirror only at runtime.",
+  "sourcePath":"public/assets/enemies/varkhul-lean-v1/walk-varkhul.png",
+  "scale":0.625,
+  "frameIds":[11,12,13,14,20,21,22,23],
+  "rootX":[250,636,1004,1380,250,634,1008,1388],
+  "groundY":[461,459,461,459,864,864,863,863]
+}

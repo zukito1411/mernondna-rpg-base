@@ -6,6 +6,7 @@ import { WorldGenerator } from '../game/systems/WorldGenerator';
 import { findCreaturePlacement } from '../game/systems/creaturePlacement';
 import { WORLD_ASSET_FRAMES } from './art';
 import {ADVENTURE_CLUES} from './adventure';
+import {StaticBoundsIndex} from '../game/systems/StaticBoundsIndex';
 
 /** Authored, persistent mission content. No new global spawn loop or village raids. */
 export function addCampaignWorldContent(content: ContentDefinition[]) {
@@ -23,10 +24,11 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
     &&(enemyId!=='blighted-thornling'||WILDERNESS_SITES.some(s=>['greenward-ruin','moon-pilgrim-grove'].includes(s.id)
       &&Math.hypot(s.world.x-p.x,s.world.y-p.y)<1250));
   const placement = (p:Vec2) => findCreaturePlacement(p,{canCreatureOccupy:(x,y)=>clear({x,y})}) ?? p;
+  let clueGroundClear:((p:Vec2)=>boolean)|undefined;
   const clue = (id:string,world:Vec2,name:string,description:string,frame=11) => {
-    const accessible=(p:Vec2)=>geography.isWalkable(p.x,p.y)&&!content.some(d=>(d.kind==='prop'||d.kind==='settlement-prop')&&d.solid
+    const accessible=(p:Vec2)=>geography.isWalkable(p.x,p.y)&&(clueGroundClear?.(p)??!content.some(d=>(d.kind==='prop'||d.kind==='settlement-prop')&&d.solid
       &&Math.abs(d.world.x-p.x)<(d.footprint?.width??180)/2+32
-      &&p.y>d.world.y-(d.footprint?.height??70)-32&&p.y<d.world.y+32);
+      &&p.y>d.world.y-(d.footprint?.height??70)-32&&p.y<d.world.y+32));
     const candidates=[world];for(const radius of [64,128,192,288])for(let i=0;i<12;i++)candidates.push({x:world.x+Math.cos(i*Math.PI/6)*radius,y:world.y+Math.sin(i*Math.PI/6)*radius});
     world=candidates.find(accessible)??world;
     content.push({id,kind:'interactable',world,texture:'others',frame,scale:.6,solid:false,name,
@@ -148,6 +150,14 @@ export function addCampaignWorldContent(content: ContentDefinition[]) {
   }
   clue('story:forge-record',{x:site('darkav:burnt-chainworks').x+100,y:site('darkav:burnt-chainworks').y+80},'Chainworks charge book',
     'The account records ward iron purchased as scrap using the same grain-office seal. The Seer demanded unbound heat; the forge crews never consented.',11);
+  // All solid campaign props are now present. Reuse one spatial index for the
+  // expanded clue catalogue instead of scanning the entire world per probe.
+  const clueObstacles=new StaticBoundsIndex(content.flatMap(d=>(d.kind==='prop'||d.kind==='settlement-prop')&&d.solid?[{
+    bounds:{left:d.world.x-(d.footprint?.width??180)/2-32,right:d.world.x+(d.footprint?.width??180)/2+32,
+      top:d.world.y-(d.footprint?.height??70)-32,bottom:d.world.y+32},
+  }]:[]));
+  clueGroundClear=p=>!clueObstacles.query({left:p.x,right:p.x,top:p.y,bottom:p.y})
+    .some(d=>p.x>d.bounds.left&&p.x<d.bounds.right&&p.y>d.bounds.top&&p.y<d.bounds.bottom);
   for(const entry of ADVENTURE_CLUES){
     const origin=entry.siteId?site(entry.siteId):TOWN_BY_ID[entry.townId].world;
     clue(entry.id,{x:origin.x+entry.dx,y:origin.y+entry.dy},entry.name,entry.text,9);

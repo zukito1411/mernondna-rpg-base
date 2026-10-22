@@ -18,6 +18,8 @@ import {WorldGenerator} from '../game/systems/WorldGenerator';
 import {onFlagshipDeck,flagshipWalkable} from '../data/pirateFlagship';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,INDOOR_STORY_STAGES,COMBAT_CLEARANCE_REVISION_FLAG} from '../data/campaign';
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
+import {ROAD_STORIES_REVISION,ROAD_POLISH_REVISION,ROAD_STORY_FLAG_BUDGET} from '../data/roadStories';
+import {migrateRoadStoryProgress} from '../game/systems/roadStoryMigration';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {POTIONS,type PotionId} from '../data/economy';
 import {BOSS_WEAPON_IDS,MAX_WEAPON_UPGRADE,MAX_BOSS_MATERIALS} from '../data/weaponUpgrades';
@@ -370,7 +372,7 @@ export function parseSave(raw: string): SaveData | null {
     if(!dungeons)return invalidSave('invalid cave discovery or clear progress');
     if(!record(savedFlags)||!Object.values(savedFlags).every(v=>typeof v==='boolean')
       ||!record(storyChoices)||!Object.values(storyChoices).every(v=>typeof v==='string'&&v.length<100)
-      ||Object.keys(savedFlags).length>512||Object.keys(storyChoices).length>512) return invalidSave('invalid story flags or choices');
+      ||Object.keys(savedFlags).length>512+ROAD_STORY_FLAG_BUDGET||Object.keys(storyChoices).length>512) return invalidSave('invalid story flags or choices');
     const storyFlags={...savedFlags} as Record<string,boolean>;
     const cap=playerLevelCap(storyFlags);
     if(storyFlags[BREAKTHROUGH_TRIAL]&&!storyFlags[BREAKTHROUGH_ACCEPTED]
@@ -403,7 +405,7 @@ export function parseSave(raw: string): SaveData | null {
         continue;
       }
       if (!record(quest) || typeof quest.status !== 'string' || !['active', 'locked', 'completed'].includes(quest.status) || !record(quest.objectiveProgress)) return invalidSave(`invalid quest ${definition.id}`);
-      const progress = {...quest.objectiveProgress};
+      let progress = {...quest.objectiveProgress};
       if(!storyFlags[COMBAT_CLEARANCE_REVISION_FLAG]){
         // A previous release could turn a 15-kill stage into a one-step report.
         // Preserve stages already passed, without crediting a current partial
@@ -464,6 +466,8 @@ export function parseSave(raw: string): SaveData | null {
           storyFlags['legacy:regional-finished']=true;
         }
       }
+      if(!storyFlags[ROAD_STORIES_REVISION]||!storyFlags[ROAD_POLISH_REVISION])progress=migrateRoadStoryProgress(definition.objectives,
+        quest.status as GameState['quests'][string]['status'],progress);
       const objectiveProgress: Record<string, number> = {};
       for (const objective of definition.objectives) {
         const value = progress[objective.id];
@@ -529,6 +533,8 @@ export function parseSave(raw: string): SaveData | null {
     storyFlags[INDOOR_STORY_FLAG]=true;
     storyFlags[ADVENTURE_REVISION_FLAG]=true;
     storyFlags[COMBAT_CLEARANCE_REVISION_FLAG]=true;
+    storyFlags[ROAD_STORIES_REVISION]=true;
+    storyFlags[ROAD_POLISH_REVISION]=true;
     // Existing progressed players don't get a new-game prologue on resume.
     if(legacyCampaign)storyFlags['scene:roadborn-opening']=true;
     const result = advanceQuests(gateTowerQuest(quests), state.defeatedBosses,undefined,storyFlags,worldContent);

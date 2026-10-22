@@ -13,9 +13,11 @@ import { initialActiveSkillStatus, type ActiveSkillStatus } from '../data/active
 import { BASE_ATTRIBUTES, attributeCap, STAT_POINTS_PER_LEVEL, attributeBudget, skillBudget, earnedRewards, xpTotalForLevel, levelForExperience, progressionStats, bossWeaponDropChance, bossArmorSetDropChance, supplyDropChance, SKILLS, type AttributeId, type PlayerAttributes, type SkillId } from '../data/progression';
 import { QUEST_BY_ID } from '../data/quests';
 import { initialQuests, conversationObjective } from '../game/systems/storyProgress';
+import {questRequirementsMet} from '../game/systems/questDependencies';
 import {completedStoryScenes,sceneQueue,questConsequences} from '../game/systems/storyScenes';
 import {CAMPAIGN_REVISION_FLAG,INDOOR_STORY_FLAG,COMBAT_CLEARANCE_REVISION_FLAG} from '../data/campaign';
 import {ADVENTURE_REVISION_FLAG} from '../data/adventure';
+import {ROAD_STORIES_REVISION,ROAD_POLISH_REVISION} from '../data/roadStories';
 import {reactiveStoryDialogue} from '../game/systems/storyDialogue';
 import {ACTIVE_SKILL_BY_ID,DEFAULT_SKILL_SLOTS,type ActiveSkillId} from '../data/activeSkills';
 import {BOSS_WEAPONS,POTIONS,canDropPotion,merchantStock,isBlacksmith,itemName,type PotionId} from '../data/economy';
@@ -255,7 +257,7 @@ const baseState = () => ({
   travelRequestSource:null as 'map' | 'shrine' | null,
   navigation: { heading: Math.PI, target: null, markers: [], interaction: null } as NavigationState,
   activeSkillStatus:initialActiveSkillStatus(),
-  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true,[ADVENTURE_REVISION_FLAG]:true,[COMBAT_CLEARANCE_REVISION_FLAG]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
+  storyFlags:{[CAMPAIGN_REVISION_FLAG]:true,[INDOOR_STORY_FLAG]:true,[ADVENTURE_REVISION_FLAG]:true,[COMBAT_CLEARANCE_REVISION_FLAG]:true,[ROAD_STORIES_REVISION]:true,[ROAD_POLISH_REVISION]:true} as Record<string,boolean>,storyChoices:{} as Record<string,string>,trackedQuestId:'first-road' as string|null,
   cinematic:null as GameState['cinematic'],pendingCinematic:'roadborn-opening' as string|null,cinematicQueue:[] as string[],skipCinematicRequested:false,
 });
 
@@ -318,7 +320,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // propagate a pointer/key event into an irreversible confirmation.
     if(!state.worldAscensionReadyAt||Date.now()<state.worldAscensionReadyAt||!acceptUiAction())return {};
     return {worldAscensionReadyAt:0,storyFlags:{...state.storyFlags,[WORLD_ASCENSION]:true},
-      dialogue:{...dialogue,lines:['Then there is no turning back, Leigneron. Every foe across these lands now stands at level 120, with greater strength and endurance. Your own limits have opened: you may train each attribute to sixty. The great foes now wield the techniques of their tower echoes. Spend your remaining points wisely.','Should you find a heart among a great foe’s spoils, keep it. Three matching hearts and its blade are worth a visit to a blacksmith. That craft has always been open to you; this choice changes neither the hearts nor your chance of finding them.'],lineIndex:0},
+      dialogue:{...dialogue,lines:['All right, lad. We cannot undo this. You’ll need everything I’ve taught you, and more besides. Don’t mistake a familiar road for a safe one.','And come home when you’re tired. You’re not too strong to need a meal and a night’s rest. I’ll be here.'],lineIndex:0},
       toast:'World Ascension is permanent: all enemies Lv.120, stronger HP and attacks. Attribute caps raised to 60.'};
   }),
   edmundBreakthrough:()=>set(state=>{
@@ -326,11 +328,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     if(state.level<BASE_LEVEL_CAP||dialogue?.npcId!==EDMUND_ATWOOD_ID||dialogue.questId||dialogue.choices?.length
       ||dialogue.lineIndex<(dialogue.lines??npc.dialogue).length-1||state.panel||state.cinematic||state.activeSkillStatus.casting||state.storyFlags[BREAKTHROUGH_COMPLETE])return state;
     if(!state.storyFlags[BREAKTHROUGH_ACCEPTED])return {storyFlags:{...state.storyFlags,[BREAKTHROUGH_ACCEPTED]:true},
-      dialogue:{...dialogue,lines:['You have reached the limit of your old training. Face Varkhul in Darkav once more, then return to me. A victory before this trial cannot prove your breakthrough.'],lineIndex:0},
+      dialogue:{...dialogue,lines:['You’ve learned all I can teach you here. If you’re set on going further, go back to Darkav and face Varkhul again. Keep your head this time. Watch him, not just your sword.','Then come home and tell me how you did it. I want to know you can survive out there without me beside you.'],lineIndex:0},
       toast:'Breakthrough trial accepted: defeat Varkhul, then report to Edmund.'};
-    if(!state.storyFlags[BREAKTHROUGH_TRIAL])return {toast:'Edmund: Defeat Varkhul after accepting my trial, then return.'};
+    if(!state.storyFlags[BREAKTHROUGH_TRIAL])return {toast:'Trial in progress: face Varkhul again in Darkav, then return to Edmund in Oakmere.'};
     return {storyFlags:{...state.storyFlags,[BREAKTHROUGH_COMPLETE]:true},
-      dialogue:{...dialogue,lines:['You faced the Returning Ember and came back stronger. Your breakthrough is complete: you may now grow to level 75. At level 60, Barrage will be yours.'],lineIndex:0},
+      dialogue:{...dialogue,lines:['There you are. I’ve been watching the road since morning. Sit down—no, the sword can wait. Tell me what happened.','You’ve come a long way from the lad who used to shut his eyes when I swung at him. There’s more you can learn yet. For tonight, though, you’ve earned a rest.'],lineIndex:0},
       toast:'Breakthrough complete! Level cap raised to 75. Barrage unlocks at level 60.'};
   }),
   resetTowerRun:()=>set(state=>settleTowerRun(state,Date.now()>=state.nextTowerResetAt)),
@@ -583,7 +585,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     let quests=state.quests,trackedQuestId=existingConversation?.questId??state.trackedQuestId;
     for(const id of npc.questIds) {
       const q=QUEST_BY_ID[id];
-      if(q && quests[id]?.status==='locked' && (!q.prerequisiteQuestId || quests[q.prerequisiteQuestId]?.status==='completed') && !['first-road','eight-regions'].includes(id)) {
+      if(q && quests[id]?.status==='locked' && questRequirementsMet(q,quests,QUEST_BY_ID) && !['first-road','eight-regions'].includes(id)) {
         quests={...quests,[id]:{status:'active',objectiveProgress:id===TOWER_QUEST_ID?quests[id].objectiveProgress:{}}};if(!existingConversation&&(!trackedQuestId||quests[trackedQuestId]?.status!=='active'))trackedQuestId=id;
       }
     }

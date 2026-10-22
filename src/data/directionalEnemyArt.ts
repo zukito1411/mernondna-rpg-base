@@ -8,7 +8,9 @@ export const DIRECTIONAL_ENEMY_ART=[
  {species:2,id:'boarfiend',texture:'enemies',walkTexture:'enemy_walk_boar',sourcePath:'assets/enemies/directional/boarfiend.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:144,frameHeight:112},
  {species:3,id:'marsh-wraith',texture:'enemies',walkTexture:'enemy_walk_wraith',sourcePath:'assets/enemies/directional/marsh-wraith.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:144,frameHeight:128},
  {species:4,id:'cave-troll',texture:'enemy_troll',walkTexture:'enemy_walk_troll',sourcePath:'assets/enemies/directional/cave-troll.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:240,frameHeight:160},
- {species:5,id:'ash-dragon',texture:'enemy_dragon',walkTexture:'enemy_walk_dragon',sourcePath:'assets/enemies/directional/ash-dragon.png',sourceColumns:5,framesPerDirection:5,frameCount:20,frameWidth:384,frameHeight:288},
+ // The prepacked Varkhul adapter retains the legacy slots and adds four
+ // side-step slots; it owns their explicit animation order, not this grid.
+ {species:5,id:'ash-dragon',texture:'enemy_dragon',walkTexture:'enemy_walk_dragon',sourcePath:'assets/enemies/directional/ash-dragon.png',sourceColumns:5,framesPerDirection:5,frameCount:24,frameWidth:384,frameHeight:288},
  {species:6,id:'salt-king',texture:'enemy_salt_king',walkTexture:'enemy_walk_salt_king',sourcePath:'assets/enemies/salt_king/walk.png',sourceColumns:5,framesPerDirection:5,frameCount:27,frameWidth:128,frameHeight:112},
  {species:8,id:'rindass-orc-raider',texture:'enemy_orc_raider',walkTexture:'enemy_walk_orc_raider',
   sourcePath:'assets/enemies/rindass_orc_raider/walk.png',sourceColumns:7,framesPerDirection:7,frameCount:28,frameWidth:160,frameHeight:128},

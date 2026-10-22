@@ -1,0 +1,10 @@
+{
+  "source": "walk.png",
+  "description": "Source-space anatomical registration of complete poses. Track the same torso landmark horizontally and the planted claw contact vertically; never the curled tail or an equal-cell center. Scales remain uniform within each facing.",
+  "directions": [
+    {"direction":"down", "scale":0.72, "torsoX":[200,486,770,1054,1336], "groundY":[267,271,272,273,276]},
+    {"direction":"left", "scale":0.8, "torsoX":[161,452,735,1009,1279], "groundY":[504,506,503,511,502]},
+    {"direction":"right", "scale":0.8, "torsoX":[130,416,692,971,1245], "groundY":[750,756,753,753,752]},
+    {"direction":"up", "scale":0.65, "torsoX":[161,447,735,1017,1290], "groundY":[1043,1047,1043,1055,1040]}
+  ]
+}

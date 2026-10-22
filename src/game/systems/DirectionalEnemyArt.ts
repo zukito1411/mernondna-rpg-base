@@ -10,7 +10,7 @@ import {fitAtlasPoses} from './atlasPoseFit';
 export function prepareDirectionalEnemyArt(scene:Phaser.Scene):SpriteAnimation[]{
  const animations:SpriteAnimation[]=[];
  const drawPose=createSpriteCropper();
- for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6)){
+ for(const art of DIRECTIONAL_ENEMY_ART.filter(a=>a.species!==6&&a.species!==5)){
   const columns=art.sourceColumns??5,stride=art.framesPerDirection??5,frameCount=art.frameCount??20;
   const sourceKey='directional-source:'+art.id,source=scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
   if(!source||!validDirectionalSourceSize(source.width,source.height,columns))

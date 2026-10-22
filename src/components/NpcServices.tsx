@@ -25,8 +25,8 @@ export function NpcServices({npcId}:{npcId:string}){
  const ownedBossWeapons=bossIds.filter(id=>inventory.includes(id));
  return <section className="merchant-stock" aria-label="NPC services">
    {property&&<div><h3>{property.homeName}</h3>
-    <p>{housingFor(housing,property.id).owned?`Your key still fits. ${property.name} is yours whenever the road grows weary.`:
-      `Looking for a place of your own? I hold the deed to ${property.name}. For 7,500 gold, the key is yours for good. Furnish it as you please; owning a home elsewhere is no trouble.`}</p>
+    <p>{housingFor(housing,property.id).owned?`Still got your key? ${property.name} is waiting whenever you’re back in town.`:
+      `Looking for a place of your own? ${property.name} is for sale. It’s 7,500 gold, and then it’s yours. Bring whatever furniture you like. Already have a house elsewhere? That’s no trouble.`}</p>
     {!housingFor(housing,property.id).owned&&<button type="button" onClick={()=>useGameStore.setState({dialogue:null,housingContext:'purchase:'+property.id,panel:'housing',housingEditing:false})}>Discuss the deed · {HOME_PRICE.toLocaleString()}G</button>}
    </div>}
    {npcId===EDMUND_ATWOOD_ID&&<>

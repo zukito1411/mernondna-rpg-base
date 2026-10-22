@@ -266,7 +266,7 @@ export function applyCampaign(quests:QuestDefinition[]) {
     inspect('repair-account','story:forge-record','Collect the witnessed chainwork specifications for the final repair.'));
   const survey=dragon.objectives.find(o=>o.id==='survey-ward')!;survey.cinematicId='varkhul-before';
   dragon.objectives.find(o=>o.id==='repel-varkhul')!.requiresFreshDefeat=true;
-  dragon.resolution='Varkhul retreated. The crews reached shelter and the binding chains were reforged. The dragon remains alive and its existing repeat-battle timer is unchanged.';
+  dragon.resolution='Varkhul flew back into the mountains. The crews reached shelter, and the smiths reforged the broken chains. For now, Blackspire’s workers can come home safely.';
   quests.push({id:'the-last-ward',name:'The Roads We Keep',kind:'main',chapter:'Act V · The roads we keep',giverNpcId:'orin-bell',
     prerequisiteQuestId:'eight-regions',rewardGold:240,rewardXp:1000,
     summary:'The broken wards can be joined again only with the communities’ consent. Carry their agreements to Darkav, protect the final repair from Varkhul, and return to the people who gave your journey meaning.',
@@ -274,7 +274,7 @@ export function applyCampaign(quests:QuestDefinition[]) {
     objectives:[
       speak('compass-truth','orin-bell','Learn how the inherited compass joins the regional wards.',[
         'That compass was made for people who looked after the old stones. Your parents used it on their travels. I think that’s why it reacts to them.',
-        'The compass can’t fix anything by itself. The towns will have to keep their promises. The last repair still has to happen at Cinderwatch.']),
+        'Cinderwatch is the last broken stone. Vexa will need the other keepers’ help to mend it. Will you speak to Cecily before you go back to Darkav?']),
       decision('keepers-covenant','renna-vale','Record who will be responsible for the restored roads.',
         'Everyone’s asking who’ll be responsible if one of the wards fails again. We should settle that before anyone signs the agreement.',[
           {id:'local',text:'Local keepers publish their accounts and help neighboring roads.',response:'All right. Each town will have a copy. I’ll make sure the local keepers can sign it too.',flag:'covenant-local-keepers'},
