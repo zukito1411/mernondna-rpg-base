@@ -99,7 +99,7 @@ jobs:
       - name: Build web assets and sync Android
         run: npm run cap:android:refresh
 
-      - name: Configure permanent APK signing
+      - name: Configure update-compatible release APK signing
         run: |
           set -euo pipefail
 
@@ -110,8 +110,11 @@ jobs:
 
           cat > android/app/ci-signing.gradle <<'GRADLE'
           android {
+              // Retain the existing installed-app certificate. This is a
+              // release-variant APK for direct distribution, not a new Play
+              // Store app-signing identity.
               signingConfigs {
-                  debug {
+                  release {
                       storeFile file(System.getenv('ANDROID_CI_KEYSTORE'))
                       storePassword 'android'
                       keyAlias 'androiddebugkey'
@@ -120,8 +123,9 @@ jobs:
               }
 
               buildTypes {
-                  debug {
-                      signingConfig signingConfigs.debug
+                  release {
+                      signingConfig signingConfigs.release
+                      debuggable false
                   }
               }
           }
@@ -130,14 +134,14 @@ jobs:
           printf '\napply from: "ci-signing.gradle"\n' \
             >> android/app/build.gradle
 
-          echo "Gradle configured to use the restored permanent signing key."
+          echo "Gradle release variant configured with the existing verified update certificate."
 
       - name: Build installable APK
         working-directory: android
         run: |
           set -euo pipefail
 
-          bash gradlew :app:assembleDebug \
+          bash gradlew :app:assembleRelease \
             -PciVersionCode="$GITHUB_RUN_NUMBER" \
             --no-daemon \
             --console=plain
@@ -146,14 +150,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          apk="android/app/build/outputs/apk/release/app-release.apk"
 
           expected_cert="FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD"
 
           if [[ ! -s "$apk" ]]; then
-            echo "::error::APK was not generated."
+            echo "::error::Release APK was not generated."
             exit 1
           fi
+
+          # Check the actual packaged manifest, not merely the Gradle task.
+          # Preserve the old package ID so installed saves and updates survive.
+          package_metadata="$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$apk")"
+          if ! grep -q "^package: name='com.mernondna.rpg'" <<< "$package_metadata"; then
+            echo "::error::Release APK package ID is not com.mernondna.rpg."
+            exit 1
+          fi
+          if grep -q '^application-debuggable' <<< "$package_metadata"; then
+            echo "::error::Release APK is still debuggable."
+            exit 1
+          fi
+          echo "Verified: original package ID and non-debuggable release manifest."
 
           cert_info="$(
             "$ANDROID_HOME/build-tools/34.0.0/apksigner" \
@@ -191,7 +208,7 @@ jobs:
           cat > release-notes.md <<'NOTES'
           # Tales of Leighneron - Android Build
 
-          Installable Android debug build containing the latest game changes.
+          Installable, non-debuggable Android release-variant APK containing the latest game changes.
 
           ## Installation
 
@@ -207,7 +224,10 @@ jobs:
 
           FD2F95069BC3DA498DA78318F3A9CF121E86A47F2AFBA22C1A34B8092B9318AD
 
-          It is intended to support in-place updates of existing installations signed with the same certificate.
+          It intentionally keeps the existing legacy debug-signing certificate so previous
+          GitHub sideload installations can receive in-place updates. Although the APK
+          uses Android's non-debuggable release build variant, it does NOT use a dedicated
+          production upload key and is not ready for Google Play submission.
 
           The package identifier remains com.mernondna.rpg.
 
@@ -217,7 +237,9 @@ jobs:
 
           ## Verification
 
-          The accompanying SHA-256 checksum file can be used to verify APK integrity.
+          The packaged non-debuggable manifest, original package ID, signing certificate,
+          and APK integrity are verified in CI. The accompanying SHA-256 checksum file
+          can be used to verify the downloaded APK.
           NOTES
 
       - name: Publish APK on GitHub Releases
